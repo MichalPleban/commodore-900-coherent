@@ -1,0 +1,2 @@
+cc -n -o /bin/as -s -Iz8001 -I. *.c z8001/*.c
+: rm *.o

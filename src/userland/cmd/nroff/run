@@ -1,0 +1,2 @@
+cc -O -i -o nroff *.c
+echo mv nroff /bin

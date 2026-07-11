@@ -1,0 +1,5 @@
+cc -n -I. -o dumpdate dumpdate.c
+cc -n -I. -o dumpdir dumpdir.c
+cc -c -O -I. discbuf.c
+cc -n -I. -o dump dump.c discbuf.o
+cc -n -I. -o restor restor.c discbuf.o

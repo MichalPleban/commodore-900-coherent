@@ -1,0 +1,78 @@
+/* (-lgl
+ * 	The information contained herein is a trade secret of Mark Williams
+ * 	Company, and  is confidential information.  It is provided  under a
+ * 	license agreement,  and may be  copied or disclosed  only under the
+ * 	terms of  that agreement.  Any  reproduction or disclosure  of this
+ * 	material without the express written authorization of Mark Williams
+ * 	Company or persuant to the license agreement is unlawful.
+ * 
+ * 	COHERENT Version 0.7.3
+ * 	Copyright (c) 1982, 1983, 1984.
+ * 	An unpublished work by Mark Williams Company, Chicago.
+ * 	All rights reserved.
+ -lgl) */
+/*
+ * Disk inode.
+ */
+#ifndef	INO_H
+#define	INO_H
+#include <types.h>
+
+/*
+ * Structure of inode as it appears on disk.
+ */
+struct dinode {
+	unsigned short di_mode;		/* Mode */
+	short	di_nlink;		/* Link count */
+	short	di_uid;		/* User id of owner */
+	short	di_gid;		/* Group id of owner */
+	size_t	di_size;		/* Size of file in bytes */
+	union {
+		char	di_addb[40];	/* Disk block addresses */
+		dev_t	di_rdev;	/* Device */
+		struct {		/* Pipes */
+			char	dp_addp[30];
+			short	dp_pnc;
+			short	dp_prx;
+			short	dp_pwx;
+		}	di_p;
+	}	di_a;
+	time_t	di_atime;		/* Last access time */
+	time_t	di_mtime;		/* Last modify time */
+	time_t	di_ctime;		/* Last creation time */
+};
+
+/*
+ * Compatibility.
+ */
+#define	di_addr	di_a.di_addb
+#define di_addp	di_p.dp_addp
+#define di_pnc	di_p.dp_pnc
+#define di_prx	di_p.dp_prx
+#define di_pwx	di_p.dp_pwx
+
+/*
+ * Miscellaneous manifests.
+ */
+#define	NBN	128			/* Number of indirects per block */
+#define L2NBN	7			/* Log2(NBN) */
+#define ND	10			/* Number of direct blocks */
+#define NI	3			/* Number of indirect blocks */
+#define NADDR	13			/* Total number of addresses */
+
+/*
+ * Modes.
+ */
+#define	IFMT	0170000			/* Type */
+#define IFDIR	0040000			/* Directory */
+#define IFCHR	0020000			/* Character special file */
+#define	IFBLK	0060000			/* Block special file */
+#define IFREG	0100000			/* Regular file */
+#define IFMPC	0030000			/* Multiplexed character special */
+#define IFMPB	0070000			/* Multiplexed block special */
+#define IFPIPE	0010000			/* Pipe */
+#define ISUID	0004000			/* Set user id on execution */
+#define ISGID	0002000			/* Set group id on execution */
+#define ISVTXT	0001000			/* Save swapped text even after use */
+
+#endif

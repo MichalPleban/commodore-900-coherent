@@ -1,0 +1,57 @@
+To George Breen:
+85.04.01
+
+	Here are the sources for the keyboard driver.
+Each file may be compiled with:
+	cc -c -I. file.c
+
+The following files are given with their uses:
+
+v0.c	This is the video driver.  Your ibm emulation driver will replace
+	this module.  This module is included only when one needs to try
+	the keyboard without the video part being there.
+
+kv.c	This is the keyboard and video pseudo-driver.  It is the top level
+	that arranges to call out to both the keyboard (kb.c) and video (v0.c)
+	parts when necessary.
+
+kb.c	This is the keyboard automaton itself.  It assumes a routine
+	`v0in(c)' which is used to send the characters to the video
+	section (v0.c).
+	The routine `kbkpmode(f)' takes a flag (true non-zero) to
+	indicate when in keypad mode.  This allows (for the non-IBM)
+	keyboard to send different escape sequences (K0, etc) for
+	the numeric keyboard when in keypad mode.  This is used to
+	emulate VT-100's and VT-52's literally.
+
+kbtab.c	This is the keyboard table (which has all relevant key information
+	including shifts, etc) for the standard Commodore Keyboard.
+	This standard keyboard is the one you sent me in the documentation
+	with the W1, W2, W3 keys and the diamond shaped arrow keys.
+	To use the IBM keyboard, you should use `kbibmtab.c' instead of
+	`kbtab.c' in the compilation.
+
+kbtab.h
+	A header file used internally by the above driver modules.
+
+kbchar.h
+	This file is used both by the driver and the user (application)
+	code to access special keys.
+	FSTART and FEND are the beginning and ending of all function keys.
+	These function keys send the main character (e.g. F0) followed by
+	the shift state character (SSTART to SEND).  These shift characters
+	contain bits indicating Shift, Control, and ALT shifting modes.
+	The shift character will undoubtedly be ignored by any application
+	not needing a lot of shift keys.
+	The UP/DOWN, etc key codes are not used with the IBM keypad but
+	are instead (K8 for UP, K2 for down, etc as on the IBM keyboard).
+
+	To make the driver, type:
+		ld -o kv kv.o kb.o kbibmtab.o v0.o
+		/etc/load kv
+
+In the above ld command, you should replace `v0.o' with whatever is
+appropriate for your video driver.
+
+				Good Luck,
+				Randall.

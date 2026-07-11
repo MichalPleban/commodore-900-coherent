@@ -1,0 +1,5 @@
+#include "data.h"
+#include "main.c"
+#include "pass1.c"
+#include "pass2.c"
+#include "message.c"

@@ -1,0 +1,1 @@
+exec cp CP run glob.c sh.h main.c alloc.c eval.c exec1.c exec2.c exec3.c extern.c lex.c malloc.c tab.c trap.c var.c sh.y atoi.c makefile Fixes Notfixes $1

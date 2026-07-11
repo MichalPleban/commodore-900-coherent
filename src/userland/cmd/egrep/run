@@ -1,0 +1,5 @@
+
+
+cc -Oo egrep *.c
+rm *.o
+echo mv egrep /bin

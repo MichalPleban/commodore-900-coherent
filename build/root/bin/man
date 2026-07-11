@@ -1,0 +1,99 @@
+MANDIR="/usr/man"
+CMD_SCAT="*cmdman"
+SYS_SCAT="*sysman"
+CMD_NROFF="*cmd"
+SYS_NROFF="*sys"
+
+CFLAG="y"
+SFLAG="y"
+WFLAG="n"
+NFLAG="n"
+NROFF=
+CMD='/bin/scat -s $FILE'
+
+
+case $# in
+0)
+    /bin/echo "try man man"
+    exit -1
+    ;;
+esac
+
+for arg
+do
+    case $arg in
+    -c)
+        CFLAG="y"
+        SFLAG="n"
+	continue
+        ;;
+    -n)
+        NFLAG="y"
+	CMD='/bin/nroff -man $NROFF $FILE | /bin/scat'
+	continue
+        ;;
+    -s)
+        CFLAG="n"
+        SFLAG="y"
+	continue
+        ;;
+    -w)
+        WFLAG="y"
+	CMD='/bin/echo $FILE'
+	continue
+        ;;
+    -*)
+        NROFF="$NROFF $arg"
+	continue
+        ;;
+    *)
+        case ${CFLAG}${SFLAG}${NFLAG} in
+        yyy)
+	    FILES="${MANDIR}/${CMD_NROFF}/${arg} ${MANDIR}/${SYS_NROFF}/${arg}"
+	    ERROR=cs
+	    ;;
+	yny)
+	    FILES="${MANDIR}/${CMD_NROFF}/${arg}"
+	    ERROR=c
+	    ;;
+	nyy)
+	    FILES="${MANDIR}/${SYS_NROFF}/${arg}"
+	    ERROR=s
+	    ;;
+	yyn)
+	    FILES="${MANDIR}/${CMD_SCAT}/${arg} ${MANDIR}/${SYS_SCAT}/${arg}"
+	    ERROR=cs
+	    ;;
+	ynn)
+	    FILES="${MANDIR}/${CMD_SCAT}/${arg}"
+	    ERROR=c
+	    ;;
+	nyn)
+	    FILES="${MANDIR}/${SYS_SCAT}/${arg}"
+	    ERROR=s
+	    ;;
+	esac
+	for FILE in $FILES
+	do
+	    if /bin/test -r $FILE
+	    then
+		ERROR="${ERROR} "
+		eval $CMD
+	    else
+		ERROR="${ERROR}x"
+	    fi
+	done
+	case $ERROR in
+	cx)
+	    /bin/echo $arg - not found in the command section
+	    ;;
+	sx)
+	    /bin/echo $arg - not found in the system section
+	    ;;
+	csxx)
+	    /bin/echo $arg - not found in the manual
+	    ;;
+	esac
+	;;
+    esac
+done

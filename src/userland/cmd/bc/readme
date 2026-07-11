@@ -1,0 +1,33 @@
+Write library:
+	sine, cosine, exponential, log, arctangent, Bessel functions
+
+Ask Rico and Johann if there is any way for interp and yyparse to
+work as coroutines rather than subroutines so that the interp stack
+and the yyparse stack can share memory.
+
+gerror should cause the parser to enter the error state.
+
+Eventually the asserts and bogus defaults should be removed, but
+no need to do so until we have faith.
+
+Should bc catch interrupts.
+
+In the event of a syntax error (or any error in a definition for
+that matter) someone should do a remloc on the parameters and autos.
+As it is now, you can never use those variables as parameters again,
+and whats more, if you refer to their global equivalents while in
+a function, it uses the aborted local value instead.
+One solution (gross) is to simply walk the dictionary on errors and
+remove all local stuff.  Another is to have the error production
+notice that a definition is going on because retfrom is non-null
+
+Note that the output routine gets totally confused as to what column it is
+on with tabs.  It should do it right.
+
+Note that currently a quit in a file simply goes to the next file.
+This is certainly wrong.
+
+
+Note that currently, literal number space is never recovered.  The result
+is that if you give bc a large file with expressions to evaluate, it
+will run out of space.

@@ -1,0 +1,6 @@
+print printall readme makefile
+print bc.h bcmch.h bcsymtbl.h yy.h globals.c main.c
+print gram.y grmact.c
+print interp.c bcmch.c bcmutil.c
+print lex.c
+print getnum.c putnum.c output.c

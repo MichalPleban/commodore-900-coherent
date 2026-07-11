@@ -1,0 +1,6 @@
+The knapsack system stores its public keys in /usr/spool/pubkey.
+For security, there is a user on the system named "xmail".
+The directory /usr/spool/pubkey is owned by xmail.
+The permission bits on /usr/spool/pubkey should be 0700.
+The programs enroll, xencode and xdecode in /bin should be owned by,
+and setuid to xmail.

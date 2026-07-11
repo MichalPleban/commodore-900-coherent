@@ -1,0 +1,8 @@
+: Should be compiled with -i when it works
+
+cc -n -o diff diff[12].c
+
+cc -n -o diffh diffh.c diff2.o
+
+echo mv diff /bin
+echo mv diffh /usr/lib

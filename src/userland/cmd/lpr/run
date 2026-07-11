@@ -1,0 +1,11 @@
+
+
+cc -O -o lpr lpr.c
+cc -O -o lpskip lpskip.c
+cc -O -o opr opr.c
+cc -O -o lpd lpd1.c lpd2.c print.c
+echo mv lpr opr lpskip /bin
+echo mv lpd /usr/lib
+echo chmod 4755 /bin/lpr /bin/lpskip /usr/lib/lpd
+echo chown daemon /bin/lpr /bin/lpskip
+echo chown daemon /usr/lib/lpd

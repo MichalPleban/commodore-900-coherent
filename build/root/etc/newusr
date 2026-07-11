@@ -1,0 +1,39 @@
+: /etc/newusr 5/31/83
+: Usage:  /etc/newusr user ...
+PFILE='/etc/passwd'
+LOCK='/tmp/passwd'
+USRDIR='/u'
+GID='1'
+: test nonempty arg list
+case $# in
+0)	echo "Usage:	/etc/newusr user ..." >&2 && exit;;
+esac
+: test nonexistance of LOCK and whether invoker is root
+if test -f $LOCK
+then
+	echo "newusr: lock $LOCK file exists" >&2 && exit
+fi
+>$LOCK
+chown root $LOCK 2>/dev/null || echo "newusr: permission denied" >&2 && rm $LOCK && exit
+: sort $PFILE by uid and find max uid
+sort -n '-t:' +2 -3 -o $PFILE $PFILE
+UID=`tail -1 $PFILE | sed -n "s/[^:]*:[^:]*:\\([^:]*\\).*/\\1/p"`
+: loop for each user
+while test $# -ne 0
+do
+	: test if user exists already
+	if grep "^$1:" $PFILE >/dev/null
+	then
+		echo "newusr:  user $1 already exists" >&2
+	else
+		UID=`expr $UID + 1`
+		: update password file
+		echo "$1::$UID:$GID::$USRDIR/$1:" >>$PFILE
+		: make new directory and .profile
+		mkdir $USRDIR/$1
+		echo "export PATH=:$USRDIR/$1/bin"'$PATH' >>$USRDIR/$1/.profile
+		chown $1 $USRDIR/$1 $USRDIR/$1/.profile
+	fi
+	shift
+done
+rm $LOCK

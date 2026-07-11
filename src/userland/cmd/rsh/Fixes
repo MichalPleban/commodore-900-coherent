@@ -1,0 +1,173 @@
+Problems fixed in first new shell:
+	1) Interrupts leading to multiple shells.
+	2) Failure to return exit value of last command.
+	3) Improper treatment of assignments on same line as command.
+	4) Improper treatment of initial environment and export variables.
+	5) . command now uses $PATH correctly.
+	6) Escaped newline between ) and | is no longer syntax error.
+	7) The flags -ekntvx are now implemented and work.
+	8) Here documents are supported; they don't work for detached
+		processes, but no garbage is left hanging around.
+	9) Parameter substitution is done in `command $X` contexts.
+	10) The logical connectives && and || can now be used more than
+		once in a command.
+	11) Errors in command files should be on the line reported, not
+		occasionally on the previous line.
+	12) times now reports correct times thanks to rand.
+	13) readonly now reports readonly variables thanks to tj.
+	14) New shell variable SHELL determines, if set, the file to be
+		run as the shell for command file execution, etc.
+		defaults to /bin/sh.
+	15) exec is implemented.
+	16) Unimplemented built-in functions are reported as such.
+	17) Illegal redirection of built-in functions is detected.
+	18) set now sets the positional parameters so they aren't overwritten.
+
+In addition to the original list, as of 16.Mar.82, fixes:
+	1) Positional parameters.
+	2) Commands in .profile can now print to the terminal, eg set, export,
+		readonly.
+	3) Line numbers of errors in files are correct.
+	4) Refer to SH(1), p. 4, Environment, for an explanation of how
+		export should work; that's how it works.
+	5) status 16 is now reported as bus error.  From the source I can
+		aver that the shell has never reported "Bus error" because
+		SIGBUS has never been < NSIG.
+	6) At least one cause of corrupted shared text has been eliminated.
+		There may be others.
+
+The following features have been fixed in the shell installed as /bin/nsh
+on March 25, 1982:
+	1) Compound commands can be piped without enclosing in ().
+	2) Shell command files can be interrupted.
+	3) Shell command files executing nohup processes cannot
+		be interrupted.
+	4) Pipes which end in a null command are reported as syntax errors.
+	5) All shell output goes to stderr.
+	6) Redirections named with digits works.
+	7) ${n?...}, ${n-...}, ${n+...} where n is a digit works.
+	8) Errors in evaluation of arguments abort that command's execution.
+	9) Errors in command files abort command file execution.
+	10) sh -c does an automatic exec on last command.
+		Desireable?
+	11) 'set - /usr/src/cmd/*.c; set ""' no longer blows the shell away.
+	12) 'wait nnn' works.
+	13) 'sh file' will use $PATH to search for file.
+	14) $? now follows spec for status of abnormally terminated commands;
+		ie $? = 200 + signal number.
+	15) Here documents work for detached processes.
+	16) Parts of the original environment which have not been overwritten
+		by new exportables are listed by the export command.
+		This allows differences between set values and export values
+		to be identified.
+	17) Trailing newlines of `command` results are discarded.
+	18) `command` no longer requires an exec("/bin/sh", ...),
+		the command is processed by a forked shell.
+	19) The eval command is implemented.
+	20) The read command is implemented.
+	21) The trap command is implemented.
+	22) com1 && com2 & works correctly, logicals have
+		higher precedence than &.
+	23) \* no longer gets expanded by glob, along with \? and \[.
+	24) \ within "" only escapes \"$` as is correct.
+	25) During command file execution, $0 is set to command file
+		name instead of "sh".
+	26) man command works, don't know why it broke.
+
+New fixes for shell of April 1, 1982:
+	1) The shell now executes command files with a fork.
+	2) Here documents no longer have a \0 appended to each line.
+	3) Illegal variable names are not accepted by read.
+	4) New internal variable LASTERROR is set to name of command
+		which last returned non-zero status.  Rico suggests
+		that this variable be exported to "help" and "usage".
+	5) PATH lookup for "sh file" commands has been deleted,  tj
+		objected.
+	6) The broken pipe problem is at least partially solved.  When
+		the shell can't execute a pipe member, the previous
+		members of the pipe will be waited out.  If a pipe
+		member dies abnormally, the shell will return before
+		the head of the pipe completes which may lead to a
+		competition for /dev/tty.
+	7) The treatments of `( list )' and `{ list; }' now follow the grammar
+		specification; ie `(' and `)' are recognized anywhere
+		unless quoted, `{' and `}' are recognized only as the
+		first word of a command.
+
+New fixes for shell of April 16, 1982:
+	1) Execution of shell command files from the editor is fixed.
+	2) Case patterns are now evaluated so they may contain quoted
+		glob characters, quoted shell tokens, $variables, etc.
+	3) Glob character quoting is now done with \ so no 0200 flags
+		are used by the shell.
+	4) /etc/glob has been modified to save the exec of /bin/echo
+		when called by the shell.  Still works as usual if called
+		by its normal name, for all you glob addicts.
+	5) Spaces and newlines are no longer stripped from globbed lists.
+	6) The -v flag has been enabled during sh -c parsing.  Since the shell
+		processes `command` by doing an internal sh -c, `command`
+		will be echoed twice if -v is set.
+	7) Problems with access modes of .profile are fixed.
+	8) Automatic exec is no longer default.
+	8) Sub-shells no longer ignore SIGTERM.
+	9) Globs and `commands` evaluated by background shells are no longer
+		vulnerable to SIGINT.
+	10) { command_list } may contain newlines.
+	11) for i in * now gets all files in current directory.
+	12) -u option gives error when positional parameter is unset.
+	13) `pwd`/. no longer inserts space after `pwd`.
+	14) -e option now aborts on evaluation errors and non-zero status.
+
+New shell of 21 April:
+	1) Files from 3 to NUFILE are no longer closed on entry.
+	2) Glob stats matched paths to guarantee their existence.
+
+Fixes in shell of 22.Apr.82:
+	1) johann's pipe bug.
+	2) no more blank commands.
+	3) export and readonly can initialize values.
+	4) $SHELL no longer exists.
+	5) $VERSION does exist, gives date of source.
+	6) $LASTERROR is automatic export.
+	7) Incomplete pipelines, logical ands/ors prompt for rest of command.
+	8) Redirection of control structures.
+April 29, 1982
+	1) `( command )' in middle of arglist gives syntax error instead
+		of failed assertion message.
+	2) LASTERROR no longer filled with garbage when null command
+		causes error.
+	3) The . command was leaving an open file descriptor; no more.
+Shell of May 11, 1982:
+	1) Problem with secondary prompt after missing `"' fixed.
+	2) Glob made internal to shell.
+	3) -x flag nul byte eliminated.
+	4) -i flag now acts interactive even to pipes.
+	5) attempted named pipes, but gave up.
+May 26, 1982 shell:
+	1) The exit status of `/bin/true' is now zero, rather than the status
+	of the previous command executed.
+	2) Interrupts of programs which catch interrupts are no longer missed
+	by the shell.
+	3) Shell command file stream is not closed when going to new command.
+Shell of Aug 5, 1982:
+	1) Interrupted command files now quit.
+	2) All files used by shell are closed, all fd's can be redirected.
+	3) Here documents can be interrupted.
+	4) Rico's foobar offset bug -- caused by taking return status too
+		seriously.
+	5) Arguments preserved over flag resetting calls to `set'.
+	6) ( ... ) arg arg now gives syntax error.
+	7) Command file with nothing but escaped newlines can be executed.
+	8) for i; do; done will not execute if null command list.
+Shell of Oct 20, 1982
+	1) Increased levels of pushdown for token recognition.
+Shell of Nov 3, 1982
+	1) Made traps reset when taken as in signal.
+	2) Cleaned up arguments in multiple execs.
+Shell of Feb 11, 1983
+	1) Cleaned up the args given to set.
+Shell of Oct 18, 1983
+	1) Instituted "exec failed" message for SIGSYS with no core dump.
+	2) Instituted . of /etc/profile on login.
+Shell of May 29, 1984
+	1) Modified var.c to slightly alter the handling of "LASTERROR".

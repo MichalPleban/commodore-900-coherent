@@ -1,0 +1,9 @@
+
+
+cc -OQ -c *.c
+
+rm liby.a 2>/dev/null
+ar rc liby.a *.o
+${CMD-echo mv} liby.a $DSTDIR/usr/lib
+echo ranlib liby.a
+rm *.o

@@ -1,0 +1,16 @@
+
+
+CHANGES:
+	(a) When line printer can't be opened: changed simple message to
+		use system message `sys_errlist'.
+	(b) Writing file to printer: rewrote `print' routine to handle
+		underlining.  New routine in file "print.c".
+	(c) Identity of `lpd': changed run file to make `lpd' set-uid
+		to "daemon" rather than "root", per comment in "lpd1.c".
+
+FURTHER WORK:
+	(a) Output of '\n' to printer should always be accompanied by '\r'.
+		This enables head printers (e.g. Spinwriter) to be accessed
+		with spooler.
+	(b) Option to `lpr' to suppress banner page.  This idea commands
+		noticeable popularity.

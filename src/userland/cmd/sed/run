@@ -1,0 +1,3 @@
+cc -n -o sed sed0.c sed1.c sed2.c sed3.c
+echo mv sed /bin
+rm *.o

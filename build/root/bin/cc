@@ -1,0 +1,2 @@
+set -
+exec /bin/ccx -VSPVAL -VSINU -VSUREG -VSUVAR $*

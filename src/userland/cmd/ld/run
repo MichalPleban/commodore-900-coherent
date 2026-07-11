@@ -1,0 +1,5 @@
+: set this to maximum size for in memory load e.g. 16384
+BREADBOX=16384
+
+cc -n -o ld all.c -DBREADBOX=$BREADBOX
+: mv ld /bin

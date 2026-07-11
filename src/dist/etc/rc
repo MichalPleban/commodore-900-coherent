@@ -1,0 +1,13 @@
+umask 022
+rm -f /tmp/*
+>/etc/mnttab
+>/etc/utmp
+: /etc/swap&
+/etc/mount /dev/hd0 / -u
+/etc/mount /dev/hd1 /usr
+/etc/mount /dev/hd2 /usr/src -r
+/etc/mount /dev/hd3 /tmp
+chmod 777 /tmp
+/etc/update&
+/etc/cron&
+date >/dev/console

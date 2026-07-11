@@ -1,0 +1,5 @@
+
+yacc -prods 99 -terms 67 -nterms 27 -states 181 awk.y
+cc -i -O -o awk -f *.c -lm
+echo mv awk /bin
+rm *.o y.tab.h y.tab.c

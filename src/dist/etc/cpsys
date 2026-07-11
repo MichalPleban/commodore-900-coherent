@@ -1,0 +1,12 @@
+: Copy the utilities from the floppies to the 
+: hard disk
+
+for i in 2 3
+do
+	echo -n Insert volume $i and press return key
+	read j
+	/etc/mount /dev/fd1 /f0 -r
+	cpdir -d /f0 /
+	/etc/umount /dev/fd1
+done
+mv /etc/pro.def /etc/.profile

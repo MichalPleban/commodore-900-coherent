@@ -1,0 +1,4 @@
+ cc -O -c main.c
+ cc -O -c exec2.c
+cc -O -c -DVERSION='"VERSION='"`version`"'"' var.c
+cc -i -o sh main.o alloc.o eval.o exec1.o exec2.o exec3.o extern.o lex.o malloc.o tab.o trap.o var.o y.tab.o atoi.o glob.o

@@ -1,0 +1,18 @@
+#	Default macro definitions.
+
+.SUFFIXES: .o .c .e .r .f .y .yr .ye .l .s
+YACC	= yacc
+YACCR	= yacc -r
+YACCE	= yacc -e
+YFLAGS	= 
+LEX	= lex
+LFLAGS	= 
+CC	= cc
+AS	= as
+ASFLAGS	= -gx
+CFLAGS	=  -O
+RC	= ec
+RFLAGS	= 
+EC	= ec
+EFLAGS	= 
+FFLAGS	= 
