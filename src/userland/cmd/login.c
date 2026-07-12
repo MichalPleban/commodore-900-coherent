@@ -154,7 +154,7 @@ again:
 	   else 
   	   {  np = nb;
 	      do {
-	         printf("Name: ");
+	         printf("Coherent login: ");
 	         if (fgets(nb, NNAME-1, stdin) == NULL)  
 		 {  putchar('\n');
 		    slexit(1);

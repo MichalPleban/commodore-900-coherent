@@ -54,11 +54,11 @@ TIME timer ={
 /*
  * Devices and sizes.
  */
-dev_t	rootdev = makedev(6, 8);	/* Root device = SASI floppy disk */
-dev_t	pipedev = makedev(6, 8);	/* Pipe device */
-dev_t	swapdev = makedev(6, 3);	/* Swap device */
-daddr_t	swapbot = 3001;			/* Swap base */
-daddr_t	swaptop = 5160;			/* Swap end */
+dev_t	rootdev = makedev(2, 48);	/* Root device = WD/SASI floppy fd1 (drive 3) */
+dev_t	pipedev = makedev(2, 48);	/* Pipe device */
+dev_t	swapdev = makedev(2, 3);	/* Swap device = WD hard disk hd3 (same as wdcon) */
+daddr_t	swapbot = 7001;			/* Swap base */
+daddr_t	swaptop = 10335;		/* Swap end */
 int	ronflag	= 0;			/* Not read only */
 int	drvn	= 16;			/* Maximum number of devices */
 int	mactype	= M_Z8001;		/* Machine type */

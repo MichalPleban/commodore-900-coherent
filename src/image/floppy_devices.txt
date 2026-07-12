@@ -1,0 +1,26 @@
+# type	path	mode	uid	gid	major	minor	rawdev
+c	/dev/console	666	3	0	19	8	4872
+b	/dev/fd1	666	3	1	74	2	3164674
+b	/dev/hd0	644	3	1	0	2	2
+b	/dev/hd1	644	3	1	14	2	69122
+b	/dev/hd2	644	3	1	14	2	134658
+b	/dev/hd3	644	3	1	14	2	200194
+c	/dev/kmem	600	3	1	0	0	131072
+c	/dev/lp	600	3	1	0	3	3
+c	/dev/mem	600	3	1	0	0	65536
+c	/dev/null	666	3	1	49	0	12544
+b	/dev/ram	644	3	1	0	7	7
+c	/dev/rfd1	666	3	1	0	2	3145730
+c	/dev/rhd0	644	3	1	0	2	2
+b	/dev/rhd1	644	3	1	0	2	65538
+c	/dev/rhd2	644	3	1	0	2	131074
+c	/dev/rwd3	644	3	1	0	2	196610
+b	/dev/swap	644	3	1	0	2	196610
+c	/dev/tty	666	3	1	62	1	15873
+c	/dev/tty50	666	3	1	5	5	1285
+c	/dev/tty51	666	3	1	0	5	65541
+c	/dev/tty52	666	3	1	0	5	131077
+c	/dev/tty53	666	3	1	0	5	196613
+c	/dev/tty54	666	3	1	0	5	262149
+c	/dev/tty55	666	3	1	0	5	327685
+c	/dev/tty80	666	3	1	0	8	8

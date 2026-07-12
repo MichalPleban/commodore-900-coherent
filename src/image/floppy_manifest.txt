@@ -1,0 +1,27 @@
+# d/f	path	mode	uid	gid   |   hardlink:  l	path	target
+# floppy filesystem manifest (perms/owners from disk1_hr; minimal boot set).
+# /drv/{notty,lrtty,hrtty}: console drivers; the kernel (md.s vidsel) picks one
+# at boot and init loads it via /etc/load.  /dev nodes come from devices.txt.
+d	/	755	0	1
+d	/bin	755	0	1
+d	/dev	755	3	1
+d	/drv	755	0	1
+d	/etc	755	0	1
+d	/mnt	755	0	1
+f	/coherent	755	0	1
+f	/bin/login	4755	0	0
+f	/bin/sh	755	3	1
+f	/bin/ls	755	3	1
+f	/etc/getty	755	3	0
+f	/etc/group	644	3	1
+f	/etc/init	755	0	1
+f	/etc/load	755	3	1
+f	/etc/passwd	644	0	0
+f	/etc/rc	644	0	1
+f	/etc/mount	755	3	1
+f	/etc/umount	755	3	1
+f	/etc/swap	755	0	1
+f	/etc/ttys	644	3	0
+f	/drv/hrtty	755	0	1
+f	/drv/lrtty	755	0	1
+f	/drv/notty	755	0	1

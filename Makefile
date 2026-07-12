@@ -100,13 +100,14 @@ CRT   = $(LIBDIR)/crts0.o
 DTOA  = $(LIBDIR)/dtoa.o
 LIBC  = $(LIBDIR)/libc.a
 LIBM  = $(LIBDIR)/libm.a
-LIBMP = $(LIBDIR)/libmp.a
+# the reference image keeps libmp.a in /usr/lib, not /lib
+LIBMP = $(USRLIBDIR)/libmp.a
 LIBY  = $(LIBDIR)/liby.a
 
 LIBS = $(CRT) $(DTOA) $(LIBC) $(LIBM) $(LIBMP) $(LIBY)
 
-.PHONY: all headers libs cmds kernel dist clean
-all: headers libs cmds kernel dist
+.PHONY: all headers libs cmds kernel dist image diskmanifest floppy clean
+all: headers libs cmds kernel dist image
 headers: $(INC_TARGET)
 libs: $(LIBS)
 
@@ -145,7 +146,7 @@ $(LIBDIR)/libc.a: $(LIBC_OBJ)
 $(LIBDIR)/libm.a: $(LIBM_OBJ)
 	$(ar-sorted)
 
-$(LIBDIR)/libmp.a: $(LIBMP_OBJ)
+$(USRLIBDIR)/libmp.a: $(LIBMP_OBJ)
 	$(ar-sorted)
 
 $(LIBDIR)/liby.a: $(LIBY_OBJ)
@@ -167,7 +168,8 @@ $(LIBDIR)/liby.a: $(LIBY_OBJ)
 #                           (only enroll/xencode/xdecode ship), opr, spellin, psh.
 #     (crypt is built to /bin even though it is absent from the reference image,
 #      where it was omitted for US crypto-export reasons.)
-#   * mail  - ambiguous source (cmd/7mail.c vs cmd/xmail.c); unresolved.
+#   * mail  - built from 7mail.c (the shipped variant); xmail.c is the unused
+#             alternate.  See the $(BINDIR)/mail rule below.
 #
 # History (kept for reference):
 #   * ed (-DCOHERENT) and as (-Dasm=Asm, its main routine is named asm()) build
@@ -234,6 +236,12 @@ $(BINDIR)/factor: $(OBJ)/userland/cmd/factor.o $(CRT) $(DTOA) $(LIBM) $(LIBC)
 # units: "%g" -> real dtoa formatter.
 $(BINDIR)/units: $(OBJ)/userland/cmd/units.o $(CRT) $(DTOA) $(LIBC)
 	$(call link,$(DTOA) $<)
+
+# mail: the interactive V7 mailer.  Its source is 7mail.c (the shipped variant;
+# xmail.c is the unused alternate), so the target name differs from the basename
+# and needs an explicit rule.  Installed setuid-root (perms applied at pack time).
+$(BINDIR)/mail: $(OBJ)/userland/cmd/7mail.o $(CRT) $(LIBC)
+	$(call link,$<)
 
 # atrun installs to /usr/lib; diff3 ships in both /bin and /usr/lib.
 $(USRLIBDIR)/atrun: $(OBJ)/userland/cmd/atrun.o $(CRT) $(LIBC)
@@ -346,7 +354,12 @@ $(sh_obj): CFLAGS += -I$(CMDS)/sh -DVERSION='"COHERENT"'
 $(BINDIR)/sh: $(sh_obj) $(CRT) $(LIBC)
 	$(call link,$(sh_obj))
 
-# spell -> /usr/lib (spellin is not shipped).
+# spell: /bin/spell is the wrapper SCRIPT (cmd/spell/spellcmd, installed
+# verbatim); it drives the hashcheck binary /usr/lib/spell (spell.o + spell2.o).
+# (spellin is not shipped.)
+$(BINDIR)/spell: $(CMDS)/spell/spellcmd
+	@mkdir -p $(dir $@)
+	cp $< $@
 $(USRLIBDIR)/spell: $(OBJ)/userland/cmd/spell/spell.o $(OBJ)/userland/cmd/spell/spell2.o $(CRT) $(LIBC)
 	$(call link,$(OBJ)/userland/cmd/spell/spell.o $(OBJ)/userland/cmd/spell/spell2.o)
 
@@ -354,6 +367,16 @@ $(USRLIBDIR)/spell: $(OBJ)/userland/cmd/spell/spell.o $(OBJ)/userland/cmd/spell/
 tsort_obj := $(addprefix $(OBJ)/userland/cmd/tsort/,alc.o hash.o input.o logic.o main.o util.o)
 $(BINDIR)/tsort: $(tsort_obj) $(CRT) $(LIBC)
 	$(call link,$(tsort_obj))
+
+# yacc: the parser generator, from y0..y6 (its own headers on the include path).
+# yyparse.c in the same dir is the emitted-parser skeleton, installed verbatim
+# to /lib via src/dist -- it is NOT linked into the yacc binary (the command's
+# own makefile links only y?.o).  Distinct from the *host* coherent-yacc ($(YACC))
+# used above to pre-generate the awk/expr/find/test grammars.
+yacc_obj := $(addprefix $(OBJ)/userland/cmd/yacc/,y0.o y1.o y2.o y3.o y4.o y5.o y6.o)
+$(yacc_obj): CFLAGS += -I$(CMDS)/yacc
+$(BINDIR)/yacc: $(yacc_obj) $(CRT) $(LIBC)
+	$(call link,$(yacc_obj))
 
 # make: single translation unit make.c.
 $(OBJ)/userland/cmd/make/make.o: CFLAGS += -I$(CMDS)/make
@@ -420,7 +443,7 @@ $(BINDIR)/test $(BINDIR)/[: $(OBJ)/userland/cmd/test/y.tab.o $(CRT) $(LIBY) $(LI
 
 # Aggregate of every command the tree can currently build.
 CMD_TARGETS := $(BIN_TARGETS) $(ETC_TARGETS) $(KERN_ETC_TARGETS) \
-	$(BINDIR)/factor $(BINDIR)/units $(USRLIBDIR)/atrun $(USRLIBDIR)/diff3 \
+	$(BINDIR)/factor $(BINDIR)/units $(BINDIR)/mail $(USRLIBDIR)/atrun $(USRLIBDIR)/diff3 \
 	$(BINDIR)/as $(BINDIR)/awk $(BINDIR)/bc $(BINDIR)/cu $(BINDIR)/dc \
 	$(BINDIR)/expr $(BINDIR)/find $(BINDIR)/grep $(BINDIR)/ps \
 	$(BINDIR)/test $(BINDIR)/[ \
@@ -430,9 +453,9 @@ CMD_TARGETS := $(BIN_TARGETS) $(ETC_TARGETS) $(KERN_ETC_TARGETS) \
 	$(BINDIR)/enroll $(BINDIR)/xencode $(BINDIR)/xdecode \
 	$(BINDIR)/ld $(BINDIR)/lex \
 	$(BINDIR)/lpr $(BINDIR)/lpskip $(USRLIBDIR)/lpd \
-	$(BINDIR)/nroff $(BINDIR)/sed $(BINDIR)/sh $(BINDIR)/make $(BINDIR)/tsort \
+	$(BINDIR)/nroff $(BINDIR)/sed $(BINDIR)/sh $(BINDIR)/make $(BINDIR)/tsort $(BINDIR)/yacc \
 	$(BINDIR)/me $(USRBINDIR)/kermit \
-	$(USRLIBDIR)/spell
+	$(BINDIR)/spell $(USRLIBDIR)/spell
 
 cmds: $(CMD_TARGETS)
 
@@ -442,7 +465,7 @@ cmds: $(CMD_TARGETS)
 # Only the WD machine is built: the DTC `hd` disk and its HR kernel do not
 # exist on production Commodores.  Two config variants come from the same
 # kernel - hard-disk root (wdcon) -> build/root/coherent, and floppy root
-# (fdcon) -> build/dist/coherent.fd.  Both video drivers are built as loadable
+# (fdcon) -> build/floppy/coherent.  Both video drivers are built as loadable
 # /drv modules (lrtty = low-res 6845 text, hrtty = hi-res bitmap), plus the
 # loadable swapper /etc/swap.
 #
@@ -476,8 +499,10 @@ KRELOC  = -R 0x30000000
 # symbols for the disassembly-diff checks.
 KSTRIP  = -X
 
-DISTDIR = $(BUILD)/dist
-DRVDIR  = $(ROOT)/drv
+DISTDIR  = $(BUILD)/dist
+DRVDIR   = $(ROOT)/drv
+# floppy staging tree (bootable floppy kernel + the minimal system)
+FLOPPYDIR = $(BUILD)/floppy
 
 # libcoh.a: machine-independent core + shared tty/ct line disciplines.
 COH_OBJS := $(addprefix $(OBJ)/kernel/coh/,\
@@ -588,7 +613,7 @@ $(KSYM): $(KMD) $(WDCON) $(KWD) $(LIBCMDR) $(LIBCOH) $(LIBC)
 # global symbol table from each shipped image.
 $(ROOT)/coherent: $(KMD) $(WDCON) $(KWD) $(LIBCMDR) $(LIBCOH) $(LIBC)
 	$(call link-kernel,-s,$(WDCON))
-$(DISTDIR)/coherent.fd: $(KMD) $(FDCON) $(KWD) $(LIBCMDR) $(LIBCOH) $(LIBC)
+$(FLOPPYDIR)/coherent: $(KMD) $(FDCON) $(KWD) $(LIBCMDR) $(LIBCOH) $(LIBC)
 	$(call link-kernel,-s,$(FDCON))
 
 # Loadable swapper + video drivers.  Linked with -k against the symboled $(KSYM)
@@ -604,20 +629,30 @@ $(DISTDIR)/coherent.fd: $(KMD) $(FDCON) $(KWD) $(LIBCMDR) $(LIBCOH) $(LIBC)
 # index - so they must KEEP their global symbols.  Link them with -X (drop the
 # dead L-prefixed locals, keep globals) instead of -s; a fully stripped driver
 # makes `load' panic "Configuration table not found" and init exits.
+#
+# All these loadables must be EXECUTABLE: the swapper is run via execve, and the
+# /drv modules are opened by `load' through the kernel's exlopen(), which rejects
+# a file with no execute bit (EACCES, "permission denied") - `load' then fails to
+# install the driver and the kvcon major (8) is left empty, so /dev/console has
+# no console driver.  $(LD) leaves the output non-executable, so chmod +x here.
 $(ROOT)/etc/swap: $(KSWAP) $(KSYM)
 	@mkdir -p $(dir $@)
 	$(LD) -s -o $@ -e swap_ $(KSWAP) -k$(KSYM)
+	chmod +x $@
 $(DRVDIR)/lrtty: $(LRTTY_OBJS) $(KSYM)
 	@mkdir -p $(dir $@)
 	$(LD) -X -o $@ $(LRTTY_OBJS) -k$(KSYM)
+	chmod +x $@
 $(DRVDIR)/hrtty: $(HRTTY_OBJS) $(KSYM)
 	@mkdir -p $(dir $@)
 	$(LD) -X -o $@ $(HRTTY_OBJS) -k$(KSYM)
+	chmod +x $@
 $(DRVDIR)/notty: $(NOTTY_OBJS) $(KSYM)
 	@mkdir -p $(dir $@)
 	$(LD) -X -o $@ $(NOTTY_OBJS) -k$(KSYM)
+	chmod +x $@
 
-KERNEL_TARGETS := $(ROOT)/coherent $(DISTDIR)/coherent.fd $(ROOT)/etc/swap \
+KERNEL_TARGETS := $(ROOT)/coherent $(FLOPPYDIR)/coherent $(ROOT)/etc/swap \
 	$(DRVDIR)/lrtty $(DRVDIR)/hrtty $(DRVDIR)/notty
 kernel: $(KERNEL_TARGETS)
 
@@ -666,5 +701,75 @@ $(DIST_TARGETS): $(ROOT)/%: $(SRC)/dist/%
 
 dist: $(DIST_TARGETS)
 
+# ===========================================================================
+# Disk image  (pack build/root -> build/dist/hdd.bin)
+# ===========================================================================
+# tools/build_disk.py takes file CONTENTS from build/root and applies ownership,
+# permissions and the /dev device nodes from the manifests.  A Windows staging
+# tree cannot carry uid/gid, setuid bits, or device special files, so these are
+# applied at pack time (see CLAUDE.md).  The four partitions are formatted with
+# the master's exact per-partition geometry; hd0 is populated from build/root,
+# hd1-hd3 are left as empty filesystems.
+#
+# All manifests are checked-in, reviewed build inputs in src/image/ -- NOT
+# re-extracted from the master on every build.  Regenerate the HD pair with
+# `make diskmanifest` when the reference master changes, then review/commit.
+PYTHON ?= python
+MASTER ?= ../Emulator/disk/hdd.bin
+DISKIMG      := $(DISTDIR)/hdd.bin
+HDD_MANIFEST := $(SRC)/image/hdd_manifest.txt
+HDD_DEVICES  := $(SRC)/image/hdd_devices.txt
+
+image: headers libs cmds kernel dist
+	$(PYTHON) tools/build_disk.py build --root "$(ROOT)" \
+	    --perms "$(HDD_MANIFEST)" --devices "$(HDD_DEVICES)" --out "$(DISKIMG)"
+
+diskmanifest:
+	$(PYTHON) tools/build_disk.py extract --master "$(MASTER)" \
+	    --perms "$(HDD_MANIFEST)" --devices "$(HDD_DEVICES)"
+
+# ===========================================================================
+# Floppy image  (minimal bootable system -> build/dist/floppy.img)
+# ===========================================================================
+# A single-partition C900 floppy (geometry from the reference boot floppy).  The
+# floppy kernel (fdcon) is built to $(FLOPPYDIR)/coherent by the `kernel` target;
+# `make floppy` (NOT part of `all`) stages a minimal system into build/floppy and
+# packs it.  Ownership/permissions come from src/image/floppy_manifest.txt and
+# the /dev nodes from src/image/floppy_devices.txt (currently the same set as the
+# hard disk).
+#
+# The manifest is the SINGLE source of truth for what ships: stage every 'f'
+# entry.  To add a command (e.g. /bin/ls) you edit ONLY floppy_manifest.txt.
+# File CONTENT comes from build/root at the same path, EXCEPT: /coherent is the
+# fdcon kernel built in place, and any file placed in the src/floppy/ overlay
+# tree (mirroring the target path, e.g. src/floppy/etc/rc) overrides build/root.
+FLOPPYIMG       := $(DISTDIR)/floppy.img
+FLOPPY_MANIFEST := $(SRC)/image/floppy_manifest.txt
+FLOPPY_DEVICES  := $(SRC)/image/floppy_devices.txt
+FLOPPY_FILES := $(shell awk -F'\t' '$$1=="f"{print $$2}' $(FLOPPY_MANIFEST))
+FLOPPY_RELS  := $(patsubst /%,%,$(filter-out /coherent,$(FLOPPY_FILES)))
+# Content source for a floppy file: an overlay under src/floppy/ (mirroring the
+# target path, e.g. src/floppy/etc/rc) wins over the build/root copy.
+floppy_src = $(if $(wildcard $(SRC)/floppy/$(1)),$(SRC)/floppy/$(1),$(ROOT)/$(1))
+FLOPPY_SRCS := $(foreach r,$(FLOPPY_RELS),$(call floppy_src,$(r)))
+
+# `make floppy` first builds/collects the sources it needs (pulling in any
+# commands that must be built), then rebuilds build/floppy FROM SCRATCH so no
+# file dropped from the manifest can linger, and packs.  The wipe removes
+# everything under build/floppy EXCEPT the in-place fdcon kernel (/coherent,
+# built by `kernel`) -- "all but coherent" rather than a fixed directory list,
+# so any directory layout in the manifest is handled automatically.
+floppy: $(FLOPPYDIR)/coherent $(FLOPPY_SRCS)
+	@for x in $(FLOPPYDIR)/*; do \
+	    [ "$$x" = "$(FLOPPYDIR)/coherent" ] || rm -rf "$$x"; \
+	done
+	@for r in $(FLOPPY_RELS); do \
+	    s=$(SRC)/floppy/$$r; [ -f "$$s" ] || s=$(ROOT)/$$r; \
+	    d=$(FLOPPYDIR)/$$r; mkdir -p "$${d%/*}"; cp "$$s" "$$d"; \
+	done
+	$(PYTHON) tools/build_disk.py build --floppy --root "$(FLOPPYDIR)" \
+	    --perms "$(FLOPPY_MANIFEST)" --devices "$(FLOPPY_DEVICES)" --out "$(FLOPPYIMG)"
+
 clean:
-	rm -rf $(OBJ) $(LIBS) $(CMD_TARGETS) $(KERNEL_TARGETS) $(DIST_TARGETS)
+	rm -rf $(OBJ) $(LIBS) $(CMD_TARGETS) $(KERNEL_TARGETS) $(DIST_TARGETS) \
+	       $(DISKIMG) $(FLOPPYIMG) $(FLOPPYDIR)

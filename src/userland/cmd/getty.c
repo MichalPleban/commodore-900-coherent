@@ -16,7 +16,7 @@
 #define	LA36M	GMODE			/* Should have LA36 delays w/a */
 #define	MAXNAME	50			/* Maximum characters in a name */
 
-char	defm[]	= "\n\r\7Coherent login: "; /* default login prompt */
+char	defm[]	= "\n\rCoherent login: "; /* default login prompt */
 
 struct	sgttyb	isgttyb;		/* Initial stty */
 struct	tchars	itchars;		/* Initial tchars */

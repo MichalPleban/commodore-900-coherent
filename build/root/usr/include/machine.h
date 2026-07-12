@@ -23,7 +23,6 @@
 #endif
 
 /* Machine dependent constants for Z8001 */
-#define	VERSION		"0.7.3"		/* NLD, Shared libs, WD disk */
 #define	MSASIZE		16		/* Space reserved for sys args */
 #define	ISTSIZE		256		/* Counts on stack growth */
 #define	ISTVIRT		ADDR(USTACK+1, 0)

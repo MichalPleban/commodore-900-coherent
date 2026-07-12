@@ -434,7 +434,7 @@ wdintr()
 			    if (bp->b_req == BREAD)
 			      kkcopy(cmdblk+0x400,pfix(WDS,wdtab.wdu_paddr),512);
 			bdone(bp);
-		} else 
+		} else
 			wdharderr(bp, cbp);
 		wdtab.wdu_forw->wdu_active = 0;
 		wdtab.wdu_forw = wdtab.wdu_forw->wdu_forw;

@@ -27,7 +27,7 @@
  * Initialise various things.  When we return we will return to user mode.
  */
 char version[] = VERSION;
-char copyright[] = "(c) 1982 - 1985 Mark Williams Company, Chicago\n";
+char copyright[] = "(c) 1982 - 1985 Mark Williams Company, Chicago\n(c) OpenCoherent contributors\n";
 main()
 {
 	register SEG *sp;
@@ -38,7 +38,7 @@ main()
 	pcsinit();
 	seginit();
 	devinit();
-	printf("\rCoherent (%uK, %u) Version %s\n", msize, asize, version);
+	printf("\rOpenCoherent (%uK, %u) Version %s\n", msize, asize, version);
 
 	/*
 	 * Turn on clock, start off processes, mount root device
