@@ -195,6 +195,7 @@ d	/tmp	755	0	1
 d	/u	755	3	1
 d	/usr	755	0	1
 d	/usr/bin	755	0	1
+f	/usr/bin/compress	755	3	1
 f	/usr/bin/kermit	755	0	1
 d	/usr/games	755	0	1
 f	/usr/games/fortune	755	0	1
@@ -237,6 +238,8 @@ f	/usr/include/signal.h	644	0	0
 f	/usr/include/stat.h	644	0	0
 f	/usr/include/stdio.h	644	0	0
 d	/usr/include/sys	755	0	0
+l	/usr/bin/uncompress	/usr/bin/compress
+l	/usr/bin/zcat	/usr/bin/compress
 l	/usr/include/sys/const.h	/usr/include/const.h
 l	/usr/include/sys/fblk.h	/usr/include/fblk.h
 l	/usr/include/sys/filsys.h	/usr/include/filsys.h

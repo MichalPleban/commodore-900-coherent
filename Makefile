@@ -264,6 +264,19 @@ $(cu_obj): CFLAGS += -I$(CMDS)/cu
 $(BINDIR)/cu: $(cu_obj) $(CRT) $(LIBC)
 	$(call link,$(cu_obj))
 
+# compress / uncompress / zcat: LZW file compressor, ported from Coherent 3.2.
+# Built -DVIRTUAL -DBITS=16: at 16-bit codes the hash/code tables are far larger
+# than one Z8001 data segment, so VIRTUAL pages them through a scratch file
+# (a /tmp file by default -- the 3.2 /dev/ram path does not exist here; -w names
+# an alternative, and is_fs.c guards -w'ing a raw device that holds a filesystem).
+# Installs to /usr/bin; uncompress/zcat are hardlinks (behaviour keys off
+# argv[0]), made at image-pack time from the manifest.  See
+# src/userland/cmd/compress/PORT.md.
+compress_obj := $(OBJ)/userland/cmd/compress/compress.o $(OBJ)/userland/cmd/compress/is_fs.o
+$(compress_obj): CFLAGS += -DVIRTUAL -DBITS=16
+$(USRBINDIR)/compress: $(compress_obj) $(CRT) $(LIBC)
+	$(call link,$(compress_obj))
+
 # bc / dc: share the multi-precision back end from cmd/bc; both link -lmp.
 $(OBJ)/userland/cmd/bc/%.o: CFLAGS += -I$(CMDS)/bc
 $(OBJ)/userland/cmd/dc/%.o: CFLAGS += -I$(CMDS)/bc -I$(CMDS)/dc
@@ -454,7 +467,7 @@ CMD_TARGETS := $(BIN_TARGETS) $(ETC_TARGETS) $(KERN_ETC_TARGETS) \
 	$(BINDIR)/ld $(BINDIR)/lex \
 	$(BINDIR)/lpr $(BINDIR)/lpskip $(USRLIBDIR)/lpd \
 	$(BINDIR)/nroff $(BINDIR)/sed $(BINDIR)/sh $(BINDIR)/make $(BINDIR)/tsort $(BINDIR)/yacc \
-	$(BINDIR)/me $(USRBINDIR)/kermit \
+	$(BINDIR)/me $(USRBINDIR)/kermit $(USRBINDIR)/compress \
 	$(BINDIR)/spell $(USRLIBDIR)/spell
 
 cmds: $(CMD_TARGETS)
