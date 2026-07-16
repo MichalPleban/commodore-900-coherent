@@ -48,6 +48,7 @@ typedef	unsigned short	flag_t;		/* fastest type for machine */
 
 flag_t	linkmsg = 0,			/* message if not all links found */
 	modtime = 1,			/* restore modtimes */
+	usecompress = 0,		/* z: pipe through compress/uncompress */
 	verbose = 0;
 	unixbug = 0;			/* avoid bug in U**X tar */
 FILE	*whether = (FILE *)NULL,	/* ask about each file */
@@ -67,8 +68,11 @@ tarhd_t	*readhdr(),
 	*writeblk();
 char	*havelink();
 long	getoctl();
+FILE	*zopen();
 extern char	*malloc();
 extern char	*ctime();
+
+int	comppid = -1;			/* pid of compress/uncompress child */
 
 main(argc, argv)
 int	argc;
@@ -84,7 +88,7 @@ char	*argv[];
 
 	if (argc < 2) {
 		fprintf(stderr,
-	"Usage: %s [crtux][0-7bflmvw] [blocks] [archive] pathname*\n",
+	"Usage: %s [crtux][0-7bflmvwz] [blocks] [archive] pathname*\n",
 			argv[0]);
 		exit(-1);
 	}
@@ -126,6 +130,9 @@ char	*argv[];
 	case 'v':
 		verbose = 1;
 		deffunc = 't';
+		continue;
+	case 'z':
+		usecompress = 1;
 		continue;
 	case 'U':
 		unixbug = 1;
@@ -175,7 +182,11 @@ char	*argv[];
 
 	if (*archive == '\0')
 		sprintf(archive, "/dev/%smt%c", blocking==1 ? "" : "r", unit);
-	if (function=='t' || function=='x')
+	if (usecompress) {
+		if (function=='r' || function=='u')
+			fatal("key z cannot be used with r or u");
+		tarfile = zopen(archive, function);
+	} else if (function=='t' || function=='x')
 		if (strcmp(archive, "-")==0)
 			tarfile = stdin;
 		else
@@ -213,6 +224,8 @@ char	*argv[];
 		append(prefix, args);
 		flushtar();
 	}
+	if (usecompress)
+		zclose();
 	exit(errno);
 }
 
@@ -712,6 +725,70 @@ char	function,
 		}
 	}
 	return (0);
+}
+
+/*
+ * Pipe the archive through compress (c) or uncompress (t, x).
+ * The child opens the archive file itself and dups it onto its
+ * stdin/stdout, so no shell and no PATH search are involved.
+ */
+
+FILE *
+zopen(name, function)
+char	*name;
+char	function;
+{
+	int	pd[2];
+	int	fd;
+	flag_t	reading = (function=='t' || function=='x');
+
+	if (pipe(pd) < 0)
+		fatal("can't create pipe");
+	if ((comppid = fork()) < 0)
+		fatal("can't fork");
+	if (comppid == 0) {			/* child */
+		if (reading) {
+			/* uncompress: archive -> pipe (tar reads pd[0]) */
+			close(pd[0]);
+			if (strcmp(name, "-") != 0) {
+				if ((fd = open(name, 0)) < 0) {
+					exit(perror("Tar: %s", name));
+				}
+				close(0); dup(fd); close(fd);
+			}
+			close(1); dup(pd[1]); close(pd[1]);
+			execl("/usr/bin/uncompress", "uncompress", NULL);
+		} else {
+			/* compress: pipe (tar writes pd[1]) -> archive */
+			close(pd[1]);
+			if (strcmp(name, "-") != 0) {
+				if ((fd = creat(name, 0666)) < 0) {
+					exit(perror("Tar: %s", name));
+				}
+				close(1); dup(fd); close(fd);
+			}
+			close(0); dup(pd[0]); close(pd[0]);
+			execl("/usr/bin/compress", "compress", NULL);
+		}
+		exit(perror("Tar: %s", "compress"));
+	}
+	if (reading) {
+		close(pd[1]);
+		return (fdopen(pd[0], "r"));
+	} else {
+		close(pd[0]);
+		return (fdopen(pd[1], "w"));
+	}
+}
+
+zclose()
+{
+	register int	pid;
+	int	status;
+
+	fclose(tarfile);
+	while ((pid = wait(&status)) != comppid && pid >= 0)
+		;
 }
 
 /*
