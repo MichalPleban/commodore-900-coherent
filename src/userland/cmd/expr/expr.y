@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 %{
 /*
  * Expr.y, yacc grammar for expr. Designed so no stdio is called, which

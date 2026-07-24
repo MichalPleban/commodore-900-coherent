@@ -1,0 +1,154 @@
+
+
+ddcc                                                             ddcc
+
+
+
+NNAAMMEE
+     dc - desk calculator
+
+SSYYNNOOPPSSIISS
+     ddcc [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     ddcc is an arbitrary-precision reverse-Polish desk calculator
+     with 256 registers, each of which is itself a small stack.
+     If _f_i_l_e is given, ddcc reads and executes it first; it then
+     reads and executes the standard input.  An arbitrary number
+     of commands may appear per line, and commands need not be
+     separated by spaces.
+
+     Numbers are pushed onto a value stack; operators pop their
+     operands from that stack and push the result.  A number is a
+     string of the digits 00 through 99 and the letters AA through
+     FF, optionally containing one decimal point; the letters
+     stand for the values ten through fifteen regardless of the
+     input base currently in effect.  An underscore (_) im-
+     mediately before a number makes it negative.  Every value
+     carries its own _s_c_a_l_e ( _n_u_m_b_e_r _o_f _d_i_g_i_t_s _a_f_t_e_r _t_h_e _d_e_c_i_m_a_l
+     _p_o_i_n_t); ddcc keeps the natural scale through addition, sub-
+     traction, and multiplication, but division and exponentia-
+     tion follow the rules given under kk below.
+
+     ddcc recognizes the following commands:
+
+     + -  * / % ^
+              Pop the top two values, apply addition, subtrac-
+              tion, multiplication, division, remainder, or ex-
+              ponentiation (in that order), and push the result.
+              For ^, the exponent's fractional part, if any, is
+              ignored.
+
+     cc        Clear (discard) the entire stack.
+
+     dd        Duplicate the top of the stack.
+
+     ff        Print every register that has a value, followed by
+              the entire stack.
+
+     ii        Pop the top of the stack and use its integer part
+              as the input base (digits are taken from 00- FF, so
+              the input base is normally between 2 and 16).
+
+     II        Push the current input base.
+
+     kk        Pop the top of the stack and use its integer part
+              as the scale factor used by division; a negative
+              value is rejected and the scale is left at zero.
+
+     KK        Push the current scale factor.
+
+     ll_x       Push a copy of the top of register _x; the register
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ddcc                                                             ddcc
+
+
+
+              iiss left unchanged.
+
+     LL_x       Pop the top of register _x and push it (removing it
+              from the register).
+
+     oo        Pop the top of the stack and use its integer part
+              as the output base.
+
+     OO        Push the current output base.
+
+     pp        Print the top of the stack; the value is left on
+              the stack.
+
+     PP        Pop the top of the stack and print it.
+
+     qq        Quit ddcc.
+
+     QQ_n       Pop the top of the stack and use its integer part
+              as _n; exit _n levels of string execution begun with
+              xx.
+
+     ss_x       Pop the top of the stack and store it in register _x
+              (any previous top-of-register value in _x is dis-
+              carded).
+
+     SS_x       Pop the top of the stack and push it onto register
+              _x, preserving whatever _x already held beneath it.
+
+     vv        Replace the top of the stack with its square root.
+
+     xx        Pop the top of the stack; if it is a bracketed
+              string (see [ ] below), execute it as a sequence of
+              ddcc commands.  Popping a plain number has no further
+              effect.
+
+     XX        Replace the top of the stack with its scale (the
+              number of digits after its decimal point).
+
+     zz        Push the current number of values on the stack.
+
+     ZZ        Replace the top of the stack with the number of
+              digits in its printed representation.
+
+     [...]    Push the enclosed character string, which may later
+              be run with xx, with ll/LL and a register, or as the
+              action of a comparison (below).  Brackets may be
+              nested.
+
+     <_x >_x =_x !<_x !>_x !=_x
+              Pop the top two values and compare them.  If the
+              (optionally negated) relation holds, execute the
+              top of register _x as with xx.
+
+     ?        Read a line from the standard input (regardless of
+              where ddcc is currently reading its program from) and
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+ddcc                                                             ddcc
+
+
+
+              eexxeeccuuttee it as a string of ddcc commands.
+
+     !        Read the rest of the input line and pass it to the
+              shell; when the shell command finishes, ddcc prints !
+              and resumes reading commands.
+
+DDIIAAGGNNOOSSTTIICCSS
+     On a stack-empty, stack-full, out-of-memory, missing-regis-
+     ter-name, negative-scale, or unrecognized-command error, ddcc
+     prints a one-line message to the standard error and abandons
+     the command it was in the middle of, but continues reading
+     input immediately after the offending character.
+
+NNOOTTEESS
+     For most purposes the infix notation of bbcc is more con-
+     venient than the reverse-Polish notation of ddcc.

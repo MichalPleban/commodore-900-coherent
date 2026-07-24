@@ -1,0 +1,144 @@
+.TH xmail "" "Command"
+.SH NAME
+xmail \- secret computer mail
+.SH SYNOPSIS
+\fBxmail \fIuser ...\fR
+.br
+\fBxmail [\-n | \-x | \-y]\fR
+.SH DESCRIPTION
+.HS
+xmail - secret computer mail
+Usage:	xmail user ...
+	xmail [ -nxy ]
+If 'user' is present, send each a message encrypted with the user's public key.
+Mail message ends with EOF or a line containing only '.'.
+Otherwise, read encoded mail.
+Options:
+	-n	Discard mail
+	-x 	Save plain text in $HOME/mbox
+	-y 	Save mail in encrypted form in $HOME/xmbox
+.HE
+.B xmail
+sends and reads mail that is encrypted so that only its intended
+recipient can read it, using per-user public keys kept under
+.BR /usr/spool/pubkey .
+.PP
+If one or more
+.I user
+arguments are given,
+.B xmail
+checks each name against
+.BR /usr/spool/pubkey ,
+printing
+.B "user is not enrolled."
+for any name with no public-key file there and excluding it from the
+send list; if none of the named recipients is enrolled,
+.B xmail
+exits without sending anything.
+It builds a header (a
+.B From
+line naming the sender and the time, plus a
+.B "(cc: ...)"
+line listing the other recipients if there is more than one), reads
+the message from the standard input up to end of file or a line
+containing only
+.BR . ,
+and, for each valid recipient, pipes the header and message through the
+filter
+.B /bin/xencode
+(run as a child process, using that recipient's public key) and appends
+the encrypted result to
+.B xmailbox
+in the recipient's home directory.
+If the recipient already has a regular mailbox, a short notice that
+mail is waiting is also appended there.
+.PP
+With no
+.I user
+argument,
+.B xmail
+instead reads the caller's own accumulated secret mail: it pipes
+.B $HOME/xmailbox
+through the filter
+.B /bin/xdecode
+(which prompts for a passphrase), copies the decrypted text to a
+private, unlinked temporary file under
+.BR /tmp ,
+and prints it, then asks
+.BR "Save ?" .
+Answering
+.B x
+saves the decrypted text, followed by whatever
+.B $HOME/mbox
+already held, back into
+.BR $HOME/mbox ;
+answering
+.B y
+does the same but keeps the mail encrypted and saves it into
+.BR $HOME/xmbox ;
+answering
+.B n
+discards it; any other answer leaves
+.B $HOME/xmailbox
+untouched, so the same mail is read again next time.
+.IP \fB\-n\fR
+Discard the accumulated secret mail without displaying the "Save ?"
+prompt.
+.IP \fB\-x\fR
+Save the decrypted mail into
+.B $HOME/mbox
+without prompting.
+.IP \fB\-y\fR
+Save the still-encrypted mail into
+.B $HOME/xmbox
+without prompting.
+.PP
+The
+.BR \-n ,
+.BR \-x ,
+and
+.B \-y
+options apply only when reading the caller's own mail (no
+.I user
+argument); they may not be combined with each other.
+.SH FILES
+.DS
+.ta 20n
+\fB/usr/spool/pubkey/\fIuser\fR	each user's public key
+\fB$HOME/xmailbox\fR	incoming encrypted mail
+\fB$HOME/mbox\fR	saved, decrypted mail
+\fB$HOME/xmbox\fR	saved, still-encrypted mail
+\fB/bin/xencode\fR	encryption filter
+\fB/bin/xdecode\fR	decryption filter
+\fB/tmp/xm*\fR	private temporary file for decrypted text
+.DE
+.SH DIAGNOSTICS
+.B xmail
+prints
+.B "user is not enrolled."
+for each named recipient with no public-key file, and exits without
+sending if none of the recipients is enrolled;
+.B "Cannot send to user"
+if a recipient's home directory cannot be found;
+.B "No xmail"
+if there is no secret mail waiting to be read; and
+.B "Cannot save clear text, no action taken"
+for
+.B \-x
+if there is no mail to decrypt.
+.SH NOTES
+.B xmail
+must be installed setuid to root, since only root may read every
+user's entry under the protected directory
+.BR /usr/spool/pubkey ;
+the source comments that this is "regarded as a failing."
+.PP
+The filters
+.B /bin/xdecode
+and
+.BR /bin/xencode ,
+and the
+.B enroll
+command that creates a user's public-key file, are referenced by
+.B xmail
+but are not present in this source tree.

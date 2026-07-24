@@ -1,0 +1,47 @@
+
+
+wwaallll                                                         wwaallll
+
+
+
+NNAAMMEE
+     wall - send a message to all logged in users
+
+SSYYNNOOPPSSIISS
+     /eettcc/wwaallll
+
+DDEESSCCRRIIPPTTIIOONN
+     wwaallll reads a message from the standard input, up to end of
+     file, and writes it, preceded by the banner BBrrooaaddccaasstt mmeess-
+     ssaaggee .....  and an audible bell, to the terminal of every
+     user currently logged in, as recorded in /eettcc/uuttmmpp. It does
+     not write to its own controlling terminal.
+
+     wwaallll takes no arguments and recognizes no options.  The mes-
+     sage, including the banner, may be no longer than 512 bytes;
+     if the standard input exceeds this, wall stops reading,
+     reports an error, and exits without sending anything.
+
+     For each logged-in terminal that wwaallll cannot open for
+     writing (for example, because its owner has denied messages
+     with mmeessgg), wwaallll prints a diagnostic naming the user and
+     terminal and continues with the next entry in /eettcc/uuttmmpp.
+
+FFIILLEESS
+          /eettcc/uuttmmpp       list of logged-in users
+
+SSEEEE AALLSSOO
+     wwrriittee, wwhhoo, mmssgg, mmeessgg
+
+DDIIAAGGNNOOSSTTIICCSS
+     wwaallll prints CCaannnnoott ooppeenn uuttmmpp.  and exits if /eettcc/uuttmmpp cannot
+     be opened; MMeessssaaggee ttoooo lloonngg.  if the input, together with
+     the banner, exceeds 512 bytes; and, for each terminal it
+     cannot write to, CCaannnnoott sseenndd ttoo nnaammee oonn ttttyy.  before going
+     on to the next user.
+
+NNOOTTEESS
+     wwaallll should be invoked only by the superuser, per its
+     /eettcc/hheellppffiillee entry; the source itself does not check who
+     invokes it, so any user who can execute /eettcc/wwaallll may broad-
+     cast to every open terminal.

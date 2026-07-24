@@ -1,0 +1,118 @@
+
+
+ffiinndd                                                         ffiinndd
+
+
+
+NNAAMMEE
+     find - search for files satisfying a pattern
+
+SSYYNNOOPPSSIISS
+     ffiinndd _d_i_r_e_c_t_o_r_y ... [_e_x_p_r_e_s_s_i_o_n ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ffiinndd descends each given _d_i_r_e_c_t_o_r_y, testing every file and
+     subdirectory it finds against _e_x_p_r_e_s_s_i_o_n. If _e_x_p_r_e_s_s_i_o_n is
+     omitted, or specifies no -pprriinntt, -eexxeecc, or -ookk, ffiinndd prints
+     the pathname of every file it visits, exactly as though
+     -pprriinntt had been given at the end.
+
+     An _e_x_p_r_e_s_s_i_o_n is built from the primaries below, combined
+     with -aa (logical and, also the default when two primaries
+     are simply written one after the other), -oo (logical or), !
+     (negation), and parentheses for grouping; -aa binds tighter
+     than -oo. Each primary not only tests something about the
+     file, but, in the case of -eexxeecc, -ookk, and -pprriinntt, also has
+     the side effect of running a command or printing the path-
+     name; evaluation stops as soon as the truth of an -aa or -oo
+     expression is known, so a primary with a side effect to the
+     right of -oo after a true left operand, or to the right of -aa
+     after a false one, does not run.
+
+     A numeric argument _n may be written plain, or prefixed with
+     + (more than _n) or - (fewer than _n).
+
+PPrriimmaarriieess
+     -aattiimmee _n
+             The file was last accessed _n days ago.
+
+     -ccttiimmee _n
+             The file's i-node was last changed _n days ago.
+
+     -eexxeecc _c_o_m_m_a_n_d
+             Run _c_o_m_m_a_n_d, which continues to collect arguments up
+             to a ; argument (escaped from the shell); true if it
+             exits with status zero.  Any argument written {} is
+             replaced by the current pathname.
+
+     -ggrroouupp _g_n_a_m_e
+             The file's group owner is _g_n_a_m_e, or, if _g_n_a_m_e is
+             numeric, the group number _g_n_a_m_e.
+
+     -iinnuumm _n The file's i-number is _n.
+
+     -lliinnkkss _n
+             The file has _n links.
+
+     -mmttiimmee _n
+             The file was last modified _n days ago.
+
+     -nnaammee _p_a_t_t_e_r_n
+             The last component of the file's pathname matches
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ffiinndd                                                         ffiinndd
+
+
+
+             _p_a_t_t_e_r_n, using the wildcard conventions of the shell
+             sshh.
+
+     -nneewweerr _f_i_l_e
+             The file has been modified more recently than _f_i_l_e.
+
+     -nnoopp    Always true; has no side effect.
+
+     -ookk _c_o_m_m_a_n_d
+             Like -eexxeecc, but first prints the command and the
+             current pathname and asks the user; runs _c_o_m_m_a_n_d
+             only if the answer begins with yy.
+
+     -ppeerrmm _o_c_t_a_l
+             The file's permission bits equal _o_c_t_a_l; if _o_c_t_a_l
+             begins with -, match instead if all of the bits set
+             in the (remaining) octal value are set in the file's
+             mode, allowing setuid, setgid, and the sticky bit to
+             be tested as well.
+
+     -pprriinntt  Always true; prints the current pathname.
+
+     -ssiizzee _n The file is _n 512-byte blocks long, rounding up.
+
+     -ttyyppee _c The file's type is _c: one of bb,  cc,  dd,  for block
+             special, character special, directory, ordinary
+             file, multiplexor file, or named pipe.
+
+     -uusseerr _u_n_a_m_e
+             The file's owner is _u_n_a_m_e, or, if _u_n_a_m_e is numeric,
+             the user number _u_n_a_m_e.
+
+EExxaammpplleess
+          find / -name core -mtime +7 -exec rm {} ;
+
+     removes every file named ccoorree in the whole file tree that
+     has not been changed in a week.
+
+SSEEEE AALLSSOO
+     cchhmmoodd, sshh, tteesstt
+
+DDIIAAGGNNOOSSTTIICCSS
+     ffiinndd complains and continues if a directory cannot be opened
+     or read, or a -nneewweerr file does not exist; it exits nonzero
+     only if it was invoked with a bad expression or a starting
+     _d_i_r_e_c_t_o_r_y does not exist or is not a directory.

@@ -1,0 +1,87 @@
+
+
+ccppddiirr                                                       ccppddiirr
+
+
+
+NNAAMMEE
+     cpdir - copy directory hierarchy
+
+SSYYNNOOPPSSIISS
+     ccppddiirr [_o_p_t_i_o_n ...] _d_i_r_1 _d_i_r_2
+
+DDEESSCCRRIIPPTTIIOONN
+     ccppddiirr copies the directory hierarchy rooted at _d_i_r_1 onto
+     _d_i_r_2, creating _d_i_r_2 (via mmkkddiirr) if it does not already ex-
+     ist.  Regular files, subdirectories, and (for the superuser)
+     device special files and named pipes are all copied; hierar-
+     chies may straddle device boundaries.
+
+     Files within _d_i_r_1 that have more than one link to each other
+     are recreated as links to each other under _d_i_r_2 instead of
+     as separate copies.  Links to files outside the _d_i_r_1 hierar-
+     chy, or that cannot be recreated (for example, because the
+     target crosses a device boundary), are reported at the end
+     of the run as missed or broken external links, provided -vv
+     or -tt was given.
+
+     If a target file corresponding to a source file already ex-
+     ists and is not a directory, ccppddiirr unlinks it before
+     copying.  If _d_i_r_1 and _d_i_r_2 turn out to be the same directory
+     (or one nested inside the copy of the other), that directory
+     is skipped to avoid an infinite copy.
+
+     Copied files get the source file's permission bits.  When
+     run by the superuser, the owner, group, and full mode
+     (including the sticky bit) are preserved as well; otherwise
+     the invoking user owns the new files and the sticky bit is
+     not copied.
+
+     -dd   Give each copied file the source file's last-modified
+          time, instead of the time at which it was copied.
+
+     -ee   After an error, print a message and continue with the
+          rest of the hierarchy instead of exiting immediately.
+
+     -rr[_n]
+          Recur at most _n levels into the source hierarchy; the
+          contents of _d_i_r_1 itself are level 1.  A bare -rr with no
+          _n limits the copy to level 1 (no recursion into sub-
+          directories).  Without -rr, ccppddiirr recurs without limit.
+
+     -ss_n_a_m_e
+          Do not copy _n_a_m_e, a pathname relative to _d_i_r_1. May be
+          repeated to suppress more than one name.
+
+     -tt   Test only: report what would be done (implies -ee and
+          verbose reporting) without creating, copying, linking,
+          or unlinking anything.
+
+     -uu   Copy a regular file only if the source is newer than an
+          existing target, or if the target does not yet exist.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ccppddiirr                                                       ccppddiirr
+
+
+
+     -vv   Print a line for each file as it is copied, in addition
+          to the information printed under -tt.
+
+SSEEEE AALLSSOO
+     ccpp, mmkkddiirr, llnn
+
+DDIIAAGGNNOOSSTTIICCSS
+     ccppddiirr prints a usage message and exits 1 if given a bad
+     option or not exactly two directory arguments.  During the
+     copy, it reports (and, without -ee, stops on) conditions such
+     as a source or target that cannot be found, opened, or read;
+     a target that is not a directory or lacks needed permission;
+     a device boundary crossing; a link that could not be
+     recreated; or running out of memory.  With -ee, ccppddiirr exits 1
+     at the end if any error occurred.

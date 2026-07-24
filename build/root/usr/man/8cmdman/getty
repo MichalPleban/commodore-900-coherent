@@ -1,0 +1,84 @@
+
+
+ggeettttyy                                                       ggeettttyy
+
+
+
+NNAAMMEE
+     getty - read a login name and start login
+
+SSYYNNOOPPSSIISS
+     /eettcc/ggeettttyy [_t_y_p_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     iinniitt invokes ggeettttyy on each enabled line listed in /eettcc/ttttyyss,
+     with the standard input, output, and error already attached
+     to that terminal, and with the second character of the cor-
+     responding /eettcc/ttttyyss line (the character following the en-
+     able flag) as _t_y_p_e. ggeettttyy sets the terminal's initial speed
+     and mode from the table selected by _t_y_p_e, prints a login
+     prompt, and reads a name.  Once it has a usable name, it
+     replaces itself with /bbiinn/llooggiinn, passing the name as its ar-
+     gument, and passing along the erase and kill characters read
+     from the terminal's previous settings.
+
+     While reading the name, ggeettttyy folds the whole line to lower
+     case if every letter typed was upper case, recognizes the
+     terminal's own erase and kill characters, and, on BREAK, an
+     empty line, or an unrecognized character, moves on to the
+     next speed in the table (wrapping back to the first) and
+     tries again.  An end-of-file character on the first charac-
+     ter of the line, or a NUL byte, also restarts the read at
+     the next speed.
+
+     Without an argument, ggeettttyy uses table 00, a set of common
+     dial-in speeds.  The recognized values of _t_y_p_e select a
+     table as follows:
+
+          -       Teletype 33, fixed at 110 baud
+          00       300, 1200, 150, 110 baud, in that cycle
+          11       Teletype 37, fixed at 150 baud
+          22       9600 baud, fixed
+          33       1200, 300 baud, in that cycle
+          44       300 baud, fixed
+          55       300, 1200 baud, in that cycle
+          AA       50 baud
+          BB       75 baud
+          CC       110 baud
+          DD       134 baud
+          EE       150 baud
+          FF       200 baud
+          GG       300 baud
+          HH       600 baud
+          II       1200 baud
+          JJ       1800 baud
+          KK       2000 baud
+          LL       2400 baud
+          MM       3600 baud
+          NN       4800 baud
+          OO       7200 baud
+          PP       9600 baud
+          QQ       19200 baud
+
+
+COHERENT Administration Manual                             Page 1
+
+
+
+
+ggeettttyy                                                       ggeettttyy
+
+
+
+          RR, SS    extended speeds A and B
+
+FFIILLEESS
+          /eettcc/ttttyyss   terminals to start getty on
+          /bbiinn/llooggiinn  program run once a name is read
+
+SSEEEE AALLSSOO
+     iinniitt, llooggiinn
+
+NNOOTTEESS
+     ggeettttyy is always started by iinniitt with its argument taken from
+     /eettcc/ttttyyss; it is not ordinarily run by hand.

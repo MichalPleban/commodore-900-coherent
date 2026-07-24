@@ -1,0 +1,32 @@
+
+
+uuppddaattee                                                     uuppddaattee
+
+
+
+NNAAMMEE
+     update - periodically flush file system buffers to disk
+
+SSYYNNOOPPSSIISS
+     /eettcc/uuppddaattee
+
+DDEESSCCRRIIPPTTIIOONN
+     uuppddaattee runs forever, calling ssyynncc() every 30 seconds to
+     flush modified in-memory disk buffers out to disk.  It takes
+     no arguments and recognizes no options.
+
+     uuppddaattee ignores both the interrupt (SSIIGGIINNTT and hangup (SSIIGGHHUUPP
+     signals, so that it cannot be killed by a signal from its
+     controlling terminal.  It is normally started once, from
+     /eettcc/rrcc, and left running in the background for the life of
+     the system.
+
+FFIILLEESS
+     /eettcc/uuppddaattee
+
+SSEEEE AALLSSOO
+     ssyynncc, ssyynncc()
+
+NNOOTTEESS
+     There is no entry for uuppddaattee in /eettcc/hheellppffiillee; the summary
+     above is written from the source.

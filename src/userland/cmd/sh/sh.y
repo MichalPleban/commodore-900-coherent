@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * The Bourne shell.
  * This shell is dedicated to Ciaran Gerald Aidan O'Donnell.
  * May he live a thousand minutes.  (long enough to fix up YACC).

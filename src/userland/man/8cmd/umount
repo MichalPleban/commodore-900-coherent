@@ -1,0 +1,57 @@
+.TH umount "" "Administration"
+.SH NAME
+umount \- unmount a file system
+.SH SYNOPSIS
+\fB/etc/umount \fIspecial\fR
+.SH DESCRIPTION
+.HS
+umount -- unmount file system
+Usage:	/etc/umount special
+The block special file 'special' previously mounted by '/etc/mount'
+on 'directory' is unmounted and the previous contents of 'directory'
+are once again accessible.
+A file system can only be unmounted if all its files are closed.
+.HE
+.B umount
+unmounts the file system held on block-special device
+.IR special ,
+which was previously grafted onto the directory tree by
+.BR /etc/mount .
+The previous contents of the directory on which it was mounted become
+accessible again.
+.PP
+.B umount
+first calls the
+.BR umount ()
+system call to detach
+.I special
+from the directory tree; a file system can only be unmounted if all
+of its files are closed.
+Once the system call succeeds,
+.B umount
+finds and clears the entry for
+.I special
+(matched by its final pathname component) in
+.B /etc/mnttab
+and
+.BR /etc/mtab .
+.SH FILES
+.DS
+.ta 16n
+\fB/etc/mtab\fR	table of mounted file systems
+\fB/etc/mnttab\fR	table of mount options
+.DE
+.SH "SEE ALSO"
+.BR mount ,
+.B umount()
+.SH DIAGNOSTICS
+.B umount
+complains and exits if the
+.BR umount ()
+system call fails, for example because
+.I special
+is not currently mounted or one or more of its files is still open.
+.SH NOTES
+Unmounting requires permission to call
+.BR umount (),
+which ordinarily only the superuser has.

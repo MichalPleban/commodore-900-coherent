@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * The routines in this file
  * read and write ASCII files from the
  * disk. All of the knowledge about files

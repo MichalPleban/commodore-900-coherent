@@ -1,0 +1,183 @@
+
+
+lleexx                                                           lleexx
+
+
+
+NNAAMMEE
+     lex - lexical analyzer generator
+
+SSYYNNOOPPSSIISS
+     lleexx [-tt] [-vv] [_f_i_l_e]
+     cccc lleexx.yyyy.cc -llll
+
+DDEESSCCRRIIPPTTIIOONN
+     lleexx reads a lexical specification from _f_i_l_e (or from stan-
+     dard input, if none is given) and writes a generated func-
+     tion yyyylleexx() in C, either into the file lleexx.yyyy.cc or, with
+     -tt, to standard output.  The program that calls yyyylleexx() is
+     compiled and linked with the run-time support library, -llll.
+
+     -tt   Write the generated source to standard output instead
+          of lleexx.yyyy.cc.
+
+     -vv   After processing, print a one-line count of rules,
+          automaton states, and character classes to standard er-
+          ror.
+
+     -pp   Print a human-readable dump of the generated automaton
+          to standard error.  This option is accepted by the
+          program but is not listed in its built-in usage message
+          or in the Options table above.
+
+     A specification is divided by lines containing only %% into
+     a _d_e_f_i_n_i_t_i_o_n_s section, a _r_u_l_e_s section, and an optional
+     third section that is copied to the output verbatim.
+
+     In the definitions section, a line
+          _n_a_m_e _p_a_t_t_e_r_n
+     records _p_a_t_t_e_r_n under _n_a_m_e for later use as {_n_a_m_e} in any
+     pattern (definitions section or rules section); a line
+          %SS _n_a_m_e ...
+     declares one or more start-condition names, and a line
+          %CC _n_a_m_e ...
+     declares one or more context names.  Lines of the form
+          %{
+          _C _c_o_d_e
+          %}
+     are copied verbatim into the output, near the top of the
+     file, and any line beginning with a blank or tab is also
+     copied verbatim (before the rules) or, if it appears at the
+     very start of the rules section, copied to the start of the
+     body of yyyylleexx(). A line
+          %xx ...
+     is read and discarded (accepted but not otherwise acted on).
+
+     Each other line of the definitions section, and each line of
+     the rules section not covered above, is a rule:
+
+          [<_n_a_m_e,...>][^]_p_a_t_t_e_r_n[/_l_o_o_k_a_h_e_a_d][$] _a_c_t_i_o_n
+
+     The optional <_n_a_m_e,...> restricts the rule to the listed
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+lleexx                                                           lleexx
+
+
+
+     ssttaarrtt conditions; ^ anchors the match to the beginning of a
+     line; $ anchors it to the end of a line; and /_l_o_o_k_a_h_e_a_d re-
+     quires _p_a_t_t_e_r_n to be followed by _l_o_o_k_a_h_e_a_d without consuming
+     it.  _a_c_t_i_o_n is a C statement (or a brace-delimited block)
+     copied into a ccaassee of the generated yyyylleexx(); a rule whose
+     action is just | falls through to the action of the
+     following rule.  Rules in the definitions section instead
+     define a named _p_a_t_t_e_r_n for use as {_n_a_m_e} (no _a_c_t_i_o_n). Lines
+          %CC _n_a_m_e
+     in the rules section mark the start of the rules belonging
+     to context _n_a_m_e.
+
+     A _p_a_t_t_e_r_n is built from:
+
+     cc    An ordinary character cc.
+
+     \cc   The character cc literally, even if it would otherwise
+          be special; \bb, \ff, \nn, \rr, and \tt give the usual con-
+          trol characters, and \_n_n_n (one to two further octal
+          digits) gives the character with that code.
+
+     qquuootteedd ssttrriinngg
+          A pattern "_t_e_x_t" matches _t_e_x_t literally; every charac-
+          ter between the quotes is taken as itself (still sub-
+          ject to \ escaping), and quoted text may not contain a
+          literal newline.
+
+     .    Any single character.
+
+     [_c_h_a_r_s]
+          Any one of the listed characters or ranges (_c_1-_c_2); a
+          leading ^ inside the brackets inverts the set; a - just
+          before the closing ] stands for itself; and a bare .
+          inside brackets stands for every character.
+
+     {_n_a_m_e}
+          The pattern recorded under _n_a_m_e in the definitions sec-
+          tion.
+
+     (_e_x_p)
+          _e_x_p (grouping).
+
+     _e*   Zero or more repetitions of _e.
+
+     _e+   One or more repetitions of _e.
+
+     _e?   Zero or one occurrence of _e.
+
+     _e{_n} Exactly _n (a decimal number) repetitions of _e.
+
+     _e{_m,_n}
+          From _m through _n repetitions of _e.
+
+     _e_1_e_2 _e_1 followed by _e_2.
+
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+lleexx                                                           lleexx
+
+
+
+     _e_1|_e_2
+          Either _e_1 or _e_2.
+
+     Outside quotes and character classes, the characters \, ",
+     [, ., (, ), {, }, *, +, ?, |, /, $, ^, and < (and blank,
+     tab, and newline) are special and must be written with a
+     leading \ or enclosed in double quotes to stand for themsel-
+     ves; inside a character class, only ], -, ^, \, and . are
+     special.
+
+     Within an _a_c_t_i_o_n in the rules section, lleexx recognizes the
+     following names, each generated as a preprocessor macro or,
+     for yyyywwrraapp(), expected to be supplied by the user or by -llll:
+
+     iinnppuutt()
+          Read and return the next input character.
+
+     oouuttppuutt(_c)
+          Write character _c to the output.
+
+     uunnppuutt(_c)
+          Push character _c back onto the input.
+
+     EECCHHOO Write the matched text (found in yyyytteexxtt, yyyylleenngg charac-
+          ters long) to the output.
+
+     RREEJJEECCTT
+          Go on to the next-longest or next-listed matching rule
+          instead of running this rule's action.
+
+     BBEEGGIINN _n_a_m_e
+          Switch to start condition _n_a_m_e (or BBEEGGIINN 00 to clear
+          it).
+
+     yyyysswwiittcchh(_n_a_m_e)
+          Switch to context _n_a_m_e (only defined when the
+          specification declares at least one context with %CC).
+
+     yyyywwrraapp()
+          Called by the generated yyyylleexx() at end of file; return
+          nonzero to stop, or arrange for more input and return
+          zero to continue.
+
+SSEEEE AALLSSOO
+     yyaacccc

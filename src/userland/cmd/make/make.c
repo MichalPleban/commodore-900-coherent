@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * make -- maintain program groups
  * td 80.09.17
  * things to do:

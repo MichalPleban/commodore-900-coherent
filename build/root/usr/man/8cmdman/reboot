@@ -1,0 +1,30 @@
+
+
+rreebboooott                                                     rreebboooott
+
+
+
+NNAAMMEE
+     reboot - flush the file systems and restart the machine
+
+SSYYNNOOPPSSIISS
+     /eettcc/rreebboooott
+
+DDEESSCCRRIIPPTTIIOONN
+     rreebboooott calls ssyynncc() twice and then calls the rreebboooott() system
+     call.  rreebboooott() marks every file system clean, flushes the
+     buffer cache, and jumps to the ROM restart entry; it does
+     not return except on failure.
+
+     Only the superuser may reboot the machine: if rreebboooott() fails
+     (which happens when the caller is not the superuser), it
+     returns instead of restarting the machine, and rreebboooott prints
+     a diagnostic on the standard error and exits with status 1.
+
+SSEEEE AALLSSOO
+     ssyynncc
+
+DDIIAAGGNNOOSSTTIICCSS
+     If the rreebboooott() system call fails, rreebboooott prints
+          rreebboooott: ccaannnnoott rreebboooott (nnoott ssuuppeerr-uusseerr?)
+     on the standard error and exits with status 1.

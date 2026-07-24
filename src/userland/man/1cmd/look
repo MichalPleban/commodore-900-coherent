@@ -1,0 +1,62 @@
+.TH look "" "Command"
+.SH NAME
+look \- find matching lines in a sorted file
+.SH SYNOPSIS
+\fBlook [\-df] \fIstring\fR [\fIfile\fB]\fR
+.SH DESCRIPTION
+.HS
+look -- find matching lines in a sorted file
+Usage:	look [ -df ] string [ file ]
+Options:
+	-d	Dictionary ordering
+	-f	Fold cases for comparison
+If no 'file', look uses '/usr/dict/words' with -df option.
+.HE
+.B look
+does a binary search of the sorted
+.I file
+and prints every line that begins with
+.IR string .
+If no
+.I file
+is given,
+.B look
+searches
+.B /usr/dict/words
+and behaves as if both
+.B \-d
+and
+.B \-f
+had been given.
+.IP \fB\-d\fR
+Dictionary order: while comparing,
+.I string
+and the file are considered a character at a time and only
+alphanumerics and blanks participate; all other characters are
+skipped over.
+.IP \fB\-f\fR
+Fold case: both
+.I string
+and the lines read from the file have their lower-case letters
+converted to upper case before being compared, so the search is
+case-insensitive.
+.SH FILES
+.DS
+.ta 20n
+\fB/usr/dict/words\fR	default dictionary file
+.DE
+.SH "SEE ALSO"
+.B sort
+.SH NOTES
+.I string
+and
+.I file
+should already be sorted in the same order that
+.B \-d
+and
+.B \-f
+select; if the file was not sorted with matching
+.B sort
+options,
+.B look
+may fail to find lines that are actually present.

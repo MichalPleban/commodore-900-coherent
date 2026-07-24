@@ -1,0 +1,35 @@
+
+
+ttoouucchh                                                       ttoouucchh
+
+
+
+NNAAMMEE
+     touch - update modification time of a file
+
+SSYYNNOOPPSSIISS
+     ttoouucchh [-cc] _f_i_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     For each named _f_i_l_e, ttoouucchh sets the file's last-modified
+     time to the current time, without otherwise changing its
+     contents.  By default, ttoouucchh creates _f_i_l_e if it does not al-
+     ready exist.
+
+     -cc   Do not create _f_i_l_e if it does not exist; instead report
+          the omission and go on to the next _f_i_l_e.
+
+     ttoouucchh updates the modification time of an existing, non-
+     empty _f_i_l_e by reading its first byte and writing the same
+     byte back to the same position; a zero-length _f_i_l_e is in-
+     stead recreated (unless -cc is given).
+
+SSEEEE AALLSSOO
+     mmaakkee
+
+DDIIAAGGNNOOSSTTIICCSS
+     ttoouucchh reports ttoouucchh: ccaannnnoott ccrreeaattee followed by the name of
+     _f_i_l_e if _f_i_l_e does not exist and cannot be created, and
+     ttoouucchh: wwrriittee eerrrroorr oonn followed by the name of _f_i_l_e if the
+     rewrite fails; it exits with a nonzero status if this hap-
+     pens for any _f_i_l_e.

@@ -1,0 +1,127 @@
+.TH rsh "" "Command"
+.SH NAME
+rsh \- restricted command interpreter
+.SH SYNOPSIS
+\fBrsh [\-ceiknprstuvx] \fIfile \fR[\fIargument ...\fR]
+.br
+\fBrsh [\-eiknprstuvx] \-c \fIstring \fR[\fIargument ...\fR]
+.br
+\fBrsh [\-eiknprstuvx]\fR
+.SH DESCRIPTION
+.HS
+rsh -- restricted command interpreter
+Usage:	rsh [ -ceiknprstuvx ] [ -c string ] [ file [ argument ... ] ]
+Options:
+	-c string	Execute 'string' as a command
+	-e	Exit if any command exits with nonzero status
+	-i	Be an interactive shell
+	-k	Place all keyword (name=value) arguments into the environment
+	-n	Read commands but do not execute them
+	-p	Reserved (meaning not documented in the source)
+	-r	Mark this session as a restricted shell
+	-s	Read commands from the standard input, write output to the
+		standard error
+	-t	Exit after reading and executing one command
+	-u	Treat use of an unset variable as an error
+	-v	Print each input line as it is read
+	-x	Print each command and its arguments as it is executed
+	-	(alone) Cancel the -v and -x options
+.HE
+.B rsh
+is built from the same command-interpreter sources as
+.BR sh ,
+compiled as a separate program from a copy of those sources kept
+under its own name; it accepts the same option letters and the same
+command language.
+With no
+.I file
+and without
+.B \-c
+or
+.BR \-s ,
+.B rsh
+reads commands from its standard input.
+With a
+.I file
+argument (and neither
+.B \-c
+nor
+.BR \-s ),
+.B rsh
+reads commands from
+.IR file ,
+and any further arguments become that script's positional
+parameters.
+With
+.BR \-c ,
+.B rsh
+executes
+.I string
+as a command, and any further arguments become its positional
+parameters.
+.PP
+Option letters may be combined after a single leading
+.BR \- ,
+as in
+.BR \-ex .
+.IP "\fB\-c \fIstring\fR"
+Execute
+.I string
+as a command.
+.IP \fB\-e\fR
+Exit as soon as any command exits with nonzero status, if not
+running interactively.
+.IP \fB\-i\fR
+Be interactive (prompt, and ignore some signals) even if the
+standard input is not a terminal.
+.IP \fB\-k\fR
+Place keyword (\fIname\fB=\fIvalue\fR) arguments anywhere in a
+command line into the environment of that command, not only those
+that precede the command name.
+.IP \fB\-n\fR
+Read commands and check their syntax, but do not execute them.
+.IP \fB\-p\fR
+Recorded in the shell's flag array by letter, but its purpose is not
+documented in this source (the header comment marks it ``Unknown'').
+.IP \fB\-r\fR
+Mark the session as a restricted shell.
+See NOTES.
+.IP \fB\-s\fR
+Read commands from the standard input even if a
+.I file
+or
+.B \-c
+.I string
+was also given, and write ordinary command output to the standard
+error instead of the standard output.
+.IP \fB\-t\fR
+Read and execute a single command, then exit.
+.IP \fB\-u\fR
+Treat reference to an unset shell variable as an error, instead of
+substituting a null value.
+.IP \fB\-v\fR
+Print each line of input as it is read, before any substitution.
+.IP \fB\-x\fR
+Print each command and its expanded arguments just before executing
+it.
+.SH "SEE ALSO"
+.BR login ,
+.B sh
+.SH NOTES
+The
+.B \-r
+flag is recorded in the shell's flag array (as the character
+.B r
+under
+.BR rflag ),
+exactly like every other option letter, but no other routine in this
+source examines
+.B rflag
+again afterward: nothing in this source consults it to refuse a
+.BR cd ,
+a command named with a
+.BR / ,
+output redirection, or reassignment of any variable.
+Giving
+.B \-r
+to this build has no effect beyond being recorded.

@@ -1,0 +1,62 @@
+.TH lc "" "Command"
+.SH NAME
+lc \- categorize files in a directory
+.SH SYNOPSIS
+\fBlc [\-1abcdfmp] [\fIdirectory ...\fB]\fR
+.SH DESCRIPTION
+.HS
+lc -- categorize files in a directory
+Usage:	lc [ -1abcdfp ] [ directory ... ]
+Options:
+	-1	List files one per line instead of in columns
+	-a	List all files in directory (including '.' and '..')
+	-b	List block special files only
+	-c	List character special files only
+	-d	List directories only
+	-f	List regular files only
+	-p	List pipe files only
+The options can be combined.
+If there is no 'directory' specified, the current directory is used.
+.HE
+.B lc
+lists the files in each named
+.IR directory ,
+or in the current directory if none is named.
+Unless one of
+\fB\-b\fR, \fB\-c\fR, \fB\-d\fR, \fB\-f\fR, \fB\-m\fR, or \fB\-p\fR
+restricts the listing to one type, all six types are listed, each
+under its own heading (``Directories'', ``Files'', ``Character
+special files'', ``Block special files'', ``Pipes'', ``Multiplexed
+files''), sorted by name and packed into columns that fit the
+terminal width.
+When more than one
+.I directory
+is given, each is preceded by its own name.
+.IP \fB\-1\fR
+List one file name per line instead of packing them into columns.
+.IP \fB\-a\fR
+Include
+.B .
+and
+.B ..
+in the listing.
+.IP \fB\-b\fR
+List block-special files only.
+.IP \fB\-c\fR
+List character-special files only.
+.IP \fB\-d\fR
+List directories only.
+.IP \fB\-f\fR
+List regular files only.
+.IP \fB\-m\fR
+List multiplexed (multiplexor) files only.
+This option is accepted by the program but is not mentioned in its
+built-in usage message or in the Options table above.
+.IP \fB\-p\fR
+List pipe files only.
+.SH "SEE ALSO"
+.B ls
+.SH NOTES
+.B "lc -f"
+is useful for producing a list of regular file names, for example to
+feed to another command via command substitution.

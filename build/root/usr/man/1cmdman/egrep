@@ -1,0 +1,105 @@
+
+
+eeggrreepp                                                       eeggrreepp
+
+
+
+NNAAMMEE
+     egrep - extended pattern search
+
+SSYYNNOOPPSSIISS
+     eeggrreepp [-bbcceeffhhllnnssvvyy] [_p_a_t_t_e_r_n] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     eeggrreepp searches each _f_i_l_e for lines matching _p_a_t_t_e_r_n. If no
+     _f_i_l_e is given, it searches the standard input.  Normally
+     each matching line is printed.  Unlike ggrreepp, eeggrreepp always
+     accepts the extended metacharacters (, ), |, +, and ?
+     described below, and it builds a deterministic finite
+     automaton from the pattern before scanning any input, which
+     is why it runs considerably faster than ggrreepp on long input.
+
+     Exactly one _p_a_t_t_e_r_n must be supplied, either as the first
+     non-option argument, with -ee, or as the contents of the file
+     named by -ff; these three sources are mutually exclusive.
+
+PPaatttteerrnnss
+     A _p_a_t_t_e_r_n is built from ordinary characters, which match
+     themselves, and the following:
+
+     ^   Anchors the match to the start of the line.
+
+     $   Anchors the match to the end of the line.
+
+     .   Matches any single character.
+
+     *   Matches zero or more occurrences of the preceding pat-
+         tern element.
+
+     +   Matches one or more occurrences of the preceding pattern
+         element.
+
+     ?   Matches zero or one occurrence of the preceding pattern
+         element.
+
+     [_c_h_a_r_s]
+         Matches any one of the enclosed characters; a leading ^
+         complements the set, and ranges may be written with -.
+
+     \_c  Matches the character _c literally.
+
+     (_p_a_t_t_e_r_n)
+         Groups a subpattern, for use with *, +, ?, or |.
+
+     |   Matches either the pattern before it or the pattern
+         after it.  A newline embedded in the _p_a_t_t_e_r_n argument
+         acts the same as |.
+
+     Because several of these characters are also special to the
+     shell, a _p_a_t_t_e_r_n that uses them should be quoted.
+
+OOppttiioonnss
+
+
+CCOOHHEERREENNTT CCoommmmaanndd MMaannuuaall                                    PPaaggee 11
+
+
+
+
+eeggrreepp                                                       eeggrreepp
+
+
+
+     -bb  Precede each matching line with the number of the input
+         block it started in.
+
+     -cc  Print only a count of matching lines, not the lines
+         themselves.
+
+     -ee  The next argument is _p_a_t_t_e_r_n, useful when it begins with
+         -.
+
+     -ff  The next argument names a file containing one pattern
+         per line; no _p_a_t_t_e_r_n argument is given on the command
+         line.
+
+     -hh  Do not print file names ahead of matched lines.
+
+     -ll  Print only the names of files that contain a match.
+
+     -nn  Precede each matching line with its line number within
+         its file.
+
+     -ss  Print nothing; only set the exit status.
+
+     -vv  Print lines that do _n_o_t match _p_a_t_t_e_r_n.
+
+     -yy  Make lower-case letters in _p_a_t_t_e_r_n match either case in
+         the input.
+
+SSEEEE AALLSSOO
+     aawwkk, eedd, eexxpprr, ggrreepp
+
+DDIIAAGGNNOOSSTTIICCSS
+     eeggrreepp returns 0 if any line matched, 1 if none did, and 2 if
+     invoked incorrectly or a file could not be opened.

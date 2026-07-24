@@ -1,0 +1,25 @@
+
+
+rreevv                                                           rreevv
+
+
+
+NNAAMMEE
+     rev - reverse lines of files
+
+SSYYNNOOPPSSIISS
+     rreevv [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     rreevv reverses the order of the characters in every line of
+     every named _f_i_l_e and writes the result to the standard out-
+     put.  If no _f_i_l_e is given, rreevv reads the standard input in-
+     stead.  If a named _f_i_l_e cannot be opened, rreevv complains and
+     goes on to the next _f_i_l_e.
+
+SSEEEE AALLSSOO
+     ccaatt
+
+NNOOTTEESS
+     rreevv buffers each line in a fixed 1000-character array; an
+     input line longer than that is not handled correctly.

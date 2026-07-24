@@ -1,0 +1,39 @@
+.TH update "" "Administration"
+.SH NAME
+update \- periodically flush file system buffers to disk
+.SH SYNOPSIS
+\fB/etc/update\fR
+.SH DESCRIPTION
+.HS
+update -- flush file system buffers periodically
+Usage:	/etc/update
+update calls sync every 30 seconds, forever.
+It ignores the interrupt and hangup signals.
+.HE
+.B update
+runs forever, calling
+.B sync()
+every 30 seconds to flush modified in-memory disk buffers out to disk.
+It takes no arguments and recognizes no options.
+.PP
+.B update
+ignores both the interrupt
+.RB ( SIGINT )
+and hangup
+.RB ( SIGHUP )
+signals, so that it cannot be killed by a signal from its controlling
+terminal.
+It is normally started once, from
+.BR /etc/rc ,
+and left running in the background for the life of the system.
+.SH FILES
+.B /etc/update
+.SH "SEE ALSO"
+.BR sync ,
+.B sync()
+.SH NOTES
+There is no entry for
+.B update
+in
+.BR /etc/helpfile ;
+the summary above is written from the source.

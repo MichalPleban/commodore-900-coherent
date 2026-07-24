@@ -1,0 +1,19 @@
+.TH tty "" "Command"
+.SH NAME
+tty \- print the user's terminal name
+.SH SYNOPSIS
+\fBtty\fR
+.SH DESCRIPTION
+.HS
+tty -- print the user's terminal name
+Usage:	tty
+.HE
+.B tty
+prints the pathname of the character-special file associated with
+the standard error, which is ordinarily your controlling terminal.
+.SH DIAGNOSTICS
+.B tty
+prints the message `Not a tty' if the standard error is not
+associated with a terminal.
+.SH "SEE ALSO"
+.B who

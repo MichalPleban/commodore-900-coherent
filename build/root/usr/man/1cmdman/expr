@@ -1,0 +1,96 @@
+
+
+eexxpprr                                                         eexxpprr
+
+
+
+NNAAMMEE
+     expr - compute a command line expression
+
+SSYYNNOOPPSSIISS
+     eexxpprr _a_r_g_u_m_e_n_t ...
+
+DDEESSCCRRIIPPTTIIOONN
+     Each _a_r_g_u_m_e_n_t is one token of an expression; separate com-
+     mand-line arguments correspond to separate tokens, so
+     operators must stand as their own argument, surrounded by
+     spaces.  eexxpprr evaluates the expression and writes the
+     result, followed by a newline, to the standard output.  It
+     exits 0 if the resulting value is true (a non-null string
+     other than 00), 1 if it is false, and 2 on a syntax error or
+     overflow.
+
+     An _a_r_g_u_m_e_n_t that looks like an optionally signed decimal in-
+     teger is treated as a number wherever the operator requires
+     one; otherwise it is compared or concatenated as a string.
+     Integers are held as signed long values; no check is made
+     for overflow in the arithmetic operators.
+
+     Operators, in increasing order of precedence (operators
+     listed together bind equally):
+
+     { _e_1 , _e_2 , _e_3 }
+           Return _e_2 if _e_1 is true, otherwise _e_3. If the third
+           argument is omitted, it defaults to 00.
+
+     _e_1 | _e_2
+           Return _e_1 if it is true, otherwise _e_2.
+
+     _e_1 & _e_2
+           Return _e_1 if both _e_1 and _e_2 are true, otherwise 00.
+
+     _e_1 _r_e_l _e_2
+           where _r_e_l is one of <, >, <=, >=, ==, or !=. Return 11
+           if the relation holds and 00 otherwise.  The comparison
+           is numeric if both _e_1 and _e_2 look like integers, and a
+           string comparison otherwise.
+
+     _e_1 + _e_2, _e_1 - _e_2
+           Add or subtract; both operands must be integers.
+
+     _e_1 * _e_2, _e_1 / _e_2, _e_1 % _e_2
+           Multiply, divide, or take the remainder; both operands
+           must be integers.
+
+     _e_1 : _e_2
+           Match string _e_1 against the regular expression _e_2,
+           using the pattern syntax of eedd. If _e_2 contains one or
+           more \( ...  \) subexpressions, the result is the con-
+           catenation of the text each subexpression matched;
+           otherwise the result is the number of characters _e_2
+           matched at the start of _e_1. A failed match yields 00 in
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+eexxpprr                                                         eexxpprr
+
+
+
+           eeiitthheerr case.
+
+     lleenn _e Return the length of _e in characters.  lleenn is a
+           reserved word, and must be given as its own argument.
+
+     ! _e   Return 11 if _e is false, 00 if it is true.
+
+     - _e   Return the negative of the integer _e.
+
+     ( _e ) Group a subexpression; each of (, ), must be its own
+           argument.
+
+     Because (, ), <, >, &, |, and * are also special to the
+     shell sshh, they must be quoted or escaped in a shell command
+     line.
+
+SSEEEE AALLSSOO
+     eedd, sshh, tteesstt
+
+DDIIAAGGNNOOSSTTIICCSS
+     eexxpprr exits 0 if the expression's value is true, 1 if false,
+     and 2 if a syntax error, missing operand, or arithmetic er-
+     ror was found; in the last case it also prints a message
+     naming the offending argument.

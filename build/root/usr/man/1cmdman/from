@@ -1,0 +1,39 @@
+
+
+ffrroomm                                                         ffrroomm
+
+
+
+NNAAMMEE
+     from - generate a list of numbers
+
+SSYYNNOOPPSSIISS
+     ffrroomm _s_t_a_r_t ttoo _s_t_o_p [bbyy _i_n_c_r]
+
+DDEESSCCRRIIPPTTIIOONN
+     ffrroomm prints, one per line, the sequence of integers starting
+     at _s_t_a_r_t and continuing by steps of _i_n_c_r (default: 1) up to
+     and including _s_t_o_p, in either direction.  The literal words
+     ttoo and bbyy must appear exactly as shown.
+
+     Each of _s_t_a_r_t, _s_t_o_p, and _i_n_c_r is a decimal integer, option-
+     ally preceded by -. _i_n_c_r must have the same sign as _s_t_o_p-
+     (or be omitted, giving the default of 1); a zero _i_n_c_r is
+     also rejected.
+
+     ffrroomm is typically used inside a shell loop, for example
+
+          for i in `from 0 to 7`
+          do
+                  /etc/mknod /dev/hs0$i c 7 $i
+          done
+
+SSEEEE AALLSSOO
+     sshh
+
+DDIIAAGGNNOOSSTTIICCSS
+     ffrroomm prints a usage message and exits with status 1 if the
+     arguments do not have one of the two accepted forms, if ttoo
+     or bbyy is missing or misspelled, if a numeric argument is not
+     a valid signed integer, or if _i_n_c_r is zero or has the wrong
+     sign for the requested direction.

@@ -1,0 +1,31 @@
+.TH version "" "Command"
+.SH NAME
+version \- print the current directory and date, for use as a build stamp
+.SH SYNOPSIS
+\fBversion\fR
+.SH DESCRIPTION
+.HS
+version -- print current directory and date
+Usage:	version
+version takes no arguments; run it inside back-quotes to build a version string.
+.HE
+.B version
+prints, on a single line, the current working directory followed by
+the day of the month, the three-letter month abbreviation, and the
+last two digits of the year, each field separated by a slash, e.g.
+.BR /usr/src/20/Jul/86 .
+It takes no arguments and reads no input.
+.PP
+.B version
+is meant to be run inside a back-quote command substitution of the
+shell, to stamp a program with the directory and date from which it was
+built.
+.SH "SEE ALSO"
+.BR pwd ,
+.B date
+.SH NOTES
+There is no entry for
+.B version
+in
+.BR /etc/helpfile ;
+the summary above is written from the source.

@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Structure for the mount table maintained by
  * `/etc/mount' and `/etc/umount'.
  * The file `/etc/mtab' is an array of these structures.

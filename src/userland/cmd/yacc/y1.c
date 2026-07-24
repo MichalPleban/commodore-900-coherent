@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * LALR-1 parser generator
  *
  * the comments previously here have been suppressed since they were

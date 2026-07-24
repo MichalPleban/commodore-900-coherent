@@ -1,0 +1,58 @@
+.TH mesg "" "Command"
+.SH NAME
+mesg \- permit/deny messages from other users
+.SH SYNOPSIS
+\fBmesg [\fIstate\fR]
+.SH DESCRIPTION
+.HS
+mesg -- permit/deny messages from other users
+Usage:	mesg [ state ]
+States:
+	n	Disallow messages
+	y	Allow messages
+With no arguments, mesg prints the state.
+.HE
+.B mesg
+controls whether other users may send messages to the caller's
+terminal with
+.B write
+or
+.BR msg .
+It does so by turning the group/other execute bit of the terminal's
+device file (which
+.B write
+and
+.B msg
+must be able to open for writing) on or off; the terminal is taken to
+be the caller's standard error.
+.PP
+The
+.I state
+argument is
+.B y
+or
+.B yes
+to allow messages, or
+.B n
+or
+.B no
+to disallow them.
+With no argument,
+.B mesg
+prints the current state,
+.B yes
+or
+.BR no ,
+and exits with status 0 if messages are allowed, 1 if not.
+.SH DIAGNOSTICS
+.B mesg
+complains and exits with status 2 if the standard error is not a
+terminal.
+.SH "SEE ALSO"
+.BR msg ,
+.B write
+.SH NOTES
+.B mesg
+is normally installed set-user-id, so that its execute permission on
+the terminal can be changed without giving the caller general write
+access to device files.

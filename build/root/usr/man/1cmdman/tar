@@ -1,0 +1,111 @@
+
+
+ttaarr                                                           ttaarr
+
+
+
+NNAAMMEE
+     tar - tape archive manager
+
+SSYYNNOOPPSSIISS
+     ttaarr [ccrrttuuxx][00-77bbffllmmvvwwzzUU] [_b_l_o_c_k_s] [_a_r_c_h_i_v_e] _f_i_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     ttaarr saves and restores files in a machine-independent ar-
+     chive format; its name is short for _t_a_p_e _a_r_c_h_i_v_e, though the
+     archive may equally well be an ordinary file or a floppy
+     disk instead of a magnetic tape.
+
+     The first argument to ttaarr is a string of option letters.
+     Exactly one of cc, rr, tt, uu, or xx must appear, selecting the
+     function to perform; the remaining letters are modifiers.
+     Any following arguments are _f_i_l_e operands, added to, ex-
+     tracted from, listed against, or updated in the archive; if
+     none are given, cc and rr operate on the current directory
+     (recursively), and tt and xx operate on every file already in
+     the archive.
+
+     cc    Create a new archive from the named _f_i_l_e operands, in-
+          cluding, recursively, the contents of any that are
+          directories.
+
+     rr    Append the named _f_i_l_e operands to the end of an exis-
+          ting archive.
+
+     tt    List the name of each _f_i_l_e in the archive that matches
+          an operand, or every file if none are given.  With vv,
+          also list the mode, group, owner, size, and modifica-
+          tion date of each entry.
+
+     uu    Like rr, but append a _f_i_l_e only if it is not already in
+          the archive or is newer than the copy already there.
+
+     xx    Extract the named _f_i_l_e operands from the archive, or
+          every file if none are given, restoring each one's
+          mode, owner, and group and, unless mm is given, its
+          modification time.
+
+     The following modifiers may be combined with the function
+     letter:
+
+     00-77  Selects a tape unit digit, used to build a default ar-
+          chive device name of the form /ddeevv/mmtt_n (or /ddeevv/rrmmtt_n if
+          the blocking factor is 1) when neither ff nor an _a_r_c_h_i_v_e
+          operand is given.
+
+     bb    Takes the next argument as the _b_l_o_c_k_i_n_g factor, the
+          number of archive records per physical record (default
+          1, maximum 20).
+
+     ff    Takes the next argument as the _a_r_c_h_i_v_e pathname instead
+          of using a tape device name.  An _a_r_c_h_i_v_e of - means the
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ttaarr                                                           ttaarr
+
+
+
+          ssttaannddaarrdd input (for tt/ xx) or the standard output (for
+          cc).
+
+     ll    Print a message for each link ttaarr was unable to resolve
+          while writing an archive.
+
+     mm    When extracting, leave the modification time of each
+          restored file as of the time it was extracted, instead
+          of restoring the time recorded in the archive.
+
+     vv    Verbose; print the name of each _f_i_l_e as it is
+          processed.
+
+     ww    Ask, for each _f_i_l_e, whether to add it to or extract it
+          from the archive.
+
+     zz    Pipe the archive through ccoommpprreessss while writing it, or
+          through uunnccoommpprreessss while reading it.  zz may not be com-
+          bined with rr or uu.
+
+     UU    Stop reading the archive as soon as an empty header
+          block is seen, for archives written by another ttaarr that
+          pads with a run of zero blocks instead of a single
+          empty header.  Without UU, ttaarr skips over an isolated
+          empty header block looking for further entries.
+
+SSEEEE AALLSSOO
+     ccoommpprreessss
+
+DDIIAAGGNNOOSSTTIICCSS
+     ttaarr complains and skips an entry whose checksum does not
+     match, and reports any file it could not create, open, or
+     link.  It exits with the current value of eerrrrnnoo, zero if no
+     system call has failed.
+
+NNOOTTEESS
+     The tape unit digits, blocking factor, and default device
+     names apply mainly when _a_r_c_h_i_v_e is a magnetic tape; on a
+     fixed disk or floppy, name the archive explicitly with ff.

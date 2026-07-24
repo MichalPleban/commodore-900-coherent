@@ -1,0 +1,34 @@
+
+
+hheeaadd                                                         hheeaadd
+
+
+
+NNAAMMEE
+     head - print the beginning (or all but the end) of a file
+
+SSYYNNOOPPSSIISS
+     hheeaadd [{+-}_n[llbbcc]] [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     hheeaadd copies part of _f_i_l_e, or of the standard input if _f_i_l_e
+     is not given, to the standard output.
+
+     The optional specifier gives the leading + or -, a count _n,
+     and an optional trailing letter ll, bb, or cc. A + measures _n
+     lines, blocks, or characters from the beginning of the file,
+     and hheeaadd copies input up to and including that point.  A -
+     measures _n from the end of the file, and hheeaadd copies all but
+     the last _n lines, blocks, or characters.  The trailing let-
+     ter selects the unit: for lines (the default if the letter
+     is omitted), bb for 512-byte blocks, or cc for characters.  If
+     the specifier is omitted entirely, +44ll is assumed, copying
+     the first four lines.
+
+SSEEEE AALLSSOO
+     dddd, eeggrreepp, ttaaiill
+
+DDIIAAGGNNOOSSTTIICCSS
+     hheeaadd prints CCaann'tt ooppeenn %ss if _f_i_l_e cannot be opened, and WWiinn-
+     ddooww ttoooo llaarrggee if a - count in blocks or lines is too large
+     to buffer, then exits with a nonzero status.

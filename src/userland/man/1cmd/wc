@@ -1,0 +1,65 @@
+.TH wc "" "Command"
+.SH NAME
+wc \- count words, lines, and characters in files
+.SH SYNOPSIS
+\fBwc [\-clw] [\fIfile ...\fR]
+.SH DESCRIPTION
+.HS
+wc -- count words, lines, and characters in files
+Usage:	wc [ -clw ] [ file ... ]
+Options:
+	-c	Print count of characters
+	-l	Print count of lines
+	-w	Print count of words
+If no 'file' is given, it uses the standard input;
+if more than one 'file' is given, it also prints a total.
+.HE
+For each named
+.IR file ,
+.B wc
+counts and prints the number of lines, words, and characters it
+contains.
+A word is a maximal run of characters delimited by a blank, a tab, or
+a newline; a line is counted at each newline character read.
+.PP
+If no
+.I file
+is named,
+.B wc
+reads the standard input and prints a single count with no file name
+attached.
+If more than one
+.I file
+is named,
+.B wc
+prints a count for each, in argument order, followed by a line labeled
+.B Total
+that sums the counts over all of them.
+A named file that cannot be opened is reported and skipped, and does
+not contribute to the total.
+.IP \fB\-l\fR
+Print only the line count.
+.IP \fB\-w\fR
+Print only the word count.
+.IP \fB\-c\fR
+Print only the character count.
+.PP
+The
+.BR \-l ,
+.BR \-w ,
+and
+.B \-c
+options may be combined in one argument, e.g.
+.B \-lw
+prints both the line and word counts.
+If none of them is given,
+.B wc
+prints all three counts, in the order lines, words, characters.
+.SH DIAGNOSTICS
+.B wc
+prints
+.B "wc: can't open file"
+for each named file it cannot open, and goes on to the next file.
+.SH NOTES
+Each count is printed right-justified in an eight-character field; if a
+file name follows, it is preceded by four spaces.

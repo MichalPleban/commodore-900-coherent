@@ -1,0 +1,68 @@
+.TH du "" "Command"
+.SH NAME
+du \- summarize disk usage
+.SH SYNOPSIS
+\fBdu [\-a] [\-s] [\fIdirectory ...\fB]\fR
+.SH DESCRIPTION
+.HS
+du -- summarize disk usage
+Usage:	du [ options ] [ directory ... ]
+Options:
+	-a	Print an entry for each file
+	-s	Print only a summary
+.HE
+For each named
+.IR directory ,
+.B du
+walks the directory tree rooted there and prints, in 512-byte blocks,
+the space used by each subdirectory (as a running subtotal, most
+deeply nested first), followed by the grand total for
+.I directory
+itself.
+If no
+.I directory
+is given,
+.B du
+reports on the current directory.
+If a named argument is a plain file rather than a directory,
+.B du
+prints its size and nothing else.
+.IP \fB\-a\fR 0.5i
+Also print a line for every plain file, not just for directories.
+.IP \fB\-s\fR
+Print only the single grand total for each named
+.I directory
+(or file); suppresses the per-subdirectory and, if
+.B \-a
+was also given, per-file lines.
+.PP
+.B du
+counts a file that has more than one link to it only once, using an
+internal table of up to 500 (device, i-number) pairs already seen; if
+a tree contains more distinct multiply-linked files than that,
+.B du
+warns and the excess ones are counted more than once.
+.PP
+Because each level of directory recursion holds a file descriptor and
+some stack, a directory tree nested more than 12 levels deep is
+finished by a forked child process rather than by further recursion
+in the same process; this is normal and not reported as an error.
+.SH DIAGNOSTICS
+.B du
+prints a warning and skips (counting it as zero blocks) any directory
+it cannot open or a directory entry it cannot
+.BR stat() ,
+and a ``directory structure too deep to traverse'' warning if a path
+name grows too long to hold, or if forking to continue a deeply
+nested tree fails.
+None of these warnings changes the exit status, which is 0 unless
+.B du
+was given an unrecognized option.
+.SH "SEE ALSO"
+.BR df ,
+.B find
+.SH NOTES
+.B du
+does not account for indirect blocks or other file-system overhead,
+so its totals can under-report the space a tree actually occupies on
+a device.

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Prepare text for statistical processing
  * by breaking it into words (and possibly
  * also punctuation marks) and discarding

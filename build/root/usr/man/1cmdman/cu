@@ -1,0 +1,120 @@
+
+
+ccuu                                                             ccuu
+
+
+
+NNAAMMEE
+     cu - call up and converse with another system over a serial
+     line
+
+SSYYNNOOPPSSIISS
+     ccuu [-hh] [-ll _l_i_n_e] [-ss _s_p_e_e_d] [_p_r_o_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     ccuu turns your terminal into a terminal on a serial line, so
+     that you can converse with a modem or with whatever system
+     answers on the other end.  By default it opens /ddeevv/mmooddeemm at
+     1200 baud in full-duplex mode and connects your terminal to
+     it.
+
+     If a _p_r_o_f_i_l_e is named on the command line, ccuu reads `~' com-
+     mands from that file (see PPrrooffiillee CCoommmmaannddss below) before
+     opening the port, typically to set the line, speed, and
+     duplex before dialing.
+
+     -hh   Run in half-duplex mode: echo locally every character
+          sent to the remote system.  Use this if the remote sys-
+          tem does not echo what you type.
+
+     -ll _l_i_n_e
+          Use _l_i_n_e instead of the default /ddeevv/mmooddeemm.
+
+     -ss _s_p_e_e_d
+          Set the serial port to _s_p_e_e_d baud (one of 50, 75, 110,
+          134, 150, 200, 300, 600, 1200, 1800, 2000, 2400, 3600,
+          4800, 7200, 9600, or 19200).  The default is 1200.
+
+ccuu CCoommmmaannddss
+     While connected, a line beginning with a tilde (~) is read
+     by ccuu itself instead of being sent to the remote system:
+
+     ~#   A comment; the rest of the line is ignored.
+
+     ~~   Send a single literal tilde to the remote system.
+
+     ~!   Start a shell on the local system.
+
+     ~<_f_i_l_e
+          Redirect further local input from _f_i_l_e instead of the
+          terminal.
+
+     ~>_f_i_l_e
+          Redirect what the remote system sends into _f_i_l_e. Write
+          >> _f_i_l_e to append instead of overwrite, or >: _f_i_l_e to
+          redirect silently, without also echoing to the screen.
+
+     ~>   End output redirection begun with ~>.
+
+     ~mm   Search the incoming stream for a pattern.  Not im-
+          plemented in this version; it prints ``Pattern matching
+          not supported''.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ccuu                                                             ccuu
+
+
+
+     ~PP_n  Pause _n seconds.
+
+     ~qq   Leave ccuu and hang up the line.
+
+     ~QQ   Leave ccuu without hanging up the line.
+
+     ~ff   Switch to full-duplex (no local echo) mode.
+
+     ~hh   Switch to half-duplex (local echo) mode.
+
+     ~ss _n Set the serial port speed to _n baud.
+
+     ~gg_f_i_l_e
+          Get _f_i_l_e from the remote system, via /eettcc/ccuuxxccvvrr.
+
+     ~pp_f_i_l_e
+          Put _f_i_l_e to the remote system, via /eettcc/ccuuxxccvvrr.
+
+     ~?   Print a list of the special commands.
+
+PPrrooffiillee CCoommmmaannddss
+     A _p_r_o_f_i_l_e file named on the command line is read one `~'
+     command per line, using the same letters as the in-session
+     commands ff, hh, ll, and ss above, to set the duplex, line, and
+     speed before the port is opened.  A profile line beginning
+     with ~ww tells ccuu to stop reading the profile and open the
+     port; the remainder of the profile is then pushed back to be
+     read as further `~' commands once the connection is up.
+
+FFIILLEESS
+          /ddeevv/mmooddeemm      default serial line
+          /eettcc/ccuuxxccvvrr     file-transfer helper invoked by ~g and ~p
+
+SSEEEE AALLSSOO
+     sshh
+
+DDIIAAGGNNOOSSTTIICCSS
+     ccuu prints ``Data terminal ready'' once the serial line is
+     open, and ``Hangup'' when the line drops.
+
+NNOOTTEESS
+     This ccuu is only a terminal emulator for a single serial
+     line; it has no dialing directory or telephone-number
+     database, and cannot look up or dial a remote system by
+     name.  Pattern matching (~mm) is not implemented in this ver-
+     sion.  The built-in command summary printed by ~?  still
+     describes ~pp as a pattern search; in this version that let-
+     ter instead starts a file transfer, as documented above.

@@ -1,0 +1,111 @@
+
+
+ddiiffff                                                         ddiiffff
+
+
+
+NNAAMMEE
+     diff - summarize differences between two files
+
+SSYYNNOOPPSSIISS
+     ddiiffff [-bbddeeffhhss] [-cc _s_y_m_b_o_l] _f_i_l_e_1 _f_i_l_e_2
+
+DDEESSCCRRIIPPTTIIOONN
+     ddiiffff compares _f_i_l_e_1 against _f_i_l_e_2 and, by default, prints a
+     script describing the changes needed to turn _f_i_l_e_1 into
+     _f_i_l_e_2. Each change is introduced by a line of the form _l_1,_l_2
+     aa, cc, or dd _l_3,_l_4 (append, change, or delete), where the
+     line-number ranges, abbreviated to a single number when a
+     range covers only one line, refer to _f_i_l_e_1 and _f_i_l_e_2 respec-
+     tively.  The text removed from _f_i_l_e_1 follows, each line
+     marked with < , then a --- separator, then the text added
+     from _f_i_l_e_2, each line marked with > .
+
+     If either _f_i_l_e_1 or _f_i_l_e_2 is -, the standard input is read
+     for it.  If one of the two names a directory, the file com-
+     pared from that directory is the one whose base name matches
+     the other argument.  Either input may be a special file or a
+     pipe; such input is copied to a temporary file under /ttmmpp
+     before comparison, since it cannot otherwise be re-read.
+
+     -bb    Ignore trailing blanks, and treat any run of blanks
+           (spaces and tabs) within a line as equivalent to any
+           other run of blanks, when deciding whether two lines
+           are equal.
+
+     -cc _s_y_m_b_o_l
+           In place of the default script, print the merged text
+           of both files as input to the C preprocessor.  A range
+           found only in _f_i_l_e_1 (deleted from _f_i_l_e_2) is wrapped in
+           #iiffddeeff _s_y_m_b_o_l ... #eennddiiff, so it survives preprocessing
+           only when _s_y_m_b_o_l is defined.  A range found only in
+           _f_i_l_e_2 (appended) is wrapped in #iiffnnddeeff _s_y_m_b_o_l ... #eenn-
+           ddiiff, so it survives only when _s_y_m_b_o_l is _n_o_t defined.
+           A changed range is wrapped as #iiffnnddeeff _s_y_m_b_o_l, then the
+           old _f_i_l_e_1 text, then #eellssee, then the new _f_i_l_e_2 text,
+           then #eennddiiff -- note that this puts the old text under
+           the _u_n_d_e_f_i_n_e_d branch and the new text under the
+           _d_e_f_i_n_e_d branch, the reverse of the polarity used for a
+           pure deletion or append (see NOTES).  Cannot be com-
+           bined with -ee.
+
+     -dd    If either input file is larger than 25,000 bytes,
+           silently switch to the algorithm used by -hh, instead
+           of the default one.
+
+     -ee    Produce a script of eedd commands that, applied to _f_i_l_e_1
+           with line numbers adjusted for each preceding edit,
+           turns it into _f_i_l_e_2.
+
+     -ff    Like -ee, but the line numbers in the script are not
+           adjusted for the effect of earlier entries in the same
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ddiiffff                                                         ddiiffff
+
+
+
+           ssccrriipptt; the script must therefore be applied from its
+           last entry to its first, and is not directly usable by
+           eedd.
+
+     -hh    Compare the files using an algorithm that requires
+           only a small, constant amount of working storage per
+           matched region, at the cost of occasionally missing
+           the shortest possible list of differences; it does not
+           have the practical file-size limit that the default
+           algorithm has.  This option execs /uussrr/lliibb/ddiiffffhh, a
+           separate binary built from the same driver code.
+
+     -ss    Like -ee, but produce a sseedd script instead of an eedd
+           script, and, at the end, print a line of the form :II_n
+           :DD_n :UU_n giving the number of lines inserted, deleted,
+           and left unchanged.
+
+FFIILLEESS
+          /ttmmpp/ddiiffXXXXXXXXXXXX  temporary copy of a special file or pipe input
+          /uussrr/lliibb/ddiiffffhh  the half-hearted algorithm, invoked by -h and -d
+
+SSEEEE AALLSSOO
+     ddiiffff33, ccmmpp, eedd
+
+DDIIAAGGNNOOSSTTIICCSS
+     ddiiffff exits with status 0 if the files are identical, 1 if
+     they differ, and 2 if it could not open a file or was given
+     bad arguments.
+
+NNOOTTEESS
+     -cc and -ee cannot be given together.
+
+     With -cc, a pure deletion or a pure append uses whichever of
+     #iiffddeeff or #iiffnnddeeff lets it write a single, non-empty con-
+     ditional block; a changed range always uses #iiffnnddeeff _s_y_m-
+     _b_o_l/#eellssee, with the old text first.  As a result, the
+     polarity of _s_y_m_b_o_l needed to reconstruct _f_i_l_e_1 is not the
+     same for a changed range as it is for a purely deleted
+     range; check the generated output before relying on it.

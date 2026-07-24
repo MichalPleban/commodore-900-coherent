@@ -1,0 +1,164 @@
+.TH expr "" "Command"
+.SH NAME
+expr \- compute a command line expression
+.SH SYNOPSIS
+\fBexpr \fIargument ...\fR
+.SH DESCRIPTION
+.HS
+expr -- compute a command line expression
+Usage:	expr argument ...
+Arguments:
+	n	Any integer with optional sign
+	string	Used with comparisons and 'len' operator
+	+	Arithmetic operators (one of '+', '-', '*', '/', '%')
+	!	Unary not
+	-	Unary minus
+	==	Relational operators (one of '>', '<', '>=', '<=', '==', '!=')
+	&	Logical AND of previous and next expression
+	|	Logical OR of previous and next expression
+	len	Length of string given by next argument
+	e1 : e2	 Set to the number of characters matching regular expression
+		'e2' in string 'e1';  if 'e2' contains any '\(...\)' sequences,
+		the result is the concatenation of the matched parts
+	( e )	Parentheses for grouping
+	{ e1 , e2 , e3 }
+		Evaluate 'e2' if 'e1' is true, 'e3' otherwise; 'e3' defaults
+		to '0' if missing
+The result is written to the standard output.
+.HE
+Each
+.I argument
+is one token of an expression; separate command-line arguments
+correspond to separate tokens, so operators must stand as their own
+argument, surrounded by spaces.
+.B expr
+evaluates the expression and writes the result, followed by a
+newline, to the standard output.
+It exits 0 if the resulting value is true (a non-null string other
+than
+.BR 0 ),
+1 if it is false, and 2 on a syntax error or overflow.
+.PP
+An
+.I argument
+that looks like an optionally signed decimal integer is treated as a
+number wherever the operator requires one; otherwise it is compared
+or concatenated as a string.
+Integers are held as signed long values; no check is made for
+overflow in the arithmetic operators.
+.PP
+Operators, in increasing order of precedence (operators listed
+together bind equally):
+.IP "\fB{ \fIe1\fB , \fIe2\fB , \fIe3\fB }\fR" 0.6i
+Return
+.I e2
+if
+.I e1
+is true, otherwise
+.IR e3 .
+If the third argument is omitted, it defaults to
+.BR 0 .
+.IP "\fIe1\fB | \fIe2\fR"
+Return
+.I e1
+if it is true, otherwise
+.IR e2 .
+.IP "\fIe1\fB & \fIe2\fR"
+Return
+.I e1
+if both
+.I e1
+and
+.I e2
+are true, otherwise
+.BR 0 .
+.IP "\fIe1 \fIrel\fI e2\fR"
+where
+.I rel
+is one of
+.BR < ,
+.BR > ,
+.BR <= ,
+.BR >= ,
+.BR == ,
+or
+.BR != .
+Return
+.B 1
+if the relation holds and
+.B 0
+otherwise.
+The comparison is numeric if both
+.I e1
+and
+.I e2
+look like integers, and a string comparison otherwise.
+.IP "\fIe1\fB + \fIe2\fR, \fIe1\fB \- \fIe2\fR"
+Add or subtract; both operands must be integers.
+.IP "\fIe1\fB * \fIe2\fR, \fIe1\fB / \fIe2\fR, \fIe1\fB % \fIe2\fR"
+Multiply, divide, or take the remainder; both operands must be
+integers.
+.IP "\fIe1\fB : \fIe2\fR"
+Match string
+.I e1
+against the regular expression
+.IR e2 ,
+using the pattern syntax of
+.BR ed .
+If
+.I e2
+contains one or more
+.B \e( ... \e)
+subexpressions, the result is the concatenation of the text each
+subexpression matched; otherwise the result is the number of
+characters
+.I e2
+matched at the start of
+.IR e1 .
+A failed match yields
+.B 0
+in either case.
+.IP "\fBlen \fIe\fR"
+Return the length of
+.I e
+in characters.
+.B len
+is a reserved word, and must be given as its own argument.
+.IP "\fB! \fIe\fR"
+Return
+.B 1
+if
+.I e
+is false,
+.B 0
+if it is true.
+.IP "\fB\- \fIe\fR"
+Return the negative of the integer
+.IR e .
+.IP "\fB( \fIe\fB )\fR"
+Group a subexpression; each of
+.BR ( ,
+.BR ) ,
+must be its own argument.
+.PP
+Because
+.BR ( ,
+.BR ) ,
+.BR < ,
+.BR > ,
+.BR & ,
+.BR | ,
+and
+.B *
+are also special to the shell
+.BR sh ,
+they must be quoted or escaped in a shell command line.
+.SH "SEE ALSO"
+.BR ed ,
+.BR sh ,
+.B test
+.SH DIAGNOSTICS
+.B expr
+exits 0 if the expression's value is true, 1 if false, and 2 if a
+syntax error, missing operand, or arithmetic error was found; in the
+last case it also prints a message naming the offending argument.

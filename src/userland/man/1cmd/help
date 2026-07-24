@@ -1,0 +1,85 @@
+.TH help "" "Command"
+.SH NAME
+help \- print a brief description of a command's usage
+.SH SYNOPSIS
+\fBhelp [\fIcommand ...\fB]\fR
+.SH DESCRIPTION
+.HS
+help -- print concise command description
+Usage:	help [ command ... ]
+help is intended for refresher information.
+To learn about a new command, man or learn is preferable.
+If 'command' is omitted, prints information about $LASTERROR.
+.HE
+.B help
+prints a brief description of the usage of each
+.IR command .
+If
+.I command
+is omitted,
+.B help
+instead prints a short note about itself and then, if the
+environment variable
+.B $LASTERROR
+is set, describes the command named there.
+If
+.I command
+is omitted and
+.B $LASTERROR
+is not set,
+.B help
+exits without printing anything further.
+.PP
+For each
+.IR command ,
+.B help
+first looks for the file
+.B /usr/man/cmd/\fIcommand\fR
+or, failing that,
+.BR /usr/man/cmd/\fIcommand\fBm\fR ,
+and, if either exists, prints the text found between its
+.B .HS
+and
+.B .HE
+lines.
+.PP
+Failing that,
+.B help
+looks for a line
+.B #\fIcommand\fR
+in the system file
+.B /etc/helpfile
+and, if the environment variable
+.B $HELP
+names a file, in that file as well, and prints the lines that
+follow it up to the next line beginning with
+.BR # .
+To speed up repeated lookups in a large
+.BR /etc/helpfile ,
+.B help
+maintains an index file,
+.BR /etc/helpindex ,
+which it rebuilds whenever
+.B /etc/helpfile
+is newer than the index.
+.SH FILES
+.DS
+.ta 20n
+\fB/usr/man/cmd/\fIcommand\fR	preformatted manual page for \fIcommand\fR
+\fB/etc/helpfile\fR	system command summaries
+\fB/etc/helpindex\fR	index for \fB/etc/helpfile\fR
+\fB$HELP\fR	user's own command summaries, if set
+\fB$LASTERROR\fR	command described when none is given
+.DE
+.SH "SEE ALSO"
+.B man
+.SH DIAGNOSTICS
+.B help
+prints
+.B "No information on %s"
+for any
+.I command
+it cannot find a description for, and exits with a nonzero status
+if any
+.I command
+could not be described.

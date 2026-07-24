@@ -1,0 +1,32 @@
+
+
+rrmmddiirr                                                       rrmmddiirr
+
+
+
+NNAAMMEE
+     rmdir - remove directories
+
+SSYYNNOOPPSSIISS
+     rrmmddiirr [-ff] _d_i_r_e_c_t_o_r_y ...
+
+DDEESSCCRRIIPPTTIIOONN
+     rrmmddiirr removes each named _d_i_r_e_c_t_o_r_y. A directory must be
+     empty before it can be removed: it may contain no entries
+     other than .  and ...
+
+     -ff   Force the removal.  For the superuser, this overrides
+          the checks that the _d_i_r_e_c_t_o_r_y is empty and is not .  or
+          ...
+
+SSEEEE AALLSSOO
+     rrmm, uunnlliinnkk()
+
+DDIIAAGGNNOOSSTTIICCSS
+     rrmmddiirr returns a nonzero exit status if any _d_i_r_e_c_t_o_r_y could
+     not be removed, typically because it is not empty, does not
+     exist, or the caller lacks permission.
+
+NNOOTTEESS
+     rrmmddiirr will not remove a directory that is the working direc-
+     tory of any process.

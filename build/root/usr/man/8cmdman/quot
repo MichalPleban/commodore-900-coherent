@@ -1,0 +1,59 @@
+
+
+qquuoott                                                         qquuoott
+
+
+
+NNAAMMEE
+     quot - summarize file system usage
+
+SSYYNNOOPPSSIISS
+     qquuoott [-cc] [-ff] [-nn] [-tt] _f_i_l_e_s_y_s_t_e_m ...
+
+DDEESSCCRRIIPPTTIIOONN
+     qquuoott scans each named _f_i_l_e_s_y_s_t_e_m (a block or raw special
+     file, or a mounted directory) and reports on how its space
+     is used.  With no options, qquuoott prints, for each user owning
+     any file in the file system, the number of blocks that user
+     occupies, sorted with the largest space user first, and the
+     owner's login name (or numeric uid, if not found in
+     /eettcc/ppaasssswwdd). If more than one _f_i_l_e_s_y_s_t_e_m is given, qquuoott
+     prints the name of each before its report.
+
+     -cc   Instead of a per-user report, print a three-column
+          breakdown by file size: file size in blocks, the number
+          of files of that size, and the cumulative total of
+          blocks used by files of that size or smaller.
+
+     -ff   Add a column giving the number of files, as well as the
+          number of blocks, for each user.
+
+     -nn   Read, on the standard input, lines of i-number and file
+          name pairs already sorted by i-number -- typically the
+          output of nncchheecckk on the same _f_i_l_e_s_y_s_t_e_m, piped through
+          ssoorrtt +00nn, as in nncchheecckk ffss | ssoorrtt +00nn | qquuoott -nn ffss. For
+          each i-number in _f_i_l_e_s_y_s_t_e_m that matches one in the in-
+          put, qquuoott prints the owner and the file name.
+
+     -tt   Add a totals line to the per-user or size-breakdown
+          report.
+
+     -cc,  -ff, and  are mutually exclusive; giving more than one
+     is an error.  -tt may be combined with -cc or -ff, but not with
+     -nn.
+
+FFIILLEESS
+          /eettcc/ppaasssswwdd     to translate user ids into names
+
+SSEEEE AALLSSOO
+     aacc, ddcchheecckk, nncchheecckk, ssoorrtt
+
+DDIIAAGGNNOOSSTTIICCSS
+     qquuoott complains and skips a _f_i_l_e_s_y_s_t_e_m it cannot open or
+     whose superblock size fields are unreasonable.
+
+NNOOTTEESS
+     qquuoott reads the raw device directly; it runs much faster
+     given a raw special file for _f_i_l_e_s_y_s_t_e_m than a block special
+     file, and needs read permission on that device, which is or-
+     dinarily restricted to the superuser.

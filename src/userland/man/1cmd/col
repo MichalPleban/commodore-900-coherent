@@ -1,0 +1,106 @@
+.TH col "" "Command"
+.SH NAME
+col \- remove reverse and half line motions
+.SH SYNOPSIS
+\fBcol [\-bdfx] [\-p\fIn\fB]\fR
+.SH DESCRIPTION
+.HS
+col -- remove reverse and half line motions
+Usage:	col [ -bdfx ] [ -pn ]
+Options:
+	-b	Output device cannot backspace
+	-d	Double spaced output
+	-f	Output device can handle half lines (has precedence over -d)
+	-pn	Set page buffer to n lines (default: 128)
+	-x	Suppress conversion of white space to tabs on output
+.HE
+.B col
+reads the standard input and writes the standard output.
+It removes reverse and half-line motions (as produced by
+.BR nroff )
+by keeping an image of the page in memory and performing those
+motions against that image, so that only forward motion appears on
+the output.
+.PP
+.B col
+recognizes the following characters and escape sequences in its
+input: newline, carriage return, backspace, and tab carry their
+usual meaning; the escape character (033) followed by
+.BR 7 ,
+.BR 8 ,
+.BR 9 ,
+or
+.B B
+is taken as a full reverse line feed, half reverse line feed, half
+forward line feed, or full forward line feed, respectively; the
+control character
+.B VT
+(013) is an alternate form of full reverse line feed; the control
+characters
+.B SO
+(017) and
+.B SI
+(016) mark the start and end of an alternate character set, which
+.B col
+remembers per character and reproduces with matching
+.B SO
+/
+.B SI
+pairs on output.
+An escape character followed by any other character is discarded
+along with that character.
+All other control characters are discarded.
+.PP
+When two or more characters are destined for the same output
+position (an overstrike),
+.B col
+remembers all of them and, unless
+.B \-b
+is given, writes them as a backspace-separated overstrike sequence.
+Runs of spaces on output are entabbed to every eighth column unless
+.B \-x
+is given.
+.IP \fB\-b\fR
+The output device cannot backspace.
+Only the last character destined for a given position is written;
+earlier overstruck characters are discarded.
+.IP \fB\-d\fR
+Double-space the output: where the input has no intervening
+half line, print two newlines instead of one.
+Overridden by
+.BR \-f .
+.IP \fB\-f\fR
+The output device can handle forward half-line motions, so
+.B col
+writes half lines as physical half-line motions instead of folding
+them onto full lines.
+Takes precedence over
+.BR \-d .
+.IP \fB\-p\fIn\fR
+Set the size of the internal page buffer to
+.I n
+lines (default 128).
+Lines outside the buffered window are written out as the window
+advances.
+.IP \fB\-x\fR
+Do not convert runs of spaces on output into tabs.
+.SH "SEE ALSO"
+.B nroff
+.SH DIAGNOSTICS
+.B col
+writes
+.B "Scrolling backwards over top of page window."
+to standard error (once) if the input scrolls above the buffered
+page window, and
+.B "Seem to have lost Overstruck characters."
+if its internal overstrike bookkeeping becomes inconsistent; both
+are warnings and do not stop processing.
+It prints a usage message and exits 1 if given an unrecognized
+option or a bad
+.B \-p
+value.
+.SH NOTES
+Reverse motion that would move above the top of the buffered page
+window is lost; increase the page buffer with
+.B \-p
+if this happens.

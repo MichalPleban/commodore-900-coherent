@@ -1,0 +1,41 @@
+
+
+aass                                                             aass
+
+
+
+NNAAMMEE
+     as - assembler for host computer
+
+SSYYNNOOPPSSIISS
+     aass [-ggllxx] [-oo _d_e_s_t] _f_i_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     aass is the COHERENT assembler for the host machine (the Zilog
+     Z8001).  It assembles one or more _f_i_l_e arguments into a
+     single relocatable object module, suitable for linking by
+     lldd, by default named ll.oouutt. Options and file names may be
+     given in any order.
+
+     aass recognizes the following options:
+
+     -gg   Make every symbol that is referenced but never defined
+          in this assembly global, so the linker will look for
+          its definition in another module.
+
+     -ll   Write an assembly listing to the standard output.
+
+     -oo _d_e_s_t
+          Write the assembled object module into _d_e_s_t instead of
+          ll.oouutt.
+
+     -xx   Strip local (non-global) symbols from the symbol table
+          written into the output object module.
+
+SSEEEE AALLSSOO
+     cccc , lldd
+
+DDIIAAGGNNOOSSTTIICCSS
+     aass prints a message on the standard error for each erroneous
+     line and, if any errors are found, exits with a nonzero
+     status without producing a usable object module.

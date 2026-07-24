@@ -1,0 +1,79 @@
+
+
+ttyyppoo                                                         ttyyppoo
+
+
+
+NNAAMMEE
+     typo - detect possible typographical and spelling errors
+
+SSYYNNOOPPSSIISS
+     ttyyppoo [-nnrrss] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ttyyppoo looks for likely typographical errors in an English-
+     language document by a statistical test, rather than by
+     matching words against a fixed dictionary.  For each word,
+     it computes an index of peculiarity from the digram (letter-
+     pair) and trigram (letter-triple) frequencies of that word,
+     measured against the digram and trigram frequencies of the
+     whole document (helped, unless -nn is given, by built-in fre-
+     quency tables and a small exception dictionary of common
+     technical words).  Words that use letter combinations rarely
+     seen elsewhere in the document score a high index and are
+     the ones most likely to be misspellings.
+
+     ttyyppoo reads each _f_i_l_e named (or the standard input if none is
+     given), extracts the alphabetic words, folds them to lower
+     case, and discards any word found in its exception diction-
+     ary (/uussrr/ddiicctt/ddiicctt).  It sorts the remaining distinct words
+     by descending index of peculiarity and prints each one
+     preceded by its index.
+
+     -nn   Do not load the built-in digram and trigram statistics
+          or the exception dictionary.  More words will be
+          printed, and their indices of peculiarity will be less
+          reliable, especially for a short document.
+
+     -rr   Raw mode: do not strip lines beginning with `.' or
+          remove the nnrrooffff escape character `\', which ttyyppoo
+          otherwise assumes surround formatting requests rather
+          than text.
+
+     -ss   Instead of printing an index of peculiarity for each
+          word, write the digram and trigram frequency counts ob-
+          served in the input to files named ddiiggrraammss and ttrriiggrraammss
+          in the current directory.  These are the same format as
+          /uussrr/ddiicctt/ddiiggrraammss and /uussrr/ddiicctt/ttrriiggrraammss and are meant
+          for regenerating the built-in tables, not for everyday
+          use.
+
+FFIILLEESS
+          /uussrr/ddiicctt/ddiicctt  exception dictionary
+          /uussrr/ddiicctt/ddiiggrraammssbuilt-in digram frequencies
+          /uussrr/ddiicctt/ttrriiggrraammssbuilt-in trigram frequencies
+          /ttmmpp/ttyyppoo*      temporary file holding the unsorted word list
+
+SSEEEE AALLSSOO
+     ssoorrtt
+
+DDIIAAGGNNOOSSTTIICCSS
+     ttyyppoo complains and exits if it cannot open an input _f_i_l_e, if
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ttyyppoo                                                         ttyyppoo
+
+
+
+     iitt runs out of memory building the trigram tables, or if it
+     cannot locate the ssoorrtt command it pipes the word list
+     through.
+
+NNOOTTEESS
+     ttyyppoo sorts its intermediate word list by invoking ssoorrtt in a
+     child process; this must be found on PPAATTHH.

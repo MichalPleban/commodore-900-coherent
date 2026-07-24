@@ -1,0 +1,72 @@
+
+
+mmssgg                                                           mmssgg
+
+
+
+NNAAMMEE
+     msg - send a brief message to other users
+
+SSYYNNOOPPSSIISS
+     mmssgg _u_s_e_r
+     mmssgg _u_s_e_r ... _m_e_s_s_a_g_e
+
+DDEESSCCRRIIPPTTIIOONN
+     In the first form, mmssgg reads one line from the standard in-
+     put and sends it to _u_s_e_r. In the second form, mmssgg sends the
+     final argument, _m_e_s_s_a_g_e, to every named _u_s_e_r in the
+     preceding list; if _m_e_s_s_a_g_e is -, mmssgg instead reads the mes-
+     sage as one line from the standard input.
+
+     For each named _u_s_e_r, mmssgg searches /eettcc/uuttmmpp to find the ter-
+     minal on which _u_s_e_r is logged in, then writes the message to
+     that terminal, prefixed with the sender's login name (or
+     ddaaeemmoonn if the sender is not logged in).  If a named _u_s_e_r is
+     not currently logged in, mmssgg prints "_u_s_e_r: not logged in"
+     and, unless invoked with -ss, sets a nonzero exit status.
+
+     Before writing to a terminal, mmssgg checks whether the
+     group/other execute bit of that terminal's device file is
+     set (the state controlled by mmeessgg); if it is not, an ordi-
+     nary caller is refused, but the superuser is asked whether
+     to override the refusal.  A write that does not complete
+     within ten seconds is abandoned, so mmssgg cannot hang waiting
+     on a terminal that is not reading its input.
+
+     If the caller is the superuser and the first argument is -ss,
+     mmssgg suppresses the sender's login-name prefix on the mes-
+     sage, closes its standard error (so no diagnostics are
+     printed), and forces a zero exit status unless a real error
+     (such as being unable to open /eettcc/uuttmmpp) occurs.  This is
+     intended for use by programs, such as rrmmaaiill, that relay mail
+     notifications through mmssgg, and has no effect for an ordinary
+     caller.
+
+FFIILLEESS
+     /eettcc/uuttmmpp
+
+SSEEEE AALLSSOO
+     mmeessgg, wwrriittee
+
+DDIIAAGGNNOOSSTTIICCSS
+     mmssgg prints its usage message and exits with status 2 if
+     called with no arguments, exits with status 2 if /eettcc/uuttmmpp
+     cannot be opened, and otherwise exits with status 1 if any
+     named user could not be reached (unless -ss was given).
+
+NNOOTTEESS
+     mmssgg is normally installed set-user-id, so that its execute
+     permission on a terminal device can be used to allow or dis-
+     allow use of the terminal by other users, without granting
+     general write access to device files.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+mmssgg                                                           mmssgg
+
+
+

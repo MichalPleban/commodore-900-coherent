@@ -1,7 +1,8 @@
 .\" /usr/lib/tmac.s 11/14/83 V1.4
 .\" COHERENT manuscript nroff macro package
-.\" Copyright (c) 1981, 1982, 1983 by Mark Williams Company, Chicago.
-.\" All rights reserved.  May not be copied or disclosed without permission.
+.\" Copyright (c) 1977-1995 Robert Swartz.
+.\" Copyright (c) 2026 Michal Pleban.
+.\" SPDX-License-Identifier: BSD-3-Clause
 .\"
 .		\" Service macros
 .de It		\" Done at initialisation

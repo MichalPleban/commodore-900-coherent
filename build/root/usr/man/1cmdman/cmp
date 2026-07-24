@@ -1,0 +1,40 @@
+
+
+ccmmpp                                                           ccmmpp
+
+
+
+NNAAMMEE
+     cmp - compare bytes of two files
+
+SSYYNNOOPPSSIISS
+     ccmmpp [-ll] [-ss] _f_i_l_e_1 _f_i_l_e_2 [_s_k_i_p_1 _s_k_i_p_2]
+
+DDEESSCCRRIIPPTTIIOONN
+     ccmmpp compares _f_i_l_e_1 and _f_i_l_e_2 byte by byte.  _f_i_l_e_1 may be -
+     to mean the standard input.
+
+     Without -ll, ccmmpp stops at the first byte that differs and
+     prints the byte number (counting from 1) and line number
+     (counting newlines seen in _f_i_l_e_1) at which the files first
+     differ, then exits.  If one file ends before the other, ccmmpp
+     reports which file hit end of file first.
+
+     If _s_k_i_p_1 and _s_k_i_p_2 are given, they are decimal byte counts;
+     ccmmpp skips that many bytes into _f_i_l_e_1 and _f_i_l_e_2 respectively
+     before starting the comparison.
+
+     -ll   Do not stop at the first difference.  Instead, for
+          every byte at which the files differ, print the byte
+          number and the octal value of the differing byte from
+          each file.
+
+     -ss   Print nothing; only set the exit status.
+
+SSEEEE AALLSSOO
+     ccoommmm, ddiiffff
+
+DDIIAAGGNNOOSSTTIICCSS
+     ccmmpp exits 0 if the files are identical, 1 if they differ,
+     and 2 if a file cannot be opened (this happens regardless of
+     -ss, though the message is suppressed by -ss).

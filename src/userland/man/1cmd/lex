@@ -1,0 +1,259 @@
+.TH lex "" "Command"
+.SH NAME
+lex \- lexical analyzer generator
+.SH SYNOPSIS
+\fBlex [\-t] [\-v] [\fIfile\fB]\fR
+.br
+\fBcc lex.yy.c \-ll\fR
+.SH DESCRIPTION
+.HS
+lex -- lexical analyzer generator
+Usage:	lex [ -t ] [ -v ] [ file ]
+	cc lex.yy.c -ll
+Options:
+	-t	Write to standard output instead of lex.yy.c
+	-v	Give statistics about generated tables
+.HE
+.B lex
+reads a lexical specification from
+.I file
+(or from standard input, if none is given) and writes a generated
+function
+.B yylex()
+in C, either into the file
+.B lex.yy.c
+or, with
+.BR \-t ,
+to standard output.
+The program that calls
+.B yylex()
+is compiled and linked with the run-time support library,
+.BR \-ll .
+.IP \fB\-t\fR
+Write the generated source to standard output instead of
+.BR lex.yy.c .
+.IP \fB\-v\fR
+After processing, print a one-line count of rules, automaton states,
+and character classes to standard error.
+.IP \fB\-p\fR
+Print a human-readable dump of the generated automaton to standard
+error.
+This option is accepted by the program but is not listed in its
+built-in usage message or in the Options table above.
+.PP
+A specification is divided by lines containing only
+.B %%
+into a
+.I definitions
+section, a
+.I rules
+section, and an optional third section that is copied to the output
+verbatim.
+.PP
+In the definitions section, a line
+.RS
+.I name pattern
+.RE
+records
+.I pattern
+under
+.I name
+for later use as
+\fB{\fIname\fB}\fR
+in any pattern (definitions section or rules section); a line
+.RS
+\fB%S\fR \fIname\fR ...
+.RE
+declares one or more start-condition names, and a line
+.RS
+\fB%C\fR \fIname\fR ...
+.RE
+declares one or more context names.
+Lines of the form
+.RS
+.B %{
+.br
+\fIC code\fR
+.br
+.B %}
+.RE
+are copied verbatim into the output, near the top of the file, and any
+line beginning with a blank or tab is also copied verbatim (before the
+rules) or, if it appears at the very start of the rules section,
+copied to the start of the body of
+.BR yylex() .
+A line
+.RS
+\fB%x\fR ...
+.RE
+is read and discarded (accepted but not otherwise acted on).
+.PP
+Each other line of the definitions section, and each line of the
+rules section not covered above, is a rule:
+.DS
+[\fB<\fIname\fB,\fI...\fB>\fR][\fB^\fR]\fIpattern\fR[\fB/\fIlookahead\fR][\fB$\fR] \fIaction\fR
+.DE
+The optional
+\fB<\fIname\fB,\fI...\fB>\fR
+restricts the rule to the listed start conditions;
+.B ^
+anchors the match to the beginning of a line;
+.B $
+anchors it to the end of a line; and
+.BI / lookahead
+requires
+.I pattern
+to be followed by
+.I lookahead
+without consuming it.
+.I action
+is a C statement (or a brace-delimited block) copied into a
+.B case
+of the generated
+.BR yylex() ;
+a rule whose action is just
+.B |
+falls through to the action of the following rule.
+Rules in the definitions section instead define a named
+.I pattern
+for use as
+\fB{\fIname\fB}\fR
+(no
+.IR action ).
+Lines
+.RS
+\fB%C\fR \fIname\fR
+.RE
+in the rules section mark the start of the rules belonging to context
+.IR name .
+.PP
+A
+.I pattern
+is built from:
+.IP \fBc\fR
+An ordinary character
+.BR c .
+.IP \fB\ec\fR
+The character
+.B c
+literally, even if it would otherwise be special;
+\fB\eb\fR, \fB\ef\fR, \fB\en\fR, \fB\er\fR, and \fB\et\fR
+give the usual control characters, and
+.B \e\fInnn\fR
+(one to two further octal digits) gives the character with that code.
+.IP "\fBquoted string\fR"
+A pattern \fB"\fItext\fB"\fR matches
+.I text
+literally; every character between the quotes is taken as itself
+(still subject to
+.B \e
+escaping), and quoted text may not contain a literal newline.
+.IP \fB.\fR
+Any single character.
+.IP \fB[\fIchars\fB]\fR
+Any one of the listed characters or ranges (\fIc1\fB\-\fIc2\fR); a
+leading
+.B ^
+inside the brackets inverts the set; a
+.B \-
+just before the closing
+.B ]
+stands for itself; and a bare
+.B .
+inside brackets stands for every character.
+.IP \fB{\fIname\fB}\fR
+The pattern recorded under
+.I name
+in the definitions section.
+.IP \fB(\fIexp\fB)\fR
+.I exp
+(grouping).
+.IP \fIe\fB*\fR
+Zero or more repetitions of
+.IR e .
+.IP \fIe\fB+\fR
+One or more repetitions of
+.IR e .
+.IP \fIe\fB?\fR
+Zero or one occurrence of
+.IR e .
+.IP \fIe\fB{\fIn\fB}\fR
+Exactly
+.I n
+(a decimal number) repetitions of
+.IR e .
+.IP \fIe\fB{\fIm\fB,\fIn\fB}\fR
+From
+.I m
+through
+.I n
+repetitions of
+.IR e .
+.IP \fIe1e2\fR
+.I e1
+followed by
+.IR e2 .
+.IP "\fIe1\fB|\fIe2\fR"
+Either
+.I e1
+or
+.IR e2 .
+.PP
+Outside quotes and character classes, the characters
+\fB\e\fR, \fB"\fR, \fB[\fR, \fB.\fR, \fB(\fR, \fB)\fR, \fB{\fR, \fB}\fR,
+\fB*\fR, \fB+\fR, \fB?\fR, \fB|\fR, \fB/\fR, \fB$\fR, \fB^\fR, and
+\fB<\fR
+(and blank, tab, and newline) are special and must be written with a
+leading
+.B \e
+or enclosed in double quotes to stand for themselves; inside a
+character class, only
+\fB]\fR, \fB\-\fR, \fB^\fR, \fB\e\fR, and \fB.\fR
+are special.
+.PP
+Within an
+.I action
+in the rules section,
+.B lex
+recognizes the following names, each generated as a preprocessor
+macro or, for
+.BR yywrap() ,
+expected to be supplied by the user or by
+.BR \-ll :
+.IP \fBinput()\fR
+Read and return the next input character.
+.IP "\fBoutput(\fIc\fB)\fR"
+Write character
+.I c
+to the output.
+.IP "\fBunput(\fIc\fB)\fR"
+Push character
+.I c
+back onto the input.
+.IP \fBECHO\fR
+Write the matched text (found in
+.BR yytext ,
+.B yyleng
+characters long) to the output.
+.IP \fBREJECT\fR
+Go on to the next-longest or next-listed matching rule instead of
+running this rule's action.
+.IP "\fBBEGIN \fIname\fR"
+Switch to start condition
+.I name
+(or
+.B "BEGIN 0"
+to clear it).
+.IP "\fByyswitch(\fIname\fB)\fR"
+Switch to context
+.I name
+(only defined when the specification declares at least one context
+with
+.BR %C ).
+.IP \fByywrap()\fR
+Called by the generated
+.B yylex()
+at end of file; return nonzero to stop, or arrange for more input and
+return zero to continue.
+.SH "SEE ALSO"
+.B yacc

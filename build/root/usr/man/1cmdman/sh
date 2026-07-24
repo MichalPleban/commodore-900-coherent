@@ -1,0 +1,352 @@
+
+
+sshh                                                             sshh
+
+
+
+NNAAMMEE
+     sh - command language interpreter
+
+SSYYNNOOPPSSIISS
+     sshh [-eeiikknnssttuuvvxx] [_f_i_l_e [_a_r_g ...]]
+     sshh -cc _s_t_r_i_n_g [_a_r_g ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     sshh reads commands, either from _f_i_l_e (with any following _a_r_g
+     words made available as its positional parameters), from the
+     argument of -cc, or, if neither is given, from its standard
+     input, and executes them.  If the first character of argu-
+     ment 0 is -, sshh is a _l_o_g_i_n _s_h_e_l_l: before reading anything
+     else it executes the commands in /eettcc/pprrooffiillee and then, if
+     the variable HHOOMMEE names a directory containing a file
+     .pprrooffiillee, the commands in $HHOOMMEE/.pprrooffiillee.
+
+     A _c_o_m_m_a_n_d is a sequence of _t_o_k_e_n_s (words) separated by
+     blanks or tabs.  The first token names the command to ex-
+     ecute; the remaining tokens are passed to it as arguments,
+     after the substitutions described below.  Commands may be
+     combined with the following operators:
+
+     _c_o_m_m_a_n_d | _c_o_m_m_a_n_d
+               Pipe: connect the standard output of the first
+               command to the standard input of the second.
+
+     _c_o_m_m_a_n_d ; _c_o_m_m_a_n_d
+               Run the first command to completion, then the
+               second.
+
+     _c_o_m_m_a_n_d & Run _c_o_m_m_a_n_d in the background, without waiting for
+               it; print its process id.  A background command's
+               standard input is /ddeevv/nnuullll unless redirected.
+
+     _c_o_m_m_a_n_d && _c_o_m_m_a_n_d
+               Run the second command only if the first returns a
+               zero (successful) exit status.
+
+     _c_o_m_m_a_n_d || _c_o_m_m_a_n_d
+               Run the second command only if the first returns a
+               nonzero exit status.
+
+     Any of these commands may be redirected:
+
+     > _f_i_l_e    Write the standard output to _f_i_l_e, creating it if
+               need be and discarding any previous contents.
+
+     >> _f_i_l_e   Append the standard output to _f_i_l_e.
+
+     < _f_i_l_e    Take the standard input from _f_i_l_e.
+
+     << _w_o_r_d   Read a _h_e_r_e _d_o_c_u_m_e_n_t: take the standard input from
+               the following lines of the shell input, up to but
+               not including a line that consists solely of _w_o_r_d.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+sshh                                                             sshh
+
+
+
+               UUnnlleessss _w_o_r_d is quoted, parameter and command sub-
+               stitution are performed on the document.
+
+     _n> _f_i_l_e, _n< _f_i_l_e, _n>> _f_i_l_e
+               Like the above, but redirect file descriptor _n
+               instead of 1 (output) or 0 (input).
+
+     _n<& _m, _n>& _m
+               Duplicate file descriptor _n from _m.
+
+     _n<&-, _n>&-
+               Close file descriptor _n.
+
+     A token that contains any of the characters ?, *, or [ is a
+     file-name pattern: ?  matches any one character, * matches
+     any string of characters (including none), and [_c_h_a_r_s]
+     matches any one of the enclosed characters (a range may be
+     written _c_1- _c_2). sshh replaces such a token with the sorted
+     list of file names in the current directory that match it;
+     if none match, the token is passed through unchanged.  A
+     leading .  in a file name, and every /, must be matched ex-
+     plicitly.
+
+     The characters \, ', and quote (turn off the special meaning
+     of) other characters.    \ quotes the single character that
+     follows it; a \ immediately followed by a newline is dis-
+     carded, letting a command be continued onto the next line.
+     A pair of single quotes (' ... ') quotes everything between
+     them.  A pair of double quotes (" ... ") also quotes every-
+     thing between them, except that $ substitutions (below)
+     still occur inside them.
+
+     A token of the form $_n_a_m_e, ${_n_a_m_e}, or $_n (a single digit _n,
+     1 through 9) is replaced by the value of the shell variable
+     _n_a_m_e or of positional parameter _n. The forms ${_n_a_m_e-_w_o_r_d},
+     ${_n_a_m_e=_w_o_r_d}, ${_n_a_m_e+_w_o_r_d}, and ${_n_a_m_e?_w_o_r_d} substitute _w_o_r_d
+     if _n_a_m_e is unset (and, for =, also assign it _w_o_r_d); +
+     substitutes _w_o_r_d only if _n_a_m_e _i_s set; and ?  substitutes
+     _w_o_r_d (or a default message) and aborts the shell if _n_a_m_e is
+     unset.  The following special parameters are also recog-
+     nized:
+
+          $00   The name the shell was invoked with.
+
+          $#   The number of positional parameters.
+
+          $*   All positional parameters.
+
+          $@   All positional parameters; inside double quotes,
+               each becomes a separate word.
+
+          $-   The options currently in effect.
+
+          $?   The exit status of the last command.
+
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+sshh                                                             sshh
+
+
+
+          $!   The process id of the last background command.
+
+          $$   The process id of the shell itself.
+
+     A command enclosed in grave accents (` ... `) is run, and
+     the token containing it is replaced by its standard output
+     (trailing newlines removed).
+
+     sshh recognizes the following reserved words as the start of a
+     compound command, if unquoted and in the position of a com-
+     mand name:
+
+          ffoorr _n_a_m_e [iinn _w_o_r_d ...] ddoo _c_o_m_m_a_n_d-_l_i_s_t ddoonnee
+               Set _n_a_m_e to each _w_o_r_d in turn (or to each posi-
+               tional parameter, if iinn is omitted) and run _c_o_m-
+               _m_a_n_d-_l_i_s_t once per value.
+
+          ccaassee _w_o_r_d iinn _p_a_t_t_e_r_n[|_p_a_t_t_e_r_n]...) _c_o_m_m_a_n_d-_l_i_s_t;; ...
+               eessaacc
+               Run the _c_o_m_m_a_n_d-_l_i_s_t of the first _p_a_t_t_e_r_n that
+               matches _w_o_r_d.
+
+          wwhhiillee _c_o_m_m_a_n_d-_l_i_s_t ddoo _c_o_m_m_a_n_d-_l_i_s_t ddoonnee
+          uunnttiill _c_o_m_m_a_n_d-_l_i_s_t ddoo _c_o_m_m_a_n_d-_l_i_s_t ddoonnee
+               Run the second _c_o_m_m_a_n_d-_l_i_s_t as long as (or until)
+               the first returns a zero exit status.
+
+          iiff _c_o_m_m_a_n_d-_l_i_s_t tthheenn _c_o_m_m_a_n_d-_l_i_s_t ffii
+               The usual conditional; zero or more eelliiff _c_o_m_m_a_n_d-
+               _l_i_s_t tthheenn _c_o_m_m_a_n_d-_l_i_s_t clauses and one final eellssee
+               _c_o_m_m_a_n_d-_l_i_s_t may appear before the closing ffii.
+
+          ( _c_o_m_m_a_n_d-_l_i_s_t )
+               Run _c_o_m_m_a_n_d-_l_i_s_t in a subshell.
+
+          { _c_o_m_m_a_n_d-_l_i_s_t }
+               Run _c_o_m_m_a_n_d-_l_i_s_t in the current shell (without
+               forking a subshell).
+
+     bbrreeaakk [_n] and ccoonnttiinnuuee [_n] leave, or skip to the next itera-
+     tion of, the _nth enclosing ffoorr, wwhhiillee, or uunnttiill loop
+     (default the innermost).
+
+SSPPEECCIIAALL CCOOMMMMAANNDDSS
+     The following commands are built into sshh and are executed
+     without a ffoorrkk:
+
+     : [_t_o_k_e_n ...]
+               Do nothing (successfully); the arguments are
+               evaluated but ignored.
+
+     . _f_i_l_e    Read and execute commands from _f_i_l_e (searched for
+               along PPAATTHH), in the current shell, without posi-
+               tional parameters of its own.
+
+
+
+COHERENT Command Manual                                    Page 3
+
+
+
+
+sshh                                                             sshh
+
+
+
+     ccdd [_d_i_r]  Change the working directory to _d_i_r (default
+               HHOOMMEE).
+
+     eevvaall [_t_o_k_e_n ...]
+               Run the tokens, joined together, as a command.
+
+     eexxeecc [_c_o_m_m_a_n_d [_a_r_g ...]]
+               Apply any redirections and then, instead of
+               forking, replace the shell with _c_o_m_m_a_n_d (or, with
+               no _c_o_m_m_a_n_d, apply the redirections to the current
+               shell).
+
+     eexxiitt [_n]  Terminate the shell with exit status _n (default
+               the status of the last command).
+
+     eexxppoorrtt [_n_a_m_e ...]
+               Mark each _n_a_m_e so that its value is passed to the
+               environment of commands the shell runs; with no
+               arguments, print the exported names and values.
+
+     rreeaaddoonnllyy [_n_a_m_e ...]
+               Mark each _n_a_m_e so that it cannot be reassigned;
+               with no arguments, print the read-only names and
+               values.
+
+     llooggiinn
+
+     nneewwggrrpp [_a_r_g ...]
+               Replace the shell with /bbiinn/llooggiinn or /bbiinn/nneewwggrrpp.
+
+     rreeaadd _n_a_m_e ...
+               Read one line from the standard input and assign
+               successive blank-separated fields to the _n_a_m_e
+               list, the last _n_a_m_e receiving whatever is left
+               over.
+
+     sseett [-eeiikknnssttuuvvxx] [_a_r_g ...]
+               With no arguments, print the value of every shell
+               variable.  Otherwise, set the option flags exactly
+               as on the command line, and reset the positional
+               parameters to _a_r_g...
+
+     sshhiifftt [_n] Discard the first _n (default 1) positional
+               parameters, renumbering the rest from 1.
+
+     ttiimmeess     Print the accumulated user and system time of the
+               shell's children.
+
+     ttrraapp [_c_o_m_m_a_n_d] [_n ...]
+               Arrange for _c_o_m_m_a_n_d to be run when the shell
+               catches signal _n. With _c_o_m_m_a_n_d omitted, restore
+               the default action for each _n. Signal 0 means the
+               shell's own exit.  With no arguments at all, print
+               the traps now set.
+
+
+
+COHERENT Command Manual                                    Page 4
+
+
+
+
+sshh                                                             sshh
+
+
+
+     uummaasskk [_n_n_n]
+               Set the file-creation mask to the octal value _n_n_n;
+               with no argument, print the current mask.
+
+     wwaaiitt [_p_i_d]
+               Wait for the background process _p_i_d (default: all
+               background processes) to finish.
+
+CCOOMMMMAANNDD-LLIINNEE OOPPTTIIOONNSS
+     -cc _c_m_d_s
+          Read commands from the following argument, _c_m_d_s, in-
+          stead of from a file or the standard input.
+
+     -ee   If the shell is not interactive, exit as soon as any
+          command returns a nonzero status or is not found.
+
+     -ii   Treat the shell as interactive (print prompts, and ig-
+          nore SSIIGGTTEERRMM and SSIIGGIINNTT) even if its input is not a
+          terminal.
+
+     -kk   Put all keyword (variable=value) arguments of a command
+          into that command's environment, not just the ones that
+          precede the command name.
+
+     -nn   Read and parse commands but do not execute them; useful
+          for checking a script's syntax.
+
+     -ss   Read commands from the standard input even if file or
+          -cc arguments are also given, and write ordinary output
+          to the standard error.
+
+     -tt   Read and execute a single command, then stop.
+
+     -uu   Treat the reference to an unset shell variable as an
+          error, instead of substituting the null string.
+
+     -vv   Echo each input line as it is read.
+
+     -xx   Echo each command and its arguments, after substitu-
+          tion, as it is executed.
+
+     -    Turn off the -vv and -xx options.
+
+FFIILLEESS
+          /eettcc/pprrooffiillee        commands run by every login shell
+          $HHOOMMEE/.pprrooffiillee      commands run by a user's login shell
+          /ddeevv/nnuullll           standard input of a background command
+          /ttmmpp/sshh*            temporary files (here documents, and so on)
+
+SSEEEE AALLSSOO
+     tteesstt
+
+DDIIAAGGNNOOSSTTIICCSS
+     sshh writes a diagnostic to the standard error for a syntax
+     error, an unknown command, an illegal redirection, or an
+
+
+COHERENT Command Manual                                    Page 5
+
+
+
+
+sshh                                                             sshh
+
+
+
+     iilllleeggaall variable name; a syntax error terminates a noninter-
+     active shell.  sshh returns the exit status of the last com-
+     mand it ran, or the status given to eexxiitt.
+
+NNOOTTEESS
+     Positional parameters above $99 cannot be referenced
+     directly; use sshhiifftt to bring later parameters into range 1-
+     9.
+
+     The built-in default for PPAATTHH is :/bbiinn:/uussrr/bbiinn, which sear-
+     ches the current directory first; a script or interactive
+     user that depends on this should set PPAATTHH explicitly.
+
+     There is no shell-function facility, no arithmetic expan-
+     sion, and no $(_c_o_m_m_a_n_d) form of command substitution in this
+     sshh; use grave accents for command substitution.

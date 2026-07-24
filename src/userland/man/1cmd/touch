@@ -1,0 +1,54 @@
+.TH touch "" "Command"
+.SH NAME
+touch \- update modification time of a file
+.SH SYNOPSIS
+\fBtouch [\-c] \fIfile ...\fR
+.SH DESCRIPTION
+.HS
+touch -- update modification time of a file
+Usage:	touch [ -c ] file ...
+Option:	-c	Do not create 'file' if it does not exist
+.HE
+For each named
+.IR file ,
+.B touch
+sets the file's last-modified time to the current time, without
+otherwise changing its contents.
+By default,
+.B touch
+creates
+.I file
+if it does not already exist.
+.IP \fB\-c\fR
+Do not create
+.I file
+if it does not exist; instead report the omission and go on to the
+next
+.IR file .
+.PP
+.B touch
+updates the modification time of an existing, non-empty
+.I file
+by reading its first byte and writing the same byte back to the same
+position; a zero-length
+.I file
+is instead recreated (unless
+.B \-c
+is given).
+.SH "SEE ALSO"
+.B make
+.SH DIAGNOSTICS
+.B touch
+reports
+.B "touch: cannot create"
+followed by the name of
+.I file
+if
+.I file
+does not exist and cannot be created, and
+.B "touch: write error on"
+followed by the name of
+.I file
+if the rewrite fails; it exits with a nonzero status if this happens
+for any
+.IR file .

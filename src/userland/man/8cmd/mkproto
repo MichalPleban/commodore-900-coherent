@@ -1,0 +1,76 @@
+.TH mkproto "" "Administration"
+.SH NAME
+mkproto \- insert bad blocks into a proto specification
+.SH SYNOPSIS
+\fB/etc/mkproto \fIdevice \fB< \fIproto1 \fB> \fIproto2\fR
+.SH DESCRIPTION
+.HS
+mkproto - insert bad blocks into a proto specification
+Usage: /etc/mkproto device < proto1 >proto2
+Standard input should specify all parts of the desired proto file except
+bad block specifications which mkproto will insert after scanning the
+specified device for unreadable blocks.
+If the root directory specification is missing, mkproto will append one
+.HE
+.B mkproto
+builds a complete
+.I proto
+description file, of the kind read by
+.BR mkfs ,
+by scanning
+.I device
+for bad blocks and inserting the resulting
+.B %b
+bad-block lines into an otherwise complete proto file read from the
+standard input.
+.PP
+The standard input must already contain the boot/name/pack line and
+the block-count line of the proto file (see
+.BR mkfs );
+.B mkproto
+copies these two lines through unchanged to the standard output.
+It then opens
+.I device
+and reads it one block at a time, from block 0 up to the block count
+just read; for each block that cannot be read, it emits the block
+number in a
+.B %b
+line, exactly as if the bad block had been listed by hand in a proto
+file.
+.PP
+After the bad-block lines,
+.B mkproto
+copies the rest of the standard input (the directory and file
+specifications) through to the standard output unchanged.
+If the standard input is exhausted immediately after the block-count
+line, that is, it specifies no root directory at all,
+.B mkproto
+appends a minimal root directory specification of its own:
+.DS
+d\-\-755 3 1
+$
+.DE
+.SH DIAGNOSTICS
+.IP "Cannot open %s"
+The named
+.I device
+could not be opened for reading.
+.IP "Unexpected end of file on proto input"
+The standard input ended before
+.B mkproto
+had read both the boot/name/pack line and the block-count line.
+.IP "Preposterous block size: %D"
+The block count given on the standard input is less than four.
+.IP "Bad super block"
+Block 1, where the super block must live, cannot be read.
+.IP "Bad root inode block"
+Block 2, the first i-node block, cannot be read.
+.SH "SEE ALSO"
+.B mkfs
+.SH NOTES
+.B mkproto
+reads
+.I device
+sequentially from block 0 and does not rewind it; run it against the
+device to be scanned before that device is used to hold a live file
+system.

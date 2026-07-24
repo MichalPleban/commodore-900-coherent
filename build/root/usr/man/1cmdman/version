@@ -1,0 +1,30 @@
+
+
+vveerrssiioonn                                                   vveerrssiioonn
+
+
+
+NNAAMMEE
+     version - print the current directory and date, for use as a
+     build stamp
+
+SSYYNNOOPPSSIISS
+     vveerrssiioonn
+
+DDEESSCCRRIIPPTTIIOONN
+     vveerrssiioonn prints, on a single line, the current working direc-
+     tory followed by the day of the month, the three-letter
+     month abbreviation, and the last two digits of the year,
+     each field separated by a slash, e.g.  /uussrr/ssrrcc/2200/JJuull/8866.
+     It takes no arguments and reads no input.
+
+     vveerrssiioonn is meant to be run inside a back-quote command sub-
+     stitution of the shell, to stamp a program with the direc-
+     tory and date from which it was built.
+
+SSEEEE AALLSSOO
+     ppwwdd, ddaattee
+
+NNOOTTEESS
+     There is no entry for vveerrssiioonn in /eettcc/hheellppffiillee; the summary
+     above is written from the source.

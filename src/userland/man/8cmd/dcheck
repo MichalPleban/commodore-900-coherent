@@ -1,0 +1,87 @@
+.TH dcheck "" "Administration"
+.SH NAME
+dcheck \- directory consistency check
+.SH SYNOPSIS
+\fBdcheck [\-s] [\-i \fIinumber ...\fB] \fIfilesystem ...\fR
+.SH DESCRIPTION
+.HS
+dcheck -- directory consistency check
+Usage:	dcheck [ -s ] [ -i inumber ... ] filesystem ...
+.HE
+.B dcheck
+checks the consistency of the directory structure of each named
+.IR filesystem .
+It makes two passes over the i-list: the first walks every directory
+reachable from the root and counts, for every i-number, how many
+directory entries name it; the second compares that count against the
+link count recorded in the i-node itself.
+.PP
+For every i-node whose entry count does not match its link count,
+.B dcheck
+prints a line giving the i-number, the entry count, and the link
+count (marked
+.B (u)
+if the i-node is otherwise unused, i.e. its mode is zero); if
+.B \-s
+was given, it corrects the on-disc link count to match instead of
+printing anything.
+.IP \fB\-s\fR
+Instead of reporting bad link counts, repair them: an i-node with a
+nonzero entry count has its link count set to that entry count; an
+i-node with a zero entry count and a nonzero mode is cleared
+(equivalent to
+.BR clri );
+an allocated i-node (nonzero mode) whose entry count reaches zero only
+after some directory entries pointing to it are themselves cleared
+during the second pass requires a further, third pass, which
+.B dcheck
+runs automatically when needed.
+This option requires write access to the raw
+.IR filesystem .
+.IP "\fB\-i \fIinumber ...\fR"
+While walking the directories, also report every entry found whose
+i-number appears in this list, printing the i-number, the containing
+directory's i-number, and the entry name, tagged
+.BR arg .
+Up to 20 i-numbers may be given.
+.PP
+Any directory entry whose i-number exceeds the highest valid i-number
+for the file system is reported as
+.B bad
+regardless of the
+.B \-i
+list.
+.PP
+Because
+.B dcheck
+makes more than one pass over the file system, the
+.I filesystem
+should be unmounted (or mounted read-only) while it runs; use the raw
+device.
+If
+.B \-s
+is used on the root file system, the system should be rebooted
+immediately afterward, without an intervening
+.BR sync .
+.SH "SEE ALSO"
+.BR check ,
+.BR icheck ,
+.BR sync ,
+.B umount
+.SH DIAGNOSTICS
+.B dcheck
+exits with a status that is the logical OR of small flag values
+recorded in
+.BR check.h :
+1 for a usage or open error, 2 for an unrecoverable read or write
+error, 4 if an i-node with a zero link count was found (and
+.B \-s
+was not given), and 8 if an i-node's link count needed correcting (and
+.B \-s
+was not given).
+An exit status of zero means no inconsistency was found.
+.SH NOTES
+.B dcheck
+requires a
+.I filesystem
+argument; it has no notion of a default file system to check.

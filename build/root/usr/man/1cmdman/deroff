@@ -1,0 +1,57 @@
+
+
+ddeerrooffff                                                     ddeerrooffff
+
+
+
+NNAAMMEE
+     deroff - remove text formatting control information
+
+SSYYNNOOPPSSIISS
+     ddeerrooffff [-ss] [-ww] [-xx] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ddeerrooffff strips nnrrooffff and ttrrooffff formatting control information
+     from each _f_i_l_e, or from the standard input if no _f_i_l_e is
+     given, and writes what remains to the standard output.  Any
+     line beginning with a period or an apostrophe is taken to be
+     a formatting request and is discarded, except that:
+
+     -  text between .EEQQ and .EENN (eqn), and between .TTSS and .TTEE
+        (tbl), is discarded entirely, as are macro definitions
+        (from .ddee up to the closing .. line);
+
+     -  .ssoo and .nnxx requests cause the named file to be read in
+        place of the request, and no file is read more than once;
+
+     -  backslash escapes such as font and point-size changes,
+        and interpolated strings, registers, and characters, are
+        stripped from the surviving text, along with anything be-
+        tween a leading eqn delimiter character and its matching
+        trailing delimiter (as most recently set by a ddeelliimm line
+        inside an .EEQQ block).
+
+     -s Accepted on the command line but has no effect in this
+        version.
+
+     -w Instead of copying ordinary text through unchanged, break
+        it into words and print one per line.  A word is a maxi-
+        mal run of letters, digits, and apostrophes that begins
+        with a letter; apostrophes are stripped from the printed
+        word, and everything else between words is discarded.
+
+     -x Use additional knowledge of the -mmss macro package: dis-
+        card footnotes (between .FFSS and .FFEE), no-fill displays
+        (between .nnff and .ffii), and displays (between .DDSS or
+        .KKSS/.KKFF and .DDEE or .KKEE); also skip title and author lines
+        (.TTLL, .AAII, .AAUU, .SSHH, .NNHH) up to the next control line.
+
+SSEEEE AALLSSOO
+     nnrrooffff
+
+NNOOTTEESS
+     The word-division mode (-ww) is intended for the spelling-
+     checker pipeline; it is not itself a spelling checker.
+
+     The -ss option is accepted for compatibility but currently
+     does nothing; only -ww and -xx change ddeerrooffff's behavior.

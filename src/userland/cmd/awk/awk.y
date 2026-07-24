@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * AWK grammar
  * yacc -prods 120 -terms 80 -nterms 40 -states 200 awk.y
  * to make it fit on the PDP-11 (non separated I/D).

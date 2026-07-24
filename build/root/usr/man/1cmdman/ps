@@ -1,0 +1,93 @@
+
+
+ppss                                                             ppss
+
+
+
+NNAAMMEE
+     ps - print process status
+
+SSYYNNOOPPSSIISS
+     ppss [-aaddffllmmnnrrttwwxx] [-cc _s_y_s_t_e_m] [-kk _m_e_m]
+
+DDEESSCCRRIIPPTTIIOONN
+     ppss prints one line of status for each process, reading the
+     running kernel's process table out of _m_e_m by way of the
+     namelist in _s_y_s_t_e_m. Normally ppss prints only processes at-
+     tached to the caller's own controlling terminal; the fields
+     always printed are TTTTYY (controlling terminal, or ??  if
+     none) and PPIIDD.
+
+     -aa   Print processes attached to any terminal, not only the
+          caller's.
+
+     -cc _s_y_s_t_e_m
+          Take the kernel namelist from _s_y_s_t_e_m instead of the
+          default, /ccoohheerreenntt.
+
+     -dd   Precede each line with the process's queue-entry ad-
+          dress, in octal.  This option is implemented by this ppss
+          but is not listed in the quick-help text above; see
+          NOTES.
+
+     -ff   Print a - placeholder in fields that would otherwise be
+          blank, so field-oriented filters can split the output
+          uniformly.
+
+     -kk _m_e_m
+          Take the memory image from _m_e_m instead of the default,
+          /ddeevv/mmeemm.
+
+     -ll   Long format: also print PPPPIIDD, UUIIDD, process size in K,
+          the flag word, the run state, and, for a sleeping
+          process, the event it is waiting on.
+
+     -mm   Also print the scheduling fields CCVVAALL,  SSVVAALL,  IIVVAALL,
+          and  the process's current CPU schedule value, swap
+          schedule value, importance value, and response value.
+
+     -nn   Suppress the header line.
+
+     -rr   Print the real size of the process, including its user
+          and auxiliary segments (normally excluded, since those
+          are shared with other processes of the same user).
+
+     -tt   Also print the elapsed CPU time fields UUTTIIMMEE and SSTTIIMMEE.
+
+     -ww   Wide format: use 132 columns for the command line in-
+          stead of 80.
+
+     -xx   Also print processes with no controlling terminal.
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ppss                                                             ppss
+
+
+
+FFIILLEESS
+          /ccoohheerreenntt     default namelist (-cc)
+          /ddeevv/mmeemm      default memory image (-kk)
+          /ddeevv/kkmmeemm     kernel data memory
+          /ddeevv/sswwaapp     swap device
+
+SSEEEE AALLSSOO
+     kkiillll, ssyynncc
+
+NNOOTTEESS
+     This ppss does not implement a -gg option, although the quick-
+     help text above (taken from this system's /eettcc/hheellppffiillee
+     entry) lists one; giving -gg is rejected as a bad option.
+     Conversely, this ppss implements a -dd debug option that the
+     quick-help text does not mention.  Both discrepancies are in
+     the shipped /_e_t_c/_h_e_l_p_f_i_l_e text, not in this page.
+
+     A process can change its own command name and arguments, so
+     the command line ppss prints for it may not reflect what it is
+     actually running.  The process table changes while ppss is
+     running, so its output is only a snapshot.

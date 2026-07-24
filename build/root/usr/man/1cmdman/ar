@@ -1,0 +1,95 @@
+
+
+aarr                                                             aarr
+
+
+
+NNAAMMEE
+     ar - maintain archives
+
+SSYYNNOOPPSSIISS
+     aarr _o_p_t_i_o_n[_m_o_d_i_f_i_e_r] [_p_o_s_i_t_i_o_n] _a_r_c_h_i_v_e [_m_e_m_b_e_r ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     aarr maintains an _a_r_c_h_i_v_e (also called a _l_i_b_r_a_r_y): a single
+     file holding a collection of other files, called _m_e_m_b_e_r_s,
+     each preceded by a header giving its name, date, owner,
+     group, mode, and size.  The chief use of archives is to hold
+     libraries of object files for the linker lldd, which under-
+     stands the archive format and can search a library to
+     resolve undefined references.
+
+     The mandatory _o_p_t_i_o_n argument is exactly one of the
+     following letters, optionally followed by one or more
+     _m_o_d_i_f_i_e_r letters, with no introducing hyphen:
+
+     dd    Delete each given _m_e_m_b_e_r from _a_r_c_h_i_v_e.
+
+     mm    Move each given _m_e_m_b_e_r within _a_r_c_h_i_v_e. With no _m_o_d_i_f_i_e_r
+          governing placement, move each member to the end.
+
+     pp    Print each given _m_e_m_b_e_r on the standard output.
+
+     qq    Quick append: put each named _m_e_m_b_e_r at the end of _a_r-
+          _c_h_i_v_e without checking whether it is already present.
+
+     rr    Replace each named _m_e_m_b_e_r of _a_r_c_h_i_v_e, or append it if
+          not already present.  If _a_r_c_h_i_v_e does not exist, aarr
+          creates it.
+
+     tt    Print a table of the members named; if none is named,
+          print a table of all members.
+
+     xx    Extract each named member into the current directory;
+          if none is named, extract all members.  _a_r_c_h_i_v_e is not
+          changed.
+
+     Any of the following modifiers may follow the option letter:
+
+     aa    Place the new member after _p_o_s_i_t_i_o_n in the archive
+          (used with mm or rr).
+
+     bb    Place the new member before _p_o_s_i_t_i_o_n in the archive
+          (used with mm or rr).
+
+     cc    Suppress the message that aarr normally prints when it
+          creates a new archive.
+
+     ii    Same as the bb modifier.
+
+     ll    Build the temporary file aarr uses while it works in the
+          current directory, rather than in /ttmmpp.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+aarr                                                             aarr
+
+
+
+     uu    Replace a member only if the file named on the command
+          line is newer than the version already in _a_r_c_h_i_v_e.
+
+     vv    Print extra information when used with pp, tt, xx, mm, rr,
+          dd, or qq.
+
+     Each archive begins with a magic number, followed by the
+     members, each preceded by an aarr_hhddrr header giving its name,
+     date, group and user id, mode, and size in bytes.
+
+SSEEEE AALLSSOO
+     lldd, rraannlliibb
+
+DDIIAAGGNNOOSSTTIICCSS
+     aarr prints a diagnostic and a nonzero exit status if _a_r_c_h_i_v_e
+     cannot be opened or created, if a named file cannot be
+     opened, or if an I/O error occurs; it prints the names of
+     any requested members that were not found.
+
+NNOOTTEESS
+     aarr does not itself build or maintain a symbol-index member
+     of an archive; after creating or updating an archive that lldd
+     will search for symbols, run rraannlliibb on it separately.

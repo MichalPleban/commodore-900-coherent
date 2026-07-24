@@ -1,0 +1,186 @@
+
+
+mm44                                                             mm44
+
+
+
+NNAAMMEE
+     m4 - macro processor
+
+SSYYNNOOPPSSIISS
+     mm44 [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     mm44 copies each named _f_i_l_e in turn to the standard output,
+     expanding macros as it goes; a _f_i_l_e named - means the stan-
+     dard input, and if no _f_i_l_e is given at all, mm44 reads the
+     standard input.
+
+     mm44 copies its input to the output until it finds a potential
+     macro: a string of letters, digits, and underscores that
+     begins with a non-digit and is surrounded by non-al-
+     phanumerics.  If the string names a defined macro, mm44
+     removes it (and, if the next character is (, a paren-
+     thesized, comma-separated argument list, collected by
+     processing it exactly like other text so that an argument
+     may itself contain macro calls) from the input, and replaces
+     it with the macro's value.  Up to nine arguments are kept
+     per call; commas inside quotes or balanced parentheses do
+     not separate arguments, and leading unquoted whitespace in
+     an argument is discarded.  If the string does not name a
+     defined macro, it is copied through unchanged.
+
+     A pair of quote characters (by default the backquote ` and
+     the apostrophe ') inhibits macro recognition of the text be-
+     tween them; one level of quotes is stripped away wherever mm44
+     encounters it, and quotes nest.
+
+     A user-defined macro's value is the text of its definition,
+     with each $_n (where _n is a digit) replaced by the _nth argu-
+     ment of the call (argument 0 is the macro name itself); a $
+     not followed by a digit is passed through as itself.
+
+     mm44 provides the following built-in macros:
+
+     cchhaannggeeqquuoottee[([_o_p_e_n_q_u_o_t_e][,[_c_l_o_s_e_q_u_o_t_e]])]
+          Change the quote characters to the first character of
+          _o_p_e_n_q_u_o_t_e and of _c_l_o_s_e_q_u_o_t_e. A missing or empty argu-
+          ment restores that quote character to its default (` or
+          ').  Value is null.
+
+     ddeeccrr[(_n_u_m_b_e_r)]
+          Value is _n_u_m_b_e_r (default 0) minus one.
+
+     ddeeffiinnee(_m_a_c_r_o[,_d_e_f_i_n_i_t_i_o_n])
+          Define or redefine _m_a_c_r_o to expand to _d_e_f_i_n_i_t_i_o_n
+          (default null).  Value is null.
+
+     ddiivveerrtt[(_n)]
+          Redirect the output to diversion _n (default 0).  Diver-
+          sion 0 is the standard output; diversions 1 through 9
+          are held in temporary files, to be recovered later with
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+mm44                                                             mm44
+
+
+
+          uunnddiivveerrtt; diverting to any other number discards all
+          further output until the next ddiivveerrtt call.  Value is
+          null.
+
+     ddiivvnnuumm
+          Value is the number of the diversion currently in ef-
+          fect.
+
+     ddnnll  Delete to newline: discard all characters from the in-
+          put, up to and including the next newline.  Value is
+          null.
+
+     dduummppddeeff[(_m_a_c_r_o[,...])]
+          Write, directly to the output, the quoted definition of
+          each named _m_a_c_r_o, or of every defined macro (in inter-
+          nal hash-table order) if none are named.  Value is
+          null.
+
+     eerrrrpprriinntt(_t_e_x_t[,...])
+          Write each _t_e_x_t argument to standard error.  Value is
+          null.
+
+     eevvaall(_e_x_p_r_e_s_s_i_o_n)
+          Value is the number that results from evaluating
+          _e_x_p_r_e_s_s_i_o_n as a C-like integer expression, recognizing,
+          from highest to lowest precedence: parentheses; ex-
+          ponentiation (^ or **); unary + and -; *, /, and %;
+          binary + and -; the relations ==, !=, <=, >=, <, and >;
+          logical && or & (identical); and logical || or | (iden-
+          tical).  If _e_x_p_r_e_s_s_i_o_n is omitted, value is 0.  Arith-
+          metic is done in C lloonnggs.
+
+     iiffddeeff(_m_a_c_r_o,_d_e_f_v_a_l_u_e[,_u_n_d_e_f_v_a_l_u_e])
+          Value is _d_e_f_v_a_l_u_e if _m_a_c_r_o is currently defined, or _u_n-
+          _d_e_f_v_a_l_u_e (default null) if not.
+
+     iiffeellssee(_a_r_g_1,_a_r_g_2,_a_r_g_3[,_a_r_g_4,_a_r_g_5,_a_r_g_6[,_a_r_g_7,_a_r_g_8,_a_r_g_9]])
+          Compare _a_r_g_1 against _a_r_g_2: if they are the same string,
+          value is _a_r_g_3; otherwise the comparison repeats with
+          the next group of three arguments, up to three groups
+          (nine arguments) in all.
+
+     iinncclluuddee(_f_i_l_e)
+          Process the contents of _f_i_l_e as further input, as if it
+          had been inserted at this point; a fatal error results
+          if _f_i_l_e cannot be opened.
+
+     iinnccrr[(_n_u_m_b_e_r)]
+          Value is _n_u_m_b_e_r (default 0) plus one.
+
+     iinnddeexx(_t_e_x_t,_p_a_t_t_e_r_n)
+          Value is the character position (counting from 0) of
+          the first occurrence of _p_a_t_t_e_r_n in _t_e_x_t, or -1 if it
+          does not occur (or if either argument is missing).
+
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+mm44                                                             mm44
+
+
+
+     lleenn(_t_e_x_t)
+          Value is the length of _t_e_x_t (0 if omitted).
+
+     mmaakkeetteemmpp(_f_i_l_e_n_a_m_e_X_X_X_X_X_X)
+          Value is _f_i_l_e_n_a_m_e_X_X_X_X_X_X with the trailing run of XX's
+          replaced by a unique string, as with the system call
+          mmkktteemmpp(); the argument must be at least six characters
+          long.
+
+     ssiinncclluuddee(_f_i_l_e)
+          Like iinncclluuddee, but does nothing (instead of failing) if
+          _f_i_l_e cannot be opened.
+
+     ssuubbssttrr(_t_e_x_t[,_s_t_a_r_t[,_c_o_u_n_t]])
+          Value is the substring of _t_e_x_t beginning at position
+          _s_t_a_r_t (counting from 0; a negative value counts back
+          from the end) and running for _c_o_u_n_t characters (a nega-
+          tive value takes characters before _s_t_a_r_t; if _c_o_u_n_t is
+          omitted, the rest of _t_e_x_t is taken in the given direc-
+          tion).
+
+     ssyyssccmmdd(_c_o_m_m_a_n_d)
+          Pass _c_o_m_m_a_n_d to the shell for execution, as with the
+          system call ssyysstteemm(). Value is null.
+
+     ttrraannsslliitt(_t_e_x_t,_c_h_a_r_a_c_t_e_r_s[,_r_e_p_l_a_c_e_m_e_n_t_s])
+          Value is _t_e_x_t with each character found in _c_h_a_r_a_c_t_e_r_s
+          replaced by the character at the same position in
+          _r_e_p_l_a_c_e_m_e_n_t_s, or deleted if _r_e_p_l_a_c_e_m_e_n_t_s is shorter
+          than _c_h_a_r_a_c_t_e_r_s (or omitted).
+
+     uunnddeeffiinnee(_m_a_c_r_o)
+          Remove the definition of _m_a_c_r_o; a later use of the name
+          is copied through literally.
+
+     uunnddiivveerrtt[(_n[,...])]
+          Copy the saved text of diversion _n (1 through 9) into
+          the current output, then discard it; a diversion that
+          is still the current output is left untouched.  With no
+          arguments, all nine diversions are copied, in numeric
+          order.  Value is null.
+
+     At the end of processing all input files, mm44 automatically
+     diverts back to the standard output and undiverts every
+     remaining diversion.
+
+SSEEEE AALLSSOO
+     ccpppp

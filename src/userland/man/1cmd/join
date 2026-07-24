@@ -1,0 +1,129 @@
+.TH join "" "Command"
+.SH NAME
+join \- join two databases
+.SH SYNOPSIS
+\fBjoin [\-a[\fIn\fB]] [\-e \fIs\fB] [\-j[\fIn\fB] \fIkey\fB] [\-o \fIn.m\fB ...] [\-t\fIc\fB] \fIfile1 file2\fR
+.SH DESCRIPTION
+.HS
+join -- join two databases
+Usage:	join [ options ] file1 file2
+Options:
+	-a[n]	Print unpaired records from file 'n'
+	-e s	Replace empty fields on output with string 's'
+	-j[n] key
+		Use field 'key' of file 'n' for comparison
+	-o [n.]m ..
+		Subsequent arguments constitute a list of which fields to
+		output;  each element has file 'n' and a field number 'm'
+	-tc	The field separator (input and output) is the character 'c'
+If either of 'file1' or 'file2' is '-', the standard input is used.
+The optional file number 'n' may be either '1' or '2';
+if omitted, both '1' and '2' are assumed.
+.HE
+.B join
+reads
+.I file1
+and
+.IR file2 ,
+each a text file holding one record per line, and writes to the
+standard output a line for every pair of records, one from each
+file, whose
+.I key
+fields compare equal, followed (unless
+.B \-a
+is given) by nothing else.
+Either file name may be
+.BR \- ,
+meaning the standard input; both may not be
+.B \-
+at once.
+.PP
+Each input file must already be sorted on its key field, for example
+with
+.BR sort ,
+using the same field and collating order as
+.BR join .
+By default fields are separated by runs of blanks and tabs, which
+are also stripped from the front of each field; with
+.B \-t
+every occurrence of the single separator character delimits a
+field, so empty fields are possible.
+By default the key field of each file is field 1.
+.SH Options
+.IP "\fB\-a\fR[\fIn\fB]" 0.6i
+Besides the normal joined output, also print records of file
+.I n
+whose key did not match any record of the other file.
+If
+.I n
+is omitted, do this for both files.
+.IP "\fB\-e \fIs\fR"
+On output, print
+.I s
+in place of any field that is empty.
+.IP "\fB\-j\fR[\fIn\fB] \fIkey\fR"
+Use field number
+.I key
+(counting from 1), instead of field 1, as the join field of file
+.IR n ;
+if
+.I n
+is omitted, set the join field of both files.
+.IP "\fB\-o \fIn.m\fR ..."
+Print only the listed fields, in the order given, instead of the
+default output; each
+.I n.m
+selects field
+.I m
+of file
+.IR n .
+This option consumes all the remaining
+.I n.m
+arguments up to the two file name arguments.
+.IP \fB\-t\fIc\fR
+Use the single character
+.I c
+as the field separator on both input and output, instead of runs of
+blanks and tabs.
+.PP
+With no
+.B \-o
+option, the default output for a matched pair is the key field,
+followed by the remaining fields of the
+.I file1
+record, followed by the remaining fields of the
+.I file2
+record.
+Fields on output are separated by
+.I c
+if
+.B \-t
+was given, otherwise by a single space.
+.SH Example
+.DS
+join \-t: \-j1 3 \-o 1.3 2.4 1.4 1.1 2.2 filea fileb
+.DE
+joins
+.B filea
+and
+.B fileb
+on fields separated by
+.BR : ,
+using field 3 as the join field of
+.B filea
+and field 1 (the default) of
+.BR fileb ,
+printing the five listed fields of each matched pair.
+.SH "SEE ALSO"
+.BR awk ,
+.BR comm ,
+.BR sort ,
+.B uniq
+.SH DIAGNOSTICS
+.B join
+prints
+.B "join field is missing in input"
+if a record has fewer fields than the join field requires, and exits
+nonzero if either input file cannot be opened, if both are
+.BR \- ,
+or if the command line is malformed.

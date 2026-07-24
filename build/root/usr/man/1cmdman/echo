@@ -1,0 +1,31 @@
+
+
+eecchhoo                                                         eecchhoo
+
+
+
+NNAAMMEE
+     echo - print arguments
+
+SSYYNNOOPPSSIISS
+     eecchhoo [-nn] [_a_r_g_u_m_e_n_t ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     eecchhoo prints each _a_r_g_u_m_e_n_t on the standard output, separating
+     consecutive arguments with a single space, and follows the
+     last one with a newline.
+
+     -nn  Suppress the trailing newline.  Recognized only as the
+         very first argument; if it is present and spelled ex-
+         actly -nn, it is taken as this option and is not itself
+         printed.  There is consequently no way to make this eecchhoo
+         print a first argument that is literally the two charac-
+         ters -nn.
+
+DDIIAAGGNNOOSSTTIICCSS
+     eecchhoo always exits with status 0.
+
+NNOOTTEESS
+     This eecchhoo does not interpret backslash escape sequences such
+     as \\nn or \\tt in its arguments; each argument is copied
+     through exactly as given on the command line.

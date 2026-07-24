@@ -1,0 +1,147 @@
+.TH sort "" "Command"
+.SH NAME
+sort \- sort lines of text
+.SH SYNOPSIS
+\fBsort [\fIoptions\fB] [ [+\fIbeg\fB [\-\fIend\fB] ] [\fIfile ...\fB] ]\fR
+.SH DESCRIPTION
+.HS
+sort -- sort lines of text
+Usage:	sort [ options ] [ [ +beg [ -end ] ] [ file ... ]
+Options:
+	-c	Check if input is already ordered
+	-m	Merge already-sorted input files
+	-o name	Place output on file 'name' rather than standard output
+	-tc	Tab character is 'c'
+	-T dir	Use directory 'dir' for temporary files
+	-u	Only output records for which keys are unique
+Key options:
+	-b	Skip leading blanks in fields
+	-d	Dictionary ordering for keys
+	-f	Fold upper case into lower case in key comparison
+	-i	Ignore control characters in key comparison
+	-n	Numeric comparison
+	-r	Reverse sort ordering
+Position:
+	+m.nf	Key starts 'm' fields into record and 'n' characters
+		into that field;  'f' may contain optional flags from
+		key options above which apply only to that positional
+	-m.nf	Optional ending position of key (same form as above)
+If no 'file' is given, the standard input is sorted.
+.HE
+.B sort
+reads lines from each
+.IR file ,
+or from the standard input if none is given, sorts them, and writes
+the result to the standard output.
+By default the sort key is the entire line and lines are compared
+byte for byte.
+.PP
+.B sort
+does its work with a polyphase merge: it first reads the input into
+temporary files, using replacement selection to build large initial
+runs, and then repeatedly merges those runs together in the temporary
+files until one run remains, which becomes the output.
+.PP
+A key field is selected by one or two
+.I position
+arguments,
+\fB+\fIm\fB.\fInf\fR
+and
+\fB\-\fIm\fB.\fInf\fR.
+.I m
+is the number of fields to skip and
+.I n
+the number of characters to skip within the following field before
+the key starts (for
+.BR \-m.nf ,
+before it ends); fields are separated by blanks and tabs, or by the
+character set with
+.BR \-t ,
+and leading separators before a field are also skipped once
+.I m
+is nonzero.
+.I f
+may contain any of the key-ordering letters
+.B b d f i n r
+listed below; these apply only to this one key, overriding the
+global ordering options for it.
+If no position is given, the key is the whole line.
+More than one
+\fB+\fIm.nf\fB \fR[\fB\-\fIm.nf\fB]\fR
+pair may be given, and are applied in order until one pair compares
+unequal.
+.PP
+Options:
+.IP \fB\-b\fR
+Skip leading blanks (spaces and tabs) when locating and comparing key
+fields.
+.IP \fB\-d\fR
+Dictionary order: compare keys using only letters, digits, and blanks,
+ignoring all other characters.
+.IP \fB\-f\fR
+Fold upper-case letters to lower case for comparison.
+.IP \fB\-i\fR
+Ignore non-printable characters in key comparisons.
+.IP \fB\-n\fR
+Compare the key as a signed number (an optional sign, digits, and an
+optional decimal point and fraction) rather than as text.
+.IP \fB\-r\fR
+Reverse the sense of the comparison.
+.IP \fB\-c\fR
+Check whether the input is already sorted according to the other
+options; if not, report the first out-of-order line and exit with a
+nonzero status. No output is produced, and
+\fB\-m\fR, \fB\-o\fR, and \fB\-u\fR
+are ignored.
+.IP \fB\-m\fR
+Merge the input files, which are each assumed to already be sorted;
+this avoids the initial run-forming pass and is faster on large,
+already-sorted input.
+.IP "\fB\-o \fIname\fR"
+Write the output to
+.I name
+instead of the standard output; this may safely be one of the input
+files.
+.IP \fB\-t\fIc\fR
+Use the single character
+.I c
+as the field separator, instead of runs of blanks and tabs.
+.IP "\fB\-T \fIdir\fR"
+Create temporary files in
+.I dir
+instead of the default location.
+.IP \fB\-u\fR
+Output only one line for each set of lines that compare equal on the
+key; later duplicates are discarded.
+.PP
+Key-ordering letters given directly on the command line (not attached
+to a
+.B +\fIm.nf\fR
+position) set the default ordering for the whole line.
+.SH FILES
+.DS
+.ta 20n
+\fB/tmp/sort\fIpid\fBx\fR	temporary run and merge files
+\fB/usr/tmp/sort\fIpid\fBx\fR	used if \fB/tmp\fR is not writable
+.DE
+.SH "SEE ALSO"
+.B uniq
+.SH DIAGNOSTICS
+.B sort
+exits with a nonzero status if a temporary file could not be created
+or written, if an input file could not be opened, if an input record
+is too long, or, with
+.BR \-c ,
+if the input was not correctly ordered.
+.SH NOTES
+An input or key record may not exceed 400 characters;
+.B sort
+aborts if this limit is exceeded.
+.PP
+Without
+.B \-T
+.B sort
+first tries
+.B /tmp
+for its temporary files and, if that fails, falls back to
+.BR /usr/tmp .

@@ -1,0 +1,76 @@
+.TH deroff "" "Command"
+.SH NAME
+deroff \- remove text formatting control information
+.SH SYNOPSIS
+\fBderoff [\-s] [\-w] [\-x] [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+deroff -- remove text formatting control information
+Usage:	deroff [ -w ] [ -x ] [ file ... ]
+Options:
+	-w	Divide the output into words, one per line
+	-x	Extra knowledge of macro packages (knows about .NH, .DS, etc.)
+Removes nroff control information from each 'file', or standard input if none.
+.HE
+.B deroff
+strips
+.B nroff
+and
+.B troff
+formatting control information from each
+.IR file ,
+or from the standard input if no
+.I file
+is given, and writes what remains to the standard output.
+Any line beginning with a period or an apostrophe is taken to be a
+formatting request and is discarded, except that:
+.IP \- 0.3i
+text between \fB.EQ\fR and \fB.EN\fR (eqn), and between \fB.TS\fR and
+\fB.TE\fR (tbl), is discarded entirely, as are macro definitions
+(from \fB.de\fR up to the closing \fB..\fR line);
+.IP \-
+.B .so
+and
+.B .nx
+requests cause the named file to be read in place of the request,
+and no file is read more than once;
+.IP \-
+backslash escapes such as font and point-size changes, and interpolated
+strings, registers, and characters, are stripped from the surviving
+text, along with anything between a leading eqn delimiter character
+and its matching trailing delimiter (as most recently set by a
+.B delim
+line inside an
+.B .EQ
+block).
+.IP \-s
+Accepted on the command line but has no effect in this version.
+.IP \-w
+Instead of copying ordinary text through unchanged, break it into
+words and print one per line.
+A word is a maximal run of letters, digits, and apostrophes that
+begins with a letter; apostrophes are stripped from the printed word,
+and everything else between words is discarded.
+.IP \-x
+Use additional knowledge of the
+.B \-ms
+macro package: discard footnotes (between \fB.FS\fR and \fB.FE\fR),
+no-fill displays (between \fB.nf\fR and \fB.fi\fR), and displays
+(between \fB.DS\fR or \fB.KS\fR/\fB.KF\fR and \fB.DE\fR or \fB.KE\fR);
+also skip title and author lines (\fB.TL\fR, \fB.AI\fR, \fB.AU\fR,
+\fB.SH\fR, \fB.NH\fR) up to the next control line.
+.SH "SEE ALSO"
+.B nroff
+.SH NOTES
+The word-division mode (\fB\-w\fR) is intended for the
+spelling-checker pipeline; it is not itself a spelling checker.
+.PP
+The
+.B \-s
+option is accepted for compatibility but currently does nothing; only
+.B \-w
+and
+.B \-x
+change
+.BR deroff 's
+behavior.

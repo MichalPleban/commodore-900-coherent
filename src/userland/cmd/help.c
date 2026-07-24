@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Command to give help on various command's usages.
  * Also, this command allows user-specific information
  * to be kept.

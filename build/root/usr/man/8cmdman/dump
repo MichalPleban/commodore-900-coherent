@@ -1,0 +1,97 @@
+
+
+dduummpp                                                         dduummpp
+
+
+
+NNAAMMEE
+     dump - file system dump
+
+SSYYNNOOPPSSIISS
+     dduummpp [_o_p_t_i_o_n_s] [_a_r_g_u_m_e_n_t ...] _f_i_l_e_s_y_s_t_e_m
+
+DDEESSCCRRIIPPTTIIOONN
+     dduummpp copies to tape (or to a disk file) every file in
+     _f_i_l_e_s_y_s_t_e_m that was created or changed since some earlier
+     dump of that file system, together with the full directory
+     structure needed to find those files again.
+
+     The first argument, if any, is a single word made up of the
+     letters 00112233445566778899bbddffssSSuuvv, with no leading -, giving the
+     dump level and processing options; any letter among bbddffssSS
+     consumes the following argument as its value.  After those,
+     the last remaining argument, if any, names the _f_i_l_e_s_y_s_t_e_m (a
+     block-special file or the mounted directory) to dump;
+     without a _f_i_l_e_s_y_s_t_e_m argument dduummpp refuses to run.
+
+     00-99  Set the dump level.  A level-0 dump backs up every
+          file.  A dump at level _n (the default is level 9 if no
+          digit is given) backs up every file changed since the
+          most recent dump recorded in /eettcc/ddddaattee at a level less
+          than _n.
+
+     bb    The next argument gives the blocking factor -- the num-
+          ber of dump records per tape block -- as a number from
+          1 to 20 (default 20).
+
+     dd    The next argument gives the tape density in bytes per
+          inch, from 800 to 6250 (default 1600); used only to es-
+          timate how much tape a dump will use.
+
+     ff    The next argument gives the path name of the output
+          device or file (default /ddeevv/dduummpp).
+
+     ss    The next argument gives the length of the output tape
+          in feet, from 600 to 4800 (default 2300).  dduummpp tracks
+          how much tape it has used and asks for a new volume
+          before running off the end.
+
+     SS    The next argument gives the size of the output device
+          in 512-byte blocks (for a floppy disk or a device with
+          a fixed capacity, in place of ss).
+
+     uu    After a successful dump, record its date and level in
+          /eettcc/ddddaattee so that a later incremental dump knows where
+          to start.
+
+     vv    Print, on the standard error, the date the dump is
+          measured from and, at the end, the number of inodes,
+          real blocks, and sparse blocks dumped, and the length
+          of tape (or blocks) used.
+
+
+
+COHERENT Administration Manual                             Page 1
+
+
+
+
+dduummpp                                                         dduummpp
+
+
+
+     If more than one reel or floppy is needed, or if SS was
+     given, dduummpp closes the current volume, prompts on the stan-
+     dard error to mount the next one, and waits for a line to be
+     typed before continuing; reaching end of file at that prompt
+     aborts the dump.
+
+FFIILLEESS
+          /eettcc/ddddaattee      dump-date file, one entry per file system and level
+          /ddeevv/dduummpp       default output device
+
+SSEEEE AALLSSOO
+     mmkkffss
+
+DDIIAAGGNNOOSSTTIICCSS
+     Most error conditions (a missing or unreadable file system,
+     a write error on the output device, or running out of
+     memory) are fatal and end the dump with exit status 1; a
+     normal completion exits with status 0.
+
+NNOOTTEESS
+     The uu option is enabled by default only when dduummpp is invoked
+     with no arguments at all -- and, since a _f_i_l_e_s_y_s_t_e_m argument
+     is then also missing, that invocation always fails.  In
+     practice, give uu explicitly (as part of the option letters)
+     whenever /eettcc/ddddaattee should be updated.

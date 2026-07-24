@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Octal dump.
  * The name is a bit of a joke on a
  * machine that uses hexadecimal, but it will

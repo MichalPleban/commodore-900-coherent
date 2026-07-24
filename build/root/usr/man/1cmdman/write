@@ -1,0 +1,78 @@
+
+
+wwrriittee                                                       wwrriittee
+
+
+
+NNAAMMEE
+     write - conduct interactive conversation with another user
+
+SSYYNNOOPPSSIISS
+     wwrriittee _u_s_e_r [_t_t_y]
+
+DDEESSCCRRIIPPTTIIOONN
+     wwrriittee opens a two-way conversation with another logged-in
+     user.  It looks up _u_s_e_r in /eettcc/uuttmmpp, using _t_t_y to pick a
+     particular login if that _u_s_e_r is logged in on more than one
+     terminal, and opens the corresponding terminal for writing.
+     It then prints UUsseerr uusseerr hhaass bbeeeenn nnoottiiffiieedd ...  on the
+     caller's own terminal, and copies each character typed at
+     its standard input to the recipient's terminal until end of
+     file (the terminal's end-of-file character, if the input is
+     a terminal) is reached.
+
+     If the recipient's terminal denies writes (its execute per-
+     mission bit for "other" is off) and the caller is the super-
+     user, wwrriittee asks UUsseerr `uusseerr' iiss ddeennyyiinngg mmeessssaaggeess.  OOvveerrrriiddee?
+     and proceeds only if the answer is yy; any other caller is
+     simply refused.
+
+     While the conversation is open, wwrriittee puts its own terminal
+     into cbreak mode so it can watch for lines beginning with !.
+     Such a line is not sent to the recipient; instead, the
+     remainder of the line is read as a command and run with ssyyss-
+     tteemm(), with its output appearing locally, after which the
+     conversation resumes.  If both terminals are in "crt" mode
+     (see ssttttyy), wwrriittee also echoes backspace characters specially
+     so that character erase looks right at both ends.
+
+     The conversation ends when the sender reaches end of file
+     (interrupt, hangup, and quit are also caught and treated the
+     same way); both terminals are restored to their previous
+     modes, and wwrriittee sends the line EEOOTT to the recipient's ter-
+     minal before exiting.  wwrriittee runs setuid to root so that it
+     can test, and when permitted override, the destination ter-
+     minal's write-permission bit; it drops this privilege with
+     sseettuuiidd(ggeettuuiidd()) immediately after opening the destination
+     terminal.
+
+FFIILLEESS
+          /eettcc/uuttmmpp       list of logged-in users
+          /ddeevv/*          terminal special files
+
+SSEEEE AALLSSOO
+     wwhhoo, wwaallll, mmssgg, mmeessgg
+
+DDIIAAGGNNOOSSTTIICCSS
+     wwrriittee prints a diagnostic and exits with status 1 if _u_s_e_r is
+     not logged in, is not logged in on the named _t_t_y, the des-
+     tination terminal cannot be written to, or the recipient
+     refuses the connection; a warning only (without exiting) is
+     printed if the caller's own terminal cannot be replied to.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+wwrriittee                                                       wwrriittee
+
+
+
+NNOOTTEESS
+     wwrriittee prints WWaarrnniinngg: OOnnee oorr bbootthh ttttyyss iiss nnoott aa ssccrreeeenn-
+     oorriieenntteedd ddeevviiccee.  ...  if the local terminal is not in "crt"
+     mode and the standard input is a terminal, since character-
+     erase (backspace) handling between the two ends may then not
+     look right.

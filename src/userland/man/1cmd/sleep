@@ -1,0 +1,25 @@
+.TH sleep "" "Command"
+.SH NAME
+sleep \- suspend execution for a specified time
+.SH SYNOPSIS
+\fBsleep \fIseconds\fR
+.SH DESCRIPTION
+.HS
+sleep -- suspend execution for a specified time
+Usage:	sleep seconds
+.HE
+.B sleep
+suspends execution of the current process for
+.I seconds
+seconds, then exits.
+.I seconds
+must be given as a string of decimal digits.
+.PP
+.B sleep
+is most often used inside shell scripts, to pace a sequence of commands
+or to poll for some condition at intervals.
+.SH DIAGNOSTICS
+.B sleep
+complains and exits if it is given more than one argument, or if
+.I seconds
+contains anything other than decimal digits.

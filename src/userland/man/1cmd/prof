@@ -1,0 +1,72 @@
+.TH prof "" "Command"
+.SH NAME
+prof \- print execution profile
+.SH SYNOPSIS
+\fBprof [\-abcs] [\fIprogfile \fB[\fImonfile\fB]]\fR
+.SH DESCRIPTION
+.HS
+prof -- print execution profile
+Usage:	prof [ -abcs ] [ progfile [ monfile ] ]
+Options:
+	-a	Use all symbols, not just externals
+	-b	Print all bin information
+	-c	Print all call information
+	-s	Report stack usage high water mark
+The default 'progfile' is l.out, default 'monfile' is mon.out.
+.HE
+.B prof
+interprets the
+.I monfile
+produced by an instrumented run of a program compiled with the
+.B cc \-p
+option, and reports how execution time and calls were distributed
+among the routines of
+.IR progfile .
+The
+.I progfile
+argument gives the load module that was profiled (default
+.BR l.out );
+the
+.I monfile
+argument gives the raw profile data written by that run's monitor
+(default
+.BR mon.out ).
+.PP
+With none of
+.BR \-b ", " \-c ", or " \-s " given, "
+.B prof
+prints one line for each symbol that accumulated any time or call
+count: the symbol's name, its percentage of total ticks, and, if it
+was called, the number of calls and the average time per call as a
+percentage.
+.IP \fB\-a\fR
+Use all symbols found in
+.IR progfile ,
+not only ones with external (global) linkage.
+.IP \fB\-b\fR
+Print, for every profiled address range (``bin''), the tick count and
+the symbol plus offset it falls in; useful for finding hot spots at
+finer resolution than whole routines.
+.IP \fB\-c\fR
+Print, for every recorded call, the number of times it was made and
+the calling symbol plus offset.
+.IP \fB\-s\fR
+Print the high-water mark of stack usage recorded in
+.I monfile
+and skip the normal profile report.
+.SH FILES
+.DS
+.ta 12n
+\fBl.out\fR	default \fIprogfile\fR
+\fBmon.out\fR	default \fImonfile\fR
+.DE
+.SH "SEE ALSO"
+.BR ld ,
+.B nm
+.SH DIAGNOSTICS
+.B prof
+complains and exits if
+.I progfile
+is not a valid load module, or if
+.I monfile
+is missing or truncated.

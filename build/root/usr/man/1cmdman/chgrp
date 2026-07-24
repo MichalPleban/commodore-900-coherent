@@ -1,0 +1,29 @@
+
+
+cchhggrrpp                                                       cchhggrrpp
+
+
+
+NNAAMMEE
+     chgrp - change the group owner of files
+
+SSYYNNOOPPSSIISS
+     cchhggrrpp _g_r_o_u_p _f_i_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     cchhggrrpp changes the group owner of each _f_i_l_e to _g_r_o_u_p. _g_r_o_u_p
+     may be given as a group name, looked up in /eettcc/ggrroouupp, or as
+     a plain decimal group identifier.  The owner of each _f_i_l_e is
+     left unchanged.
+
+FFIILLEESS
+          /eettcc/ggrroouupp      group name to group-id lookup
+
+SSEEEE AALLSSOO
+     cchhmmoodd, cchhoowwnn
+
+DDIIAAGGNNOOSSTTIICCSS
+     cchhggrrpp exits with status 2 if _g_r_o_u_p is not a valid group
+     name, or if any _f_i_l_e could not be changed (in which case it
+     also prints the reason for that file and continues with the
+     rest).

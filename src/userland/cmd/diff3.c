@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Internal part of diff3.
  * This file resides in /usr/lib/diff3.
  * It is called as:

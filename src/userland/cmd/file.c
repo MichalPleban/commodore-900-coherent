@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Look at a file and try to
  * figure out its type. Knows about the various
  * flavours of filesystem entries, object files of various

@@ -1,0 +1,89 @@
+
+
+kknnaappssaacckk                                                 kknnaappssaacckk
+
+
+
+NNAAMMEE
+     knapsack - public-key (knapsack) encryption scheme
+
+SSYYNNOOPPSSIISS
+     eennrroollll [_u_s_e_r]
+     xxeennccooddee [_u_s_e_r]
+     xxddeeccooddee
+
+DDEESSCCRRIIPPTTIIOONN
+     kknnaappssaacckk is not itself an invokable command; it is the
+     public-key knapsack encryption scheme, implemented by the
+     routines in kknnaappssaacckk.cc, ppuubblliicc.cc, ppkkiioo.cc, and ggpppphh.cc, that
+     underlies the eennrroollll, xxeennccooddee, and xxddeeccooddee commands.
+
+     A user's public key is derived from a secret passphrase by
+     the function kknnaappssaacckk(), which seeds a multiprecision
+     linear-congruential random-number generator from the
+     passphrase text and uses it to build a superincreasing knap-
+     sack vector _k._d[_0.._6_3] together with a pair of modulus/mul-
+     tiplier values (_k._m_1/_k._w_1 and _k._m_2/_k._w_2) and a random shuf-
+     fle order _k._s_h_u_f_l[].  ppuubblliicc() then walks the knapsack
+     through the two modulus/multiplier transformations, shuf-
+     fling the terms into _k_e_y[_0.._6_3] by _k._s_h_u_f_l[], to produce the
+     public key.
+
+     The public key is stored, one 64-bit component per line in a
+     16-byte-per-element binary format, in a file named for the
+     user under /uussrr/ssppooooll/ppuubbkkeeyy, where anyone may read it to
+     encrypt a message to that user; only the passphrase holder
+     can regenerate the matching private knapsack, so only that
+     user can decrypt it.
+
+     eennrroollll
+          Enroll or re-key a user.  Called with no argument, it
+          enrolls (or re-keys) the caller, as found by ggeett-
+          llooggiinn(); called as eennrroollll _u_s_e_r (normally only useful
+          for the superuser), it enrolls the named _u_s_e_r. If the
+          user is already enrolled, eennrroollll first asks for the
+          current passphrase and verifies it by recomputing the
+          public key and comparing every component against the
+          stored file before asking for a new passphrase (twice,
+          to catch typing mistakes).  Entering an empty new
+          passphrase removes the user's public-key file,
+          withdrawing the user from the scheme.
+
+     xxeennccooddee
+          Read standard input and write it, encrypted, to stan-
+          dard output, in a mail-compatible text format (base-95
+          digits, one block per line).  Called with no argument,
+          it prompts for a passphrase and builds a public key
+          from it on the fly; called as xxeennccooddee _u_s_e_r it reads
+          _u_s_e_r's stored public key instead and does not prompt.
+
+     xxddeeccooddee
+          Prompt for a passphrase, rebuild the matching private
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+kknnaappssaacckk                                                 kknnaappssaacckk
+
+
+
+          kknnaappssaacckk, and decrypt standard input (in the format
+          written by xxeennccooddee) to standard output.  An empty
+          passphrase exits immediately without reading any input.
+
+FFIILLEESS
+          /uussrr/ssppooooll/ppuubbkkeeyy/_u_s_e_r  stored public key for _u_s_e_r
+
+SSEEEE AALLSSOO
+     xxmmaaiill
+
+NNOOTTEESS
+     The directory /uussrr/ssppooooll/ppuubbkkeeyy must be owned by, and mode
+     0700 for, a dedicated user (conventionally named xxmmaaiill); the
+     commands eennrroollll, xxeennccooddee, and xxddeeccooddee must be installed set-
+     user-ID to that owner so that ordinary users can read and
+     update their own public-key entries without being able to
+     tamper with anyone else's.

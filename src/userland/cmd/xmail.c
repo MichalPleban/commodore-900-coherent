@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Simple xmail command. Almost identical to mail(1).
  * /bin/xmail must be setuid to root. This is regarded as a failing.
  * If users are given xmail scans the directory /usr/spool/pubkey for their

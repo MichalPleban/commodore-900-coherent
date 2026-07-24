@@ -1,0 +1,22 @@
+
+
+bbaannnneerr                                                     bbaannnneerr
+
+
+
+NNAAMMEE
+     banner - print large sized letters
+
+SSYYNNOOPPSSIISS
+     bbaannnneerr [_a_r_g_u_m_e_n_t ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     bbaannnneerr prints large dot-matrix letters on the standard out-
+     put.  Each _a_r_g_u_m_e_n_t produces one large-text output line,
+     nine text lines high, with each character drawn from a
+     built-in 9-row font.  If there is no _a_r_g_u_m_e_n_t, each line
+     read from the standard input produces one line of large-text
+     output instead.
+
+SSEEEE AALLSSOO
+     llpprr

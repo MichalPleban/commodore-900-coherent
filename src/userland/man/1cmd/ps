@@ -1,0 +1,125 @@
+.TH ps "" "Command"
+.SH NAME
+ps \- print process status
+.SH SYNOPSIS
+\fBps [\-adflmnrtwx] [\-c \fIsystem\fB] [\-k \fImem\fB]\fR
+.SH DESCRIPTION
+.HS
+ps -- print process status
+Usage:	ps [ -afglmnrtwx ] [ -c system ] [ -k mem ]
+Options:
+	-a	Print all terminals' processes
+	-c	Next argument is the system (default: '/coherent')
+	-f	Put '-' in null fields for placeholders
+	-g	Give the group leader for this process
+	-k	Next argument is the memory image (default: '/dev/mem')
+	-l	Print long format
+	-m	Print scheduling information
+	-n	No header line
+	-r	Give the real size of the the process
+	-t	Print CPU times
+	-w	Wide column format (132 columns instead of default 80)
+	-x	Print processes with no controlling tty
+.HE
+.B ps
+prints one line of status for each process, reading the running
+kernel's process table out of
+.I mem
+by way of the namelist in
+.IR system .
+Normally
+.B ps
+prints only processes attached to the caller's own controlling
+terminal; the fields always printed are
+.B TTY
+(controlling terminal, or
+.B ??
+if none) and
+.BR PID .
+.PP
+.IP \fB\-a\fR
+Print processes attached to any terminal, not only the caller's.
+.IP "\fB\-c \fIsystem\fR"
+Take the kernel namelist from
+.I system
+instead of the default,
+.BR /coherent .
+.IP \fB\-d\fR
+Precede each line with the process's queue-entry address, in octal.
+This option is implemented by this
+.B ps
+but is not listed in the quick-help text above; see NOTES.
+.IP \fB\-f\fR
+Print a
+.B \-
+placeholder in fields that would otherwise be blank, so
+field-oriented filters can split the output uniformly.
+.IP "\fB\-k \fImem\fR"
+Take the memory image from
+.I mem
+instead of the default,
+.BR /dev/mem .
+.IP \fB\-l\fR
+Long format: also print
+.BR PPID ,
+.BR UID ,
+process size in K,
+the flag word, the run state, and, for a sleeping process, the event
+it is waiting on.
+.IP \fB\-m\fR
+Also print the scheduling fields
+.BR CVAL ", " SVAL ", " IVAL ", and " RVAL ,
+the process's current CPU schedule value, swap schedule value,
+importance value, and response value.
+.IP \fB\-n\fR
+Suppress the header line.
+.IP \fB\-r\fR
+Print the real size of the process, including its user and auxiliary
+segments (normally excluded, since those are shared with other
+processes of the same user).
+.IP \fB\-t\fR
+Also print the elapsed CPU time fields
+.B UTIME
+and
+.BR STIME .
+.IP \fB\-w\fR
+Wide format: use 132 columns for the command line instead of 80.
+.IP \fB\-x\fR
+Also print processes with no controlling terminal.
+.SH FILES
+.DS
+.ta 14n
+\fB/coherent\fR	default namelist (\fB\-c\fR)
+\fB/dev/mem\fR	default memory image (\fB\-k\fR)
+\fB/dev/kmem\fR	kernel data memory
+\fB/dev/swap\fR	swap device
+.DE
+.SH "SEE ALSO"
+.BR kill ,
+.B sync
+.SH NOTES
+This
+.B ps
+does not implement a
+.B \-g
+option, although the quick-help text above (taken from this system's
+.B /etc/helpfile
+entry) lists one; giving
+.B \-g
+is rejected as a bad option.
+Conversely, this
+.B ps
+implements a
+.B \-d
+debug option that the quick-help text does not mention.
+Both discrepancies are in the shipped
+.I /etc/helpfile
+text, not in this page.
+.PP
+A process can change its own command name and arguments, so the
+command line
+.B ps
+prints for it may not reflect what it is actually running.
+The process table changes while
+.B ps
+is running, so its output is only a snapshot.

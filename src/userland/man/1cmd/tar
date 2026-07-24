@@ -1,0 +1,156 @@
+.TH tar "" "Command"
+.SH NAME
+tar \- tape archive manager
+.SH SYNOPSIS
+\fBtar [crtux][0\-7bflmvwzU] [\fIblocks\fB] [\fIarchive\fB] \fIfile ...\fR
+.SH DESCRIPTION
+.HS
+tar -- tape archive manager
+Usage: tar [crtux][0-7bflmvwU] [blocks] [archive] file ...
+.HE
+.B tar
+saves and restores files in a machine-independent archive format;
+its name is short for
+.IR "tape archive" ,
+though the archive may equally well be an ordinary file or a floppy
+disk instead of a magnetic tape.
+.PP
+The first argument to
+.B tar
+is a string of option letters.
+Exactly one of
+.BR c ,
+.BR r ,
+.BR t ,
+.BR u ,
+or
+.B x
+must appear, selecting the function to perform; the remaining letters
+are modifiers.
+Any following arguments are
+.I file
+operands, added to, extracted from, listed against, or updated in the
+archive; if none are given,
+.B c
+and
+.B r
+operate on the current directory (recursively), and
+.B t
+and
+.B x
+operate on every file already in the archive.
+.IP \fBc\fR
+Create a new archive from the named
+.I file
+operands, including, recursively, the contents of any that are
+directories.
+.IP \fBr\fR
+Append the named
+.I file
+operands to the end of an existing archive.
+.IP \fBt\fR
+List the name of each
+.I file
+in the archive that matches an operand, or every file if none are
+given.
+With
+.BR v ,
+also list the mode, group, owner, size, and modification date of each
+entry.
+.IP \fBu\fR
+Like
+.BR r ,
+but append a
+.I file
+only if it is not already in the archive or is newer than the copy
+already there.
+.IP \fBx\fR
+Extract the named
+.I file
+operands from the archive, or every file if none are given, restoring
+each one's mode, owner, and group and, unless
+.B m
+is given, its modification time.
+.PP
+The following modifiers may be combined with the function letter:
+.IP \fB0\fR\-\fB7\fR
+Selects a tape unit digit, used to build a default archive device
+name of the form
+.B /dev/mt\fIn\fR
+(or
+.B /dev/rmt\fIn\fR
+if the blocking factor is 1) when neither
+.B f
+nor an
+.I archive
+operand is given.
+.IP \fBb\fR
+Takes the next argument as the
+.I blocking
+factor, the number of archive records per physical record (default 1,
+maximum 20).
+.IP \fBf\fR
+Takes the next argument as the
+.I archive
+pathname instead of using a tape device name.
+An
+.I archive
+of
+.B \-
+means the standard input (for
+.BR t / x )
+or the standard output (for
+.BR c ).
+.IP \fBl\fR
+Print a message for each link
+.B tar
+was unable to resolve while writing an archive.
+.IP \fBm\fR
+When extracting, leave the modification time of each restored file as
+of the time it was extracted, instead of restoring the time recorded
+in the archive.
+.IP \fBv\fR
+Verbose; print the name of each
+.I file
+as it is processed.
+.IP \fBw\fR
+Ask, for each
+.IR file ,
+whether to add it to or extract it from the archive.
+.IP \fBz\fR
+Pipe the archive through
+.B compress
+while writing it, or through
+.B uncompress
+while reading it.
+.B z
+may not be combined with
+.B r
+or
+.BR u .
+.IP \fBU\fR
+Stop reading the archive as soon as an empty header block is seen,
+for archives written by another
+.B tar
+that pads with a run of zero blocks instead of a single empty header.
+Without
+.BR U ,
+.B tar
+skips over an isolated empty header block looking for further
+entries.
+.SH "SEE ALSO"
+.B compress
+.SH DIAGNOSTICS
+.B tar
+complains and skips an entry whose checksum does not match, and
+reports any file it could not create, open, or link.
+It exits with the current value of
+.BR errno ,
+zero if no system call has failed.
+.SH NOTES
+The tape unit digits, blocking factor, and default device names apply
+mainly when
+.I archive
+is a magnetic tape; on a fixed disk or floppy, name the archive
+explicitly with
+.BR f .

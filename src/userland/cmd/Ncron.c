@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Cron. Execute commands stored in /usr/lib/crontab at preset times.
  * It sets its uid and gid to those of daemon, if possible.
  */

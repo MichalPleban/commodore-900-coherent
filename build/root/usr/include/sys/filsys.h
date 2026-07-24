@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Super block.
  */
 #ifndef	 FILSYS_H
@@ -28,7 +33,7 @@ struct filsys {
 	daddr_t	 s_free[NICFREE];	/* Free block list */
 	short	 s_ninode;		/* Number of inodes in s_inode */
 	ino_t	 s_inode[NICINOD];	/* Free inode list */
-	char	 s_flock;		/* Not used */
+	char	 s_dirty;		/* Clean/dirty flag (see FSCLEAN/FSDIRTY) */
 	char	 s_ilock;		/* Not used */
 	char	 s_fmod;		/* Super block modified flag */
 	char	 s_ronly;		/* Mounted read only flag */
@@ -41,6 +46,14 @@ struct filsys {
 	char	 s_fpack[6];		/* File system pack name */
 	long	 s_unique;		/* Unique number */
 };
+
+/*
+ * Values for s_dirty.  A freshly made or cleanly unmounted file system is
+ * FSCLEAN; the kernel marks it FSDIRTY while mounted read/write, so an
+ * unclean shutdown leaves it FSDIRTY for the next mount/boot to notice.
+ */
+#define	FSCLEAN	0			/* Cleanly unmounted */
+#define	FSDIRTY	1			/* Mounted r/w, not cleanly unmounted */
 
 /*
  * Functions.

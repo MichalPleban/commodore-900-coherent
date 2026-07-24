@@ -1,0 +1,100 @@
+
+
+mmaakkee                                                         mmaakkee
+
+
+
+NNAAMMEE
+     make - program building discipline
+
+SSYYNNOOPPSSIISS
+     mmaakkee [-ddiissnnppqqrrsstt] [-ff _f_i_l_e] [_m_a_c_r_o=_v_a_l_u_e ...] [_t_a_r_g_e_t ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     mmaakkee reads a set of dependency rules and shell commands and
+     uses them to decide which _t_a_r_g_e_t files are out of date with
+     respect to the files they depend on, and to bring them up to
+     date by running the associated commands.
+
+     Arguments of the form _m_a_c_r_o= appearing before the first _t_a_r-
+     _g_e_t define _m_a_c_r_o for the duration of the run, overriding any
+     definition of the same name inside the makefile.
+
+     Unless -rr is given, mmaakkee first reads /uussrr/lliibb/mmaakkeemmaaccrrooss to
+     establish the built-in macros and suffix rules, then reads
+     the makefile itself, then reads /uussrr/lliibb/mmaakkeeaaccttiioonnss to es-
+     tablish the built-in target actions.  The makefile is read
+     from each -ff _f_i_l_e given, in order; if no -ff is given, mmaakkee
+     looks first for mmaakkeeffiillee and then for MMaakkeeffiillee in the cur-
+     rent directory.
+
+     If the makefile defines the special target .IIGGNNOORREE or
+     .SSIILLEENNTT, mmaakkee behaves as though -ii or -ss respectively had
+     also been given.  If it defines .DDEEFFAAUULLTT, the commands at-
+     tached to that target are used to make any target for which
+     no other rule applies.
+
+     After the makefile is read, mmaakkee brings each named _t_a_r_g_e_t up
+     to date, in the order given; with no _t_a_r_g_e_t argument, it
+     brings up to date the first target defined in the makefile.
+
+     -dd   Print debugging information as mmaakkee scans the makefile
+          and decides what to build.
+
+     -ff _f_i_l_e
+          Read _f_i_l_e as (part of) the makefile, instead of
+          mmaakkeeffiillee or MMaakkeeffiillee. May be repeated; a _f_i_l_e of -
+          means read the makefile from the standard input.
+
+     -ii   Ignore nonzero exit status from commands run to build a
+          target.
+
+     -nn   Print the commands that would be executed to bring tar-
+          gets up to date, but do not execute them.
+
+     -pp   Print the macro definitions and the target/dependen-
+          cy/command descriptions that mmaakkee assembled from the
+          makefile, then continue.
+
+     -qq   Do not build anything; merely return an exit status of
+          zero if all named targets are already up to date, non-
+          zero otherwise.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+mmaakkee                                                         mmaakkee
+
+
+
+     -rr   Do not read /uussrr/lliibb/mmaakkeemmaaccrrooss or /uussrr/lliibb/mmaakkeeaacc-
+          ttiioonnss; rely entirely on rules given in the makefile it-
+          self.
+
+     -ss   Do not print each command line before it is executed.
+
+     -tt   Update the modification time of each out-of-date target
+          without actually running its commands.
+
+FFIILLEESS
+          mmaakkeeffiillee, MMaakkeeffiillee  default input, tried in that order
+          /uussrr/lliibb/mmaakkeemmaaccrrooss built-in macro and suffix definitions
+          /uussrr/lliibb/mmaakkeeaaccttiioonnssbuilt-in target actions
+
+SSEEEE AALLSSOO
+     sshh
+
+DDIIAAGGNNOOSSTTIICCSS
+     mmaakkee prints a message and stops if it cannot open a
+     makefile, if a target has no rule and no file by that name
+     exists, or if a command run to build a target returns a non-
+     zero exit status (unless -ii is in effect).
+
+NNOOTTEESS
+     Because macro definitions given on the command line override
+     those in the makefile, they are a convenient way to change,
+     for example, which compiler or options a makefile uses for a
+     single run.

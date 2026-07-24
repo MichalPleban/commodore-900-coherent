@@ -1,0 +1,48 @@
+
+
+aawwkk                                                           aawwkk
+
+
+
+NNAAMMEE
+     awk - report generation, pattern scanning and processing
+     language
+
+SSYYNNOOPPSSIISS
+     aawwkk [-yy] [-FF_c] [-ff _p_r_o_g_f_i_l_e] [_p_r_o_g] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     aawwkk scans each _f_i_l_e (or the standard input, if none is
+     given) for lines matching patterns given in an aawwkk program,
+     and performs the associated actions.  The program is given
+     either as the argument _p_r_o_g or, with -ff, read from _p_r_o_g_f_i_l_e.
+
+     aawwkk recognizes the following options:
+
+     -yy   Match patterns without regard to upper or lower case,
+          as ggrreepp does with its -yy option.
+
+     -FF_c  Set the input field separator to the character _c
+          (default: blank and tab).
+
+     -ff _p_r_o_g_f_i_l_e
+          Take the aawwkk program from _p_r_o_g_f_i_l_e instead of from the
+          command line.
+
+     An aawwkk program consists of a sequence of _p_a_t_t_e_r_n -_a_c_t_i_o_n
+     pairs.  For each input record (normally, each line), every
+     pattern is tested; the action associated with each pattern
+     that matches is performed.  Either the pattern or the action
+     may be omitted: a missing pattern matches every record, and
+     a missing action prints the matched record.  An action is a
+     sequence of statements, enclosed in braces, in a language
+     similar to C, operating on fields of the current record
+     (referred to as $11,  $22,  ...), built-in variables such as
+     NNRR (current record number) and NNFF (number of fields), and
+     user-defined variables.
+
+SSEEEE AALLSSOO
+     ggrreepp, sseedd
+
+NNOOTTEESS
+     This aawwkk recognizes only the options -yy, -FF, and -ff.

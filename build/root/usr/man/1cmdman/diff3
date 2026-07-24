@@ -1,0 +1,97 @@
+
+
+ddiiffff33                                                       ddiiffff33
+
+
+
+NNAAMMEE
+     diff3 - summarize differences among three files
+
+SSYYNNOOPPSSIISS
+     ddiiffff33 [-ee|-xx|-33] _g_e_n_e_r_a_t_o_r
+
+DDEESSCCRRIIPPTTIIOONN
+     ddiiffff33 collates two sets of line-oriented differences -- one
+     between _f_i_l_e_1 and _f_i_l_e_3, the other between _f_i_l_e_2 and _f_i_l_e_3 -
+     - into one three-way comparison, and either prints a summary
+     of where the three files disagree, or, with -ee, -xx, or -33,
+     an editor script.
+
+     The two input difference files must already exist, one
+     giving the changes from _f_i_l_e_1 to _f_i_l_e_3 and the other the
+     changes from _f_i_l_e_2 to _f_i_l_e_3, in the same range-and-letter
+     notation that ddiiffff -ee produces.  As shipped in this source
+     tree, ddiiffff33 is only the back end that reads those two dif-
+     ference files and collates them; it takes exactly one argu-
+     ment, _g_e_n_e_r_a_t_o_r, and reads _g_e_n_e_r_a_t_o_raa and _g_e_n_e_r_a_t_o_rbb as the
+     file1-versus-file3 and file2-versus-file3 difference files,
+     respectively.  Producing those two files (normally with two
+     runs of ddiiffff -ee into temporary files named _g_e_n_e_r_a_t_o_raa and
+     _g_e_n_e_r_a_t_o_rbb) is the job of a front-end script; no such front
+     end is present in this tree (see NOTES).
+
+     Without -ee, -xx, or -33, ddiiffff33 prints a summary in which each
+     region of disagreement is headed by one of:
+
+     ====  All three files differ in this region.
+
+     ====_1 Only _f_i_l_e_1 differs (its text is not reflected in the
+           region of _f_i_l_e_3).
+
+     ====_2 Only _f_i_l_e_2 differs.
+
+     ====_3 Only _f_i_l_e_3 differs.
+
+     Each header is followed by a line for each of the (up to
+     three) files that differ in that region, giving the file
+     number, and, in eedd notation, the range of lines and whether
+     they were appended (aa) or changed (cc), followed by the af-
+     fected text itself.
+
+     -ee   Instead of the summary, print an eedd script that, ap-
+          plied to _f_i_l_e_1, carries forward every change that was
+          made getting from _f_i_l_e_2 to _f_i_l_e_3 (that is, every region
+          marked ==== or ====33).
+
+     -xx   Like -ee, but the script carries forward only the
+          regions marked ==== (where all three files differ).
+
+     -33   Like -ee, but the script carries forward only the
+          regions marked ====33 (where only _f_i_l_e_3 differs).
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ddiiffff33                                                       ddiiffff33
+
+
+
+DDIIAAGGNNOOSSTTIICCSS
+     ddiiffff33 exits with status 0 if the collated differences were
+     empty (the inputs describe no changes), 1 if they were not,
+     and 2 if it could not open one of _g_e_n_e_r_a_t_o_raa or _g_e_n_e_r_a_t_o_rbb,
+     or was given a bad argument.
+
+SSEEEE AALLSSOO
+     ddiiffff
+
+NNOOTTEESS
+     The header comment in this program's source describes it ex-
+     plicitly as ``the internal part of diff3'', meant to reside
+     at /uussrr/lliibb/ddiiffff33 and be invoked as /uussrr/lliibb/ddiiffff33 [ooppttiioonnss]
+     ggeenneerraattoorr after something else has run ddiiffff -ee twice to
+     create _g_e_n_e_r_a_t_o_raa and _g_e_n_e_r_a_t_o_rbb.  This source tree installs
+     the identical binary at both /bbiinn/ddiiffff33 and /uussrr/lliibb/ddiiffff33,
+     but does not contain the front-end script (traditionally
+     also called ddiiffff33) that would create the two intermediate
+     difference files and invoke this program with a temporary-
+     file generator name.  Consequently, running /bbiinn/ddiiffff33 with
+     three file names, as the option summary above and the clas-
+     sic ddiiffff33 command line suggest, does not work in this tree
+     as built; it must be invoked with a single _g_e_n_e_r_a_t_o_r argu-
+     ment naming an already-prepared pair of ddiiffff -ee output
+     files.

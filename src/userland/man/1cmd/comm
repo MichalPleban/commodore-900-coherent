@@ -1,0 +1,53 @@
+.TH comm "" "Command"
+.SH NAME
+comm \- print lines common to two files
+.SH SYNOPSIS
+\fBcomm [\-123] \fIfile1 file2\fR
+.SH DESCRIPTION
+.HS
+comm -- print lines common to two files
+Usage:	comm [ -123 ] file1 file2
+Options:
+	-1	Suppress column 1
+	-2	Suppress column 2
+	-3	Suppress column 3
+Column 1 has lines unique to 'file1'; column 2 has lines unique to 'file2';
+column 3 has lines common to both files.  Both files should be sorted.
+.HE
+.B comm
+reads
+.I file1
+and
+.I file2
+line by line and compares them, printing each line in one of three
+columns separated by tabs.
+Column 1 holds lines found only in
+.IR file1 ,
+column 2 holds lines found only in
+.IR file2 ,
+and column 3 holds lines found in both.
+Both files should already be sorted into the same order, since
+.B comm
+merges rather than searches them.
+Either
+.I file1
+or
+.I file2
+(but not both) may be
+.B \-
+to mean the standard input.
+.IP \fB\-1\fR
+Do not print column 1 (lines unique to
+.IR file1 ).
+.IP \fB\-2\fR
+Do not print column 2 (lines unique to
+.IR file2 ).
+.IP \fB\-3\fR
+Do not print column 3 (lines common to both files).
+.SH "SEE ALSO"
+.BR cmp ,
+.B sort
+.SH DIAGNOSTICS
+.B comm
+exits 1 if either file cannot be opened, or if it is not given
+exactly two file arguments.

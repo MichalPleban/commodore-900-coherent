@@ -1,0 +1,43 @@
+
+
+bbaadd                                                           bbaadd
+
+
+
+NNAAMMEE
+     bad - maintain bad block list
+
+SSYYNNOOPPSSIISS
+     bbaadd _o_p_t_i_o_n _f_i_l_e_s_y_s_t_e_m [_b_l_o_c_k ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     A disk may have bad blocks: portions of the medium that are
+     flawed and cannot reliably be read or written.  bbaadd main-
+     tains the list of bad blocks kept for the given _f_i_l_e_s_y_s_t_e_m,
+     which must be a block-special file.  The mandatory _o_p_t_i_o_n
+     argument is one of the following letters:
+
+     aa    Add each given _b_l_o_c_k to the bad-block list.
+
+     cc    Rewrite the bad-block file without adding or deleting
+          any blocks.
+
+     dd    Delete each given _b_l_o_c_k from the bad-block list.
+
+     ll    List all blocks currently on the bad-block list; no
+          _b_l_o_c_k arguments are taken.
+
+     Each _b_l_o_c_k may also be given as a range _b_1-_b_2, _m_e_a_n_i_n_g _e_v_e_r_y
+     _b_l_o_c_k _f_r_o_m _b_1 _t_h_r_o_u_g_h _b_2 _i_n_c_l_u_s_i_v_e.
+
+     bbaadd merely adds a block to, or removes a block from, the
+     bad-block list; it does not free any i-node that may already
+     reference a block being added.
+
+SSEEEE AALLSSOO
+     iicchheecckk, mmkkffss
+
+DDIIAAGGNNOOSSTTIICCSS
+     bbaadd prints a message and exits if _f_i_l_e_s_y_s_t_e_m cannot be
+     opened, if a block given to aa is already on the list, or if
+     a block given to dd is not on the list.

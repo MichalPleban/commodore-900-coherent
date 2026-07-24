@@ -1,3 +1,0 @@
-export TIMEZONE=EST:300:EDT
-export PATH=:/bin:/usr/bin
-export TERM=vt52

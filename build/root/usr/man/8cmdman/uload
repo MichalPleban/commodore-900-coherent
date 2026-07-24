@@ -1,0 +1,38 @@
+
+
+uullooaadd                                                       uullooaadd
+
+
+
+NNAAMMEE
+     uload - unload a device driver
+
+SSYYNNOOPPSSIISS
+     /eettcc/uullooaadd _f_i_l_e
+
+DDEESSCCRRIIPPTTIIOONN
+     uullooaadd removes from the running kernel the device driver con-
+     tained in the loadable driver image _f_i_l_e, which was
+     previously attached with llooaadd. Driver _f_i_l_e is usually found
+     in directory /ddrrvv.
+
+     uullooaadd reads _f_i_l_e as an ll.oouutt executable and scans its symbol
+     table for configuration-table symbols, which the driver
+     defines with a ccoonn_ suffix (one per major device the driver
+     implements).  For each one found, it reads the driver's con-
+     figuration structure to learn the major device number the
+     driver occupies, and passes that number to the ssuullooaadd() sys-
+     tem call, which detaches the driver from the kernel's device
+     table.
+
+SSEEEE AALLSSOO
+     llooaadd
+
+DDIIAAGGNNOOSSTTIICCSS
+     uullooaadd complains and exits if _f_i_l_e cannot be opened, is not a
+     valid ll.oouutt image, or contains no configuration-table sym-
+     bol.  For each configuration entry found, it also reports if
+     the ssuullooaadd() call itself fails.
+
+NNOOTTEESS
+     Only the superuser may unload a device driver.

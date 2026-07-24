@@ -1,0 +1,44 @@
+
+
+wwcc                                                             wwcc
+
+
+
+NNAAMMEE
+     wc - count words, lines, and characters in files
+
+SSYYNNOOPPSSIISS
+     wwcc [-ccllww] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     For each named _f_i_l_e, wwcc counts and prints the number of
+     lines, words, and characters it contains.  A word is a maxi-
+     mal run of characters delimited by a blank, a tab, or a
+     newline; a line is counted at each newline character read.
+
+     If no _f_i_l_e is named, wwcc reads the standard input and prints
+     a single count with no file name attached.  If more than one
+     _f_i_l_e is named, wwcc prints a count for each, in argument or-
+     der, followed by a line labeled TToottaall that sums the counts
+     over all of them.  A named file that cannot be opened is
+     reported and skipped, and does not contribute to the total.
+
+     -ll   Print only the line count.
+
+     -ww   Print only the word count.
+
+     -cc   Print only the character count.
+
+     The -ll, -ww, and -cc options may be combined in one argument,
+     e.g.  -llww prints both the line and word counts.  If none of
+     them is given, wwcc prints all three counts, in the order
+     lines, words, characters.
+
+DDIIAAGGNNOOSSTTIICCSS
+     wwcc prints wwcc: ccaann'tt ooppeenn ffiillee for each named file it cannot
+     open, and goes on to the next file.
+
+NNOOTTEESS
+     Each count is printed right-justified in an eight-character
+     field; if a file name follows, it is preceded by four
+     spaces.

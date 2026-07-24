@@ -1,0 +1,59 @@
+.TH check "" "Administration"
+.SH NAME
+check \- check file system
+.SH SYNOPSIS
+\fBcheck [\-s] \fIfilesystem ...\fR
+.SH DESCRIPTION
+.HS
+check -- check file system
+Usage:	check [ -s ] filesystem ...
+Option:	-s	Salvage as much as possible, given the problems detected
+.HE
+.B check
+checks the consistency of each named
+.IR filesystem ,
+by running
+.B /bin/icheck
+and then
+.B /bin/dcheck
+on it.
+.PP
+Without
+.BR \-s ,
+.B check
+only reports the problems it finds.
+With
+.BR \-s ,
+.B check
+also asks
+.B icheck
+and
+.B dcheck
+to repair what they can; if the filesystem ends up clean or fully
+repaired (no unfixed errors remain),
+.B check
+clears that filesystem's dirty flag in its superblock, so it will
+mount read/write again.
+.SH FILES
+.DS
+.ta 16n
+\fB/bin/icheck\fR	i-node consistency check
+\fB/bin/dcheck\fR	directory consistency check
+.DE
+.SH "SEE ALSO"
+.BR icheck ,
+.BR dcheck ,
+.B mkfs
+.SH DIAGNOSTICS
+.B check
+exits \-2 (254) if an internal error occurred (for example,
+.B icheck
+or
+.B dcheck
+could not be run); \-1 (255) if unfixed errors remain; 0 if no
+errors were found; and 1 if errors were found and fixed, in which
+case the system should be rebooted.
+.SH NOTES
+With more than one
+.IR filesystem ,
+the exit status is the bitwise OR of the per-filesystem results.

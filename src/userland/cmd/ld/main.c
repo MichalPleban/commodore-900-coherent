@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 static	flag_t	memld;			/* do in-memory load */
 static	flag_t	dcomm;			/* Define commons even if reloc out */
 static	flag_t	nosym;			/* Don't output symbol table */

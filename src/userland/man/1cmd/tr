@@ -1,0 +1,105 @@
+.TH tr "" "Command"
+.SH NAME
+tr \- translate characters
+.SH SYNOPSIS
+\fBtr [\-cds] [\fIstring1\fB [\fIstring2\fB]]\fR
+.SH DESCRIPTION
+.HS
+tr -- translate characters
+Usage:	tr [ -cds ] string1 [ string2 ]
+Options:
+	-c	Complement the characters in 'string1'
+	-d	Delete characters found in 'string1' (no 'string2' needed)
+	-s	Squeeze multiple output mappings onto one character
+Both strings may contain ranges.  Characters may have '\nnn' form.
+.HE
+.B tr
+copies the standard input to the standard output, translating
+characters as it goes.
+With no options, each input character found in
+.I string1
+is replaced by the character in the corresponding position of
+.IR string2 ;
+if
+.I string2
+is shorter than
+.IR string1 ,
+its last character is repeated to make up the difference.
+.PP
+In addition to ordinary characters, either string may contain:
+.IP \fIx\fB\-\fIy\fR
+All characters between
+.I x
+and
+.I y
+in the machine's collating sequence, taken in increasing order.
+.IP \fB\er\fR
+The ASCII carriage return.
+.IP \fB\en\fR
+The ASCII line feed.
+.IP \fB\eb\fR
+The ASCII backspace.
+.IP \fB\et\fR
+The ASCII horizontal tab.
+.IP \fB\ef\fR
+The ASCII form feed.
+.IP "\fB\ed\fR, \fB\edd\fR, or \fB\eddd\fR"
+The character whose (octal) code is
+.IR d ,
+.IR dd ", or " ddd .
+.IP \fB\ex\fR
+The character
+.I x
+itself, for any
+.I x
+not listed above; in particular
+.B \ee\e
+and
+.B \e\-
+denote a literal backslash and a literal minus sign.
+.PP
+The options are:
+.IP \fB\-c\fR
+Complement
+.I string1
+with respect to the full character set before doing anything else.
+The resulting set of characters, taken in increasing order, is used
+wherever
+.I string1
+would otherwise be used.
+.IP \fB\-d\fR
+Delete each input character found in
+.I string1
+instead of translating it.
+No
+.I string2
+is given with
+.B \-d
+unless
+.B \-s
+is also given.
+.IP \fB\-s\fR
+After translating (and deleting, if
+.B \-d
+was given), compress each run of two or more occurrences of the same
+character found in
+.I string2
+(or in
+.I string1
+if there is no
+.I string2
+and
+.B \-d
+was not given) down to a single occurrence.
+.SH "SEE ALSO"
+.B sed
+.SH DIAGNOSTICS
+.B tr
+complains and exits if
+.I string1
+or
+.I string2
+is malformed (an incomplete range, an unterminated character list, or
+an out-of-range octal character constant), or if
+.I string2
+is required but missing, empty, or has extra characters.

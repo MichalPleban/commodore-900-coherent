@@ -1,0 +1,96 @@
+.TH msg "" "Command"
+.SH NAME
+msg \- send a brief message to other users
+.SH SYNOPSIS
+\fBmsg \fIuser\fR
+.br
+\fBmsg \fIuser ... message\fR
+.SH DESCRIPTION
+.HS
+msg -- send a brief message to other users
+Usage:	msg user
+	msg user ... message
+In the first form, send one line read from the standard input to 'user'.
+In the second, send the argument 'message' to the list of users;
+if 'message' is '-', the message is one line read from the standard input.
+.HE
+In the first form,
+.B msg
+reads one line from the standard input and sends it to
+.IR user .
+In the second form,
+.B msg
+sends the final argument,
+.IR message ,
+to every named
+.I user
+in the preceding list; if
+.I message
+is
+.BR \- ,
+.B msg
+instead reads the message as one line from the standard input.
+.PP
+For each named
+.IR user ,
+.B msg
+searches
+.B /etc/utmp
+to find the terminal on which
+.I user
+is logged in, then writes the message to that terminal, prefixed
+with the sender's login name (or
+.B daemon
+if the sender is not logged in).
+If a named
+.I user
+is not currently logged in,
+.B msg
+prints "\fIuser\fR: not logged in" and, unless invoked with
+.BR \-s ,
+sets a nonzero exit status.
+.PP
+Before writing to a terminal,
+.B msg
+checks whether the group/other execute bit of that terminal's device
+file is set (the state controlled by
+.BR mesg );
+if it is not, an ordinary caller is refused, but the superuser is
+asked whether to override the refusal.
+A write that does not complete within ten seconds is abandoned, so
+.B msg
+cannot hang waiting on a terminal that is not reading its input.
+.PP
+If the caller is the superuser and the first argument is
+.BR \-s ,
+.B msg
+suppresses the sender's login-name prefix on the message, closes its
+standard error (so no diagnostics are printed), and forces a zero
+exit status unless a real error (such as being unable to open
+.BR /etc/utmp )
+occurs.
+This is intended for use by programs, such as
+.BR rmail ,
+that relay mail notifications through
+.BR msg ,
+and has no effect for an ordinary caller.
+.SH FILES
+.B /etc/utmp
+.SH "SEE ALSO"
+.BR mesg ,
+.B write
+.SH DIAGNOSTICS
+.B msg
+prints its usage message and exits with status 2 if called with no
+arguments, exits with status 2 if
+.B /etc/utmp
+cannot be opened, and otherwise exits with status 1 if any named user
+could not be reached (unless
+.B \-s
+was given).
+.SH NOTES
+.B msg
+is normally installed set-user-id, so that its execute permission on
+a terminal device can be used to allow or disallow use of the
+terminal by other users, without granting general write access to
+device files.

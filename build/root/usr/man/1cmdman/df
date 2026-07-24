@@ -1,0 +1,53 @@
+
+
+ddff                                                             ddff
+
+
+
+NNAAMMEE
+     df - print free space on file systems
+
+SSYYNNOOPPSSIISS
+     ddff [-aa] [-ii] [-tt] [_d_i_r_e_c_t_o_r_y ...] [_f_i_l_e_s_y_s_t_e_m ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ddff prints the amount of free space on one or more file sys-
+     tems.  Each named argument may be a block- or character-
+     special file (the raw or block file system device), or an
+     ordinary directory, in which case ddff looks up the device
+     that directory resides on by searching /ddeevv for a special
+     file with a matching device number.
+
+     With no arguments, ddff reports on the file system that holds
+     the current directory (unless -aa is given alone, in which
+     case it reports only on the mounted file systems, as below).
+     With one or more arguments, it reports on each in turn.
+
+     For each file system, ddff prints its name, then the number of
+     free blocks over the total number of blocks (excluding the
+     space used by the i-list), and that fraction again as a per-
+     centage.
+
+     -aa  Also report on every file system currently listed in
+         /eettcc/mmnnttttaabb (or, if that does not exist, in the older
+         /eettcc/mmttaabb format), in addition to any _d_i_r_e_c_t_o_r_y or
+         _f_i_l_e_s_y_s_t_e_m arguments given.
+
+     -ii  Also print the number of free i-nodes over the total
+         number of i-nodes, and that fraction as a percentage.
+
+     -tt  Also print the total number of blocks on the device.
+
+FFIILLEESS
+          /eettcc/mmnnttttaabb   table of mounted file systems
+          /eettcc/mmttaabb     older-format mount table, used if /etc/mnttab is absent
+
+SSEEEE AALLSSOO
+     dduu, mmkkffss, mmoouunntt
+
+DDIIAAGGNNOOSSTTIICCSS
+     ddff complains and skips a file system it cannot stat, cannot
+     open, cannot read a superblock from, or whose superblock
+     does not pass its consistency check; it exits with status 1
+     if any file system was skipped for such a reason, or if
+     given an unrecognized option.

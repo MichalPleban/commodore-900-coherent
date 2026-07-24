@@ -1,0 +1,77 @@
+
+
+aatt                                                             aatt
+
+
+
+NNAAMMEE
+     at - execute commands at given time
+
+SSYYNNOOPPSSIISS
+     aatt [-vv] [-cc _c_o_m_m_a_n_d] _t_i_m_e [[_d_a_y] _w_e_e_k] [_f_i_l_e]
+     aatt [-vv] [-cc _c_o_m_m_a_n_d] _t_i_m_e _m_o_n_t_h _d_a_y [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     aatt takes a list of commands and arranges for them to be ex-
+     ecuted at the given _t_i_m_e. When the commands run, the user
+     id, group id, exported shell variables, and current direc-
+     tory are all as they were when aatt was invoked.
+
+     _t_i_m_e is one to four digits giving hours and optionally
+     minutes, followed optionally by aa, pp, nn, or mm for A.M.,
+     P.M., noon, or midnight.  _t_i_m_e may be followed by a _d_a_y of
+     the week, optionally followed by the word wweeeekk to mean the
+     following week, or by a _m_o_n_t_h name and a numeric day of the
+     month.  If no day or month is given, the command runs at the
+     next occurrence of _t_i_m_e today or tomorrow.
+
+     aatt recognizes the following options:
+
+     -cc _c_o_m_m_a_n_d
+          Take the commands to run from the string _c_o_m_m_a_n_d rather
+          than from standard input or _f_i_l_e.
+
+     -vv   Print the date and time at which the command will be
+          executed.
+
+     If a _f_i_l_e argument is given, aatt takes the commands to run
+     from it.  If neither _f_i_l_e nor -cc is given, aatt reads the com-
+     mands from the standard input.
+
+     aatt copies the commands, the current environment, umask, and
+     working directory into a shell script in directory
+     /uussrr/ssppooooll/aatt, named for the year, month, day, hour, and
+     minute at which it is to run, and sets the set-user-id, set-
+     group-id, and owner-execute bits on that file.  The command
+     aattrruunn watches this directory and, when the time arrives,
+     runs the script with the user and group id recorded in its
+     permission bits.
+
+FFIILLEESS
+                         /uussrr/ssppooooll/aattspool directory for pending at jobs
+
+SSEEEE AALLSSOO
+     aattrruunn, sshh
+
+DDIIAAGGNNOOSSTTIICCSS
+     aatt complains and exits with a nonzero status if it cannot
+     parse _t_i_m_e, cannot create its spool file, or cannot find the
+     command ppwwdd needed to record the current working directory.
+
+NNOOTTEESS
+
+
+CCOOHHEERREENNTT CCoommmmaanndd MMaannuuaall                                    PPaaggee 11
+
+
+
+
+aatt                                                             aatt
+
+
+
+     aatt must not be installed set-user-id or set-group-id: anyone
+     may write into the aatt spooling directory, and security in-
+     stead rests on aatt itself setting the set-user-id, set-group-
+     id, and owner-execute bits on the file it creates; without
+     all three, aattrruunn will refuse to run the script.

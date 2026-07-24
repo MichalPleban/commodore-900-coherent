@@ -1,0 +1,35 @@
+
+
+ssttrriipp                                                       ssttrriipp
+
+
+
+NNAAMMEE
+     strip - strip symbol table and relocation information from
+     object file
+
+SSYYNNOOPPSSIISS
+     ssttrriipp _f_i_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     ssttrriipp rewrites each _f_i_l_e in place, removing its debug table,
+     symbol table, and relocation information, and marking it as
+     stripped.  This makes the object file smaller, at the cost
+     of the information a debugger or lldd -rr would need.
+
+     ssttrriipp copies each _f_i_l_e to a temporary file while stripping
+     it, then copies the result back over the original; if _f_i_l_e
+     has already been stripped, ssttrriipp leaves it unchanged.
+
+SSEEEE AALLSSOO
+     lldd
+
+DDIIAAGGNNOOSSTTIICCSS
+     ssttrriipp complains if a _f_i_l_e cannot be opened, is not in the
+     expected object-file format, or ends unexpectedly while
+     being read.  If a write error occurs while rewriting _f_i_l_e,
+     the stripped copy is left in the temporary file and ssttrriipp
+     reports where, so that no data is lost.
+
+NNOOTTEESS
+     ssttrriipp removes its temporary file when interrupted.

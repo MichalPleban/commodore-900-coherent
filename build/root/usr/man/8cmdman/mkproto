@@ -1,0 +1,74 @@
+
+
+mmkkpprroottoo                                                   mmkkpprroottoo
+
+
+
+NNAAMMEE
+     mkproto - insert bad blocks into a proto specification
+
+SSYYNNOOPPSSIISS
+     /eettcc/mmkkpprroottoo _d_e_v_i_c_e < _p_r_o_t_o_1 > _p_r_o_t_o_2
+
+DDEESSCCRRIIPPTTIIOONN
+     mmkkpprroottoo builds a complete _p_r_o_t_o description file, of the
+     kind read by mmkkffss, by scanning _d_e_v_i_c_e for bad blocks and in-
+     serting the resulting %bb bad-block lines into an otherwise
+     complete proto file read from the standard input.
+
+     The standard input must already contain the boot/name/pack
+     line and the block-count line of the proto file (see mmkkffss);
+     mmkkpprroottoo copies these two lines through unchanged to the
+     standard output.  It then opens _d_e_v_i_c_e and reads it one
+     block at a time, from block 0 up to the block count just
+     read; for each block that cannot be read, it emits the block
+     number in a %bb line, exactly as if the bad block had been
+     listed by hand in a proto file.
+
+     After the bad-block lines, mmkkpprroottoo copies the rest of the
+     standard input (the directory and file specifications)
+     through to the standard output unchanged.  If the standard
+     input is exhausted immediately after the block-count line,
+     that is, it specifies no root directory at all, mmkkpprroottoo ap-
+     pends a minimal root directory specification of its own:
+
+          d--755 3 1
+          $
+
+DDIIAAGGNNOOSSTTIICCSS
+     Cannot open %s
+          The named _d_e_v_i_c_e could not be opened for reading.
+
+     Unexpected end of file on proto input
+          The standard input ended before mmkkpprroottoo had read both
+          the boot/name/pack line and the block-count line.
+
+     Preposterous block size: %D
+          The block count given on the standard input is less
+          than four.
+
+     Bad super block
+          Block 1, where the super block must live, cannot be
+          read.
+
+     Bad root inode block
+          Block 2, the first i-node block, cannot be read.
+
+SSEEEE AALLSSOO
+     mmkkffss
+
+NNOOTTEESS
+     mmkkpprroottoo reads _d_e_v_i_c_e sequentially from block 0 and does not
+
+
+COHERENT Administration Manual                             Page 1
+
+
+
+
+mmkkpprroottoo                                                   mmkkpprroottoo
+
+
+
+     rreewwiinndd it; run it against the device to be scanned before
+     that device is used to hold a live file system.

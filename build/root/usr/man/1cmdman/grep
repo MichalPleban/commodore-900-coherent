@@ -1,0 +1,101 @@
+
+
+ggrreepp                                                         ggrreepp
+
+
+
+NNAAMMEE
+     grep - pattern search
+
+SSYYNNOOPPSSIISS
+     ggrreepp [-aabbcchhllnnssvvxxyy] [_p_a_t_t_e_r_n] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ggrreepp searches each _f_i_l_e for lines matching _p_a_t_t_e_r_n, a
+     regular expression given in the same syntax as eedd. If no
+     _f_i_l_e is given, it searches the standard input.  Normally
+     each matching line is printed; several options change what
+     is printed and how the match is made.
+
+     More than one _p_a_t_t_e_r_n may be given, with repeated -ee or -ff
+     options (or one of each); a line is a match if it matches
+     any of them.  If no -ee or -ff option is given, the first non-
+     option argument is taken as _p_a_t_t_e_r_n instead.
+
+PPaatttteerrnnss
+     Ordinary characters in _p_a_t_t_e_r_n match themselves.  Without
+     -aa, the following are also recognized:
+
+     ^   Anchors the match to the start of the line.
+
+     $   Anchors the match to the end of the line.
+
+     .   Matches any single character.
+
+     *   Matches zero or more occurrences of the preceding pat-
+         tern element.
+
+     [_c_h_a_r_s]
+         Matches any one of the enclosed characters; a leading ^
+         complements the set, and ranges may be written with -.
+
+     \_c  Matches the character _c literally.
+
+     With -aa, (, ), |, +, and ?  are also recognized, with the
+     same meaning as in eeggrreepp. With -xx, none of the above are
+     special: the whole _p_a_t_t_e_r_n must equal the whole line,
+     character for character.
+
+OOppttiioonnss
+     -aa  Accept the extended metacharacters (, ), |, +, and ?  in
+         _p_a_t_t_e_r_n, as eeggrreepp does.
+
+     -bb  Precede each matching line with the number of the input
+         block it started in.
+
+     -cc  Print only a count of matching lines, not the lines
+         themselves.
+
+     -ee  The next argument is _p_a_t_t_e_r_n, useful when it begins with
+         -.
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ggrreepp                                                         ggrreepp
+
+
+
+     -ff  The next argument names a file containing one pattern
+         per line.
+
+     -hh  Do not print file names ahead of matched lines.
+
+     -ll  Print only the names of files that contain a match.
+
+     -nn  Precede each matching line with its line number within
+         its file.
+
+     -ss  Print nothing; only set the exit status.
+
+     -vv  Print lines that do _n_o_t match any _p_a_t_t_e_r_n.
+
+     -xx  Require the whole line to equal _p_a_t_t_e_r_n exactly;
+         metacharacters in _p_a_t_t_e_r_n are treated as ordinary text.
+
+     -yy  Make lower-case letters in _p_a_t_t_e_r_n match either case in
+         the input.
+
+SSEEEE AALLSSOO
+     aawwkk, eedd, eeggrreepp
+
+DDIIAAGGNNOOSSTTIICCSS
+     ggrreepp returns 0 if any line matched, 1 if none did, and 2 if
+     invoked incorrectly or a file could not be opened.
+
+NNOOTTEESS
+     eeggrreepp is an extended and faster version of ggrreepp.

@@ -1,0 +1,75 @@
+
+
+iicchheecckk                                                     iicchheecckk
+
+
+
+NNAAMMEE
+     icheck - i-node consistency check
+
+SSYYNNOOPPSSIISS
+     iicchheecckk [-ssvv] [-bb _b_l_o_c_k ...] _f_i_l_e_s_y_s_t_e_m ...
+
+DDEESSCCRRIIPPTTIIOONN
+     iicchheecckk reads the super-block and i-list of each _f_i_l_e_s_y_s_t_e_m
+     and builds a map of every block in use, checking as it goes
+     that no block is claimed by more than one i-node, by both an
+     i-node and the free list, or more than once within the free
+     list or within a single i-node's block list.
+
+     Each _f_i_l_e_s_y_s_t_e_m should normally be unmounted, and read ac-
+     cess to its special file is enough unless -ss is given.
+
+OOppttiioonnss
+     -bb  Every argument after this option, up to the next option
+         or the end of the argument list, is a block number
+         rather than a _f_i_l_e_s_y_s_t_e_m; as the scan proceeds, iicchheecckk
+         prints, with its type, every reference it finds to any
+         of these blocks.
+
+     -ss  Ignore the existing free list, note every block claimed
+         by an i-node, and rebuild the super-block's free list
+         and free i-node list from what remains; this requires
+         write access to _f_i_l_e_s_y_s_t_e_m.
+
+     -vv  Print a summary of file, block, and free-space counts
+         for _f_i_l_e_s_y_s_t_e_m after checking it.
+
+     iicchheecckk runs on each named _f_i_l_e_s_y_s_t_e_m in turn and exits with
+     the bitwise OR of the exit status from every one:
+
+          00xx0011    miscellaneous error (e.g., cannot open, out of memory)
+          00xx0022    an i/o error made the check impossible to complete
+          00xx0044    bad free list
+          00xx0088    missing blocks (in neither an i-node nor the free list)
+          00xx1100    duplicate blocks in the free list
+          00xx2200    the free-i-node count in the super-block is wrong
+
+SSEEEE AALLSSOO
+     cchheecckk, ddcchheecckk, mmoouunntt, ssyynncc
+
+DDIIAAGGNNOOSSTTIICCSS
+     iicchheecckk prints a line for each bad or duplicate block it
+     finds, giving the block number, the type of reference
+     (bootstrap, super block, inodes, direct, indirect, double
+     indirect, triple indirect, dir, bad, or free), and, for a
+     duplicate, the i-number involved.  It also reports
+     RRiiddiiccuulloouuss ffssiizzee/iissiizzee and gives up on a _f_i_l_e_s_y_s_t_e_m whose
+     super-block looks wrong, and BBaadd iiffrreeee lliisstt if the free-i-
+     node count does not match what it counted.
+
+NNOOTTEESS
+
+
+CCOOHHEERREENNTT AAddmmiinniissttrraattiioonn MMaannuuaall                             PPaaggee 11
+
+
+
+
+iicchheecckk                                                     iicchheecckk
+
+
+
+     Filesystem sizes and structures newer than this port's fixed
+     addressing limits (10 direct, 1 single-, 1 double-, and 1
+     triple-indirect block per i-node) are not supported.

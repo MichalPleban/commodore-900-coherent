@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Fragment a directory tree into smaller pieces.
  * Write the pieces onto /dev/fd0 after fdformat'ing,
  * mkfs'ing, and mount'ing on /f0.

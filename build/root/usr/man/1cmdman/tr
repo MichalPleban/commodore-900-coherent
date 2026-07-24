@@ -1,0 +1,79 @@
+
+
+ttrr                                                             ttrr
+
+
+
+NNAAMMEE
+     tr - translate characters
+
+SSYYNNOOPPSSIISS
+     ttrr [-ccddss] [_s_t_r_i_n_g_1 [_s_t_r_i_n_g_2]]
+
+DDEESSCCRRIIPPTTIIOONN
+     ttrr copies the standard input to the standard output, trans-
+     lating characters as it goes.  With no options, each input
+     character found in _s_t_r_i_n_g_1 is replaced by the character in
+     the corresponding position of _s_t_r_i_n_g_2; if _s_t_r_i_n_g_2 is shorter
+     than _s_t_r_i_n_g_1, its last character is repeated to make up the
+     difference.
+
+     In addition to ordinary characters, either string may con-
+     tain:
+
+     _x-_y  All characters between _x and _y in the machine's
+          collating sequence, taken in increasing order.
+
+     \rr   The ASCII carriage return.
+
+     \nn   The ASCII line feed.
+
+     \bb   The ASCII backspace.
+
+     \tt   The ASCII horizontal tab.
+
+     \ff   The ASCII form feed.
+
+     \dd, \dddd, or \dddddd
+          The character whose (octal) code is _d, _d_d, or  _d_d_d.
+
+     \xx   The character _x itself, for any _x not listed above; in
+          particular \ee\ and \- denote a literal backslash and a
+          literal minus sign.
+
+     The options are:
+
+     -cc   Complement _s_t_r_i_n_g_1 with respect to the full character
+          set before doing anything else.  The resulting set of
+          characters, taken in increasing order, is used wherever
+          _s_t_r_i_n_g_1 would otherwise be used.
+
+     -dd   Delete each input character found in _s_t_r_i_n_g_1 instead of
+          translating it.  No _s_t_r_i_n_g_2 is given with -dd unless -ss
+          is also given.
+
+     -ss   After translating (and deleting, if -dd was given), com-
+          press each run of two or more occurrences of the same
+          character found in _s_t_r_i_n_g_2 (or in _s_t_r_i_n_g_1 if there is
+          no _s_t_r_i_n_g_2 and -dd was not given) down to a single oc-
+          currence.
+
+SSEEEE AALLSSOO
+
+
+CCOOHHEERREENNTT CCoommmmaanndd MMaannuuaall                                    PPaaggee 11
+
+
+
+
+ttrr                                                             ttrr
+
+
+
+     sseedd
+
+DDIIAAGGNNOOSSTTIICCSS
+     ttrr complains and exits if _s_t_r_i_n_g_1 or _s_t_r_i_n_g_2 is malformed
+     (an incomplete range, an unterminated character list, or an
+     out-of-range octal character constant), or if _s_t_r_i_n_g_2 is re-
+     quired but missing, empty, or has extra characters.

@@ -1,0 +1,94 @@
+.TH write "" "Command"
+.SH NAME
+write \- conduct interactive conversation with another user
+.SH SYNOPSIS
+\fBwrite \fIuser \fB[\fItty\fB]\fR
+.SH DESCRIPTION
+.HS
+write -- conduct interactive conversation with another user
+Usage:	write user [ tty ]
+.HE
+.B write
+opens a two-way conversation with another logged-in user.
+It looks up
+.I user
+in
+.BR /etc/utmp ,
+using
+.I tty
+to pick a particular login if that
+.I user
+is logged in on more than one terminal, and opens the corresponding
+terminal for writing.
+It then prints
+.B "User user has been notified ..."
+on the caller's own terminal, and copies each character typed at its
+standard input to the recipient's terminal until end of file (the
+terminal's end-of-file character, if the input is a terminal) is
+reached.
+.PP
+If the recipient's terminal denies writes (its execute permission bit
+for "other" is off) and the caller is the superuser,
+.B write
+asks
+.B "User `user' is denying messages.  Override?"
+and proceeds only if the answer is
+.BR y ;
+any other caller is simply refused.
+.PP
+While the conversation is open,
+.B write
+puts its own terminal into cbreak mode so it can watch for lines
+beginning with
+.BR ! .
+Such a line is not sent to the recipient; instead, the remainder of the
+line is read as a command and run with
+.BR system() ,
+with its output appearing locally, after which the conversation
+resumes.
+If both terminals are in "crt" mode (see
+.BR stty ),
+.B write
+also echoes backspace characters specially so that character erase
+looks right at both ends.
+.PP
+The conversation ends when the sender reaches end of file (interrupt,
+hangup, and quit are also caught and treated the same way); both
+terminals are restored to their previous modes, and
+.B write
+sends the line
+.B EOT
+to the recipient's terminal before exiting.
+.B write
+runs setuid to root so that it can test, and when permitted override,
+the destination terminal's write-permission bit; it drops this
+privilege with
+.B setuid(getuid())
+immediately after opening the destination terminal.
+.SH FILES
+.DS
+.ta 16n
+\fB/etc/utmp\fR	list of logged-in users
+\fB/dev/*\fR	terminal special files
+.DE
+.SH "SEE ALSO"
+.BR who ,
+.BR wall ,
+.BR msg ,
+.B mesg
+.SH DIAGNOSTICS
+.B write
+prints a diagnostic and exits with status 1 if
+.I user
+is not logged in, is not logged in on the named
+.IR tty ,
+the destination terminal cannot be written to, or the recipient
+refuses the connection; a warning only (without exiting) is printed
+if the caller's own terminal cannot be replied to.
+.SH NOTES
+.B write
+prints
+.B "Warning: One or both ttys is not a screen-oriented device. ..."
+if the local terminal is not in "crt" mode and the standard input is a
+terminal, since character-erase (backspace) handling between the two
+ends may then not look right.

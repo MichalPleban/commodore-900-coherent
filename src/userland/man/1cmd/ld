@@ -1,0 +1,159 @@
+.TH ld "" "Command"
+.SH NAME
+ld \- load/bind relocatable object files
+.SH SYNOPSIS
+\fBld [\fIoption ...\fB] \fIfile ...\fR
+.SH DESCRIPTION
+.HS
+ld -- load/bind relocatable object files
+Usage:	ld [ option ... ] file ...
+Options:
+	-d	Define commons (even if undefined symbols)
+	-e ent	Set entry point to given symbol or octal number
+	-i	Bind output sepid
+	-k[sys]	Kernel process; use system symbol table (default: '/coherent')
+	-l<lib>	Use standard library <lib>
+	-m	Perform in-memory load if possible (larger but faster)
+	-n	Bind output shared
+	-o file	Place output in named file (default: 'l.out')
+	-r	Retain relocation information
+	-s	Discard symbol table
+	-u sym	Undefine 'sym' (forcing library search)
+	-X	Discard C internal local symbols
+	-x	Discard all local symbols
+.HE
+.B ld
+combines relocatable object files, produced by
+.BR cc ", " as ", or " ld ,
+with routines drawn from library archives produced by
+.BR ar ,
+to build an executable (or further relocatable) output file.
+.PP
+.B ld
+scans its arguments left to right.
+Each non-option argument is either a relocatable object file or a
+library archive.
+A library archive is searched only to resolve undefined references;
+if there are none outstanding,
+.B ld
+goes on to the next argument immediately.
+The library is scanned from first module to last, repeatedly, until a
+whole pass adds nothing further to the output; a module is bound in
+as soon as it resolves an outstanding undefined symbol.
+.PP
+The following options are recognized:
+.IP \fB\-d\fR
+Define common symbols in the output even if undefined symbols remain.
+Normally commons are defined only when the link is otherwise
+complete (no undefined symbols, or relocatable output).
+.IP "\fB\-e\fI ent\fR"
+Set the entry point of the output to
+.IR ent ,
+given either as a symbol name or as a number (a leading
+.B 0
+means octal,
+.B 0x
+means hexadecimal).
+.IP \fB\-i\fR
+Bind the output with separated (sepid) text and data.
+.IP \fB\-k\fI[sys]\fR
+Link a kernel process or loadable driver: read the symbol table of
+.I sys
+(default
+.BR /coherent )
+to resolve references against the running kernel, and mark the output
+as a kernel image.
+.IP "\fB\-l\fIlib\fR"
+An abbreviation for the library
+\fB/lib/lib\fIlib\fB.a\fR,
+or
+\fB/usr/lib/lib\fIlib\fB.a\fR
+if the first is not found.
+.IP \fB\-L\fR
+Build large-model output: relax the check that a segment's address
+range fits within the machine's normal per-segment size limit.
+.IP \fB\-m\fR
+Build the output image in memory, when it is small enough to fit,
+instead of seeking a disk file for each segment.
+Larger memory use, faster link.
+.IP \fB\-n\fR
+Bind the output as a shared (pure) text image.
+.IP "\fB\-o \fIfile\fR"
+Write the output into
+.I file
+instead of the default,
+.BR l.out .
+.IP \fB\-r\fR
+Retain relocation information in the output and do not complain about
+undefined symbols; produces a
+.B .o
+file as if its pieces had been compiled together.
+.IP "\fB\-R \fIbase\fR"
+Set the relocation base of the output to
+.I base
+(a symbol name or a number) instead of the machine's usual default.
+.IP \fB\-s\fR
+Discard the symbol table from the output.
+.IP "\fB\-u \fIsym\fR"
+Add
+.I sym
+to the symbol table as an undefined global reference, to force a
+library search that pulls in whichever module defines it --
+for example,
+.BR "\-u _dtoa_" ,
+to force the real floating-point formatter ahead of its stub in
+.BR libc.a .
+.IP \fB\-w\fR
+Watch: print progress messages (module and undefined-symbol counts,
+final image size) as linking proceeds.
+This option is accepted by the program but is not listed in the
+Options table above.
+.IP \fB\-X\fR
+Discard C-internal local symbols.
+.IP \fB\-x\fR
+Discard all local symbols.
+.SH FILES
+.DS
+.ta 20n
+\fBl.out\fR	default output file
+\fB/coherent\fR	default kernel symbol table for \fB\-k\fR
+\fB/lib/lib*.a\fR	standard libraries
+\fB/usr/lib/lib*.a\fR	more libraries
+.DE
+.SH "SEE ALSO"
+.BR ar ,
+.BR as ,
+.B cc
+.SH DIAGNOSTICS
+.IP "no input found"
+No relocatable object file was read; there is nothing to link.
+.IP "cannot open \fIfile\fR"
+.B ld
+prints
+.B "can't open \fIfile\fR"
+and exits: it could not open the named object file or library.
+.IP "cannot create \fIfile\fR"
+.B ld
+could not create the output file named by
+.B \-o
+(or
+.BR l.out ).
+.IP "segment larger than \fIn\fRKb"
+A segment of the output exceeds the machine's normal size limit for a
+segment; relink with
+.B \-L
+if the output is genuinely large-model.
+.IP "address wraparound"
+A segment's address computation overflowed; the output would not run
+correctly.
+Printed with the added hint ``use `\-L''' when the wraparound would be
+cured by large-model output.
+.SH NOTES
+When linking a program by hand (running
+.B ld
+independently of
+.BR cc ),
+be sure to include the appropriate run-time start-up object
+(such as
+.BR crts0.o )
+on the command line; otherwise the program will not link correctly.

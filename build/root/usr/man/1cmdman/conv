@@ -1,0 +1,46 @@
+
+
+ccoonnvv                                                         ccoonnvv
+
+
+
+NNAAMMEE
+     conv - convert between various numeric bases and ASCII
+
+SSYYNNOOPPSSIISS
+     ccoonnvv [_n_u_m_b_e_r]
+
+DDEESSCCRRIIPPTTIIOONN
+     ccoonnvv converts _n_u_m_b_e_r and prints it as a hexadecimal,
+     decimal, octal, and binary value, followed by its low-order
+     byte as a quoted character, all on one line.  If no _n_u_m_b_e_r
+     is given on the command line, ccoonnvv reads lines from the
+     standard input and converts each nonblank line the same way,
+     until end of file.
+
+     _n_u_m_b_e_r may be written with an optional leading - for a nega-
+     tive value, followed by one of the prefixes below:
+
+          00xx or 00XX    a hexadecimal value
+          #           also introduces a hexadecimal value
+          00           (no following x or X) introduces an octal value
+          $           introduces a binary value
+
+     A prefix consisting of a quote character followed by one
+     other character gives the ASCII code of that other character
+     as the value.
+
+     With none of the above prefixes, the number is read as
+     decimal.  Embedded blanks and tabs within the digits are ig-
+     nored; hexadecimal digits may be given in either case.
+
+     In the character field of the output, ccoonnvv prints the
+     value's low-order byte in quotes.  If the byte's high bit is
+     set, ccoonnvv prints a leading ~ and clears the bit before prin-
+     ting the character.  If the resulting code is a control
+     character or DEL, ccoonnvv prints a leading ^ and the correspon-
+     ding visible letter (DEL is shown as ^?).
+
+DDIIAAGGNNOOSSTTIICCSS
+     ccoonnvv prints bbaadd ddiiggiitt and discards the current number if a
+     digit outside the selected base is found.

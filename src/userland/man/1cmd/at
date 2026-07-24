@@ -1,0 +1,109 @@
+.TH at "" "Command"
+.SH NAME
+at \- execute commands at given time
+.SH SYNOPSIS
+\fBat [\-v] [\-c \fIcommand\fB] \fItime \fB[[\fIday\fB] \fIweek\fB] [\fIfile\fB]\fR
+.br
+\fBat [\-v] [\-c \fIcommand\fB] \fItime month day \fB[\fIfile\fB]\fR
+.SH DESCRIPTION
+.HS
+at -- execute commands at given time
+Usage:	at [ -v ] [ -c command ] time [ [ day ] week ] [ file ]
+        at [ -v ] [ -c command ] time month day [ file ]
+Options:
+	-c	Following argument gives command
+	-v	Print time command will be executed
+If 'file' is given, take commands from it.
+If neither file nor '-c' is given, read commands from standard input.
+.HE
+.B at
+takes a list of commands and arranges for them to be executed at the
+given
+.IR time .
+When the commands run, the user id, group id, exported shell
+variables, and current directory are all as they were when
+.B at
+was invoked.
+.PP
+.I time
+is one to four digits giving hours and optionally minutes, followed
+optionally by
+.BR a ,
+.BR p ,
+.BR n ,
+or
+.B m
+for A.M., P.M., noon, or midnight.
+.I time
+may be followed by a
+.I day
+of the week, optionally followed by the word
+.B week
+to mean the following week, or by a
+.I month
+name and a numeric day of the month.
+If no day or month is given, the command runs at the next occurrence
+of
+.I time
+today or tomorrow.
+.PP
+.B at
+recognizes the following options:
+.IP \fB\-c\ \fIcommand\fR
+Take the commands to run from the string
+.I command
+rather than from standard input or
+.IR file .
+.IP \fB\-v\fR
+Print the date and time at which the command will be executed.
+.PP
+If a
+.I file
+argument is given,
+.B at
+takes the commands to run from it.
+If neither
+.I file
+nor
+.B \-c
+is given,
+.B at
+reads the commands from the standard input.
+.PP
+.B at
+copies the commands, the current environment, umask, and working
+directory into a shell script in directory
+.BR /usr/spool/at ,
+named for the year, month, day, hour, and minute at which it is to
+run, and sets the set-user-id, set-group-id, and owner-execute bits
+on that file.
+The command
+.B atrun
+watches this directory and, when the time arrives, runs the script
+with the user and group id recorded in its permission bits.
+.SH FILES
+.DS
+.ta 1.5i
+	\fB/usr/spool/at\fR	spool directory for pending at jobs
+.DE
+.SH "SEE ALSO"
+.BR atrun ,
+.B sh
+.SH DIAGNOSTICS
+.B at
+complains and exits with a nonzero status if it cannot parse
+.IR time ,
+cannot create its spool file, or cannot find the command
+.B pwd
+needed to record the current working directory.
+.SH NOTES
+.B at
+must not be installed set-user-id or set-group-id: anyone may write
+into the
+.B at
+spooling directory, and security instead rests on
+.B at
+itself setting the set-user-id, set-group-id, and owner-execute bits
+on the file it creates; without all three,
+.B atrun
+will refuse to run the script.

@@ -1,0 +1,95 @@
+
+
+nnrrooffff                                                       nnrrooffff
+
+
+
+NNAAMMEE
+     nroff - text processor
+
+SSYYNNOOPPSSIISS
+     nnrrooffff [-aaddiiTTxx] [-_mnnaammee] [-_nNN] [-_raaNN] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     nnrrooffff formats text for a printing terminal or line printer.
+     It reads each _f_i_l_e in turn, interprets the formatting re-
+     quests and macros embedded in it, and writes the formatted
+     result to the standard output; a request or macro call is a
+     line beginning with .  or an apostrophe, followed by a two-
+     letter (or user-defined) name and optional arguments (a
+     leading apostrophe suppresses the automatic break that a
+     leading .  would otherwise cause).  With no _f_i_l_e arguments,
+     nnrrooffff reads the standard input.
+
+     Text lines are filled and adjusted (words are packed onto a
+     line up to the current line length, with extra space in-
+     serted between them to justify the right margin) unless no-
+     fill mode has been requested.  Some of the more commonly
+     used requests are:
+
+          .bbrr     break the output line here
+          .sspp _N   space down _N lines
+          .ffii / .nnffenter fill / no-fill mode
+          .ccee _N   center the next _N lines
+          .ttaa _N ...set tab stops
+          .iigg     ignore input until a matching ..
+          .ddee _x_x  define macro _x_x (ended by ..)
+          .ddss _x_x _s_t_rdefine string _x_x
+          .nnrr _R _N set number register _R to _N
+          .ssoo _f_i_l_eread _f_i_l_e in place of this line
+          .ttmm _m_s_g print _m_s_g on the standard error
+
+     A macro package such as -mmss supplies a higher-level set of
+     macros (paragraphs, headings, and the like) built out of
+     these requests; this repository's own -mmaann package, ttmmaacc.aann,
+     is one such package, used to format manual pages.
+
+     -aa   Force ASCII-approximation of special characters; norm-
+          ally set automatically because nnrrooffff (unlike its
+          typesetting counterpart) approximates special charac-
+          ters by default.
+
+     -dd   Print each request as it is executed, for debugging
+          macros.
+
+     -ii   After each _f_i_l_e has been read to completion, also read
+          and format the standard input.
+
+     -mm_n_a_m_e
+          Read the macro package /uussrr/lliibb/ttmmaacc._n_a_m_e before
+          processing any _f_i_l_e.
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+nnrrooffff                                                       nnrrooffff
+
+
+
+     -nn_N  Number the first page of output _N, instead of 1.
+
+     -rr_a_N Set number register _a (a single character) to the value
+          _N.
+
+     -TT   Set the predicate register normally used to tell
+          whether the output is destined for a typesetter, even
+          though running as nnrrooffff.
+
+     -xx   Do not eject to the bottom of the page after the last
+          line of the last file.
+
+FFIILLEESS
+     /uussrr/lliibb/ttmmaacc.*
+
+SSEEEE AALLSSOO
+     ddeerrooffff
+
+DDIIAAGGNNOOSSTTIICCSS
+     nnrrooffff prints a diagnostic on the standard error and, for
+     most errors, continues processing; unrecoverable conditions
+     (such as running out of memory for a macro or string, or an
+     unbalanced .iiee/ .eell) cause it to abort.

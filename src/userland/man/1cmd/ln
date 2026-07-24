@@ -1,0 +1,71 @@
+.TH ln "" "Command"
+.SH NAME
+ln \- create a link to a file
+.SH SYNOPSIS
+\fBln [\-f] \fIoldfile newfile\fR
+.br
+\fBln [\-f] \fIfile ... directory\fR
+.SH DESCRIPTION
+.HS
+ln -- create a link to a file
+Usage:	ln [ -f ] oldfile newfile
+	ln [ -f ] file ... directory
+Option:	-f	Force link even if new file exists
+.HE
+Each file is known by an i-node number, and is
+.I linked
+to one or more names, each stored in a directory; the same file can
+therefore be known by several names, in several directories.
+.B ln
+creates a new link to a file.
+.PP
+In its first form,
+.B ln
+links the name
+.I newfile
+to the file already named
+.IR oldfile ,
+provided
+.I newfile
+does not already exist.
+If the last argument is instead an existing directory,
+.B ln
+links each
+.I file
+into that directory under its own last-component name.
+With exactly two arguments where the second is not a directory, the
+name given as
+.I newfile
+is used directly.
+.IP \fB\-f\fR
+If
+.I newfile
+(or the like-named entry that would be created in
+.IR directory )
+already exists and is not itself a directory,
+.B ln
+removes it first and then makes the link; without
+.BR \-f ,
+an existing
+.I newfile
+is left alone and the link fails.
+.SH "SEE ALSO"
+.BR cp ,
+.BR ls ,
+.BR mv ,
+.B rm
+.SH DIAGNOSTICS
+.B ln
+prints a system error message and continues with the next file if a
+link cannot be made.
+.SH NOTES
+Links across file systems are impossible: if two file systems are
+mounted, say, on
+.B /
+and
+.BR /usr ,
+a file on one cannot be linked to a name on the other.
+.PP
+.B ln
+does not prevent linking a directory to another name; the source
+predates symbolic links, and this feature should be avoided.

@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Make a filesystem.
  * Efficiently, rec 84.08.31
  */
@@ -373,6 +378,8 @@ getsuper()
 	xfixup(X[BADFIN-1]);
 	/* Set the time of construction */
 	time(&S.s_time);
+	/* A freshly made file system is clean */
+	S.s_dirty = FSCLEAN;
 	return (0);
 }
 

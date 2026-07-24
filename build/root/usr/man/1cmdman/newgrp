@@ -1,0 +1,39 @@
+
+
+nneewwggrrpp                                                     nneewwggrrpp
+
+
+
+NNAAMMEE
+     newgrp - change to a new group
+
+SSYYNNOOPPSSIISS
+     nneewwggrrpp _g_r_o_u_p
+
+DDEESSCCRRIIPPTTIIOONN
+     nneewwggrrpp changes the caller's group identification to _g_r_o_u_p
+     and starts a new shell, /bbiinn/sshh, under that group id.
+     Access is checked against the entry for _g_r_o_u_p in /eettcc/ggrroouupp:
+     membership is granted if the caller's login name appears in
+     the group's member list, if the group has no password and no
+     member list, or, failing that, if the caller supplies the
+     group's password correctly.  A member name prefixed with !
+     in the member list is instead explicitly denied access.
+
+     On success, nneewwggrrpp sets its real and effective group id to
+     that of _g_r_o_u_p and its real and effective user id back to the
+     caller's own user id, then execs /bbiinn/sshh as a login shell.
+     On failure it prints a short message and execs an ordinary
+     /bbiinn/sshh without changing group.
+
+FFIILLEESS
+     /eettcc/ggrroouupp
+
+SSEEEE AALLSSOO
+     llooggiinn, sshh
+
+NNOOTTEESS
+     nneewwggrrpp is normally installed set-user-id to root so that it
+     can read the encrypted password in /eettcc/ggrroouupp; it always
+     drops back to the caller's own user id before running the
+     shell.

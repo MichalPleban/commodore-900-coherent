@@ -1,0 +1,79 @@
+
+
+mmoouunntt                                                       mmoouunntt
+
+
+
+NNAAMMEE
+     mount - mount a file system
+
+SSYYNNOOPPSSIISS
+     /eettcc/mmoouunntt [_s_p_e_c_i_a_l _d_i_r_e_c_t_o_r_y [-ffrruu]]
+
+DDEESSCCRRIIPPTTIIOONN
+     mmoouunntt grafts the file system held on block-special device
+     _s_p_e_c_i_a_l onto the directory tree at _d_i_r_e_c_t_o_r_y. With no ar-
+     guments, mmoouunntt prints the file systems now mounted: it reads
+     /eettcc/mmnnttttaabb if that file exists, and otherwise /eettcc/mmttaabb.
+
+     Before mounting, mmoouunntt reads the super block of _s_p_e_c_i_a_l to
+     check that it holds a properly formed file system and
+     whether that file system was cleanly unmounted.  If it was
+     not, and neither -ff nor -ww was given, mmoouunntt mounts it read-
+     only and suggests running cchheecckk on it; with -ff it forces a
+     read/write mount instead.  -ww leaves the clean/dirty deci-
+     sion to the kernel's mmoouunntt() call, which itself refuses to
+     mount a dirty file system read/write unless forced.
+
+     After mounting (or, with -uu, without actually mounting any-
+     thing), mmoouunntt records the mount in /eettcc/mmnnttttaabb (if it can be
+     opened) and in /eettcc/mmttaabb, replacing any existing entry for
+     the same _s_p_e_c_i_a_l and adding the mount time to /eettcc/mmnnttttaabb.
+
+     -rr   Mount _s_p_e_c_i_a_l read-only.
+
+     -ff   Force a read/write mount even though _s_p_e_c_i_a_l was not
+          cleanly unmounted.
+
+     -ww   Remount an already-mounted file system for read/write
+          access, leaving the clean/dirty decision to the kernel.
+
+     -uu   Do not mount anything; only add or update the entry for
+          _s_p_e_c_i_a_l in /eettcc/mmnnttttaabb and /eettcc/mmttaabb. This is used at
+          boot time to record the root file system, which the
+          kernel has already mounted.
+
+FFIILLEESS
+          /eettcc/mmttaabb       table of mounted file systems
+          /eettcc/mmnnttttaabb     table of mounted file systems, with mount times
+          /eettcc/bboooottttiimmee   time of the last reboot, used to detect a stale /etc/mtab
+
+SSEEEE AALLSSOO
+     mmkkffss, uummoouunntt, mmoouunntt()
+
+DDIIAAGGNNOOSSTTIICCSS
+     mmoouunntt complains if _s_p_e_c_i_a_l is not a block-special device, if
+     _d_i_r_e_c_t_o_r_y is not a directory, or if _s_p_e_c_i_a_l does not hold a
+     properly formed file system.  It exits nonzero if the under-
+     lying mmoouunntt() system call fails, for example because the
+     file system or directory is already busy.
+
+NNOOTTEESS
+
+
+CCOOHHEERREENNTT AAddmmiinniissttrraattiioonn MMaannuuaall                             PPaaggee 11
+
+
+
+
+mmoouunntt                                                       mmoouunntt
+
+
+
+     Mounting requires read and write access to _s_p_e_c_i_a_l itself,
+     which in practice restricts mmoouunntt to the superuser, since
+     block special files are normally not writable by other
+     users.  The -uu option updates the mount tables even though
+     no mmoouunntt() system call is made, so it should be used only
+     when the kernel has already mounted _s_p_e_c_i_a_l by some other
+     means.

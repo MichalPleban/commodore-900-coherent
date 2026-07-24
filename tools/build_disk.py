@@ -41,6 +41,7 @@ import argparse
 import os
 import struct
 import sys
+import time
 
 # Reuse the shared Coherent filesystem implementation from the emulator tools.
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -197,17 +198,27 @@ def mkfs(image, start, isize, fsize):
     sb = bytearray(BLOCK)
     struct.pack_into("<H", sb, SB_ISIZE, isize)
     fs.write32(sb, SB_FSIZE, fsize)
-    struct.pack_into("<H", sb, SB_NFREE, 1)      # free[0]=0 sentinel == "full"
+    struct.pack_into("<H", sb, SB_NFREE, 0)      # empty free list (rebuilt below)
     struct.pack_into("<H", sb, SB_NINODE, 0)
     fs._write_sb(sb)
 
+    now = int(time.time())
     bad = Inode(fs, 1)
     bad.mode = S_IFREG                            # reserved bad-block inode
+    bad.atime = bad.mtime = bad.ctime = now
     fs.write_inode(bad)
 
     root = Inode(fs, ROOTINO)
     root.mode = S_IFDIR | 0o755
-    root.nlinks = 2
+    root.atime = root.mtime = root.ctime = now
+    # A filesystem root carries an extra "mount" link beyond its own "." + ".."
+    # (the reference by which it is mounted into a parent tree).  `dcheck`
+    # pre-seeds the root's expected link count by 1 (entries[ROOTIN-1]++), and
+    # every reference image -- floppy and each HD partition, empty ones included
+    # -- has root nlink == 1 + (dir refs to root).  Seed 3 (== 1 mount + "." +
+    # "..") so an empty root is 3 and create_dir bumps it to 3 + nsubdirs;
+    # seeding 2 leaves every root one short ("Ino 2 Entries N Link N-1").
+    root.nlinks = 3
     root.size = 2 * DIRENT_SIZE
     root.addrs[0] = isize
     fs.write_inode(root)
@@ -332,6 +343,7 @@ def build(root_dir, perms_path, devices_path, out_path,
         fs0.write_inode(tnode)
 
     # -- Step D: /dev nodes from the device manifest (device inodes are nlink 1) --
+    now = int(time.time())
     for t, path, mode_s, uid_s, gid_s, maj, minr, raw in devices:
         parent, name = split_parent(fs0, path)
         ino = fs0.alloc_inode()
@@ -340,6 +352,7 @@ def build(root_dir, perms_path, devices_path, out_path,
         node.nlinks = 1
         node.uid, node.gid = int(uid_s), int(gid_s)
         node.addrs[0] = int(raw)
+        node.atime = node.mtime = node.ctime = now
         fs0.write_inode(node)
         fs0.add_dir_entry(parent, name, ino)
 

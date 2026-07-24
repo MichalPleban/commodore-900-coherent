@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Gpph() gets a passphrase from the terminal after disabling echo, writing
  * 'prompt' and flushing input (ie, throwing input away). The line is placed
  * in 'buf'.

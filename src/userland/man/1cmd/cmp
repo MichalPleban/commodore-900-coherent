@@ -1,0 +1,65 @@
+.TH cmp "" "Command"
+.SH NAME
+cmp \- compare bytes of two files
+.SH SYNOPSIS
+\fBcmp [\-l] [\-s] \fIfile1 file2\fB [\fIskip1 skip2\fB]\fR
+.SH DESCRIPTION
+.HS
+cmp -- compare bytes of two files
+Usage:	cmp [ -ls ] file1 file2 [ skip1 skip2 ]
+Options:
+	-l	Print byte number and the bytes at each difference
+	-s	Return status (do not print anything)
+If 'file1' is '-', use standard input.
+If 'skip1' and 'skip2' are present, they are the number of bytes
+to skip before comparing in 'file1' and 'file2', respectively.
+.HE
+.B cmp
+compares
+.I file1
+and
+.I file2
+byte by byte.
+.I file1
+may be
+.B \-
+to mean the standard input.
+.PP
+Without
+.BR \-l ,
+.B cmp
+stops at the first byte that differs and prints the byte number
+(counting from 1) and line number (counting newlines seen in
+.IR file1 )
+at which the files first differ, then exits.
+If one file ends before the other,
+.B cmp
+reports which file hit end of file first.
+.PP
+If
+.I skip1
+and
+.I skip2
+are given, they are decimal byte counts;
+.B cmp
+skips that many bytes into
+.I file1
+and
+.I file2
+respectively before starting the comparison.
+.IP \fB\-l\fR
+Do not stop at the first difference.
+Instead, for every byte at which the files differ, print the byte
+number and the octal value of the differing byte from each file.
+.IP \fB\-s\fR
+Print nothing; only set the exit status.
+.SH "SEE ALSO"
+.BR comm ,
+.B diff
+.SH DIAGNOSTICS
+.B cmp
+exits 0 if the files are identical, 1 if they differ, and 2 if a
+file cannot be opened (this happens regardless of
+.BR \-s ,
+though the message is suppressed by
+.BR \-s ).

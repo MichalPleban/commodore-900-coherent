@@ -1,0 +1,38 @@
+.TH chown "" "Command"
+.SH NAME
+chown \- change the owner of files
+.SH SYNOPSIS
+\fBchown \fIowner file ...\fR
+.SH DESCRIPTION
+.HS
+chown -- change the owner of files
+Usage:	chown owner file ...
+.HE
+.B chown
+changes the owner of each
+.I file
+to
+.IR owner .
+.I owner
+may be given as a user name, looked up in
+.BR /etc/passwd ,
+or as a plain decimal user identifier.
+The group of each
+.I file
+is left unchanged.
+.SH FILES
+.DS
+.ta 16n
+\fB/etc/passwd\fR	user name to user-id lookup
+.DE
+.SH "SEE ALSO"
+.BR chgrp ,
+.B chmod
+.SH DIAGNOSTICS
+.B chown
+exits with status 2 if
+.I owner
+is not a valid user name, or if any
+.I file
+could not be changed (in which case it also prints the reason for
+that file and continues with the rest).

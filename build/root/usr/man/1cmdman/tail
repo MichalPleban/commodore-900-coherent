@@ -1,0 +1,72 @@
+
+
+ttaaiill                                                         ttaaiill
+
+
+
+NNAAMMEE
+     tail - print the end of a file
+
+SSYYNNOOPPSSIISS
+     ttaaiill [+-_n_u_m_b_e_r[bbccffll]] [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     ttaaiill copies the last part of _f_i_l_e, or of the standard input
+     if none is named, onto the standard output.  If no _n_u_m_b_e_r is
+     given, the last ten lines are copied.
+
+     The optional first argument is a + or - sign followed by a
+     _n_u_m_b_e_r and, optionally, one of the letters bb, cc, or ll. A -
+     sign (the default) counts _n_u_m_b_e_r backward from the end of
+     the file; a + sign counts it forward from the beginning.
+     The letter ll (the default) means _n_u_m_b_e_r is a count of lines;
+     a scale of bb means 512-byte blocks and cc means characters
+     (bytes).
+
+     The letter ff may follow the count, or the sign if there is
+     no count; it selects continuous read mode, described under
+     -ff below.
+
+     +_n_u_m_b_e_r
+          Start copying _n_u_m_b_e_r lines, blocks, or characters from
+          the beginning of _f_i_l_e.
+
+     -_n_u_m_b_e_r
+          Start copying _n_u_m_b_e_r lines, blocks, or characters back
+          from the end of _f_i_l_e.
+
+     bb    Interpret _n_u_m_b_e_r as a count of 512-byte blocks.
+
+     cc    Interpret _n_u_m_b_e_r as a count of characters (bytes).
+
+     ll    Interpret _n_u_m_b_e_r as a count of lines.  This is the
+          default if no scale letter is given.
+
+     ff    After copying up to the end of _f_i_l_e, do not exit; in-
+          stead keep reading the file and echo any data subse-
+          quently appended to it, indefinitely.  This lets you
+          watch a file grow.
+
+SSEEEE AALLSSOO
+     dddd, hheeaadd, sseedd
+
+DDIIAAGGNNOOSSTTIICCSS
+     ttaaiill prints the message `Window too large' and exits if the
+     requested count is too large to hold in memory, and com-
+     plains if _f_i_l_e cannot be opened.
+
+NNOOTTEESS
+     When seeking is not possible on the input (for example, a
+     pipe), ttaaiill reads through the whole input a character at a
+     time instead, which is slow for a large trailing count.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ttaaiill                                                         ttaaiill
+
+
+

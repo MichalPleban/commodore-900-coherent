@@ -1,0 +1,50 @@
+.TH cat "" "Command"
+.SH NAME
+cat \- concatenate/print files
+.SH SYNOPSIS
+\fBcat [\-u] [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+cat -- concatenate/print files
+Usage:	cat [ -u ] [ file ... ]
+Option:	-u	Do not buffer output in 512-byte blocks
+File '-' indicates the standard input.
+If no 'file' is specified, the standard input is used.
+.HE
+.B cat
+copies each
+.I file
+in turn to the standard output.
+The name
+.B \-
+means the standard input.
+If no
+.I file
+is given,
+.B cat
+copies the standard input.
+.PP
+By default,
+.B cat
+buffers its output in 512-byte blocks.
+.IP \fB\-u\fR
+Do not buffer the output; each character is written as soon as it
+is read.
+This is useful when
+.B cat
+feeds a pipe or another program that should see the data without
+delay.
+.SH "SEE ALSO"
+.BR cp ,
+.B pr
+.SH DIAGNOSTICS
+If a named
+.I file
+cannot be opened,
+.B cat
+prints a message naming the file and the reason, skips it, and
+continues with the remaining files; the overall exit status is still
+zero.
+.B cat
+exits with status 1 only if a read error occurs on an input file
+or a write error occurs on the standard output.

@@ -1,0 +1,39 @@
+
+
+cchheecckk                                                       cchheecckk
+
+
+
+NNAAMMEE
+     check - check file system
+
+SSYYNNOOPPSSIISS
+     cchheecckk [-ss] _f_i_l_e_s_y_s_t_e_m ...
+
+DDEESSCCRRIIPPTTIIOONN
+     cchheecckk checks the consistency of each named _f_i_l_e_s_y_s_t_e_m, by
+     running /bbiinn/iicchheecckk and then /bbiinn/ddcchheecckk on it.
+
+     Without -ss, cchheecckk only reports the problems it finds.  With
+     -ss, cchheecckk also asks iicchheecckk and ddcchheecckk to repair what they
+     can; if the filesystem ends up clean or fully repaired (no
+     unfixed errors remain), cchheecckk clears that filesystem's dirty
+     flag in its superblock, so it will mount read/write again.
+
+FFIILLEESS
+          /bbiinn/iicchheecckk     i-node consistency check
+          /bbiinn/ddcchheecckk     directory consistency check
+
+SSEEEE AALLSSOO
+     iicchheecckk, ddcchheecckk, mmkkffss
+
+DDIIAAGGNNOOSSTTIICCSS
+     cchheecckk exits -2 (254) if an internal error occurred (for ex-
+     ample, iicchheecckk or ddcchheecckk could not be run); -1 (255) if un-
+     fixed errors remain; 0 if no errors were found; and 1 if er-
+     rors were found and fixed, in which case the system should
+     be rebooted.
+
+NNOOTTEESS
+     With more than one _f_i_l_e_s_y_s_t_e_m, the exit status is the bit-
+     wise OR of the per-filesystem results.

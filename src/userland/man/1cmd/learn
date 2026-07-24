@@ -1,0 +1,64 @@
+.TH learn "" "Command"
+.SH NAME
+learn \- computer-aided instruction
+.SH SYNOPSIS
+\fBlearn [\-\fIdirectory\fB] [\fIsubject \fB[\fIlesson \fB[\fIspeed\fB]]]\fR
+.SH DESCRIPTION
+.HS
+learn -- computer-aided instruction
+Usage:	learn [ -directory ] [ subject [ lesson [ speed ] ] ]
+If you do not know which subject or lesson you want,
+type 'learn' and you will be guided from there.
+.HE
+.B learn
+runs a computer-aided-instruction script that teaches the student
+about
+.I subject
+by presenting a series of lessons and checking the student's typed
+responses.
+.PP
+If invoked with no
+.I subject
+argument,
+.B learn
+lists the available subjects, read from
+.B lib/subjects
+under its lesson directory, and prompts
+.BR "Enter subject ?" .
+.PP
+Once a
+.I subject
+is known,
+.B learn
+may also be given a
+.I lesson
+name within that subject, and a
+.I speed
+rating from 0 through 10 (values outside that range are forced to 10)
+that controls how lessons of varying difficulty are chosen next; a
+correct answer raises the rating by one, an incorrect one lowers it by
+four.
+.IP \fB\-\fIdirectory\fR
+Use
+.I directory
+as the root of the lesson library, in place of the default,
+.BR /usr/learn .
+.PP
+While working a lesson, the student may type
+.B bye
+in response to an incorrect-answer prompt to end the session
+immediately.
+.SH FILES
+.DS
+.ta 24n
+\fB/usr/learn\fR	default lesson-library root
+\fB/usr/learn/lib/subjects\fR	list of available subjects
+\fB/usr/learn/lib/\fIsubject\fR	lessons for \fIsubject\fR
+\fB/usr/learn/play\fR	student's scratch work area
+.DE
+.SH NOTES
+.B learn
+must be installed set-user-ID to the owner of
+.BR /usr/learn/play ,
+since it creates and removes a scratch directory there on the
+student's behalf, and drops the privilege once the area is set up.

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Learn - Computer Aided Computer Instruction
  * Script Interpreter.
  * [NOTE: This command should be marked as

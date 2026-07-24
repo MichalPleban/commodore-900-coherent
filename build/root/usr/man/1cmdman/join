@@ -1,0 +1,84 @@
+
+
+jjooiinn                                                         jjooiinn
+
+
+
+NNAAMMEE
+     join - join two databases
+
+SSYYNNOOPPSSIISS
+     jjooiinn [-aa[_n]] [-ee _s] [-jj[_n] _k_e_y] [-oo _n._m ...] [-tt_c] _f_i_l_e_1
+     _f_i_l_e_2
+
+DDEESSCCRRIIPPTTIIOONN
+     jjooiinn reads _f_i_l_e_1 and _f_i_l_e_2, each a text file holding one
+     record per line, and writes to the standard output a line
+     for every pair of records, one from each file, whose _k_e_y
+     fields compare equal, followed (unless -aa is given) by
+     nothing else.  Either file name may be -, meaning the stan-
+     dard input; both may not be - at once.
+
+     Each input file must already be sorted on its key field, for
+     example with ssoorrtt, using the same field and collating order
+     as jjooiinn. By default fields are separated by runs of blanks
+     and tabs, which are also stripped from the front of each
+     field; with -tt every occurrence of the single separator
+     character delimits a field, so empty fields are possible.
+     By default the key field of each file is field 1.
+
+OOppttiioonnss
+     -aa[_n] BBeessiiddeess tthhee nnoorrmmaall jjooiinneedd oouuttppuutt, aallssoo pprriinntt rreeccoorrddss
+           ooff ffiillee _n wwhhoossee kkeeyy ddiidd nnoott mmaattcchh aannyy rreeccoorrdd ooff tthhee
+           ootthheerr ffiillee.  IIff _n iiss oommiitttteedd, ddoo tthhiiss ffoorr bbootthh ffiilleess.
+
+     -ee _s  On output, print _s in place of any field that is
+           empty.
+
+     -jj[_n] _k_e_y
+           Use field number _k_e_y (counting from 1), instead of
+           field 1, as the join field of file _n; if _n is omitted,
+           set the join field of both files.
+
+     -oo _n._m ...
+           Print only the listed fields, in the order given, in-
+           stead of the default output; each _n._m selects field _m
+           of file _n. This option consumes all the remaining _n._m
+           arguments up to the two file name arguments.
+
+     -tt_c   Use the single character _c as the field separator on
+           both input and output, instead of runs of blanks and
+           tabs.
+
+     With no -oo option, the default output for a matched pair is
+     the key field, followed by the remaining fields of the _f_i_l_e_1
+     record, followed by the remaining fields of the _f_i_l_e_2
+     record.  Fields on output are separated by _c if -tt was
+     given, otherwise by a single space.
+
+EExxaammppllee
+          join -t: -j1 3 -o 1.3 2.4 1.4 1.1 2.2 filea fileb
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+jjooiinn                                                         jjooiinn
+
+
+
+     joins ffiilleeaa and ffiilleebb on fields separated by :, using field
+     3 as the join field of ffiilleeaa and field 1 (the default) of
+     ffiilleebb, printing the five listed fields of each matched pair.
+
+SSEEEE AALLSSOO
+     aawwkk, ccoommmm, ssoorrtt, uunniiqq
+
+DDIIAAGGNNOOSSTTIICCSS
+     jjooiinn prints jjooiinn ffiieelldd iiss mmiissssiinngg iinn iinnppuutt if a record has
+     fewer fields than the join field requires, and exits nonzero
+     if either input file cannot be opened, if both are -, or if
+     the command line is malformed.

@@ -1,0 +1,148 @@
+.TH init "" "Administration"
+.SH NAME
+init \- process control initialization
+.SH SYNOPSIS
+\fB/etc/init [\fIswapper \fB[\fIdriver ...\fB]]\fR
+.SH DESCRIPTION
+.HS
+init -- process control initialization
+Usage:	/etc/init [ swapper [ driver ... ] ]
+If 'swapper' is given, it is loaded and started as a program.
+Each further 'driver' argument is loaded, one at a time, with
+'/etc/load'.
+.HE
+The kernel starts
+.B init
+as the first process, with process identifier 1, and
+.B init
+runs for as long as the system is up.
+Its job is to bring the system from boot into multi-user mode and
+then to keep the login process running on every enabled terminal.
+.PP
+If given an argument,
+.B init
+loads it as a
+.I swapper
+program with
+.BR fork ()
+and
+.BR execve ().
+Every further argument names a
+.I driver
+file, which
+.B init
+loads, one at a time, by running
+.BR /etc/load .
+.SH "Boot Sequence"
+.B init
+first tries to create the file
+.BR /etc/boottime ;
+this doubles as a check that the root file system is writable.
+If root came up read-only, because it was not cleanly unmounted, the
+.BR creat ()
+fails and
+.B init
+remembers that root is read-only, printing a message on the console
+that it must be repaired with
+.B "check \-s"
+and the system rebooted, or remounted read/write with
+.BR "mount \-w" .
+.PP
+.B init
+records the boot in
+.BR /usr/adm/wtmp ,
+and installs handlers for
+.B SIGHUP
+and
+.BR SIGQUIT .
+It then loops: while no terminal has a login pending, it spawns an
+interactive shell on
+.BR /dev/console ,
+with prompt
+.B "# "
+(or
+.B "(ro)# "
+while root is still read-only).
+When that shell exits (typically because the operator typed an
+end-of-file), and root is now writable,
+.B init
+runs
+.B /etc/rc
+if it exists, to complete multi-user setup, then reads
+.B /etc/ttys
+and starts
+.B getty
+on every enabled line listed there.
+If root is still read-only when the console shell exits,
+.B init
+prints another warning and starts the console shell again instead
+of proceeding to multi-user mode.
+.PP
+.B init
+then waits for its children to exit.
+If a
+.B getty
+(or the process it eventually replaced itself with, by way of
+.BR login )
+on a given line exits,
+.B init
+clears that line's
+.B utmp
+entry, restores the terminal's mode and ownership, and restarts
+.B getty
+on it, unless the line has since been disabled in
+.BR /etc/ttys .
+Other terminating children are simply reaped.
+.SH Signals
+.B init
+responds to two signals:
+.IP \fBSIGQUIT\fR 0.9i
+Re-reads
+.BR /etc/ttys ,
+starting
+.B getty
+on any newly enabled line and killing the
+.B getty
+(or login session) on any line that has been disabled.
+Sent to
+.B init
+with
+.BR "kill \-quit 1" .
+.IP \fBSIGHUP\fR
+Sends
+.B SIGKILL
+to every process and returns the system to single-user mode.
+Sent to
+.B init
+with
+.BR "kill \-1 1" .
+.SH FILES
+.DS
+.ta 16n
+\fB/dev/console\fR	console terminal
+\fB/etc/boottime\fR	boot-time stamp, and root-writable probe
+\fB/etc/rc\fR	multi-user startup command file
+\fB/etc/ttys\fR	terminals to enable
+\fB/etc/utmp\fR	currently logged-in lines
+\fB/etc/load\fR	driver loader, run for each \fIdriver\fR argument
+\fB/usr/adm/wtmp\fR	login accounting log
+.DE
+.SH "SEE ALSO"
+.BR check ,
+.BR getty ,
+.BR kill ,
+.BR login ,
+.BR mount ,
+.B sh
+.SH NOTES
+This
+.B init
+does not run a separate fsck-style check before entering single-user
+mode; instead, the writability of the root file system is probed
+directly by attempting to create
+.BR /etc/boottime .
+While root remains read-only,
+.B init
+refuses to run
+.B /etc/rc
+and stays in single-user mode.

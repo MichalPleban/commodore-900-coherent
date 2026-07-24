@@ -1,0 +1,97 @@
+.TH mkfs "" "Administration"
+.SH NAME
+mkfs \- make a new file system
+.SH SYNOPSIS
+\fB/etc/mkfs \fIspecial proto\fR
+.br
+\fB/etc/mkfs [\-b \fIboot\fB] [\-f \fIfname\fB] [\-p \fIpack\fB] [\-i \fIn\fB] [\-n \fIn\fB] [\-m \fIn\fB] \fIspecial n\fR
+.SH DESCRIPTION
+.HS
+mkfs -- make a new file system
+Usage:	/etc/mkfs special proto
+	/etc/mkfs [ -b boot ] [ -f fname ] [ -p pack ] [ -i n ] [ -n n ] [ -m n ] special n
+Options:
+	-b boot	Name of the boot block file
+	-f fname	File system name to record in the label
+	-p pack	File pack name to record in the label
+	-i n	Number of i-nodes
+	-n n	Free-list interleave factor n
+	-m n	Free-list interleave factor m
+If 'proto' is a number, it is the size in blocks of an empty file system;
+otherwise, it is a prototype description file.
+.HE
+.B mkfs
+writes a new file system onto
+.I special
+(normally a block special file).
+It has two forms.
+In the first,
+.I proto
+names a prototype description file that lists the boot file, the
+file system's name and pack name, its size and number of i-nodes,
+its bad blocks, and the directories and files it is to contain;
+.B mkfs
+reads this file to build the file system.
+In the second,
+.I n
+is the size of the file system in blocks, and
+.B mkfs
+constructs an empty file system of that size (holding nothing but a
+root directory) using values taken from the option letters below,
+in place of a prototype file; a
+.I proto
+that is entirely digits selects this form, anything else selects the
+first form.
+If any of the option letters are given together with a real
+.I proto
+file, they are superfluous and
+.B mkfs
+warns and ignores them.
+.IP "\fB\-b\ \fIboot\fR"
+Name of the file holding the bootstrap to be written into block 0
+(default: no boot file).
+.IP "\fB\-f\ \fIfname\fR"
+Name to store in the file system label (default: \fBnoname\fR).
+.IP "\fB\-p\ \fIpack\fR"
+Pack (device) name to store in the file system label (default:
+\fBnopack\fR).
+.IP "\fB\-i\ \fIn\fR"
+Number of i-nodes to create (default: about one i-node per five to
+seven blocks, depending on file system size).
+.IP "\fB\-n\ \fIn\fR"
+Free-list interleave factor
+.I n
+(numerator); together with
+.B \-m
+controls how successive free blocks are spread across the disk.
+Default is 1.
+.IP "\fB\-m\ \fIn\fR"
+Free-list interleave factor
+.I n
+(denominator).
+Default is 1.
+.SH "SEE ALSO"
+.BR mount ,
+.BR mknod ,
+.B mkproto
+.SH DIAGNOSTICS
+.B mkfs
+complains and stops if it cannot open
+.I special
+or
+.IR proto ,
+if
+.I proto
+is malformed (a missing or out-of-range value, a badly formed file
+specification line, or a premature end of file), or if a regular
+file named in
+.I proto
+cannot be read or has changed size since it was measured; it prints
+its two-line usage message if called with the wrong number of
+arguments.
+.SH NOTES
+Options are recognized only in the second form, immediately after the
+command name and before
+.I special
+and
+.IR n .

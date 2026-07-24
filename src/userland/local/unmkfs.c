@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Given a directory tree root and a filesystem size,
  * write the fewest mkfs proto files necessary to
  * copy the directory tree onto floppies.

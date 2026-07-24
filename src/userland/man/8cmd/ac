@@ -1,0 +1,53 @@
+.TH ac "" "Administration"
+.SH NAME
+ac \- summarize login accounting information
+.SH SYNOPSIS
+\fBac [\fIoptions\fB] [\fIuser ...\fB]\fR
+.SH DESCRIPTION
+.HS
+ac -- summarize login accounting information
+Usage:	ac [ options ] [ user  ... ]
+Options:
+	-d	Itemize for each midnight-midnight period
+	-p	Itemize by individual users
+	-w wtmp	Obtain raw statistics from 'wtmp' rather than '/usr/adm/wtmp'
+If users are specified, only they are considered.
+.HE
+.B ac
+summarizes the login-accounting data recorded in
+.BR /usr/adm/wtmp .
+That file, if it exists, receives a raw accounting record for each
+login, logout, date change, and system reboot; by default
+.B ac
+prints the total connect time it finds there.
+If one or more
+.I user
+arguments are given,
+.B ac
+prints a summary only of those users' connect time.
+.PP
+.B ac
+recognizes the following options:
+.IP \fB\-d\fR
+Itemize the output into daily (midnight-to-midnight) periods.
+.IP \fB\-p\fR
+Print a separate total for every user.
+.IP \fB\-w\ \fIwtmp\fR
+Read accounting data from
+.I wtmp
+instead of
+.BR /usr/adm/wtmp .
+.SH FILES
+.DS
+.ta 1.5i
+	\fB/usr/adm/wtmp\fR	raw login-accounting records
+.DE
+.SH "SEE ALSO"
+.B accton
+.SH DIAGNOSTICS
+.B ac
+complains if it cannot open the accounting file, and warns of a
+possible bad file format if it finds an implausible record.
+.SH NOTES
+.B /usr/adm/wtmp
+can grow very large; truncate it periodically.

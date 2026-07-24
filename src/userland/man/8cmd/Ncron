@@ -1,0 +1,83 @@
+.TH Ncron "" "Administration"
+.SH NAME
+Ncron \- run commands at scheduled times
+.SH SYNOPSIS
+\fB/usr/lib/Ncron\fR
+.SH DESCRIPTION
+.HS
+Ncron -- run commands at scheduled times
+Usage:	Ncron
+Wakes up once a minute and runs every entry in '/usr/lib/crontab'
+whose time fields match the current minute, hour, day of the month,
+month, and day of the week; logs a note to '/usr/lib/cronlog' on
+the hour and each time it runs a command.
+No arguments and no options.
+.HE
+.B Ncron
+reads the file
+.B /usr/lib/crontab
+and, once each minute, runs every entry in it whose time fields
+match the current minute, hour, day of the month, month, and day of
+the week.
+.PP
+At start-up
+.B Ncron
+sets its user and group id to those of user
+.B daemon
+if that user exists, changes its working directory to
+.BR /bin ,
+and arranges to wake up once every minute.
+On each wakeup it rereads
+.B /usr/lib/crontab
+from the beginning, testing every entry; once every command it has
+started has finished, it sleeps until the next minute.
+.PP
+Each line of
+.B /usr/lib/crontab
+has the form
+.DS
+	\fIminute hour month-day month week-day command\fR
+.DE
+The five time fields are separated by white space.
+Each may be a single number, a range of two numbers separated by a
+hyphen, a comma-separated list of numbers and/or ranges, or an
+asterisk meaning every value of that field.
+An entry runs only when the current time matches every one of its
+five fields.
+The
+.I command
+is the rest of the line and is passed to
+.B popen
+so that it runs under the shell.
+A percent sign within
+.I command
+is turned into a newline, and everything following it is instead
+fed to the command's standard input; a backslash escapes a literal
+percent sign or continues the line onto the next.
+.PP
+.B Ncron
+appends a line to
+.B /usr/lib/cronlog
+each time it starts a command, and, on the hour, a time stamp as
+well.
+.SH FILES
+.DS
+.ta 1.5i
+	\fB/usr/lib/crontab\fR	table of scheduled commands
+	\fB/usr/lib/cronlog\fR	log of commands run and hourly time stamps
+.DE
+.SH "SEE ALSO"
+.BR at ,
+.BR atrun ,
+.B cron
+.SH NOTES
+.B Ncron
+is a variant of the command
+.B cron
+found elsewhere in this source tree; the two differ only in that
+.B Ncron
+also writes an hourly time stamp, and each command it runs, to
+.BR /usr/lib/cronlog .
+There is no shipped binary built from this source in this tree; the
+installed daemon is
+.BR cron .

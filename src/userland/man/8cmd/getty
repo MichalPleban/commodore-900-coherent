@@ -1,0 +1,98 @@
+.TH getty "" "Administration"
+.SH NAME
+getty \- read a login name and start login
+.SH SYNOPSIS
+\fB/etc/getty [\fItype\fB]\fR
+.SH DESCRIPTION
+.HS
+getty -- read a login name and start login
+Usage:	/etc/getty [ type ]
+'type' selects the line-speed table to use on the terminal that is
+the standard input; the default is table '0'.  A hard-wired speed
+is selected with an upper-case letter 'A' through 'S'; other single
+characters select tables of speeds appropriate to a dial-in modem,
+which getty cycles through on each BREAK, blank input line, or
+unrecognized character.
+.HE
+.B init
+invokes
+.B getty
+on each enabled line listed in
+.BR /etc/ttys ,
+with the standard input, output, and error already attached to that
+terminal, and with the second character of the corresponding
+.B /etc/ttys
+line (the character following the enable flag) as
+.IR type .
+.B getty
+sets the terminal's initial speed and mode from the table selected
+by
+.IR type ,
+prints a login prompt, and reads a name.
+Once it has a usable name, it replaces itself with
+.BR /bin/login ,
+passing the name as its argument, and passing along the erase and
+kill characters read from the terminal's previous settings.
+.PP
+While reading the name,
+.B getty
+folds the whole line to lower case if every letter typed was
+upper case, recognizes the terminal's own erase and kill characters,
+and, on BREAK, an empty line, or an unrecognized character, moves on
+to the next speed in the table (wrapping back to the first) and
+tries again.
+An end-of-file character on the first character of the line, or a
+NUL byte, also restarts the read at the next speed.
+.PP
+Without an argument,
+.B getty
+uses table
+.BR 0 ,
+a set of common dial-in speeds.
+The recognized values of
+.I type
+select a table as follows:
+.DS
+.ta 8n
+\fB-\fR	Teletype 33, fixed at 110 baud
+\fB0\fR	300, 1200, 150, 110 baud, in that cycle
+\fB1\fR	Teletype 37, fixed at 150 baud
+\fB2\fR	9600 baud, fixed
+\fB3\fR	1200, 300 baud, in that cycle
+\fB4\fR	300 baud, fixed
+\fB5\fR	300, 1200 baud, in that cycle
+\fBA\fR	50 baud
+\fBB\fR	75 baud
+\fBC\fR	110 baud
+\fBD\fR	134 baud
+\fBE\fR	150 baud
+\fBF\fR	200 baud
+\fBG\fR	300 baud
+\fBH\fR	600 baud
+\fBI\fR	1200 baud
+\fBJ\fR	1800 baud
+\fBK\fR	2000 baud
+\fBL\fR	2400 baud
+\fBM\fR	3600 baud
+\fBN\fR	4800 baud
+\fBO\fR	7200 baud
+\fBP\fR	9600 baud
+\fBQ\fR	19200 baud
+\fBR\fR, \fBS\fR	extended speeds A and B
+.DE
+.SH FILES
+.DS
+.ta 12n
+\fB/etc/ttys\fR	terminals to start getty on
+\fB/bin/login\fR	program run once a name is read
+.DE
+.SH "SEE ALSO"
+.BR init ,
+.B login
+.SH NOTES
+.B getty
+is always started by
+.B init
+with its argument taken from
+.BR /etc/ttys ;
+it is not ordinarily run by hand.

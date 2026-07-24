@@ -1,0 +1,38 @@
+.TH chgrp "" "Command"
+.SH NAME
+chgrp \- change the group owner of files
+.SH SYNOPSIS
+\fBchgrp \fIgroup file ...\fR
+.SH DESCRIPTION
+.HS
+chgrp -- change the group owner of files
+Usage:	chgrp group file ...
+.HE
+.B chgrp
+changes the group owner of each
+.I file
+to
+.IR group .
+.I group
+may be given as a group name, looked up in
+.BR /etc/group ,
+or as a plain decimal group identifier.
+The owner of each
+.I file
+is left unchanged.
+.SH FILES
+.DS
+.ta 16n
+\fB/etc/group\fR	group name to group-id lookup
+.DE
+.SH "SEE ALSO"
+.BR chmod ,
+.B chown
+.SH DIAGNOSTICS
+.B chgrp
+exits with status 2 if
+.I group
+is not a valid group name, or if any
+.I file
+could not be changed (in which case it also prints the reason for
+that file and continues with the rest).

@@ -1,0 +1,98 @@
+
+
+xxmmaaiill                                                       xxmmaaiill
+
+
+
+NNAAMMEE
+     xmail - secret computer mail
+
+SSYYNNOOPPSSIISS
+     xxmmaaiill _u_s_e_r ...
+     xxmmaaiill [-nn | -xx | -yy]
+
+DDEESSCCRRIIPPTTIIOONN
+     xxmmaaiill sends and reads mail that is encrypted so that only
+     its intended recipient can read it, using per-user public
+     keys kept under /uussrr/ssppooooll/ppuubbkkeeyy.
+
+     If one or more _u_s_e_r arguments are given, xxmmaaiill checks each
+     name against /uussrr/ssppooooll/ppuubbkkeeyy, printing uusseerr iiss nnoott eenn-
+     rroolllleedd.  for any name with no public-key file there and ex-
+     cluding it from the send list; if none of the named
+     recipients is enrolled, xxmmaaiill exits without sending any-
+     thing.  It builds a header (a FFrroomm line naming the sender
+     and the time, plus a (cccc: ...) line listing the other
+     recipients if there is more than one), reads the message
+     from the standard input up to end of file or a line con-
+     taining only ., and, for each valid recipient, pipes the
+     header and message through the filter /bbiinn/xxeennccooddee (run as a
+     child process, using that recipient's public key) and ap-
+     pends the encrypted result to xxmmaaiillbbooxx in the recipient's
+     home directory.  If the recipient already has a regular
+     mailbox, a short notice that mail is waiting is also ap-
+     pended there.
+
+     With no _u_s_e_r argument, xxmmaaiill instead reads the caller's own
+     accumulated secret mail: it pipes $HHOOMMEE/xxmmaaiillbbooxx through the
+     filter /bbiinn/xxddeeccooddee (which prompts for a passphrase), copies
+     the decrypted text to a private, unlinked temporary file un-
+     der /ttmmpp, and prints it, then asks SSaavvee ?. Answering xx saves
+     the decrypted text, followed by whatever $HHOOMMEE/mmbbooxx already
+     held, back into $HHOOMMEE/mmbbooxx; answering yy does the same but
+     keeps the mail encrypted and saves it into $HHOOMMEE/xxmmbbooxx;
+     answering nn discards it; any other answer leaves
+     $HHOOMMEE/xxmmaaiillbbooxx untouched, so the same mail is read again
+     next time.
+
+     -nn   Discard the accumulated secret mail without displaying
+          the "Save ?" prompt.
+
+     -xx   Save the decrypted mail into $HHOOMMEE/mmbbooxx without
+          prompting.
+
+     -yy   Save the still-encrypted mail into $HHOOMMEE/xxmmbbooxx without
+          prompting.
+
+     The -nn, -xx, and -yy options apply only when reading the
+     caller's own mail (no _u_s_e_r argument); they may not be com-
+     bined with each other.
+
+FFIILLEESS
+
+
+CCOOHHEERREENNTT CCoommmmaanndd MMaannuuaall                                    PPaaggee 11
+
+
+
+
+xxmmaaiill                                                       xxmmaaiill
+
+
+
+          /uussrr/ssppooooll/ppuubbkkeeyy/_u_s_e_reach user's public key
+          $HHOOMMEE/xxmmaaiillbbooxx      incoming encrypted mail
+          $HHOOMMEE/mmbbooxx          saved, decrypted mail
+          $HHOOMMEE/xxmmbbooxx         saved, still-encrypted mail
+          /bbiinn/xxeennccooddee        encryption filter
+          /bbiinn/xxddeeccooddee        decryption filter
+          /ttmmpp/xxmm*            private temporary file for decrypted text
+
+DDIIAAGGNNOOSSTTIICCSS
+     xxmmaaiill prints uusseerr iiss nnoott eennrroolllleedd.  for each named recipient
+     with no public-key file, and exits without sending if none
+     of the recipients is enrolled; CCaannnnoott sseenndd ttoo uusseerr if a
+     recipient's home directory cannot be found; NNoo xxmmaaiill if
+     there is no secret mail waiting to be read; and CCaannnnoott ssaavvee
+     cclleeaarr tteexxtt, nnoo aaccttiioonn ttaakkeenn for -xx if there is no mail to
+     decrypt.
+
+NNOOTTEESS
+     xxmmaaiill must be installed setuid to root, since only root may
+     read every user's entry under the protected directory
+     /uussrr/ssppooooll/ppuubbkkeeyy; the source comments that this is
+     "regarded as a failing."
+
+     The filters /bbiinn/xxddeeccooddee and /bbiinn/xxeennccooddee, and the eennrroollll
+     command that creates a user's public-key file, are
+     referenced by xxmmaaiill but are not present in this source tree.

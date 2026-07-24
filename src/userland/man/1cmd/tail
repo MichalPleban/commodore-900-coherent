@@ -1,0 +1,103 @@
+.TH tail "" "Command"
+.SH NAME
+tail \- print the end of a file
+.SH SYNOPSIS
+\fBtail [+\-\fInumber\fB[bcfl]] [\fIfile\fB]\fR
+.SH DESCRIPTION
+.HS
+tail -- print the end of a file
+Usage:	tail [ +number[bcl] ] [ file ]
+	tail [ -number[bcl] ] [ file ]
+Options:
+	+	'number' is from beginning of file
+	-	'number' is from end of file
+	b	'number' is in blocks
+	c	'number' is in characters (bytes)
+	l	'number' is in lines (default)
+.HE
+.B tail
+copies the last part of
+.IR file ,
+or of the standard input if none is named, onto the standard output.
+If no
+.I number
+is given, the last ten lines are copied.
+.PP
+The optional first argument is a
+.B +
+or
+.B \-
+sign followed by a
+.I number
+and, optionally, one of the letters
+.BR b ,
+.BR c ,
+or
+.BR l .
+A
+.B \-
+sign (the default) counts
+.I number
+backward from the end of the file; a
+.B +
+sign counts it forward from the beginning.
+The letter
+.B l
+(the default) means
+.I number
+is a count of lines; a scale of
+.B b
+means 512-byte blocks and
+.B c
+means characters (bytes).
+.PP
+The letter
+.B f
+may follow the count, or the sign if there is no count; it selects
+continuous read mode, described under
+.B \-f
+below.
+.IP \fB+\fInumber\fR
+Start copying
+.I number
+lines, blocks, or characters from the beginning of
+.IR file .
+.IP \fB\-\fInumber\fR
+Start copying
+.I number
+lines, blocks, or characters back from the end of
+.IR file .
+.IP \fBb\fR
+Interpret
+.I number
+as a count of 512-byte blocks.
+.IP \fBc\fR
+Interpret
+.I number
+as a count of characters (bytes).
+.IP \fBl\fR
+Interpret
+.I number
+as a count of lines.
+This is the default if no scale letter is given.
+.IP \fBf\fR
+After copying up to the end of
+.IR file ,
+do not exit; instead keep reading the file and echo any data
+subsequently appended to it, indefinitely.
+This lets you watch a file grow.
+.SH "SEE ALSO"
+.BR dd ,
+.BR head ,
+.B sed
+.SH DIAGNOSTICS
+.B tail
+prints the message `Window too large' and exits if the requested count
+is too large to hold in memory, and complains if
+.I file
+cannot be opened.
+.SH NOTES
+When seeking is not possible on the input (for example, a pipe),
+.B tail
+reads through the whole input a character at a time instead, which is
+slow for a large trailing count.

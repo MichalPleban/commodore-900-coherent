@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * check -- check all of the normally-used filesystems
  * or those specified by calling `icheck' and `dcheck'.
  * If `-s' is specified, also try to correct any
@@ -15,6 +20,7 @@ if errors were found, but fixed (system should then be rebooted).
 
 #include <stdio.h>
 #include <check.h>
+#include <filsys.h>
 
 char	icheck[] = "/bin/icheck";
 char	dcheck[] = "/bin/dcheck";
@@ -40,9 +46,43 @@ char *argv[];
 		fsp = &argv[1];
 	else
 		usage();
-	while (*fsp != NULL)
-		estat |= check(*fsp++);
+	while (*fsp != NULL) {
+		register int rv;
+
+		rv = check(*fsp);
+		estat |= rv;
+		/*
+		 * With -s, a clean (0) or fully-fixed (1) result means the
+		 * file system is now consistent: mark it clean on disk so it
+		 * mounts (and root auto-promotes) read/write again.
+		 */
+		if (sflag && rv >= 0)
+			clrdirty(*fsp);
+		fsp++;
+	}
 	exit(estat);
+}
+
+/*
+ * Clear the dirty flag in the super block of file system `fs'.  Reads and
+ * rewrites the raw super block block, touching only the (uncanonized) byte
+ * s_dirty so the canonized fields are preserved untouched.
+ */
+clrdirty(fs)
+char *fs;
+{
+	struct filsys sb;
+	register int fd;
+
+	if ((fd = open(fs, 2)) < 0)
+		return;
+	lseek(fd, (long)SUPERI*BSIZE, 0);
+	if (read(fd, &sb, sizeof(sb)) == sizeof(sb) && sb.s_dirty != FSCLEAN) {
+		sb.s_dirty = FSCLEAN;
+		lseek(fd, (long)SUPERI*BSIZE, 0);
+		write(fd, &sb, sizeof(sb));
+	}
+	close(fd);
 }
 
 /*
@@ -63,12 +103,18 @@ char *fs;
 			if (derror & ~DC_FIX)
 				return(-1);
 			if (derror & DC_FIX) {
-				if (derror = run(dcheck, fixopt, fs, NULL))
+				/*
+				 * A -s pass exits with the bits it just repaired
+				 * (icheck/dcheck report what they fixed), so only
+				 * a bit OUTSIDE the repairable mask means the fix
+				 * actually failed.
+				 */
+				if (run(dcheck, fixopt, fs, NULL) & ~DC_FIX)
 					return(-1);
 				ierror = IC_MISS;	/*force fixup icheck*/
 			}
 			if (ierror & IC_FIX)
-				if (ierror = run(icheck, fixopt, fs, NULL))
+				if (run(icheck, fixopt, fs, NULL) & ~IC_FIX)
 					return(-1);
 		} else
 			return(-1);

@@ -1,0 +1,144 @@
+.TH mail "" "Command"
+.SH NAME
+mail \- computer mail
+.SH SYNOPSIS
+\fBmail [\-mpqr] [\-f \fIfile\fB] [\fIuser ...\fB]\fR
+.SH DESCRIPTION
+.HS
+mail -- computer mail
+Usage:	mail [ options ] [ user ... ]
+Options:
+	-f file		Print mail from 'file' instead of the default
+	-m		Notify each logged in recipient when mail is sent
+	-p		Print mail non-interactively
+	-q		Exit on interrupt, leaving mail unchanged
+	-r		Print mail in reverse order
+If 'user' is present, send each a mail message read from standard input.
+Mail message ends with EOF or a line containing only '.'.
+Otherwise, read commands interactively, as follows:
+	d		Delete current message; print the next
+	m [user ...]	Mail current message to each 'user'
+	p		Print this message again
+	q		Quit and update mailbox
+	s [file ...]	Save current message with header in each 'file'
+	t [user ...]	Send message from standard input to each 'user'
+	w [file ...]	Write current message without header in each 'file'
+	x		Exit without updating mailbox
+	newline		Print the next message
+	-		Print the previous message
+	EOF		Quit and update mailbox;  same as 'q' command
+	?		Print a command summary
+	!command	Pass 'command' to the shell to be executed
+.HE
+.B mail
+is the COHERENT electronic postal system.
+Invoked with one or more
+.I user
+arguments,
+.B mail
+reads a message from the standard input and sends a copy to each
+named
+.IR user ;
+the message ends at end of file or at a line containing only a
+single period.
+Invoked with no
+.I user
+argument,
+.B mail
+opens the invoking user's mailbox and lets the user read, delete,
+save, forward, and reply to the messages in it.
+.PP
+.B mail
+recognizes the following options:
+.IP \fB\-f\ \fIfile\fR
+Read mail from
+.I file
+instead of the default mailbox.
+.IP \fB\-m\fR
+When sending mail, notify each recipient who is currently logged in
+by writing a message to that user's terminal.
+.IP \fB\-p\fR
+Print the mailbox non-interactively: print every undeleted message
+and exit, without prompting for commands.
+.IP \fB\-q\fR
+Exit immediately on an interrupt, leaving the mailbox unchanged.
+.IP \fB\-r\fR
+Print messages in reverse order, latest first.
+.PP
+When reading a mailbox interactively,
+.B mail
+prints each undeleted message in turn and prompts
+.RB ( ? )
+for a command.
+.DS
+.ta 1.2i
+	\fBd\fR	Delete the current message; print the next message
+	\fBm\fR [user ...]	Mail the current message to each named user
+	\fBp\fR	Print the current message again
+	\fBq\fR	Quit, updating the mailbox
+	\fBs\fR [file ...]	Save the message, with its header, in each file
+	\fBt\fR [user ...]	Mail the standard input to each named user
+	\fBw\fR [file ...]	Save the message, without its header, in each file
+	\fBx\fR	Exit without updating the mailbox
+	newline, \fB+\fR	Print the next message
+	\fB\-\fR	Print the previous message
+	EOF	Put undeleted mail back and quit; same as \fBq\fR
+	\fB?\fR	Print this command summary
+	\fB!\fIcommand\fR	Pass \fIcommand\fR to the shell to execute
+.DE
+.PP
+If no
+.I file
+is given to
+.B s
+or
+.BR w ,
+.B mail
+saves the message in
+.B mbox
+in the user's home directory.
+If no
+.I user
+is given to
+.B m
+or
+.BR t ,
+.B mail
+sends to the invoking user.
+When a message cannot be delivered to every named recipient,
+.B mail
+saves it in
+.B dead.letter
+in the sender's home directory.
+.SH FILES
+.DS
+.ta 1.75i
+	\fB/usr/spool/mail/\fIuser\fR	incoming mailbox for user
+	\fB$HOME/mbox\fR	default file for saved messages
+	\fB$HOME/dead.letter\fR	undeliverable outgoing mail
+.DE
+.SH "SEE ALSO"
+.B sh
+.SH DIAGNOSTICS
+.B mail
+complains and exits if it cannot open the mailbox, if the mailbox
+does not have mailbox format, or if a named recipient has no entry
+in the password file.
+.SH NOTES
+.B mail
+is written to run set-user-id to
+.BR root ,
+checking every file access itself against the invoking user's
+permissions.
+.B mail
+does not implement mail to a remote system in the form
+.IB system !user;
+attempting to send to such an address prints an error and the
+message is not delivered.
+.PP
+This command's source file is
+.B 7mail.c
+in the source tree (an unused alternate implementation exists as
+.BR xmail.c ),
+but it is built and installed as
+.BR mail .

@@ -1,0 +1,65 @@
+.TH wall "" "Administration"
+.SH NAME
+wall \- send a message to all logged in users
+.SH SYNOPSIS
+\fB/etc/wall\fR
+.SH DESCRIPTION
+.HS
+wall -- send a message to all logged in users
+Usage:	/etc/wall
+Should be invoked only by superuser.
+.HE
+.B wall
+reads a message from the standard input, up to end of file, and writes
+it, preceded by the banner
+.B "Broadcast message ....."
+and an audible bell, to the terminal of every user currently logged in,
+as recorded in
+.BR /etc/utmp .
+It does not write to its own controlling terminal.
+.PP
+.B wall
+takes no arguments and recognizes no options.
+The message, including the banner, may be no longer than 512 bytes;
+if the standard input exceeds this, wall stops reading, reports an
+error, and exits without sending anything.
+.PP
+For each logged-in terminal that
+.B wall
+cannot open for writing (for example, because its owner has denied
+messages with
+.BR mesg ),
+.B wall
+prints a diagnostic naming the user and terminal and continues with the
+next entry in
+.BR /etc/utmp .
+.SH FILES
+.DS
+.ta 16n
+\fB/etc/utmp\fR	list of logged-in users
+.DE
+.SH "SEE ALSO"
+.BR write ,
+.BR who ,
+.BR msg ,
+.B mesg
+.SH DIAGNOSTICS
+.B wall
+prints
+.B "Cannot open utmp."
+and exits if
+.B /etc/utmp
+cannot be opened;
+.B "Message too long."
+if the input, together with the banner, exceeds 512 bytes; and, for
+each terminal it cannot write to,
+.B "Cannot send to name on tty."
+before going on to the next user.
+.SH NOTES
+.B wall
+should be invoked only by the superuser, per its
+.B /etc/helpfile
+entry; the source itself does not check who invokes it, so any user
+who can execute
+.B /etc/wall
+may broadcast to every open terminal.

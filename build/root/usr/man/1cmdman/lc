@@ -1,0 +1,49 @@
+
+
+llcc                                                             llcc
+
+
+
+NNAAMMEE
+     lc - categorize files in a directory
+
+SSYYNNOOPPSSIISS
+     llcc [-11aabbccddffmmpp] [_d_i_r_e_c_t_o_r_y ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     llcc lists the files in each named _d_i_r_e_c_t_o_r_y, or in the cur-
+     rent directory if none is named.  Unless one of -bb, -cc, -dd,
+     -ff, -mm, or -pp restricts the listing to one type, all six
+     types are listed, each under its own heading (``Direc-
+     tories'', ``Files'', ``Character special files'', ``Block
+     special files'', ``Pipes'', ``Multiplexed files''), sorted
+     by name and packed into columns that fit the terminal width.
+     When more than one _d_i_r_e_c_t_o_r_y is given, each is preceded by
+     its own name.
+
+     -11   List one file name per line instead of packing them
+          into columns.
+
+     -aa   Include .  and ..  in the listing.
+
+     -bb   List block-special files only.
+
+     -cc   List character-special files only.
+
+     -dd   List directories only.
+
+     -ff   List regular files only.
+
+     -mm   List multiplexed (multiplexor) files only.  This option
+          is accepted by the program but is not mentioned in its
+          built-in usage message or in the Options table above.
+
+     -pp   List pipe files only.
+
+SSEEEE AALLSSOO
+     llss
+
+NNOOTTEESS
+     llcc -ff is useful for producing a list of regular file names,
+     for example to feed to another command via command substitu-
+     tion.

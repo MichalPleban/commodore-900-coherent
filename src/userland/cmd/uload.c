@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Unload a driver.
  * #if I8086 perform a pseudo unload of a driver linked
  * with the system image.

@@ -1,0 +1,65 @@
+.TH time "" "Command"
+.SH NAME
+time \- time the execution of a command
+.SH SYNOPSIS
+\fBtime [\fIcommand\fB]\fR
+.SH DESCRIPTION
+.HS
+time -- time the execution of a command
+Usage:	time [ command ]
+If no 'command', print the date.
+.HE
+.B time
+runs
+.IR command ,
+and when it finishes, reports on the standard error the time it took,
+broken down into three lines:
+.B Real
+(elapsed clock time),
+.B User
+(CPU time charged to
+.I command
+itself), and
+.B Sys
+(CPU time charged to the system on
+.IR command 's
+behalf), each given in minutes, seconds, and tenths of a second.
+.PP
+If
+.I command
+is omitted,
+.B time
+instead execs
+.B /bin/date
+and does no timing.
+.PP
+While
+.I command
+runs,
+.B time
+ignores the signals
+.BR SIGHUP ,
+.BR SIGINT ,
+.BR SIGQUIT ,
+and
+.BR SIGTERM .
+If
+.I command
+is killed by a signal,
+.B time
+reports the signal name (or number, if out of range) before printing
+the timing lines, noting it if a core image was produced.
+.SH "SEE ALSO"
+.B date
+.SH DIAGNOSTICS
+.B time
+prints the message `Try again.' and exits if it cannot fork, and
+prints
+.I command
+followed by `: not found' if
+.I command
+cannot be executed.
+.SH NOTES
+.B time
+is a separate command, not a shell built-in; it can only time a single
+command, not a pipeline.

@@ -1,0 +1,83 @@
+.TH units "" "Command"
+.SH NAME
+units \- measurement conversion
+.SH SYNOPSIS
+\fBunits [\-u]\fR
+.SH DESCRIPTION
+.HS
+units -- measurement conversion
+Usage:	units [ -u ]
+Option:	-u	Update binary file only
+Units works interactively.
+.HE
+.B units
+is an interactive program that computes the conversion factor between
+two units of the same dimension.
+It prints the prompt
+.B "You have:"
+and reads the quantity you wish to convert from, then prints
+.B "You want:"
+and reads the quantity you wish to convert to.
+If the two are conformable (the same dimension), it prints the
+multiplicative factor to convert the first quantity into the second,
+and its reciprocal; otherwise it prints
+.B Conformability
+followed by each quantity broken down into its fundamental units, and
+prompts again.
+.B units
+loops asking for pairs of quantities until it reaches end of file on
+the standard input.
+.PP
+A quantity is a number (default 1, if omitted) followed by a unit
+expression (default dimensionless, if omitted).
+A unit expression is built from named units, optionally scaled by a
+metric prefix (such as
+.B kilo
+or
+.BR milli ),
+raised to a power with a trailing
+.B "+n"
+or
+.BR "\-n" ,
+and combined with
+.B /
+for division and adjacent units for multiplication; the words
+.B per
+(divide),
+.B square
+(power 2), and
+.B cubic
+(power 3) may also be used.
+.IP \fB\-u\fR
+Read the ASCII units table and rewrite the binary units file, then
+exit without prompting for any conversion.
+.SH FILES
+.DS
+.ta 16n
+\fB/usr/lib/units\fR	table of known units, in ASCII
+\fB/usr/lib/binunits\fR	the same table, precompiled to binary
+.DE
+.SH DIAGNOSTICS
+.B units
+prints
+.B "Rebuilding /usr/lib/binunits from /usr/lib/units ..."
+and regenerates the binary table whenever
+.B /usr/lib/units
+is newer than
+.B /usr/lib/binunits
+or the latter is missing or unreadable; this can take a while.
+It prints
+.B "Unrecognised unit"
+followed by the offending name for a word it cannot match against any
+known unit, and
+.B Conformability
+for a pair of quantities that do not have the same dimension.
+.SH NOTES
+.B units
+is installed set-user-id to
+.B bin
+so that it can write the shared binary table
+.B /usr/lib/binunits
+the first time it is regenerated; it drops this privilege (by calling
+.BR setuid ())
+before doing any conversion.

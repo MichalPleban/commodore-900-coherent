@@ -1,0 +1,179 @@
+.TH dd "" "Command"
+.SH NAME
+dd \- file conversion and copying
+.SH SYNOPSIS
+\fBdd [\fIoption\fB=\fIvalue\fB] ...\fR
+.SH DESCRIPTION
+.HS
+dd -- file conversion
+Usage:	dd [ option=value ] ...
+Options:
+	bs=n		Input and output block size
+	cbs=n		Conversion buffer size
+	conv=list	Comma-separated list of conversions:
+		ascii	Convert ebcdic to ascii
+		ebcdic	Convert ascii to standard ebcdic
+		ibm	Convert ascii to ibm print codes
+		lcase	Map all letters to lower case
+		noerror	Continue on errors
+		swab	Swap byte pairs
+		sync	Pad input to 'ibs'
+		ucase	Map all letters to upper case
+	count=n		Number of blocks to copy from input
+	files=n		Number of files to copy (useful with tape)
+	ibs=n		Input buffer size
+	if=file		Input file
+	obs=n		Output block size
+	of=file		Output file
+	seek=n		Seek position of output
+	skip=n		Number of input blocks to skip
+.HE
+.B dd
+copies its input file to its output file, optionally performing one
+or more conversions along the way, with input and output block sizes
+that may differ from each other and from the buffering that
+.BR cat (1)
+or a shell redirection would use.
+It is most useful for raw disk or tape devices and for exchanging
+data with EBCDIC systems.
+.PP
+Every argument has the form
+.IR option = value ;
+there are no single-letter flags.
+Any argument lacking an
+.B =
+or with nothing after the
+.B =
+is an error.
+A numeric
+.I value
+may be followed by
+.BR b ,
+.BR w ,
+or
+.BR k ,
+multiplying it by 512, by the size of an
+.BR int ,
+or by 1024, respectively; two such numbers separated by
+.B x
+are multiplied together.
+All buffer sizes default to 512 bytes.
+.IP \fBif=\fIfile\fR 0.9i
+Read input from
+.I file
+instead of the standard input.
+.IP \fBof=\fIfile\fR
+Write output to
+.I file
+instead of the standard output.
+.IP \fBibs=\fIn\fR
+Set the input buffer size to
+.I n
+bytes.
+.IP \fBobs=\fIn\fR
+Set the output buffer size to
+.I n
+bytes.
+.IP \fBbs=\fIn\fR
+Set both the input and the output buffer size to
+.I n
+bytes; if
+.B bs=
+is the only sizing option given, input is copied to output without
+the extra buffer that separate
+.B ibs=
+and
+.B obs=
+values require, which is faster.
+.IP \fBcbs=\fIn\fR
+Set the size of the intermediate conversion buffer used by the
+.BR ascii ,
+.BR ebcdic ,
+and
+.B ibm
+conversions to
+.I n
+bytes (default: the input buffer size).
+.IP \fBskip=\fIn\fR
+Skip
+.I n
+input buffers (of size
+.BR ibs )
+before copying begins.
+.IP \fBseek=\fIn\fR
+Seek
+.I n
+output buffers (of size
+.BR obs )
+into the output file before the first write.
+.IP \fBcount=\fIn\fR
+Copy at most
+.I n
+input buffers.
+.IP \fBfiles=\fIn\fR
+Repeat the whole copy
+.I n
+times (for multi-file tape volumes); default 1.
+.IP \fBconv=\fIlist\fR
+Perform the comma-separated conversions named in
+.IR list :
+.RS
+.IP \fBascii\fR 0.9i
+Convert EBCDIC input to ASCII, trimming trailing blanks and appending
+a newline to each converted record.
+.IP \fBebcdic\fR
+Convert ASCII input to standard (CACM) EBCDIC, blank-padding each
+record to
+.BR cbs .
+.IP \fBibm\fR
+Convert ASCII input to a variant EBCDIC table more suited to IBM
+line-printer codes, blank-padding each record to
+.BR cbs .
+.IP \fBlcase\fR
+Map upper-case letters to lower case.
+.IP \fBucase\fR
+Map lower-case letters to upper case.
+.IP \fBswab\fR
+Swap each pair of input bytes before writing.
+.IP \fBsync\fR
+Pad every input record short of
+.B ibs
+bytes with null bytes.
+.IP \fBnoerror\fR
+Continue with the next block after a read or write error instead of
+stopping.
+.RE
+.PP
+.B ascii
+and
+.BR ebcdic ,
+.B ascii
+and
+.BR ibm ,
+and
+.B ucase
+and
+.B lcase
+may not be combined with each other.
+Any of the ASCII/EBCDIC conversions forces the use of the
+intermediate conversion buffer, even if
+.B ibs
+equals
+.BR obs .
+.SH DIAGNOSTICS
+When it finishes,
+.B dd
+prints, on the standard error, the number of full and partial records
+read and the number of full and partial records written, e.g.
+.BR "20+1 records in" " and " "20+0 records out" .
+It exits with status 1 if it was given a bad option, an out-of-memory
+condition, or an unrecovered read/write error (one not masked by
+.BR conv=noerror ).
+.SH NOTES
+Because implementations disagree on the mapping of some EBCDIC
+graphic characters, such as braces and backslash, neither the
+.B ebcdic
+nor the
+.B ibm
+conversion table is right for every application; choose whichever one
+matches the systems being interchanged with.

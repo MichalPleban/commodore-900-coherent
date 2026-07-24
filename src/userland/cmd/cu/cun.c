@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Emulate a terminal on the port
  * identified to Coherent as `/dev/modem'.
  * This program is still a subset of

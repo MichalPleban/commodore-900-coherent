@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Permit or deny messages (e.g. write, msg, etc.)
  * to be sent to the user's terminal.
  * As these commands are setuid, execute permission

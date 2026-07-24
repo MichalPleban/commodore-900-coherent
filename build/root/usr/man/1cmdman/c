@@ -1,0 +1,41 @@
+
+
+cc                                                               cc
+
+
+
+NNAAMMEE
+     c - multi-column output
+
+SSYYNNOOPPSSIISS
+     cc [-ww_N] [-ll_N] [-001122]
+
+DDEESSCCRRIIPPTTIIOONN
+     cc reads lines from the standard input and prints them in
+     columns on the standard output, using as many columns as fit
+     across the page given the width of the longest input line.
+
+     cc recognizes the following options:
+
+     -ww_N  Set the width of the page to _N columns (default: 80).
+
+     -ll_N  Set the length of the page to _N lines.
+
+     -00   Order the fields horizontally across the page.
+
+     -11   Order the fields vertically down each column (the
+          default).
+
+     -22   A special case of -11.
+
+     Options may also be supplied in the environment variable CC,
+     separated by white space; options given on the command line
+     are processed afterward and so override those taken from the
+     environment.
+
+SSEEEE AALLSSOO
+     pprr
+
+DDIIAAGGNNOOSSTTIICCSS
+     cc prints "out of mem" and exits with status one if it cannot
+     allocate enough memory to hold its input.

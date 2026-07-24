@@ -1,0 +1,109 @@
+.TH nroff "" "Command"
+.SH NAME
+nroff \- text processor
+.SH SYNOPSIS
+\fBnroff [\-adiTx] [\-\fIm\fBname\fR] [\-\fIn\fBN\fR] [\-\fIr\fBaN\fR] [\fIfile ...\fR]
+.SH DESCRIPTION
+.HS
+nroff -- text processor
+Usage:	nroff [ option ... ] [ file ... ]
+Options:
+	-d	Debugging mode
+	-i	Read standard input after each 'file' has been read
+	-mname	Read macro package /usr/lib/tmac.name
+	-nN	Number first page of output 'N' (default: 1)
+	-raN	Set number register 'a' to value 'N'
+	-x	Do not eject to bottom of final page
+.HE
+.B nroff
+formats text for a printing terminal or line printer.
+It reads each
+.I file
+in turn, interprets the formatting requests and macros embedded in
+it, and writes the formatted result to the standard output; a
+request or macro call is a line beginning with
+.B .
+or an apostrophe,
+followed by a two-letter (or user-defined) name and optional
+arguments (a leading apostrophe suppresses the automatic break that a
+leading
+.B .
+would otherwise cause).
+With no
+.I file
+arguments,
+.B nroff
+reads the standard input.
+.PP
+Text lines are filled and adjusted (words are packed onto a line up
+to the current line length, with extra space inserted between them
+to justify the right margin) unless no-fill mode has been requested.
+Some of the more commonly used requests are:
+.DS
+.ta 8n
+\fB.br\fR	break the output line here
+\fB.sp \fIN\fR	space down \fIN\fR lines
+\fB.fi\fR / \fB.nf\fR	enter fill / no-fill mode
+\fB.ce \fIN\fR	center the next \fIN\fR lines
+\fB.ta \fIN ...\fR	set tab stops
+\fB.ig\fR	ignore input until a matching \fB..\fR
+\fB.de \fIxx\fR	define macro \fIxx\fR (ended by \fB..\fR)
+\fB.ds \fIxx str\fR	define string \fIxx\fR
+\fB.nr \fIR N\fR	set number register \fIR\fR to \fIN\fR
+\fB.so \fIfile\fR	read \fIfile\fR in place of this line
+\fB.tm \fImsg\fR	print \fImsg\fR on the standard error
+.DE
+.PP
+A macro package such as
+.B \-ms
+supplies a higher-level set of macros (paragraphs, headings, and the
+like) built out of these requests; this repository's own
+.B \-man
+package,
+.BR tmac.an ,
+is one such package, used to format manual pages.
+.IP \fB\-a\fR
+Force ASCII-approximation of special characters; normally set
+automatically because
+.B nroff
+(unlike its typesetting counterpart) approximates special characters
+by default.
+.IP \fB\-d\fR
+Print each request as it is executed, for debugging macros.
+.IP \fB\-i\fR
+After each
+.I file
+has been read to completion, also read and format the standard
+input.
+.IP "\fB\-m\fIname\fR"
+Read the macro package
+.BI /usr/lib/tmac. name
+before processing any
+.IR file .
+.IP "\fB\-n\fIN\fR"
+Number the first page of output
+.IR N ,
+instead of 1.
+.IP "\fB\-r\fIaN\fR"
+Set number register
+.I a
+(a single character) to the value
+.IR N .
+.IP \fB\-T\fR
+Set the predicate register normally used to tell whether the output
+is destined for a typesetter, even though running as
+.BR nroff .
+.IP \fB\-x\fR
+Do not eject to the bottom of the page after the last line of the
+last file.
+.SH FILES
+.B /usr/lib/tmac.*
+.SH "SEE ALSO"
+.B deroff
+.SH DIAGNOSTICS
+.B nroff
+prints a diagnostic on the standard error and, for most errors,
+continues processing; unrecoverable conditions (such as running out
+of memory for a macro or string, or an unbalanced
+.BR .ie / .el )
+cause it to abort.

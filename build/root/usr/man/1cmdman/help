@@ -1,0 +1,47 @@
+
+
+hheellpp                                                         hheellpp
+
+
+
+NNAAMMEE
+     help - print a brief description of a command's usage
+
+SSYYNNOOPPSSIISS
+     hheellpp [_c_o_m_m_a_n_d ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     hheellpp prints a brief description of the usage of each _c_o_m-
+     _m_a_n_d. If _c_o_m_m_a_n_d is omitted, hheellpp instead prints a short
+     note about itself and then, if the environment variable
+     $LLAASSTTEERRRROORR is set, describes the command named there.  If
+     _c_o_m_m_a_n_d is omitted and $LLAASSTTEERRRROORR is not set, hheellpp exits
+     without printing anything further.
+
+     For each _c_o_m_m_a_n_d, hheellpp first looks for the file
+     /uussrr/mmaann/ccmmdd/_c_o_m_m_a_n_d or, failing that, /uussrr/mmaann/ccmmdd/_c_o_m-
+     _m_a_n_dmm, aanndd, iiff eeiitthheerr eexxiissttss, pprriinnttss tthhee tteexxtt ffoouunndd bbeettwweeeenn
+     iittss .HHSS aanndd .HHEE lliinneess.
+
+     Failing that, hheellpp looks for a line #_c_o_m_m_a_n_d in the system
+     file /eettcc/hheellppffiillee and, if the environment variable $HHEELLPP
+     names a file, in that file as well, and prints the lines
+     that follow it up to the next line beginning with #. To
+     speed up repeated lookups in a large /eettcc/hheellppffiillee, hheellpp
+     maintains an index file, /eettcc/hheellppiinnddeexx, which it rebuilds
+     whenever /eettcc/hheellppffiillee is newer than the index.
+
+FFIILLEESS
+          /uussrr/mmaann/ccmmdd/_c_o_m_m_a_n_dpreformatted manual page for _c_o_m_m_a_n_d
+          /eettcc/hheellppffiillee       system command summaries
+          /eettcc/hheellppiinnddeexx      index for /eettcc/hheellppffiillee
+          $HHEELLPP               user's own command summaries, if set
+          $LLAASSTTEERRRROORR          command described when none is given
+
+SSEEEE AALLSSOO
+     mmaann
+
+DDIIAAGGNNOOSSTTIICCSS
+     hheellpp prints NNoo iinnffoorrmmaattiioonn oonn %ss for any _c_o_m_m_a_n_d it cannot
+     find a description for, and exits with a nonzero status if
+     any _c_o_m_m_a_n_d could not be described.

@@ -1,0 +1,288 @@
+
+
+mmee                                                             mmee
+
+
+
+NNAAMMEE
+     me - MicroEMACS screen editor
+
+SSYYNNOOPPSSIISS
+     mmee [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     mmee is MicroEMACS, a screen editor that keeps the text being
+     edited in one or more memory buffers, each shown in its own
+     window on the screen.  If _f_i_l_e is given, mmee reads it into a
+     buffer named after _f_i_l_e's last component and displays it in
+     a window; if _f_i_l_e does not exist, mmee starts an empty buffer
+     under that name so the file can be created by saving it
+     later.  With no argument, mmee starts with a single empty
+     buffer named mmaaiinn.
+
+     Ordinary printable characters typed are inserted at the cur-
+     rent position, which lies between two characters rather than
+     on one.  Control characters and the two-character sequences
+     beginning with EESSCC (the meta prefix) or ^XX (the control-X
+     prefix) invoke editing commands, listed below by category.
+     ^QQ inserts the following character literally, even if it is
+     one of these command characters.
+
+MMoovviinngg tthhee CCuurrssoorr
+     ^AA   Move to the start of the line.
+
+     ^BB   Move backward one character.
+
+     EESSCC BB
+          Move backward one word.
+
+     ^EE   Move to the end of the line.
+
+     ^FF   Move forward one character.
+
+     EESSCC FF
+          Move forward one word.
+
+     ^NN   Move to the next line.
+
+     ^PP   Move to the previous line.
+
+     ^VV   Move forward one page (screen).
+
+     EESSCC VV
+          Move backward one page.
+
+     EESSCC <
+          Move to the start of the buffer.
+
+     EESSCC >
+          Move to the end of the buffer.
+
+     EESSCC !
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+mmee                                                             mmee
+
+
+
+          Reposition the window so the current line appears at
+          the row given by the numeric argument (top if positive,
+          bottom if negative, middle if zero).
+
+KKiilllliinngg, DDeelleettiinngg, aanndd YYaannkkiinngg
+     ^DD   Delete the next character (forward delete).
+
+     ^HH   Delete the previous character (backward delete); with
+          an argument, delete that many previous characters.
+
+     <DDEELL>
+          Same as ^HH.
+
+     EESSCC ^HH
+          Delete the previous word.
+
+     EESSCC <DDEELL>
+          Same as EESSCC ^HH.
+
+     EESSCC DD
+          Delete the next word.
+
+     ^KK   Kill (delete, saving into the kill buffer) from the
+          current position to the end of the line.
+
+     ^WW   Kill the region between the mark and the current posi-
+          tion.
+
+     EESSCC WW
+          Copy the region between the mark and the current posi-
+          tion into the kill buffer without deleting it.
+
+     ^YY   Yank the kill buffer back into the text at the current
+          position.
+
+     ^TT   Transpose the two characters on either side of the cur-
+          rent position.
+
+     ^XX ^OO
+          Delete blank lines around the current position.
+
+MMaarrkkiinngg
+     ^@   Set the mark at the current position.
+
+     EESSCC .
+          Same as ^@.
+
+     EESSCC XX ^XX
+          Set the mark at the current position, then move to the
+          previous mark (exchange point and mark).
+
+WWiinnddoowwss
+     ^XX 11 Make the current window the only window on the screen.
+
+     ^XX 22 Split the current window into two.
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+mmee                                                             mmee
+
+
+
+     ^XX NN Move to the next window.
+
+     ^XX PP Move to the previous window.
+
+     ^XX ^NN
+          Move the text in the current window down.
+
+     ^XX ^PP
+          Move the text in the current window up.
+
+     ^XX ZZ Enlarge the current window.
+
+     ^XX ^ZZ
+          Shrink the current window.
+
+     ^LL   Redraw (refresh) the screen.
+
+BBuuffffeerrss aanndd FFiilleess
+     ^XX BB Select a buffer by name for display in the current win-
+          dow.
+
+     ^XX KK Delete (kill) a named buffer.
+
+     ^XX ^BB
+          List all buffers, with their change flag, size, and as-
+          sociated file name.
+
+     ^XX ^FF
+          Change the file name associated with the current buff-
+          er.
+
+     ^XX ^RR
+          Read a named file into a new buffer, for reading only.
+
+     ^XX ^VV
+          Visit a named file: read it into a new buffer for
+          reading and writing.
+
+     ^XX ^SS
+          Save the current buffer to its associated file, if it
+          has changed.
+
+     ^XX ^WW
+          Write the current buffer to a named file.
+
+     ^ZZ   Save the current buffer if changed, then exit mmee.
+
+     ^XX ^CC
+          Exit mmee without saving; asks for confirmation if any
+          buffer has unsaved changes, unless given a numeric ar-
+          gument.
+
+SSeeaarrcchh
+     ^RR   Incremental search backward; the search progresses as
+          each character of the pattern is typed.
+
+
+COHERENT Command Manual                                    Page 3
+
+
+
+
+mmee                                                             mmee
+
+
+
+     ^SS   Incremental search forward.
+
+     EESSCC RR
+          Search backward for a complete pattern read on the mes-
+          sage line.
+
+     EESSCC SS
+          Search forward for a complete pattern read on the mes-
+          sage line.
+
+CCaassee CCoonnvveerrssiioonn
+     EESSCC CC
+          Capitalize the next word.
+
+     EESSCC LL
+          Lower-case the next word.
+
+     EESSCC UU
+          Upper-case the next word.
+
+     ^XX ^LL
+          Lower-case the region between the mark and the current
+          position.
+
+     ^XX ^UU
+          Upper-case the region between the mark and the current
+          position.
+
+KKeeyybbooaarrdd MMaaccrrooss
+     ^XX ( Begin defining a keyboard macro; everything typed up to
+          ^XX ) is recorded.
+
+     ^XX ) End the keyboard macro definition.
+
+     ^XX EE Execute the keyboard macro.
+
+RRuunnnniinngg OOtthheerr CCoommmmaannddss
+     ^CC   Suspend mmee and run an interactive command interpreter
+          (subshell); exiting the subshell returns to mmee.
+
+     ^XX ! Prompt for a single shell command, run it, and show its
+          output.
+
+MMiisscceellllaanneeoouuss
+     ^GG   Abort the command in progress.
+
+     ^II   Insert a tab.
+
+     ^JJ   Insert a new line and indent it to the current level.
+
+     ^MM   Insert a new line (carriage return).
+
+     ^OO   Open a blank line at the current position.
+
+     ^QQ   Insert the next character literally.
+
+
+COHERENT Command Manual                                    Page 4
+
+
+
+
+mmee                                                             mmee
+
+
+
+     EESSCC QQ
+          Insert a character given by its numeric value.
+
+     ^UU   Introduce a numeric argument for the next command;
+          typed alone it sets the argument to 4, and repeating ^UU
+          multiplies it by 4 each time.
+
+DDIIAAGGNNOOSSTTIICCSS
+     mmee writes error and informational messages on the last line
+     of the screen.  It keeps all editing in memory and does not
+     alter the file on disk until the buffer is saved.
+
+SSEEEE AALLSSOO
+     eedd
+
+NNOOTTEESS
+     mmee is derived from the public-domain MicroEMACS editor by
+     Dave Conroy.

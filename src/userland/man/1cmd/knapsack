@@ -1,0 +1,106 @@
+.TH knapsack "" "Command"
+.SH NAME
+knapsack \- public-key (knapsack) encryption scheme
+.SH SYNOPSIS
+\fBenroll [\fIuser\fB]\fR
+.br
+\fBxencode [\fIuser\fB]\fR
+.br
+\fBxdecode\fR
+.SH DESCRIPTION
+.HS
+enroll -- enroll user in public key cryptosystem
+Usage:	enroll
+.HE
+.B knapsack
+is not itself an invokable command; it is the public-key knapsack
+encryption scheme, implemented by the routines in
+.BR knapsack.c ,
+.BR public.c ,
+.BR pkio.c ,
+and
+.BR gpph.c ,
+that underlies the
+.BR enroll ,
+.BR xencode ,
+and
+.B xdecode
+commands.
+.PP
+A user's public key is derived from a secret passphrase by the
+function
+.BR knapsack() ,
+which seeds a multiprecision linear-congruential random-number
+generator from the passphrase text and uses it to build a
+superincreasing knapsack vector
+\fIk.d[0..63]\fR
+together with a pair of modulus/multiplier values
+(\fIk.m1\fR/\fIk.w1\fR and \fIk.m2\fR/\fIk.w2\fR)
+and a random shuffle order
+\fIk.shufl[]\fR.
+.B public()
+then walks the knapsack through the two modulus/multiplier
+transformations, shuffling the terms into
+\fIkey[0..63]\fR
+by
+\fIk.shufl[]\fR,
+to produce the public key.
+.PP
+The public key is stored, one 64-bit component per line in a
+16-byte-per-element binary format, in a file named for the user under
+.BR /usr/spool/pubkey ,
+where anyone may read it to encrypt a message to that user; only the
+passphrase holder can regenerate the matching private knapsack, so
+only that user can decrypt it.
+.IP \fBenroll\fR
+Enroll or re-key a user.
+Called with no argument, it enrolls (or re-keys) the caller, as found
+by
+.BR getlogin() ;
+called as
+.BI "enroll " user
+(normally only useful for the superuser), it enrolls the named
+.IR user .
+If the user is already enrolled,
+.B enroll
+first asks for the current passphrase and verifies it by recomputing
+the public key and comparing every component against the stored file
+before asking for a new passphrase (twice, to catch typing mistakes).
+Entering an empty new passphrase removes the user's public-key file,
+withdrawing the user from the scheme.
+.IP \fBxencode\fR
+Read standard input and write it, encrypted, to standard output, in
+a mail-compatible text format (base-95 digits, one block per line).
+Called with no argument, it prompts for a passphrase and builds a
+public key from it on the fly; called as
+.BI "xencode " user
+it reads
+.IR user 's
+stored public key instead and does not prompt.
+.IP \fBxdecode\fR
+Prompt for a passphrase, rebuild the matching private knapsack, and
+decrypt standard input (in the format written by
+.BR xencode )
+to standard output.
+An empty passphrase exits immediately without reading any input.
+.SH FILES
+.DS
+.ta 24n
+\fB/usr/spool/pubkey/\fIuser\fR	stored public key for \fIuser\fR
+.DE
+.SH "SEE ALSO"
+.B xmail
+.SH NOTES
+The directory
+.B /usr/spool/pubkey
+must be owned by, and mode 0700 for, a dedicated user (conventionally
+named
+.BR xmail );
+the commands
+.BR enroll ,
+.BR xencode ,
+and
+.B xdecode
+must be installed set-user-ID to that owner so that ordinary users can
+read and update their own public-key entries without being able to
+tamper with anyone else's.

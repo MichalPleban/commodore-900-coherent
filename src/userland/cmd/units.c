@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * units -- do multiplicative unit conversions
  * td 80.09.04
  * Modified to keep the intermediate format in a file and

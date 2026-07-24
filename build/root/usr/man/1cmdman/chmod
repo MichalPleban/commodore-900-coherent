@@ -1,0 +1,100 @@
+
+
+cchhmmoodd                                                       cchhmmoodd
+
+
+
+NNAAMMEE
+     chmod - change permissions of a file
+
+SSYYNNOOPPSSIISS
+     cchhmmoodd _m_o_d_e _f_i_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     cchhmmoodd changes the access permissions of each _f_i_l_e to _m_o_d_e.
+
+     If _m_o_d_e begins with a digit, it is read as an octal number
+     and becomes the new mode directly.
+
+     Otherwise _m_o_d_e is a comma-separated list of one or more
+     clauses of the form
+          [_w_h_i_c_h]_h_o_wppeerrmm...
+     each of which changes the permission bits selected by _w_h_i_c_h
+     according to _h_o_w using the values given by _p_e_r_m. Several
+     clauses may be joined with commas to change more than one
+     category in a single invocation, e.g.  uu+ww,ggoo-ww adds write
+     permission for the owner and removes it for group and other.
+     If _w_h_i_c_h is omitted, it defaults to aa adjusted by the file-
+     creation mask (see uummaasskk()).
+
+     _w_h_i_c_h selects one or more of:
+
+     uu    The file's owner permissions.
+
+     gg    The file's group permissions.
+
+     oo    The file's other permissions.
+
+     aa    All three of the above; this is the default if _w_h_i_c_h is
+          omitted.
+
+     _h_o_w is one of:
+
+     =    Set the selected permissions to _p_e_r_m.
+
+     +    Add the permissions named by _p_e_r_m to the selected per-
+          missions.
+
+     -    Remove the permissions named by _p_e_r_m from the selected
+          permissions.
+
+     _p_e_r_m is one or more of:
+
+     rr    Read.
+
+     ww    Write.
+
+     xx    Execute (search, for a directory).
+
+     ss    Set-user-id and set-group-id on execution.
+
+     tt    Sticky bit (save text image after execution).
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+cchhmmoodd                                                       cchhmmoodd
+
+
+
+     uu    The file's current owner permissions, replicated onto
+          the selected _w_h_i_c_h.
+
+     gg    The file's current group permissions, replicated onto
+          the selected _w_h_i_c_h.
+
+     oo    The file's current other permissions, replicated onto
+          the selected _w_h_i_c_h.
+
+     _m_o_d_e may also be given entirely as an octal number, exactly
+     as for the traditional octal mode word.
+
+SSEEEE AALLSSOO
+     cchhggrrpp, cchhoowwnn, uummaasskk()
+
+DDIIAAGGNNOOSSTTIICCSS
+     cchhmmoodd prints cchhmmoodd: bbaaddllyy ffoorrmmeedd ooccttaall mmooddee or cchhmmoodd: bbaaddllyy
+     ffoorrmmeedd ssyymmbboolliicc mmooddee and exits if _m_o_d_e cannot be parsed.  If
+     a _f_i_l_e cannot be changed, it prints the reason and exits
+     with status 2 after processing the remaining files.
+
+NNOOTTEESS
+     Setting the sticky bit (tt sets both the set-user-id and set-
+     group-id bits together, since this implementation does not
+     distinguish them in the _p_e_r_m letter ss. A non-superuser who
+     sets the sticky bit gets a one-time warning; enforcement of
+     the restriction is otherwise left to the cchhmmoodd() system
+     call.

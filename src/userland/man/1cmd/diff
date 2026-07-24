@@ -1,0 +1,171 @@
+.TH diff "" "Command"
+.SH NAME
+diff \- summarize differences between two files
+.SH SYNOPSIS
+\fBdiff [\-bdefhs] [\-c \fIsymbol\fB] \fIfile1 file2\fR
+.SH DESCRIPTION
+.HS
+diff -- summarize differences between two files
+Usage:	diff [ -bdefhs ] [ -c sym ] file1 file2
+Options:
+	-b	Ignore trailing blanks; all strings of blanks are equal
+	-c sym	Produce C pre-processor input conditionalized on 'sym'
+	-d	Use -h algorithm for larger (>25,000 character) files
+	-e	Produce editor script
+	-f	Produce fake (non-usable) editor script
+	-h	Half-hearted algorithm (works on long files)
+	-s	Produce sed script
+If either 'file1' or 'file2' is '-', the standard input is used.
+If one of the files is a directory, then the other file name
+under that directory is used.
+.HE
+.B diff
+compares
+.I file1
+against
+.I file2
+and, by default, prints a script describing the changes needed to
+turn
+.I file1
+into
+.IR file2 .
+Each change is introduced by a line of the form
+.I "l1,l2" \fBa\fR\^, \fBc\fR\^, or \fBd\fR\ \fIl3,l4\fR
+(append, change, or delete), where the line-number ranges, abbreviated
+to a single number when a range covers only one line, refer to
+.I file1
+and
+.I file2
+respectively.
+The text removed from
+.I file1
+follows, each line marked with \fB<\ \fR, then a \fB\-\-\-\fR
+separator, then the text added from
+.IR file2 ,
+each line marked with \fB>\ \fR.
+.PP
+If either
+.I file1
+or
+.I file2
+is
+.BR \- ,
+the standard input is read for it.
+If one of the two names a directory, the file compared from that
+directory is the one whose base name matches the other argument.
+Either input may be a special file or a pipe; such input is copied to
+a temporary file under
+.B /tmp
+before comparison, since it cannot otherwise be re-read.
+.IP \fB\-b\fR 0.6i
+Ignore trailing blanks, and treat any run of blanks (spaces and tabs)
+within a line as equivalent to any other run of blanks, when deciding
+whether two lines are equal.
+.IP "\fB\-c \fIsymbol\fR"
+In place of the default script, print the merged text of both files
+as input to the C preprocessor.
+A range found only in
+.I file1
+(deleted from
+.IR file2 )
+is wrapped in \fB#ifdef \fIsymbol\fR ... \fB#endif\fR, so it survives
+preprocessing only when
+.I symbol
+is defined.
+A range found only in
+.I file2
+(appended) is wrapped in \fB#ifndef \fIsymbol\fR ... \fB#endif\fR, so
+it survives only when
+.I symbol
+is
+.I not
+defined.
+A changed range is wrapped as \fB#ifndef \fIsymbol\fR, then the old
+.I file1
+text, then \fB#else\fR, then the new
+.I file2
+text, then \fB#endif\fR -- note that this puts the old text under
+the
+.I "undefined"
+branch and the new text under the
+.I defined
+branch, the reverse of the polarity used for a pure deletion or
+append (see NOTES).
+Cannot be combined with
+.BR \-e .
+.IP \fB\-d\fR
+If either input file is larger than 25,000 bytes, silently switch to
+the algorithm used by
+.BR \-h ,
+instead of the default one.
+.IP \fB\-e\fR
+Produce a script of
+.B ed
+commands that, applied to
+.I file1
+with line numbers adjusted for each preceding edit, turns it into
+.IR file2 .
+.IP \fB\-f\fR
+Like
+.BR \-e ,
+but the line numbers in the script are not adjusted for the effect of
+earlier entries in the same script; the script must therefore be
+applied from its last entry to its first, and is not directly usable
+by
+.BR ed .
+.IP \fB\-h\fR
+Compare the files using an algorithm that requires only a small,
+constant amount of working storage per matched region, at the cost of
+occasionally missing the shortest possible list of differences; it
+does not have the practical file-size limit that the default
+algorithm has.
+This option execs
+.BR /usr/lib/diffh ,
+a separate binary built from the same driver code.
+.IP \fB\-s\fR
+Like
+.BR \-e ,
+but produce a
+.B sed
+script instead of an
+.B ed
+script, and, at the end, print a line of the form
+.B :I\fIn\fB
+.B :D\fIn\fB
+.B :U\fIn\fR
+giving the number of lines inserted, deleted, and left unchanged.
+.SH FILES
+.DS
+.ta 1.6i
+\fB/tmp/difXXXXXX\fR	temporary copy of a special file or pipe input
+\fB/usr/lib/diffh\fR	the half-hearted algorithm, invoked by \-h and \-d
+.DE
+.SH "SEE ALSO"
+.BR diff3 ,
+.BR cmp ,
+.B ed
+.SH DIAGNOSTICS
+.B diff
+exits with status 0 if the files are identical, 1 if they differ, and
+2 if it could not open a file or was given bad arguments.
+.SH NOTES
+.B \-c
+and
+.B \-e
+cannot be given together.
+.PP
+With
+.BR \-c ,
+a pure deletion or a pure append uses whichever of
+.B #ifdef
+or
+.B #ifndef
+lets it write a single, non-empty conditional block; a changed range
+always uses \fB#ifndef \fIsymbol\fR/\fB#else\fR, with the old text
+first.
+As a result, the polarity of
+.I symbol
+needed to reconstruct
+.I file1
+is not the same for a changed range as it is for a purely deleted
+range; check the generated output before relying on it.

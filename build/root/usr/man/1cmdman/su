@@ -1,0 +1,45 @@
+
+
+ssuu                                                             ssuu
+
+
+
+NNAAMMEE
+     su - substitute user id, become superuser
+
+SSYYNNOOPPSSIISS
+     ssuu [_u_s_e_r [_c_o_m_m_a_n_d [_a_r_g ...]]]
+
+DDEESSCCRRIIPPTTIIOONN
+     ssuu looks up _u_s_e_r (default rroooott, user number 0) in the
+     password file.  If that account has a password, ssuu prompts
+     for a password and compares it, encrypted, against the ac-
+     count's password; if they do not match, ssuu prints SSoorrrryy and
+     exits.
+
+     ssuu then sets the group id and user id of the current process
+     to those of _u_s_e_r, and executes _c_o_m_m_a_n_d with the remaining
+     arguments (default sshh, with no arguments), searching PPAATTHH
+     for it as eexxeeccvvpp does.  Before doing so, ssuu sets the en-
+     vironment variable PPSS11 (the shell prompt) to # if _u_s_e_r is
+     the superuser, and to $ otherwise, so that a shell started
+     this way is easy to recognize.
+
+FFIILLEESS
+          /eettcc/ppaasssswwdd     login names, user numbers, and passwords
+
+SSEEEE AALLSSOO
+     sshh
+
+DDIIAAGGNNOOSSTTIICCSS
+     ssuu prints SSoorrrryy and exits with a nonzero status if the
+     password does not match.  It prints ``_n: bad user number''
+     (if _u_s_e_r was given as a number _n) or ``_u_s_e_r: not a user
+     name'', and exits, if _u_s_e_r is not found in the password
+     file.  It prints ``_c_o_m_m_a_n_d: not found'' if _c_o_m_m_a_n_d cannot be
+     executed.
+
+NNOOTTEESS
+     ssuu does not change the current directory; the new command
+     starts in whatever directory was current when ssuu was in-
+     voked.

@@ -1,0 +1,37 @@
+.TH accton "" "Administration"
+.SH NAME
+accton \- enable/disable process accounting
+.SH SYNOPSIS
+\fB/etc/accton [\fIfile\fB]\fR
+.SH DESCRIPTION
+.HS
+accton -- enable/disable process accounting
+Usage:	/etc/accton [ file ]
+Normally 'file' is '/usr/adm/acct'.
+Disable process accounting if no argument is given.
+.HE
+.B accton
+turns process accounting on or off.
+Invoked with a
+.I file
+argument, it turns accounting on: thereafter the system writes an
+accounting record for every process into
+.IR file .
+By convention
+.I file
+should be
+.BR /usr/adm/acct .
+Invoked with no argument,
+.B accton
+turns accounting off.
+.SH "SEE ALSO"
+.BR ac ,
+.B sa
+.SH DIAGNOSTICS
+.B accton
+prints a system error message if it cannot enable or disable
+accounting on the given
+.IR file .
+.SH NOTES
+The accounting file can grow very large; truncate it from time to
+time.

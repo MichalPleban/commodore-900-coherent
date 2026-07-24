@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Knapsack() creates a knapsack structure from the passphrase s.
  * The knapsack is placed in the structure pointed to by kp.
  * Sxrand sets a multi-precision random number generator to return values

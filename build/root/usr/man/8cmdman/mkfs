@@ -1,0 +1,79 @@
+
+
+mmkkffss                                                         mmkkffss
+
+
+
+NNAAMMEE
+     mkfs - make a new file system
+
+SSYYNNOOPPSSIISS
+     /eettcc/mmkkffss _s_p_e_c_i_a_l _p_r_o_t_o
+     /eettcc/mmkkffss [-bb _b_o_o_t] [-ff _f_n_a_m_e] [-pp _p_a_c_k] [-ii _n] [-nn _n] [-mm
+     _n] _s_p_e_c_i_a_l _n
+
+DDEESSCCRRIIPPTTIIOONN
+     mmkkffss writes a new file system onto _s_p_e_c_i_a_l (normally a block
+     special file).  It has two forms.  In the first, _p_r_o_t_o names
+     a prototype description file that lists the boot file, the
+     file system's name and pack name, its size and number of i-
+     nodes, its bad blocks, and the directories and files it is
+     to contain; mmkkffss reads this file to build the file system.
+     In the second, _n is the size of the file system in blocks,
+     and mmkkffss constructs an empty file system of that size (hol-
+     ding nothing but a root directory) using values taken from
+     the option letters below, in place of a prototype file; a
+     _p_r_o_t_o that is entirely digits selects this form, anything
+     else selects the first form.  If any of the option letters
+     are given together with a real _p_r_o_t_o file, they are super-
+     fluous and mmkkffss warns and ignores them.
+
+     -bb _b_o_o_t
+          Name of the file holding the bootstrap to be written
+          into block 0 (default: no boot file).
+
+     -ff _f_n_a_m_e
+          Name to store in the file system label (default:
+          nnoonnaammee).
+
+     -pp _p_a_c_k
+          Pack (device) name to store in the file system label
+          (default: nnooppaacckk).
+
+     -ii _n Number of i-nodes to create (default: about one i-node
+          per five to seven blocks, depending on file system
+          size).
+
+     -nn _n Free-list interleave factor _n (numerator); together
+          with -mm controls how successive free blocks are spread
+          across the disk.  Default is 1.
+
+     -mm _n Free-list interleave factor _n (denominator).  Default
+          is 1.
+
+SSEEEE AALLSSOO
+     mmoouunntt, mmkknnoodd, mmkkpprroottoo
+
+DDIIAAGGNNOOSSTTIICCSS
+     mmkkffss complains and stops if it cannot open _s_p_e_c_i_a_l or _p_r_o_t_o,
+     if _p_r_o_t_o is malformed (a missing or out-of-range value, a
+     badly formed file specification line, or a premature end of
+     file), or if a regular file named in _p_r_o_t_o cannot be read or
+
+
+COHERENT Administration Manual                             Page 1
+
+
+
+
+mmkkffss                                                         mmkkffss
+
+
+
+     hhaass changed size since it was measured; it prints its two-
+     line usage message if called with the wrong number of ar-
+     guments.
+
+NNOOTTEESS
+     Options are recognized only in the second form, immediately
+     after the command name and before _s_p_e_c_i_a_l and _n.

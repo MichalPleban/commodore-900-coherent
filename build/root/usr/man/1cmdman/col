@@ -1,0 +1,85 @@
+
+
+ccooll                                                           ccooll
+
+
+
+NNAAMMEE
+     col - remove reverse and half line motions
+
+SSYYNNOOPPSSIISS
+     ccooll [-bbddffxx] [-pp_n]
+
+DDEESSCCRRIIPPTTIIOONN
+     ccooll reads the standard input and writes the standard output.
+     It removes reverse and half-line motions (as produced by
+     nnrrooffff) by keeping an image of the page in memory and perfor-
+     ming those motions against that image, so that only forward
+     motion appears on the output.
+
+     ccooll recognizes the following characters and escape sequences
+     in its input: newline, carriage return, backspace, and tab
+     carry their usual meaning; the escape character (033)
+     followed by 77, 88, 99, or BB is taken as a full reverse line
+     feed, half reverse line feed, half forward line feed, or
+     full forward line feed, respectively; the control character
+     VVTT (013) is an alternate form of full reverse line feed; the
+     control characters SSOO (017) and SSII (016) mark the start and
+     end of an alternate character set, which ccooll remembers per
+     character and reproduces with matching SSOO / SSII pairs on out-
+     put.  An escape character followed by any other character is
+     discarded along with that character.  All other control
+     characters are discarded.
+
+     When two or more characters are destined for the same output
+     position (an overstrike), ccooll remembers all of them and,
+     unless -bb is given, writes them as a backspace-separated
+     overstrike sequence.  Runs of spaces on output are entabbed
+     to every eighth column unless -xx is given.
+
+     -bb   The output device cannot backspace.  Only the last
+          character destined for a given position is written;
+          earlier overstruck characters are discarded.
+
+     -dd   Double-space the output: where the input has no inter-
+          vening half line, print two newlines instead of one.
+          Overridden by -ff.
+
+     -ff   The output device can handle forward half-line motions,
+          so ccooll writes half lines as physical half-line motions
+          instead of folding them onto full lines.  Takes
+          precedence over -dd.
+
+     -pp_n  Set the size of the internal page buffer to _n lines
+          (default 128).  Lines outside the buffered window are
+          written out as the window advances.
+
+     -xx   Do not convert runs of spaces on output into tabs.
+
+SSEEEE AALLSSOO
+     nnrrooffff
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ccooll                                                           ccooll
+
+
+
+DDIIAAGGNNOOSSTTIICCSS
+     ccooll writes SSccrroolllliinngg bbaacckkwwaarrddss oovveerr ttoopp ooff ppaaggee wwiinnddooww.  to
+     standard error (once) if the input scrolls above the buf-
+     fered page window, and SSeeeemm ttoo hhaavvee lloosstt OOvveerrssttrruucckk cchhaarraacc-
+     tteerrss.  if its internal overstrike bookkeeping becomes incon-
+     sistent; both are warnings and do not stop processing.  It
+     prints a usage message and exits 1 if given an unrecognized
+     option or a bad -pp value.
+
+NNOOTTEESS
+     Reverse motion that would move above the top of the buffered
+     page window is lost; increase the page buffer with -pp if
+     this happens.

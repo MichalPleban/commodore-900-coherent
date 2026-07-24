@@ -1,0 +1,120 @@
+
+
+ccoommpprreessss                                                 ccoommpprreessss
+
+
+
+NNAAMMEE
+     compress, uncompress, zcat - compress and expand data
+
+SSYYNNOOPPSSIISS
+     ccoommpprreessss [-ccCCddffnnqqvvVV] [-bb _m_a_x_b_i_t_s] [-ww _w_o_r_k_f_i_l_e] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ccoommpprreessss reduces the size of each _f_i_l_e using the Lempel-Ziv
+     (LZW) adaptive coding technique, and uunnccoommpprreessss reverses the
+     process.  If no _f_i_l_e is named, ccoommpprreessss reads the standard
+     input and writes the compressed result to the standard out-
+     put.
+
+     When _f_i_l_e arguments are given, ccoommpprreessss replaces each one
+     with a compressed file of the same name plus a .ZZ suffix,
+     and copies the original file's mode, owner, group, and ac-
+     cess and modification times onto it; the original is then
+     removed.  uunnccoommpprreessss does the reverse: it expects each _f_i_l_e
+     to end in .ZZ, appending that suffix if it is missing, and
+     writes the expanded data to a file with the .ZZ suffix
+     stripped.
+
+     ccoommpprreessss run under the name uunnccoommpprreessss behaves as though -dd
+     had been given; run under the name zzccaatt, it behaves as
+     though -dd and -cc had both been given.  uunnccoommpprreessss and zzccaatt
+     are the same binary as ccoommpprreessss under different names.
+
+     A file already ending in .ZZ is left alone when given to
+     ccoommpprreessss for compression, with a message that it already has
+     that suffix.  If compressing a file would not save space,
+     the .ZZ file is removed and the original is left unchanged,
+     unless -ff was given.
+
+     -bb_m_a_x_b_i_t_s
+          Limit the width of the variable-length codes written
+          during compression to _m_a_x_b_i_t_s bits (9 to 12 by default;
+          wider limits use more memory and can compress somewhat
+          better).  This build supports code widths up to 16 bits
+          for decompression, but a compression request wider than
+          15 bits is reduced to 15.  This option affects only
+          compression; uunnccoommpprreessss always uses whatever code width
+          is recorded in the file's header.
+
+     -cc   Write the compressed or decompressed data to the stan-
+          dard output instead of to a .ZZ file, and leave the in-
+          put file untouched.
+
+     -CC   Generate output compatible with ccoommpprreessss version 2.0,
+          by disabling the adaptive table-clearing (block com-
+          pression) scheme.
+
+     -dd   Decompress instead of compress; equivalent to invoking
+          ccoommpprreessss as uunnccoommpprreessss.
+
+     -ff   Force an output file to be produced, even if one al-
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ccoommpprreessss                                                 ccoommpprreessss
+
+
+
+          rreeaaddyy exists (overwriting it without asking) or if com-
+          pression would not reduce the file's size.  Without -ff,
+          ccoommpprreessss asks before overwriting an existing output
+          file if standard error is a terminal, and otherwise
+          leaves the existing file alone.
+
+     -nn   When compressing, do not write the 3-byte magic-number
+          header.  When decompressing, do not expect it.  Useful
+          for files produced by very old versions of ccoommpprreessss.
+
+     -qq   Quiet: do not report a compression ratio.  This is the
+          default.
+
+     -vv   Verbose: report the compression ratio achieved for each
+          file, or for the standard input.
+
+     -VV   Print the program's version string and the options it
+          was built with (for example the maximum code width),
+          then continue processing normally.
+
+     -ww_w_o_r_k_f_i_l_e
+          Use _w_o_r_k_f_i_l_e to hold the compression tables that do not
+          fit in the small in-memory cache, instead of a tem-
+          porary file created under /ttmmpp. This matters only when
+          _m_a_x_b_i_t_s is greater than 12.  If _w_o_r_k_f_i_l_e names a block
+          or character special device, and that device does not
+          appear to already hold a file system, ccoommpprreessss uses it
+          directly instead of creating an ordinary file on it.
+
+FFIILLEESS
+          /ttmmpp/cczzXXXXXXXXXXXX   default scratch file for -w when maxbits > 12
+
+SSEEEE AALLSSOO
+     ccaatt
+
+DDIIAAGGNNOOSSTTIICCSS
+     ccoommpprreessss exits 0 on success; 1 if a named file is not a
+     regular file, has other links, or if an argument or input
+     file is malformed (missing option argument, bad magic num-
+     ber, or a code width the binary cannot handle); and 2 if
+     compressing a file did not save space and -ff was not given,
+     in which case the input file is left unchanged and no .ZZ
+     file is kept.
+
+NNOOTTEESS
+     An interrupt or an unexpected fault while decompressing
+     removes the partially written output file rather than
+     leaving a truncated one behind.

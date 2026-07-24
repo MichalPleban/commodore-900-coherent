@@ -1,0 +1,40 @@
+.TH tee "" "Command"
+.SH NAME
+tee \- branch pipe output
+.SH SYNOPSIS
+\fBtee [\-a] [\-i] [\fIfile\fB ...]\fR
+.SH DESCRIPTION
+.HS
+tee -- branch pipe output
+Usage:	tee  [ -a ] [ -i ]  [ file ... ]
+Options:
+	-a	Append to each output 'file'
+	-i	Ignore interrupts
+.HE
+.B tee
+copies its standard input to its standard output, and also copies it
+to each
+.I file
+named.
+It is meant to sit in the middle of a pipeline and split off a copy
+of the data flowing through it.
+.IP \fB\-a\fR
+Append to each
+.I file
+instead of creating (truncating) it.
+.IP \fB\-i\fR
+Ignore interrupts, so that
+.B tee
+survives an interrupt that kills the rest of the pipeline.
+.SH DIAGNOSTICS
+.B tee
+complains and exits if it cannot create (or, with
+.BR \-a ,
+open for append) one of the named files, or if more than twenty
+output files are given.
+.SH NOTES
+Unless
+.B \-i
+is given,
+.B tee
+exits on the first interrupt signal it receives.

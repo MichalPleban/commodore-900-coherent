@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Version of spell that uses compressed
  * dictionary but exhaustive dictionary read.
  * This version will work in any address space

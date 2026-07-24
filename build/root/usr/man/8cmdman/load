@@ -1,0 +1,45 @@
+
+
+llooaadd                                                         llooaadd
+
+
+
+NNAAMMEE
+     load - load device driver
+
+SSYYNNOOPPSSIISS
+     /eettcc/llooaadd _f_i_l_e
+
+DDEESSCCRRIIPPTTIIOONN
+     llooaadd loads the loadable device driver stored in _f_i_l_e, which
+     must be in the linker's ll.oouutt format, into the running ker-
+     nel.  _f_i_l_e is usually one of the drivers kept in directory
+     /ddrrvv.
+
+     llooaadd reads the header of _f_i_l_e, checks its magic number, and
+     searches its symbol table for a configuration-table symbol
+     (one whose name ends in ccoonn_). For each such symbol it reads
+     the referenced configuration structure and calls the kernel
+     to bind the driver's text and data into memory and complete
+     the load.
+
+FFIILLEESS
+          /ddrrvv    directory of loadable drivers
+
+SSEEEE AALLSSOO
+     lldd
+
+DDIIAAGGNNOOSSTTIICCSS
+     Cannot open _f_i_l_e
+          _f_i_l_e does not exist or is not readable.
+
+     Not an l.out
+          _f_i_l_e does not begin with a valid ll.oouutt magic number.
+
+     Configuration table not found
+          _f_i_l_e contains no configuration-table symbol, so llooaadd
+          does not know how to bind it into the kernel.
+
+NNOOTTEESS
+     Only the superuser may usefully run llooaadd, since it acts
+     directly on the running kernel.

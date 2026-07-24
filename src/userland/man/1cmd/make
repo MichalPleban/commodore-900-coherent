@@ -1,0 +1,142 @@
+.TH make "" "Command"
+.SH NAME
+make \- program building discipline
+.SH SYNOPSIS
+\fBmake [\-disnpqrst] [\-f \fIfile\fB] [\fImacro\fB=\fIvalue \fB...] [\fItarget ...\fR]
+.SH DESCRIPTION
+.HS
+make -- program building discipline
+Usage:	make [ option ... ] [ argument ... ] [ target ... ]
+Options:
+	-d	Debug: more than enough output
+	-f file	Make instructions are in 'file' (default: [mM]akefile)
+	-i	Ignore command error returns
+	-n	Test: do all but execute commands
+	-p	Print macro definitions and target descriptions
+	-q	Only return exit status (zero if files up to date)
+	-r	Ignore built-in rules
+	-s	Do not print command lines when executed
+	-t	Update times of files without regenerating
+.HE
+.B make
+reads a set of dependency rules and shell commands and uses them to
+decide which
+.I target
+files are out of date with respect to the files they depend on, and
+to bring them up to date by running the associated commands.
+.PP
+Arguments of the form
+.IB macro = value
+appearing before the first
+.I target
+define
+.I macro
+for the duration of the run, overriding any definition of the same
+name inside the makefile.
+.PP
+Unless
+.B \-r
+is given,
+.B make
+first reads
+.B /usr/lib/makemacros
+to establish the built-in macros and suffix rules, then reads the
+makefile itself, then reads
+.B /usr/lib/makeactions
+to establish the built-in target actions.
+The makefile is read from each
+.B \-f
+.I file
+given, in order; if no
+.B \-f
+is given,
+.B make
+looks first for
+.B makefile
+and then for
+.B Makefile
+in the current directory.
+.PP
+If the makefile defines the special target
+.B .IGNORE
+or
+.BR .SILENT ,
+.B make
+behaves as though
+.B \-i
+or
+.B \-s
+respectively had also been given.
+If it defines
+.BR .DEFAULT ,
+the commands attached to that target are used to make any target for
+which no other rule applies.
+.PP
+After the makefile is read,
+.B make
+brings each named
+.I target
+up to date, in the order given; with no
+.I target
+argument, it brings up to date the first target defined in the
+makefile.
+.IP \fB\-d\fR
+Print debugging information as
+.B make
+scans the makefile and decides what to build.
+.IP \fB\-f\ \fIfile\fR
+Read
+.I file
+as (part of) the makefile, instead of
+.B makefile
+or
+.BR Makefile .
+May be repeated; a
+.I file
+of
+.B \-
+means read the makefile from the standard input.
+.IP \fB\-i\fR
+Ignore nonzero exit status from commands run to build a target.
+.IP \fB\-n\fR
+Print the commands that would be executed to bring targets up to
+date, but do not execute them.
+.IP \fB\-p\fR
+Print the macro definitions and the target/dependency/command
+descriptions that
+.B make
+assembled from the makefile, then continue.
+.IP \fB\-q\fR
+Do not build anything; merely return an exit status of zero if all
+named targets are already up to date, nonzero otherwise.
+.IP \fB\-r\fR
+Do not read
+.B /usr/lib/makemacros
+or
+.BR /usr/lib/makeactions ;
+rely entirely on rules given in the makefile itself.
+.IP \fB\-s\fR
+Do not print each command line before it is executed.
+.IP \fB\-t\fR
+Update the modification time of each out-of-date target without
+actually running its commands.
+.SH FILES
+.DS
+.ta 20n
+\fBmakefile\fR, \fBMakefile\fR	default input, tried in that order
+\fB/usr/lib/makemacros\fR	built-in macro and suffix definitions
+\fB/usr/lib/makeactions\fR	built-in target actions
+.DE
+.SH "SEE ALSO"
+.B sh
+.SH DIAGNOSTICS
+.B make
+prints a message and stops if it cannot open a makefile, if a target
+has no rule and no file by that name exists, or if a command run to
+build a target returns a nonzero exit status (unless
+.B \-i
+is in effect).
+.SH NOTES
+Because macro definitions given on the command line override those in
+the makefile, they are a convenient way to change, for example, which
+compiler or options a makefile uses for a single run.

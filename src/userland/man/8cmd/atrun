@@ -1,0 +1,51 @@
+.TH atrun "" "Administration"
+.SH NAME
+atrun \- execute commands at given time
+.SH SYNOPSIS
+\fB/usr/lib/atrun\fR
+.SH DESCRIPTION
+.HS
+atrun -- execute commands at given time
+Usage:	/usr/lib/atrun
+Runs any job spooled by 'at' whose time has arrived, then exits.
+No arguments and no options.
+.HE
+.B atrun
+runs the jobs spooled by the command
+.B at
+once their scheduled time has arrived.
+.PP
+.B atrun
+examines each entry in directory
+.BR /usr/spool/at ,
+whose file name encodes the year, month, day, hour, and minute at
+which it is due.
+If that time is at or before the current time,
+.B atrun
+forks, sets its user and group id to those recorded in the file's
+owner and group, and passes the file to
+.B /bin/sh
+for execution with its standard input, output, and error attached to
+.BR /dev/null .
+As a safeguard,
+.B atrun
+runs a file only if it still has the set-user-id, set-group-id, and
+owner-execute permission bits that
+.B at
+set when it created the file.
+.PP
+.B atrun
+is not a daemon: it examines the spool directory once and exits.
+It is typically invoked periodically from an entry in the superuser's
+crontab.
+.SH FILES
+.DS
+.ta 1.5i
+	\fB/usr/spool/at\fR	spool directory for pending at jobs
+.DE
+.SH "SEE ALSO"
+.BR at ,
+.B cron
+.SH NOTES
+.B atrun
+is never invoked directly by a user.

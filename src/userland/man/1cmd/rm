@@ -1,0 +1,97 @@
+.TH rm "" "Command"
+.SH NAME
+rm \- remove files
+.SH SYNOPSIS
+\fBrm [\-firtv] \fIfile ...\fR
+.SH DESCRIPTION
+.HS
+rm -- remove files
+Usage:	rm [ options ] file ...
+Options:
+	-f	Force; remove unwritable files
+	-i	Ask interactively before removing each file
+	-r	Recursively remove all structure of directories
+	-t	Test--perform all checks but do not remove any files
+	-v	Verbose--report the disposition of each file
+.HE
+.B rm
+removes each named
+.IR file .
+If a
+.I file
+is the last link to its data, the space it occupies is freed.
+Removing a directory requires
+.BR \-r ,
+and requires write, execute, and search permission on the parent
+directory.
+.PP
+Interrupts are caught while
+.B rm
+is working, so that a directory removal in progress is not left in a
+half-finished state; the interrupt takes effect after the file or
+directory currently being handled is finished.
+.IP \fB\-f\fR
+Force: remove a
+.I file
+even without write permission on it, without asking, and do not
+report files that could not be removed.
+.IP \fB\-i\fR
+Interactive: ask, for each
+.IR file ,
+whether to remove it; the file is removed only if the answer begins
+with
+.BR y " or " Y .
+.B \-i
+has no effect if the standard input is not a terminal.
+.IP \fB\-r\fR
+Recursive: if
+.I file
+is a directory,
+.B rm
+first removes every entry within it (recursing into
+subdirectories), then removes the directory itself, provided it is
+not the caller's current directory or the root directory.
+Without
+.BR \-r ,
+naming a directory is an error.
+.IP \fB\-t\fR
+Test: perform all the same checks and prompts as a normal run, but do
+not actually unlink anything.
+.IP \fB\-v\fR
+Verbose: after each
+.I file
+is processed, report whether it was removed or not.
+.SH "SEE ALSO"
+.BR ln ,
+.B rmdir
+.SH DIAGNOSTICS
+.B rm
+returns nonzero status if any
+.I file
+could not be removed -- for example because it does not exist, the
+caller lacks permission, a directory argument was given without
+.BR \-r ,
+or a named directory turned out to be the caller's current directory
+or the root directory.
+Unless
+.B \-f
+is given, each such failure is also reported on the standard error.
+.SH NOTES
+Without
+.B \-f
+or
+.BR \-i ,
+.B rm
+still asks for confirmation, on the standard error, before removing a
+file the caller lacks write permission on, reading the answer from
+the standard input; the file is removed only if the answer is
+.BR y .
+If the standard input is not a terminal, this prompt is preceded by a
+note that there is no write permission, but
+.B rm
+still reads an answer from it.
+Otherwise
+.B rm
+does not ask before a mass removal: a command such as
+.B "rm *"
+silently and immediately removes every file in the current directory.

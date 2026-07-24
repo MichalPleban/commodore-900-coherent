@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * The line printer spooler daemon.
  * This should be invoked from the `/etc/rc'
  * file and by the `lpr' command.

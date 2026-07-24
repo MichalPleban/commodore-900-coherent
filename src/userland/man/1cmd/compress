@@ -1,0 +1,169 @@
+.TH compress "" "Command"
+.SH NAME
+compress, uncompress, zcat \- compress and expand data
+.SH SYNOPSIS
+\fBcompress [\-cCdfnqvV] [\-b \fImaxbits\fB] [\-w \fIworkfile\fB] [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+compress -- reduce file size using modified Lempel-Ziv encoding
+Usage:	compress [ -cCdfnqvV ] [ -b maxbits ] [ -w workfile ] [ file ... ]
+Options:
+	-b maxbits	Limit the number of bits per code (default: 12)
+	-c	Write output to standard output
+	-C	Generate output compatible with compress 2.0
+	-d	Decompress instead of compress
+	-f	Force output file, even if no space would be saved
+	-n	Omit the magic-number header
+	-q	Quiet: suppress compression statistics (default)
+	-v	Verbose: print compression statistics
+	-V	Print version and build options
+	-w workfile	Use workfile for scratch paging instead of a file under /tmp
+.HE
+.B compress
+reduces the size of each
+.I file
+using the Lempel-Ziv (LZW) adaptive coding technique, and
+.B uncompress
+reverses the process.
+If no
+.I file
+is named,
+.B compress
+reads the standard input and writes the compressed result to the
+standard output.
+.PP
+When
+.I file
+arguments are given,
+.B compress
+replaces each one with a compressed file of the same name plus a
+.B .Z
+suffix, and copies the original file's mode, owner, group, and
+access and modification times onto it; the original is then
+removed.
+.B uncompress
+does the reverse: it expects each
+.I file
+to end in
+.BR .Z ,
+appending that suffix if it is missing, and writes the expanded
+data to a file with the
+.B .Z
+suffix stripped.
+.PP
+.B compress
+run under the name
+.B uncompress
+behaves as though
+.B \-d
+had been given; run under the name
+.BR zcat ,
+it behaves as though
+.B \-d
+and
+.B \-c
+had both been given.
+.B uncompress
+and
+.B zcat
+are the same binary as
+.B compress
+under different names.
+.PP
+A file already ending in
+.B .Z
+is left alone when given to
+.B compress
+for compression, with a message that it already has that suffix.
+If compressing a file would not save space, the
+.B .Z
+file is removed and the original is left unchanged, unless
+.B \-f
+was given.
+.IP \fB\-b\fImaxbits\fR
+Limit the width of the variable-length codes written during
+compression to
+.I maxbits
+bits (9 to 12 by default; wider limits use more memory and can
+compress somewhat better).
+This build supports code widths up to 16 bits for decompression,
+but a compression request wider than 15 bits is reduced to 15.
+This option affects only compression;
+.B uncompress
+always uses whatever code width is recorded in the file's header.
+.IP \fB\-c\fR
+Write the compressed or decompressed data to the standard output
+instead of to a
+.B .Z
+file, and leave the input file untouched.
+.IP \fB\-C\fR
+Generate output compatible with
+.B compress
+version 2.0, by disabling the adaptive table-clearing (block
+compression) scheme.
+.IP \fB\-d\fR
+Decompress instead of compress; equivalent to invoking
+.B compress
+as
+.BR uncompress .
+.IP \fB\-f\fR
+Force an output file to be produced, even if one already exists
+(overwriting it without asking) or if compression would not
+reduce the file's size.
+Without
+.BR \-f ,
+.B compress
+asks before overwriting an existing output file if standard error
+is a terminal, and otherwise leaves the existing file alone.
+.IP \fB\-n\fR
+When compressing, do not write the 3-byte magic-number header.
+When decompressing, do not expect it.
+Useful for files produced by very old versions of
+.BR compress .
+.IP \fB\-q\fR
+Quiet: do not report a compression ratio.
+This is the default.
+.IP \fB\-v\fR
+Verbose: report the compression ratio achieved for each file, or
+for the standard input.
+.IP \fB\-V\fR
+Print the program's version string and the options it was built
+with (for example the maximum code width), then continue
+processing normally.
+.IP \fB\-w\fIworkfile\fR
+Use
+.I workfile
+to hold the compression tables that do not fit in the small
+in-memory cache, instead of a temporary file created under
+.BR /tmp .
+This matters only when
+.I maxbits
+is greater than 12.
+If
+.I workfile
+names a block or character special device, and that device does
+not appear to already hold a file system,
+.B compress
+uses it directly instead of creating an ordinary file on it.
+.SH FILES
+.DS
+.ta 16n
+\fB/tmp/czXXXXXX\fR	default scratch file for -w when maxbits > 12
+.DE
+.SH "SEE ALSO"
+.B cat
+.SH DIAGNOSTICS
+.B compress
+exits 0 on success; 1 if a named file is not a regular file, has
+other links, or if an argument or input file is malformed (missing
+option argument, bad magic number, or a code width the binary
+cannot handle); and 2 if compressing a file did not save space and
+.B \-f
+was not given, in which case the input file is left unchanged and
+no
+.B .Z
+file is kept.
+.SH NOTES
+An interrupt or an unexpected fault while decompressing removes the
+partially written output file rather than leaving a truncated one
+behind.

@@ -1,0 +1,170 @@
+.TH dc "" "Command"
+.SH NAME
+dc \- desk calculator
+.SH SYNOPSIS
+\fBdc [\fIfile\fB]\fR
+.SH DESCRIPTION
+.HS
+dc -- desk calculator
+Usage:	dc [ file ]
+Arbitrary precision desk calculator with registers,
+using reverse Polish notation.
+Reads input from 'file' if given, then from standard input.
+.HE
+.B dc
+is an arbitrary-precision reverse-Polish desk calculator with 256
+registers, each of which is itself a small stack.
+If
+.I file
+is given,
+.B dc
+reads and executes it first; it then reads and executes the standard
+input.
+An arbitrary number of commands may appear per line, and commands
+need not be separated by spaces.
+.PP
+Numbers are pushed onto a value stack; operators pop their operands
+from that stack and push the result.
+A number is a string of the digits
+.B 0
+through
+.B 9
+and the letters
+.B A
+through
+.BR F ,
+optionally containing one decimal point; the letters stand for the
+values ten through fifteen regardless of the input base currently in
+effect.
+An underscore (\fB_\fR) immediately before a number makes it
+negative.
+Every value carries its own
+.IR scale " (" "number of digits after the decimal point" );
+.B dc
+keeps the natural scale through addition, subtraction, and
+multiplication, but division and exponentiation follow the rules
+given under
+.B k
+below.
+.PP
+.B dc
+recognizes the following commands:
+.IP "\fB+ \-  * / % ^\fR" 0.9i
+Pop the top two values, apply addition, subtraction, multiplication,
+division, remainder, or exponentiation (in that order), and push the
+result.
+For
+.BR ^ ,
+the exponent's fractional part, if any, is ignored.
+.IP \fBc\fR
+Clear (discard) the entire stack.
+.IP \fBd\fR
+Duplicate the top of the stack.
+.IP \fBf\fR
+Print every register that has a value, followed by the entire stack.
+.IP \fBi\fR
+Pop the top of the stack and use its integer part as the input base
+(digits are taken from
+.BR 0 - F ,
+so the input base is normally between 2 and 16).
+.IP \fBI\fR
+Push the current input base.
+.IP \fBk\fR
+Pop the top of the stack and use its integer part as the scale factor
+used by division; a negative value is rejected and the scale is left
+at zero.
+.IP \fBK\fR
+Push the current scale factor.
+.IP "\fBl\fIx\fR"
+Push a copy of the top of register
+.IR x ;
+the register is left unchanged.
+.IP "\fBL\fIx\fR"
+Pop the top of register
+.I x
+and push it (removing it from the register).
+.IP \fBo\fR
+Pop the top of the stack and use its integer part as the output base.
+.IP \fBO\fR
+Push the current output base.
+.IP \fBp\fR
+Print the top of the stack; the value is left on the stack.
+.IP \fBP\fR
+Pop the top of the stack and print it.
+.IP \fBq\fR
+Quit
+.BR dc .
+.IP "\fBQ\fIn\fR"
+Pop the top of the stack and use its integer part as
+.IR n ;
+exit
+.I n
+levels of string execution begun with
+.BR x .
+.IP "\fBs\fIx\fR"
+Pop the top of the stack and store it in register
+.I x
+(any previous top-of-register value in
+.I x
+is discarded).
+.IP "\fBS\fIx\fR"
+Pop the top of the stack and push it onto register
+.IR x ,
+preserving whatever
+.I x
+already held beneath it.
+.IP \fBv\fR
+Replace the top of the stack with its square root.
+.IP \fBx\fR
+Pop the top of the stack; if it is a bracketed string (see
+.B [ ]
+below), execute it as a sequence of
+.B dc
+commands.
+Popping a plain number has no further effect.
+.IP \fBX\fR
+Replace the top of the stack with its scale (the number of digits
+after its decimal point).
+.IP \fBz\fR
+Push the current number of values on the stack.
+.IP \fBZ\fR
+Replace the top of the stack with the number of digits in its
+printed representation.
+.IP \fB[...]\fR
+Push the enclosed character string, which may later be run with
+.BR x ,
+with \fBl\fR/\fBL\fR and a register, or as the action of a comparison
+(below).
+Brackets may be nested.
+.IP "\fB<\fIx\fB >\fIx\fB =\fIx\fB !<\fIx\fB !>\fIx\fB !=\fIx\fR"
+Pop the top two values and compare them.
+If the (optionally negated) relation holds, execute the top of
+register
+.I x
+as with
+.BR x .
+.IP \fB?\fR
+Read a line from the standard input (regardless of where
+.B dc
+is currently reading its program from) and execute it as a string of
+.B dc
+commands.
+.IP \fB!\fR
+Read the rest of the input line and pass it to the shell; when the
+shell command finishes,
+.B dc
+prints
+.B !
+and resumes reading commands.
+.SH DIAGNOSTICS
+On a stack-empty, stack-full, out-of-memory, missing-register-name,
+negative-scale, or unrecognized-command error,
+.B dc
+prints a one-line message to the standard error and abandons the
+command it was in the middle of, but continues reading input
+immediately after the offending character.
+.SH NOTES
+For most purposes the infix notation of
+.B bc
+is more convenient than the reverse-Polish notation of
+.BR dc .

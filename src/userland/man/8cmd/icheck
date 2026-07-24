@@ -1,0 +1,84 @@
+.TH icheck "" "Administration"
+.SH NAME
+icheck \- i-node consistency check
+.SH SYNOPSIS
+\fBicheck [\-sv] [\-b \fIblock ...\fB] \fIfilesystem ...\fR
+.SH DESCRIPTION
+.HS
+icheck -- i-node consistency check
+Usage:	icheck [ options ] filesystem ...
+Options:
+	-b	Any following numeric arguments are taken to be block numbers;
+		all references to these blocks are printed, with the type
+	-s	Make some repairs on the file system (requires write access)
+	-v	Print a summary of information about the file system
+.HE
+.B icheck
+reads the super-block and i-list of each
+.I filesystem
+and builds a map of every block in use, checking as it goes that no
+block is claimed by more than one i-node, by both an i-node and the
+free list, or more than once within the free list or within a
+single i-node's block list.
+.PP
+Each
+.I filesystem
+should normally be unmounted, and read access to its special file is
+enough unless
+.B \-s
+is given.
+.SH Options
+.IP \fB\-b\fR 0.4i
+Every argument after this option, up to the next option or the end
+of the argument list, is a block number rather than a
+.IR filesystem ;
+as the scan proceeds,
+.B icheck
+prints, with its type, every reference it finds to any of these
+blocks.
+.IP \fB\-s\fR
+Ignore the existing free list, note every block claimed by an
+i-node, and rebuild the super-block's free list and free i-node
+list from what remains; this requires write access to
+.IR filesystem .
+.IP \fB\-v\fR
+Print a summary of file, block, and free-space counts for
+.I filesystem
+after checking it.
+.PP
+.B icheck
+runs on each named
+.I filesystem
+in turn and exits with the bitwise OR of the exit status from
+every one:
+.DS
+.ta 8n
+\fB0x01\fR	miscellaneous error (e.g., cannot open, out of memory)
+\fB0x02\fR	an i/o error made the check impossible to complete
+\fB0x04\fR	bad free list
+\fB0x08\fR	missing blocks (in neither an i-node nor the free list)
+\fB0x10\fR	duplicate blocks in the free list
+\fB0x20\fR	the free-i-node count in the super-block is wrong
+.DE
+.SH "SEE ALSO"
+.BR check ,
+.BR dcheck ,
+.BR mount ,
+.B sync
+.SH DIAGNOSTICS
+.B icheck
+prints a line for each bad or duplicate block it finds, giving the
+block number, the type of reference (bootstrap, super block, inodes,
+direct, indirect, double indirect, triple indirect, dir, bad, or
+free), and, for a duplicate, the i-number involved.
+It also reports
+.B "Ridiculous fsize/isize"
+and gives up on a
+.I filesystem
+whose super-block looks wrong, and
+.B "Bad ifree list"
+if the free-i-node count does not match what it counted.
+.SH NOTES
+Filesystem sizes and structures newer than this port's fixed
+addressing limits (10 direct, 1 single-, 1 double-, and 1
+triple-indirect block per i-node) are not supported.

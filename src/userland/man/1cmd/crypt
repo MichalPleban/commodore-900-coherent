@@ -1,0 +1,62 @@
+.TH crypt "" "Command"
+.SH NAME
+crypt \- encrypt/decrypt text
+.SH SYNOPSIS
+\fBcrypt [\fIpassword\fB]\fR
+.SH DESCRIPTION
+.HS
+crypt -- encrypt/decrypt text
+Usage:	crypt [ password ]
+Reads from standard input and writes to standard output.
+Password is 10 characters or fewer.  The same password encrypts and decrypts.
+.HE
+.B crypt
+reads the standard input, enciphers or deciphers it under
+.IR password ,
+and writes the result to the standard output.
+The cipher is symmetric, so running
+.B crypt
+a second time over the output, with the same
+.IR password ,
+recovers the original text.
+.PP
+If
+.I password
+is not given as an argument,
+.B crypt
+prompts for it at the terminal without echoing what is typed.
+An empty password typed at the prompt is rejected; only the first 10
+characters of
+.I password
+are significant.
+Once the password has been copied out of the argument vector (or out
+of the prompt buffer), that copy is overwritten with nulls so the
+plaintext password does not linger in memory.
+.PP
+Internally,
+.B crypt
+pads the password to 10 characters with a fixed built-in key, forces
+the last two characters of the padded key into the range legal for a
+password `salt', and passes the result through the system
+password-hashing routine
+.BR crypt() .
+The last 11 characters of that hash become the working key.
+The first 6 characters of the working key seed a pseudo-random shuffle
+of a 256-byte substitution table (a self-inverse `rotor'); the last 6
+characters seed a second pseudo-random sequence that supplies a
+running offset.
+Each byte read from the standard input is combined with the next
+offset from that sequence, passed through the rotor, and the result
+is written to the standard output.
+.SH DIAGNOSTICS
+.B crypt
+exits with status 1 if it is called with more than one argument, or if
+no password is given on the command line and an empty one is typed at
+the prompt.
+.SH NOTES
+Giving
+.I password
+as a command-line argument exposes it to anyone who can list the
+process table while
+.B crypt
+is starting; the terminal prompt is the safer way to supply it.

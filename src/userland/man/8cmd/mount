@@ -1,0 +1,126 @@
+.TH mount "" "Administration"
+.SH NAME
+mount \- mount a file system
+.SH SYNOPSIS
+\fB/etc/mount [\fIspecial directory \fB[\-fru]]\fR
+.SH DESCRIPTION
+.HS
+mount -- mount file system
+Usage:	/etc/mount [ special directory [-fru] ]
+Options:
+	-r	Mount is read only
+	-f	Force read/write even if not cleanly unmounted
+	-w	Remount an already-mounted file system read/write
+	-u	No mount, just update '/etc/mnttab' and/or '/etc/mtab'
+The file system residing on the block special file 'special' becomes
+accessible through the pathname 'directory'.
+With no arguments, lists the currently mounted file systems.
+If /etc/mtab appears out of date, due to reboot, the fact is noted.
+If /etc/mnttab is present, then the dates of mounting will be reported.
+.HE
+.B mount
+grafts the file system held on block-special device
+.I special
+onto the directory tree at
+.IR directory .
+With no arguments,
+.B mount
+prints the file systems now mounted: it reads
+.B /etc/mnttab
+if that file exists, and otherwise
+.BR /etc/mtab .
+.PP
+Before mounting,
+.B mount
+reads the super block of
+.I special
+to check that it holds a properly formed file system and whether
+that file system was cleanly unmounted.
+If it was not, and neither
+.B \-f
+nor
+.B \-w
+was given,
+.B mount
+mounts it read-only and suggests running
+.B check
+on it; with
+.B \-f
+it forces a read/write mount instead.
+.B \-w
+leaves the clean/dirty decision to the kernel's
+.B mount()
+call, which itself refuses to mount a dirty file system read/write
+unless forced.
+.PP
+After mounting (or, with
+.BR \-u ,
+without actually mounting anything),
+.B mount
+records the mount in
+.B /etc/mnttab
+(if it can be opened) and in
+.BR /etc/mtab ,
+replacing any existing entry for the same
+.I special
+and adding the mount time to
+.BR /etc/mnttab .
+.IP \fB\-r\fR
+Mount
+.I special
+read-only.
+.IP \fB\-f\fR
+Force a read/write mount even though
+.I special
+was not cleanly unmounted.
+.IP \fB\-w\fR
+Remount an already-mounted file system for read/write access,
+leaving the clean/dirty decision to the kernel.
+.IP \fB\-u\fR
+Do not mount anything; only add or update the entry for
+.I special
+in
+.B /etc/mnttab
+and
+.BR /etc/mtab .
+This is used at boot time to record the root file system, which the
+kernel has already mounted.
+.SH FILES
+.DS
+.ta 16n
+\fB/etc/mtab\fR	table of mounted file systems
+\fB/etc/mnttab\fR	table of mounted file systems, with mount times
+\fB/etc/boottime\fR	time of the last reboot, used to detect a stale /etc/mtab
+.DE
+.SH "SEE ALSO"
+.BR mkfs ,
+.BR umount ,
+.B mount()
+.SH DIAGNOSTICS
+.B mount
+complains if
+.I special
+is not a block-special device, if
+.I directory
+is not a directory, or if
+.I special
+does not hold a properly formed file system.
+It exits nonzero if the underlying
+.B mount()
+system call fails, for example because the file system or directory
+is already busy.
+.SH NOTES
+Mounting requires read and write access to
+.I special
+itself, which in practice restricts
+.B mount
+to the superuser, since block special files are normally not
+writable by other users.
+The
+.B \-u
+option updates the mount tables even though no
+.B mount()
+system call is made, so it should be used only when the kernel has
+already mounted
+.I special
+by some other means.

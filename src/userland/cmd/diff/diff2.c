@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * This code is common between diff and /usr/lib/diffh.
  * It is a restructuring and re-write of the earlier
  * Tom Duff code so that reading options, opening files,

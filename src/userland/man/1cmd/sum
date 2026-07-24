@@ -1,0 +1,31 @@
+.TH sum "" "Command"
+.SH NAME
+sum \- print checksum of a file
+.SH SYNOPSIS
+\fBsum [\fIfile ...\fR]
+.SH DESCRIPTION
+.HS
+sum -- print checksum of a file
+Usage:	sum [ file ... ]
+.HE
+.B sum
+reads each
+.IR file ,
+or the standard input if none is given, and prints an unsigned
+checksum together with the size of the file in 512-byte blocks,
+rounded up.
+If more than one
+.I file
+is given,
+.B sum
+also prints the file's name.
+.PP
+The checksum is simply the sum, modulo 65536, of every byte read.
+.SH "SEE ALSO"
+.B cmp
+.SH DIAGNOSTICS
+.B sum
+reports an error and goes on to the next
+.I file
+if a named file cannot be opened or a read error occurs; its exit
+status is nonzero if any file could not be summed.

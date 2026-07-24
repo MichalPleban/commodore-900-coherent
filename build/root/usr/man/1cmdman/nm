@@ -1,0 +1,75 @@
+
+
+nnmm                                                             nnmm
+
+
+
+NNAAMMEE
+     nm - print name list
+
+SSYYNNOOPPSSIISS
+     nnmm [-aaddggnnoopprruu] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     nnmm prints the symbol table of each _f_i_l_e. Each _f_i_l_e may be a
+     linked ll.oouutt object or executable, or an archive (a file
+     beginning with the archive magic number) made by aarr; for an
+     archive, nnmm prints the symbols of every member except
+     __.SSYYMMDDEEFF. With no _f_i_l_e argument, nnmm reads ll.oouutt.
+
+     By default, nnmm prints only symbols whose names look like C
+     identifiers (a trailing underscore is stripped before prin-
+     ting, or the name is at least seven characters long); the -aa
+     option disables this filtering.  Symbols are sorted by name
+     unless -nn or -pp is given.  Each line gives the symbol's seg-
+     ment (one of ssii,  ppii,  bbii,  for defined symbols, blank for a
+     common symbol, or uu or UU for an undefined reference,
+     capitalized if the symbol is global) and either its address
+     or, for a common symbol, its size, followed by the symbol
+     name.
+
+     When more than one _f_i_l_e is given, or a _f_i_l_e is an archive,
+     nnmm prints a heading line naming the file or archive member
+     before its symbols, unless -oo was given, in which case the
+     file or member name is instead prepended to every symbol
+     line.
+
+     -aa   Print all symbols, including ones that are not C iden-
+          tifiers.
+
+     -dd   Print only defined symbols (suppress undefined referen-
+          ces).
+
+     -gg   Print only global (external) symbols.
+
+     -nn   Sort symbols numerically by address, instead of by
+          name.
+
+     -oo   Prepend the file (or, for an archive member, the mem-
+          ber) name to each output line instead of printing it as
+          a heading.
+
+     -pp   Print symbols in the order they occur in the symbol
+          table; do not sort them.
+
+     -rr   Reverse the sort order.
+
+     -uu   Print only undefined symbols.
+
+SSEEEE AALLSSOO
+     aarr, lldd, ssiizzee, ssttrriipp
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+nnmm                                                             nnmm
+
+
+
+DDIIAAGGNNOOSSTTIICCSS
+     nnmm complains if a _f_i_l_e cannot be opened, is not a recognized
+     object file, or has no symbol table.

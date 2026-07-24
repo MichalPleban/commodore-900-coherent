@@ -1,0 +1,112 @@
+
+
+ssoorrtt                                                         ssoorrtt
+
+
+
+NNAAMMEE
+     sort - sort lines of text
+
+SSYYNNOOPPSSIISS
+     ssoorrtt [_o_p_t_i_o_n_s] [ [+_b_e_g [-_e_n_d] ] [_f_i_l_e ...] ]
+
+DDEESSCCRRIIPPTTIIOONN
+     ssoorrtt reads lines from each _f_i_l_e, or from the standard input
+     if none is given, sorts them, and writes the result to the
+     standard output.  By default the sort key is the entire line
+     and lines are compared byte for byte.
+
+     ssoorrtt does its work with a polyphase merge: it first reads
+     the input into temporary files, using replacement selection
+     to build large initial runs, and then repeatedly merges
+     those runs together in the temporary files until one run
+     remains, which becomes the output.
+
+     A key field is selected by one or two _p_o_s_i_t_i_o_n arguments,
+     +_m._n_f and -_m._n_f.  _m is the number of fields to skip and _n
+     the number of characters to skip within the following field
+     before the key starts (for -mm.nnff, before it ends); fields
+     are separated by blanks and tabs, or by the character set
+     with -tt, and leading separators before a field are also
+     skipped once _m is nonzero.  _f may contain any of the key-or-
+     dering letters bb dd ff ii nn rr listed below; these apply only to
+     this one key, overriding the global ordering options for it.
+     If no position is given, the key is the whole line.  More
+     than one +_m._n_f [-_m._n_f] pair may be given, and are applied in
+     order until one pair compares unequal.
+
+     Options:
+
+     -bb   Skip leading blanks (spaces and tabs) when locating and
+          comparing key fields.
+
+     -dd   Dictionary order: compare keys using only letters,
+          digits, and blanks, ignoring all other characters.
+
+     -ff   Fold upper-case letters to lower case for comparison.
+
+     -ii   Ignore non-printable characters in key comparisons.
+
+     -nn   Compare the key as a signed number (an optional sign,
+          digits, and an optional decimal point and fraction)
+          rather than as text.
+
+     -rr   Reverse the sense of the comparison.
+
+     -cc   Check whether the input is already sorted according to
+          the other options; if not, report the first out-of-or-
+          der line and exit with a nonzero status. No output is
+          produced, and -mm, -oo, and -uu are ignored.
+
+     -mm   Merge the input files, which are each assumed to al-
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ssoorrtt                                                         ssoorrtt
+
+
+
+          rreeaaddyy be sorted; this avoids the initial run-forming
+          pass and is faster on large, already-sorted input.
+
+     -oo _n_a_m_e
+          Write the output to _n_a_m_e instead of the standard out-
+          put; this may safely be one of the input files.
+
+     -tt_c  Use the single character _c as the field separator, in-
+          stead of runs of blanks and tabs.
+
+     -TT _d_i_r
+          Create temporary files in _d_i_r instead of the default
+          location.
+
+     -uu   Output only one line for each set of lines that compare
+          equal on the key; later duplicates are discarded.
+
+     Key-ordering letters given directly on the command line (not
+     attached to a +_m._n_f position) set the default ordering for
+     the whole line.
+
+FFIILLEESS
+          /ttmmpp/ssoorrtt_p_i_dxx       temporary run and merge files
+          /uussrr/ttmmpp/ssoorrtt_p_i_dxx   used if /ttmmpp is not writable
+
+SSEEEE AALLSSOO
+     uunniiqq
+
+DDIIAAGGNNOOSSTTIICCSS
+     ssoorrtt exits with a nonzero status if a temporary file could
+     not be created or written, if an input file could not be
+     opened, if an input record is too long, or, with -cc, if the
+     input was not correctly ordered.
+
+NNOOTTEESS
+     An input or key record may not exceed 400 characters; ssoorrtt
+     aborts if this limit is exceeded.
+
+     Without -TT ssoorrtt first tries /ttmmpp for its temporary files
+     and, if that fails, falls back to /uussrr/ttmmpp.

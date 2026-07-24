@@ -1,0 +1,71 @@
+.TH spell "" "Command"
+.SH NAME
+spell \- find spelling errors
+.SH SYNOPSIS
+\fBspell [\-a] [\-b] [\fIfile ...\fR]
+.SH DESCRIPTION
+.HS
+spell -- find spelling errors
+Usage:	spell [ -a ] [ -b ] [ file ... ]
+Options:
+	-a	Use American variant of the dictionary (default)
+	-b	Use British variant of the dictionary
+.HE
+.B spell
+collects the words used in each
+.IR file ,
+or in the standard input if none is given, and prints on the standard
+output those that it cannot find in its dictionary.
+.PP
+.B spell
+is a shell procedure.
+It extracts the words used in the input with
+.BR "deroff \-w" ,
+which also strips out formatting commands, sorts them into a unique,
+case-folded list with
+.BR "sort \-uf" ,
+and passes the result to
+.B /usr/lib/spell
+together with one of the two compressed dictionaries kept in
+.BR /usr/dict :
+.B clista
+(American spelling) or
+.B clistb
+(British spelling).
+.B /usr/lib/spell
+case-folds each input word before comparing it against the (also
+case-folded) dictionary; any word it cannot find is written, in its
+original case, to the standard output, and also appended to the
+history file
+.BR /usr/dict/spellhist .
+.PP
+Options:
+.IP \fB\-a\fR
+Check against the American-spelling dictionary,
+.BR clista .
+This is the default.
+.IP \fB\-b\fR
+Check against the British-spelling dictionary,
+.BR clistb .
+.SH FILES
+.DS
+.ta 20n
+\fB/usr/dict/clista\fR	compressed American dictionary
+\fB/usr/dict/clistb\fR	compressed British dictionary
+\fB/usr/dict/spellhist\fR	history of words not found
+\fB/usr/lib/spell\fR	dictionary-lookup program run by \fBspellcmd\fR
+.DE
+.SH "SEE ALSO"
+.B deroff
+.SH NOTES
+Because
+.B spell
+compares whole words against an exact dictionary rather than guessing
+at spelling, it will flag any word that is not in the dictionary,
+including many correctly spelled proper names and technical terms.
+Words believed correct but missing from the dictionary should be
+added to the local word list by the dictionary maintainer; see the
+.B READ_ME
+file that accompanies the
+.B spell
+sources for how the dictionaries are built and maintained.

@@ -1,0 +1,22 @@
+
+
+ppwwdd                                                           ppwwdd
+
+
+
+NNAAMMEE
+     pwd - print current working directory
+
+SSYYNNOOPPSSIISS
+     ppwwdd
+
+DDEESSCCRRIIPPTTIIOONN
+     ppwwdd prints the pathname of the current working directory.
+     It takes no arguments or options.
+
+SSEEEE AALLSSOO
+     sshh
+
+DDIIAAGGNNOOSSTTIICCSS
+     ppwwdd complains and exits with nonzero status if it cannot
+     determine the name of the current directory.

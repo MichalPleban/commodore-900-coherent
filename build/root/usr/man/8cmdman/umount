@@ -1,0 +1,40 @@
+
+
+uummoouunntt                                                     uummoouunntt
+
+
+
+NNAAMMEE
+     umount - unmount a file system
+
+SSYYNNOOPPSSIISS
+     /eettcc/uummoouunntt _s_p_e_c_i_a_l
+
+DDEESSCCRRIIPPTTIIOONN
+     uummoouunntt unmounts the file system held on block-special device
+     _s_p_e_c_i_a_l, which was previously grafted onto the directory
+     tree by /eettcc/mmoouunntt. The previous contents of the directory
+     on which it was mounted become accessible again.
+
+     uummoouunntt first calls the uummoouunntt() system call to detach
+     _s_p_e_c_i_a_l from the directory tree; a file system can only be
+     unmounted if all of its files are closed.  Once the system
+     call succeeds, uummoouunntt finds and clears the entry for _s_p_e_c_i_a_l
+     (matched by its final pathname component) in /eettcc/mmnnttttaabb and
+     /eettcc/mmttaabb.
+
+FFIILLEESS
+          /eettcc/mmttaabb       table of mounted file systems
+          /eettcc/mmnnttttaabb     table of mount options
+
+SSEEEE AALLSSOO
+     mmoouunntt, uummoouunntt()
+
+DDIIAAGGNNOOSSTTIICCSS
+     uummoouunntt complains and exits if the uummoouunntt() system call
+     fails, for example because _s_p_e_c_i_a_l is not currently mounted
+     or one or more of its files is still open.
+
+NNOOTTEESS
+     Unmounting requires permission to call uummoouunntt(), which or-
+     dinarily only the superuser has.

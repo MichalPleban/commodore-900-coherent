@@ -1,0 +1,54 @@
+
+
+mmvv                                                             mmvv
+
+
+
+NNAAMMEE
+     mv - move/rename files and directories
+
+SSYYNNOOPPSSIISS
+     mmvv [-ff] _o_l_d_f_i_l_e _n_e_w_f_i_l_e
+     mmvv [-ff] _f_i_l_e ... _d_i_r_e_c_t_o_r_y
+
+DDEESSCCRRIIPPTTIIOONN
+     mmvv renames files.  In the first form, mmvv changes the name of
+     _o_l_d_f_i_l_e to _n_e_w_f_i_l_e. If _n_e_w_f_i_l_e already exists, mmvv replaces
+     it with the file being moved; if not, mmvv creates it.  If the
+     last argument is a directory, mmvv instead uses the second
+     form: each _f_i_l_e is moved so that it resides under that
+     _d_i_r_e_c_t_o_r_y, under its own last-component name.
+
+     Normally, mmvv performs the move by creating a link from _n_e_w-
+     _f_i_l_e to _o_l_d_f_i_l_e and then removing _o_l_d_f_i_l_e. If that fails be-
+     cause _o_l_d_f_i_l_e and _n_e_w_f_i_l_e are on different file systems, mmvv
+     instead copies _o_l_d_f_i_l_e to _n_e_w_f_i_l_e (preserving its permission
+     mode, and, unless the caller owns _o_l_d_f_i_l_e, clearing the set-
+     user-id and set-group-id bits) and then removes _o_l_d_f_i_l_e.
+
+     mmvv will not move a directory across file systems, will not
+     rename .  or .., and will not move a directory into one of
+     its own descendants.  If _n_e_w_f_i_l_e exists, is not a directory,
+     and is unwritable, mmvv refuses to remove it unless -ff is
+     given.
+
+     -ff   Force the move: remove an existing, unwritable _n_e_w_f_i_l_e
+          instead of refusing to replace it.
+
+SSEEEE AALLSSOO
+     ccpp, llnn
+
+DDIIAAGGNNOOSSTTIICCSS
+     mmvv prints a message and sets a nonzero exit status for each
+     _f_i_l_e it cannot move, for example because _o_l_d_f_i_l_e does not
+     exist, the caller lacks permission to remove it from its
+     parent directory, the destination parent directory does not
+     exist or is not writable, or _o_l_d_f_i_l_e and _n_e_w_f_i_l_e are the
+     same file.
+
+NNOOTTEESS
+     mmvv tests the legality of a directory move using search per-
+     mission on the directories from the destination back to the
+     root; the superuser always has search permission and so can
+     construct a move that disconnects part of the directory
+     tree.

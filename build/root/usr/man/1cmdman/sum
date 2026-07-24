@@ -1,0 +1,28 @@
+
+
+ssuumm                                                           ssuumm
+
+
+
+NNAAMMEE
+     sum - print checksum of a file
+
+SSYYNNOOPPSSIISS
+     ssuumm [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ssuumm reads each _f_i_l_e, or the standard input if none is given,
+     and prints an unsigned checksum together with the size of
+     the file in 512-byte blocks, rounded up.  If more than one
+     _f_i_l_e is given, ssuumm also prints the file's name.
+
+     The checksum is simply the sum, modulo 65536, of every byte
+     read.
+
+SSEEEE AALLSSOO
+     ccmmpp
+
+DDIIAAGGNNOOSSTTIICCSS
+     ssuumm reports an error and goes on to the next _f_i_l_e if a named
+     file cannot be opened or a read error occurs; its exit
+     status is nonzero if any file could not be summed.

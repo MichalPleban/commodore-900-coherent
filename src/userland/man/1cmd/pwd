@@ -1,0 +1,19 @@
+.TH pwd "" "Command"
+.SH NAME
+pwd \- print current working directory
+.SH SYNOPSIS
+\fBpwd\fR
+.SH DESCRIPTION
+.HS
+pwd -- print current working directory
+Usage:	pwd
+.HE
+.B pwd
+prints the pathname of the current working directory.
+It takes no arguments or options.
+.SH "SEE ALSO"
+.B sh
+.SH DIAGNOSTICS
+.B pwd
+complains and exits with nonzero status if it cannot determine the
+name of the current directory.

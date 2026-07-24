@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 	unsigned short font[][25] = {
 /*  char code = 20 ` ' */
 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 

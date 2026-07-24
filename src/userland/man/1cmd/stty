@@ -1,0 +1,174 @@
+.TH stty "" "Command"
+.SH NAME
+stty \- set/print terminal modes
+.SH SYNOPSIS
+\fBstty [\-t\fIttyname\fB] [\fImode ...\fR]
+.SH DESCRIPTION
+.HS
+stty -- set/print terminal modes
+Usage:	stty [ option ... ]
+Options:
+9600		Baud rate--any valid terminal speed accepted
+0		Hang up phone immediately
+[break | eof | erase | interrupt | kill | quit | start | stop] c
+		Set specified character to given 'c'
+cbreak	-cbreak	Enable (disable) break after every input character
+crt	-crt	Enable (disable) crt character erasing
+echo	-echo	Enable (disable) input character echoing
+even	-even	Enable (disable) even parity
+excl	-excl	Enable/disable exclusive use
+flush	-flush	Flush/do not flush input queues
+hup	-hup	Enable (disable) hang up on last close
+nl	-nl	Disable (enable) newline mapping
+odd	-odd	Enable (disable) odd parity
+print		Print terminal attributes
+raw	-raw	Enable/disable raw mode (also 'cooked', 'rawin', 'rawout')
+tabs	-tabs	Disable (enable) tab expansion
+tandem	-tandem	Enable (disable) tandem (start/stop) mode
+.HE
+With no
+.I mode
+arguments,
+.B stty
+prints the erase and kill characters, the special characters, the
+line speed, and the enabled modes of the standard output.
+With
+.I mode
+arguments,
+.B stty
+sets each requested mode, character, or speed, and applies them all
+at once after the whole command line has been parsed.
+.PP
+Each
+.I mode
+argument is one of the following.
+Any mode may be preceded by
+.B \-
+to select its opposite, except where noted.
+.IP \fInumber\fR 1.3i
+Set both the input and output line speed to
+.IR number ,
+a recognized baud rate:
+.BR 0 ", " 50 ", " 75 ", " 110 ", " 134.5 ", " 150 ", " 200 ", " 300 ,
+.BR 600 ", " 1200 ", " 1800 ", " 2000 ", " 2400 ", " 3600 ", " 4800 ,
+.BR 7200 ", " 9600 ", " 19200 ", " exta ", or " extb .
+A speed of
+.B 0
+hangs up the phone (drops modem control) immediately.
+.IP \fBeven\fR
+Use even parity.
+.IP \fBodd\fR
+Use odd parity.
+.IP "\fBraw\fR, \fB\-raw\fR (also \fBcooked\fR)"
+Enable, or disable, raw mode for both input and output: disable all
+input and output character processing (including erase/kill editing,
+signal characters, and newline mapping).
+.IP \fBrawin\fR
+Raw mode for input only.
+.IP \fBrawout\fR
+Raw mode for output only.
+.IP \fBcbreak\fR
+Break out of a read after every input character (character-at-a-time
+input) instead of waiting for a full line.
+.IP \fBnl\fR
+Disable mapping of carriage return to newline on input.
+.B \-nl
+restores the mapping (the default).
+.IP \fBecho\fR
+Echo input characters as they are typed.
+.IP \fBlcase\fR
+Map upper-case input to lower case, for terminals that cannot
+generate lower case.
+.IP \fBtabs\fR
+Disable expansion of tabs to spaces on output.
+.B \-tabs
+expands them (the default).
+.IP \fBtandem\fR
+Enable tandem mode: start and stop output in response to the
+.B start
+and
+.B stop
+characters.
+.IP \fBcrt\fR
+Enable erase and kill processing suited to a CRT terminal (which can
+back up and overwrite) rather than a hardcopy terminal.
+.IP \fBek\fR
+Reset the erase and kill characters to
+.B #
+and
+.BR @ ,
+respectively.
+.IP "\fBerase \fIc\fR"
+Set the character that erases the last-typed character to
+.IR c .
+.IP "\fBkill \fIc\fR"
+Set the character that erases the current input line to
+.IR c .
+.IP "\fBstart \fIc\fR"
+Set the character that resumes output to
+.IR c .
+.IP "\fBstop \fIc\fR"
+Set the character that suspends output to
+.IR c .
+.IP "\fBeof \fIc\fR"
+Set the character that signals end of input to
+.IR c .
+.IP "\fBbreak \fIc\fR"
+Set the alternate line-break character to
+.IR c .
+.IP "\fBquit \fIc\fR"
+Set the character that raises a quit signal to
+.IR c .
+.IP "\fBint \fIc\fR"
+Set the character that raises an interrupt signal to
+.IR c .
+.IP \fBhup\fR
+Hang up the line when the last process that has the terminal open
+closes it.
+.IP \fBexcl\fR
+Reserve the terminal for exclusive use by this process; a later
+.B open
+by another process fails until it is closed.
+.B \-excl
+clears the reservation.
+.IP \fBflush\fR
+When the modes given on this command line are applied, flush any
+pending input first. This is the default.
+.B \-flush
+applies the modes without flushing pending input.
+.IP \fBprint\fR
+Print the terminal's attributes (as with no arguments), after
+applying any other modes given on the same command line.
+.PP
+Each character
+.I c
+above may be given as a single literal character; as the word
+.BR DEL ;
+as
+.BI \e ooo,
+an octal escape (leading backslash, up to three octal digits); as
+.BI ^ x
+or
+.BI ctrl\- x,
+a control character; or as the word
+.BR off ,
+which disables that character (no character will trigger the
+action).
+.PP
+An option
+.BI \-t ttyname
+names the terminal
+.B /dev/\fIttyname\fR
+to operate on, instead of the standard output; if given, it must be
+the first argument.
+.SH DIAGNOSTICS
+.B stty
+complains if the standard output (or the terminal named by
+.BR \-t )
+is not a terminal, if a
+.I mode
+word is not recognized, or if a character specification is badly
+formed.
+.SH NOTES
+Whether a given mode has any effect depends on the terminal driver in
+use; requesting an unsupported mode is not itself an error.

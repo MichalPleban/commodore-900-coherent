@@ -1,0 +1,117 @@
+.TH file "" "Command"
+.SH NAME
+file \- guess type of a file
+.SH SYNOPSIS
+\fBfile \fIname ...\fR
+.SH DESCRIPTION
+.HS
+file -- guess type of a file
+Usage:	file name ...
+.HE
+For each given
+.IR name ,
+.B file
+prints its best guess as to the type of the file, based on the
+file's mode and, for an ordinary file, the first part of its
+contents.
+If
+.I name
+cannot be examined (for example, because it does not exist or the
+caller lacks permission),
+.B file
+reports it as not accessible instead.
+.PP
+For a file that is not an ordinary file,
+.B file
+reports the mode's category directly, one of
+.BR directory ,
+.BR "SCCS directory"
+(a directory whose name begins with
+.BR s. ),
+.BR "block special file" ,
+.BR "character special file" ,
+.BR "block multiplexor file" ,
+.BR "character multiplexor file" ,
+or
+.BR "named pipe" ,
+tagging the two special-file cases with their major and minor
+device numbers.
+.PP
+For an ordinary file,
+.B file
+reads the start of the file and reports one of the following:
+.IP \fBempty\fR 0.6i
+The file has zero length.
+.IP "object file classification"
+The file begins with the magic number of a load-and-go object
+header.
+.B file
+goes on to describe whether it is a kernel, a driver, or an ordinary
+executable, whether it is 32-bit, a shared library, a library
+reference, shared, separate I&D, and whether it still carries
+relocation information, followed by the machine type in
+parentheses.
+.IP \fBarchive\fR
+The file begins with the current archive magic number, made by
+.BR ar ,
+or with one of the older UNIX archive magic numbers, in which case
+.B file
+reports
+.B "seventh edition archive"
+or
+.B "sixth edition archive"
+instead.
+.IP "\fBbinary data\fR"
+The file contains a byte that is not printable ASCII, white space,
+or backspace.
+.IP \fBcommands\fR
+The file's execute permission bit is set, but it is not an object
+file; presumably a shell script.
+.PP
+Otherwise
+.B file
+inspects the text for a few recognizable patterns:
+a line beginning
+.B .globl
+means
+.BR assembler ;
+a line beginning with a period means
+.BR "nroff, tbl or eqn input" ;
+a line ending in a colon means
+.BR commands ;
+a line beginning
+.B %
+followed immediately by
+.BR % ,
+.BR { ,
+or
+.B }
+means
+.BR "yacc or lex input" ;
+a mixture of braces and either semicolons or
+.B #
+lines means
+.BR "C program" ;
+short, fairly regular line lengths suggest
+.BR "xmail encoded text" .
+Failing all of these,
+.B file
+reports
+.BR "probably text" .
+.SH "SEE ALSO"
+.BR ar ,
+.B ls
+.SH DIAGNOSTICS
+.B file
+prints
+.B "name: not accessible"
+for a
+.I name
+it cannot
+.BR stat (),
+and exits with a nonzero status if any
+.I name
+could not be examined.
+.SH NOTES
+This is a heuristic guess based on a handful of simple patterns; it
+looks only at the first part of the file and can be fooled.

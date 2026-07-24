@@ -1,0 +1,115 @@
+
+
+dddd                                                             dddd
+
+
+
+NNAAMMEE
+     dd - file conversion and copying
+
+SSYYNNOOPPSSIISS
+     dddd [_o_p_t_i_o_n=_v_a_l_u_e] ...
+
+DDEESSCCRRIIPPTTIIOONN
+     dddd copies its input file to its output file, optionally per-
+     forming one or more conversions along the way, with input
+     and output block sizes that may differ from each other and
+     from the buffering that ccaatt(1) or a shell redirection would
+     use.  It is most useful for raw disk or tape devices and for
+     exchanging data with EBCDIC systems.
+
+     Every argument has the form _o_p_t_i_o_n= _v_a_l_u_e; there are no
+     single-letter flags.  Any argument lacking an = or with
+     nothing after the = is an error.  A numeric _v_a_l_u_e may be
+     followed by bb, ww, or kk, multiplying it by 512, by the size
+     of an iinntt, or by 1024, respectively; two such numbers
+     separated by xx are multiplied together.  All buffer sizes
+     default to 512 bytes.
+
+     iiff=_f_i_l_e  Read input from _f_i_l_e instead of the standard input.
+
+     ooff=_f_i_l_e  Write output to _f_i_l_e instead of the standard out-
+              put.
+
+     iibbss=_n    Set the input buffer size to _n bytes.
+
+     oobbss=_n    Set the output buffer size to _n bytes.
+
+     bbss=_n     Set both the input and the output buffer size to _n
+              bytes; if bbss= is the only sizing option given, in-
+              put is copied to output without the extra buffer
+              that separate iibbss= and oobbss= values require, which
+              is faster.
+
+     ccbbss=_n    Set the size of the intermediate conversion buffer
+              used by the aasscciiii, eebbccddiicc, and iibbmm conversions to _n
+              bytes (default: the input buffer size).
+
+     sskkiipp=_n   Skip _n input buffers (of size iibbss) before copying
+              begins.
+
+     sseeeekk=_n   Seek _n output buffers (of size oobbss) into the output
+              file before the first write.
+
+     ccoouunntt=_n  Copy at most _n input buffers.
+
+     ffiilleess=_n  Repeat the whole copy _n times (for multi-file tape
+              volumes); default 1.
+
+     ccoonnvv=_l_i_s_t
+              Perform the comma-separated conversions named in
+              _l_i_s_t:
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+dddd                                                             dddd
+
+
+
+              aasscciiii    Convert EBCDIC input to ASCII, trimming
+                       trailing blanks and appending a newline to
+                       each converted record.
+
+              eebbccddiicc   Convert ASCII input to standard (CACM)
+                       EBCDIC, blank-padding each record to ccbbss.
+
+              iibbmm      Convert ASCII input to a variant EBCDIC
+                       table more suited to IBM line-printer
+                       codes, blank-padding each record to ccbbss.
+
+              llccaassee    Map upper-case letters to lower case.
+
+              uuccaassee    Map lower-case letters to upper case.
+
+              sswwaabb     Swap each pair of input bytes before
+                       writing.
+
+              ssyynncc     Pad every input record short of iibbss bytes
+                       with null bytes.
+
+              nnooeerrrroorr  Continue with the next block after a read
+                       or write error instead of stopping.
+
+     aasscciiii and eebbccddiicc, aasscciiii and iibbmm, and uuccaassee and llccaassee may not
+     be combined with each other.  Any of the ASCII/EBCDIC con-
+     versions forces the use of the intermediate conversion buff-
+     er, even if iibbss equals oobbss.
+
+DDIIAAGGNNOOSSTTIICCSS
+     When it finishes, dddd prints, on the standard error, the num-
+     ber of full and partial records read and the number of full
+     and partial records written, e.g.  2200+11 rreeccoorrddss iinn and  2200+00
+     rreeccoorrddss oouutt. It exits with status 1 if it was given a bad
+     option, an out-of-memory condition, or an unrecovered
+     read/write error (one not masked by ccoonnvv=nnooeerrrroorr).
+
+NNOOTTEESS
+     Because implementations disagree on the mapping of some
+     EBCDIC graphic characters, such as braces and backslash,
+     neither the eebbccddiicc nor the iibbmm conversion table is right for
+     every application; choose whichever one matches the systems
+     being interchanged with.

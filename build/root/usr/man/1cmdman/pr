@@ -1,0 +1,58 @@
+
+
+pprr                                                             pprr
+
+
+
+NNAAMMEE
+     pr - paginate and print files
+
+SSYYNNOOPPSSIISS
+     pprr [+_s_k_i_p] [-_n] [-nn] [-hh _h_e_a_d_e_r] [-ll_n] [-mm] [-ss_c] [-tt] [-ww_n]
+     [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     pprr paginates each _f_i_l_e and writes it to the standard output.
+     At the top of each page (unless -tt is given), pprr writes a
+     header giving today's date, the file's name (or the -hh
+     header), the page number, and the input line number at which
+     printing of that page begins.
+
+     A _f_i_l_e named - means the standard input; if no _f_i_l_e is given
+     at all, pprr also reads the standard input.
+
+     Options are recognized up to the first file name; each of
+     the following may be given:
+
+     +_n   Skip the first _n pages of input before printing begins.
+
+     -_n   A bare decimal number after the - sets the number of
+          output columns to _n.
+
+     -nn   Number each output line, in a 4-column field followed
+          by a colon.
+
+     -hh _h_e_a_d_e_r
+          Use _h_e_a_d_e_r in place of the file name in the page title.
+          If not attached directly to -hh, _h_e_a_d_e_r is taken as the
+          next command-line argument (so a multi-word header must
+          be one shell argument, e.g. quoted).
+
+     -ll_n  Set the page length to _n lines (default 66).
+
+     -mm   Print each input _f_i_l_e in its own column, side by side;
+          opens all the named files at once.
+
+     -ss_c  Separate each column with the character _c; if _c is
+          omitted, a tab is used.
+
+     -tt   Suppress the top and bottom margins and the header.
+
+     -ww_n  Set the page width to _n columns (default 80).
+
+SSEEEE AALLSSOO
+     ccaatt
+
+NNOOTTEESS
+     pprr generates plain ASCII text; it has no notion of a page-
+     description output format.

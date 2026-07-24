@@ -1,0 +1,30 @@
+.TH sync "" "Administration"
+.SH NAME
+sync \- flush system buffers
+.SH SYNOPSIS
+\fBsync\fR
+.SH DESCRIPTION
+.HS
+sync -- flush system buffers
+Usage:	sync
+.HE
+.B sync
+calls the
+.B sync()
+system call, which schedules all in-memory disk buffers that have been
+modified but not yet written out to be written to disk.
+.B sync
+then returns immediately; it does not wait for the writing to finish.
+.SH "SEE ALSO"
+.B sync()
+.SH NOTES
+The system runs
+.B sync
+automatically at intervals, and as part of an orderly shutdown.
+Running
+.B sync
+by hand before halting the processor abnormally (for example, before
+turning off power) reduces the chance of losing data, but since
+.B sync
+does not wait for the writes to complete, running it twice, with a
+short pause between, is safer still.

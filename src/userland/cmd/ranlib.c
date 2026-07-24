@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Make libraries more accessible to the loader
  * by copying all the globally defined symbols
  * into a special module at the front of the archive.

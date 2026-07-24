@@ -1,0 +1,88 @@
+
+
+bbcc                                                             bbcc
+
+
+
+NNAAMMEE
+     bc - interactive calculator with arbitrary precision
+
+SSYYNNOOPPSSIISS
+     bbcc [-ll] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     bbcc is a language that performs calculations on numbers with
+     an arbitrary number of digits.  It is most commonly used as
+     an interactive calculator, where the user types arithmetic
+     expressions in a syntax reminiscent of C.
+
+     bbcc recognizes one option:
+
+     -ll   Read the extended math library /uussrr/lliibb/lliibb.bb before
+          reading any file or standard input.
+
+     After bbcc reads each named _f_i_l_e, it reads the standard input.
+     This lets you load a program stored in a file and then con-
+     tinue typing at the terminal.
+
+     The delimiters /* and */ enclose comments.  The three built-
+     in variables oobbaassee, iibbaassee, and ssccaallee give, respectively, the
+     number base used for printing numbers (default: ten), the
+     number base used for reading numbers (default: ten), and the
+     number of digits kept after the decimal point (default:
+     zero).  Variables may be simple variables or arrays, and
+     need not be declared, except for variables local to a func-
+     tion.
+
+     bbcc recognizes the following keywords, with syntax modeled on
+     C:
+
+     iiff, ffoorr, ddoo, wwhhiillee
+          Test conditions and define loops.
+
+     bbrreeaakk, ccoonnttiinnuuee
+          Alter control flow within a ffoorr or wwhhiillee loop.
+
+     qquuiitt Exit bbcc immediately.
+
+     ddeeffiinnee _f_u_n_c_t_i_o_n(_a_r_g, ..., _a_r_g)
+          Define a bbcc function as a compound statement.
+
+     aauuttoo _v_a_r, ..., _v_a_r
+          Declare variables local to a function.
+
+     rreettuurrnn(_v_a_l_u_e)
+          Return a value from a function.
+
+     bbcc recognizes the operators +,  -,  *,  =,  +=,  -=,  ==,
+     !=,  <,  similar to C except that ^ and ^= perform exponen-
+     tiation.  Statements are separated by semicolons or newlines
+     and may be grouped into compound statements with braces; bbcc
+     prints the value of any statement that is an expression but
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+bbcc                                                             bbcc
+
+
+
+     nnoott an assignment.  As in the editor eedd, a !  at the begin-
+     ning of a line sends the rest of the line to the shell as a
+     command.
+
+FFIILLEESS
+                         /uussrr/lliibb/lliibb.bbsource code for the mathematical library
+
+SSEEEE AALLSSOO
+     ddcc
+
+NNOOTTEESS
+     Line numbers do not accompany error messages in source
+     files.  bbcc performs integer calculations with arbitrary
+     precision, limited only by available memory; results of cal-
+     culations on numbers with fractional parts depend on the
+     current ssccaallee.

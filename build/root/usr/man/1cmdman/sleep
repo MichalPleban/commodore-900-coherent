@@ -1,0 +1,25 @@
+
+
+sslleeeepp                                                       sslleeeepp
+
+
+
+NNAAMMEE
+     sleep - suspend execution for a specified time
+
+SSYYNNOOPPSSIISS
+     sslleeeepp _s_e_c_o_n_d_s
+
+DDEESSCCRRIIPPTTIIOONN
+     sslleeeepp suspends execution of the current process for _s_e_c_o_n_d_s
+     seconds, then exits.  _s_e_c_o_n_d_s must be given as a string of
+     decimal digits.
+
+     sslleeeepp is most often used inside shell scripts, to pace a se-
+     quence of commands or to poll for some condition at inter-
+     vals.
+
+DDIIAAGGNNOOSSTTIICCSS
+     sslleeeepp complains and exits if it is given more than one argu-
+     ment, or if _s_e_c_o_n_d_s contains anything other than decimal
+     digits.

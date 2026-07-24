@@ -1,0 +1,29 @@
+
+
+cchhoowwnn                                                       cchhoowwnn
+
+
+
+NNAAMMEE
+     chown - change the owner of files
+
+SSYYNNOOPPSSIISS
+     cchhoowwnn _o_w_n_e_r _f_i_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     cchhoowwnn changes the owner of each _f_i_l_e to _o_w_n_e_r. _o_w_n_e_r may be
+     given as a user name, looked up in /eettcc/ppaasssswwdd, or as a
+     plain decimal user identifier.  The group of each _f_i_l_e is
+     left unchanged.
+
+FFIILLEESS
+          /eettcc/ppaasssswwdd     user name to user-id lookup
+
+SSEEEE AALLSSOO
+     cchhggrrpp, cchhmmoodd
+
+DDIIAAGGNNOOSSTTIICCSS
+     cchhoowwnn exits with status 2 if _o_w_n_e_r is not a valid user name,
+     or if any _f_i_l_e could not be changed (in which case it also
+     prints the reason for that file and continues with the
+     rest).

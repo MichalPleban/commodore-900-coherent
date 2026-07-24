@@ -1,0 +1,77 @@
+.TH su "" "Command"
+.SH NAME
+su \- substitute user id, become superuser
+.SH SYNOPSIS
+\fBsu [\fIuser \fB[\fIcommand \fB[\fIarg ...\fB]]]\fR
+.SH DESCRIPTION
+.HS
+su -- substitute user id, become superuser
+Usage:	su [ user [ command ]]
+Default 'user' is 'root'; default 'command' is 'sh'.
+.HE
+.B su
+looks up
+.I user
+(default
+.BR root ,
+user number 0) in the password file.
+If that account has a password,
+.B su
+prompts for a password and compares it, encrypted, against the
+account's password; if they do not match,
+.B su
+prints
+.B Sorry
+and exits.
+.PP
+.B su
+then sets the group id and user id of the current process to those of
+.IR user ,
+and executes
+.I command
+with the remaining arguments (default
+.BR sh ,
+with no arguments), searching
+.B PATH
+for it as
+.B execvp
+does.
+Before doing so,
+.B su
+sets the environment variable
+.B PS1
+(the shell prompt) to
+.B "# "
+if
+.I user
+is the superuser, and to
+.B "$ "
+otherwise, so that a shell started this way is easy to recognize.
+.SH FILES
+.DS
+.ta 16n
+\fB/etc/passwd\fR	login names, user numbers, and passwords
+.DE
+.SH "SEE ALSO"
+.B sh
+.SH DIAGNOSTICS
+.B su
+prints
+.B Sorry
+and exits with a nonzero status if the password does not match.
+It prints ``\fIn\fR: bad user number'' (if
+.I user
+was given as a number
+.IR n )
+or ``\fIuser\fR: not a user name'', and exits, if
+.I user
+is not found in the password file.
+It prints ``\fIcommand\fR: not found'' if
+.I command
+cannot be executed.
+.SH NOTES
+.B su
+does not change the current directory; the new command starts in
+whatever directory was current when
+.B su
+was invoked.

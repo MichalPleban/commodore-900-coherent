@@ -1,0 +1,60 @@
+
+
+ddaattee                                                         ddaattee
+
+
+
+NNAAMMEE
+     date - print/set date and time of day
+
+SSYYNNOOPPSSIISS
+     ddaattee [-uu] [_y_y_m_m_d_d_h_h_m_m[._s_s]]
+
+DDEESSCCRRIIPPTTIIOONN
+     With no argument, ddaattee prints the current date and time,
+     followed by the time zone name.
+
+     With a numeric argument, ddaattee sets the system's date and
+     time (only the superuser may do this) and then prints the
+     result exactly as it would with no argument.  The argument
+     gives, from the right, the minute and hour (_m_m and _h_h, both
+     required), and optionally the day of month, month, and last
+     two digits of the year (_d_d, _m_m, _y_y), each optional and taken
+     two digits at a time working leftward; any of the optional
+     leading fields that are omitted are left at their current
+     value.  A seconds field (._s_s) may follow the minutes field.
+     ddaattee refuses to set an impossible date, such as day 32 of a
+     month, or a month that has fewer days than the given day of
+     month allows.
+
+     -uu   Print and, if setting the time, interpret the argument
+          in Greenwich Mean Time instead of the local time zone.
+
+     When it sets the time, ddaattee also records the change in
+     /uussrr/aaddmm/wwttmmpp and adjusts the modification time of
+     /eettcc/bboooottttiimmee so that the recorded system-up-since time
+     stays consistent across the change.
+
+FFIILLEESS
+          /uussrr/aaddmm/wwttmmpp   login/time-change accounting file
+          /eettcc/bboooottttiimmee   holds the system boot time
+
+SSEEEE AALLSSOO
+     wwhhoo
+
+DDIIAAGGNNOOSSTTIICCSS
+     ddaattee prints a usage message and exits with status 1 if given
+     an option other than -uu, more than one non-option argument,
+     an argument whose minute or hour field is not two digits, or
+     a day of month that does not exist in the given (or current)
+     month.  It also exits with status 1, after printing ``No
+     permission'', if a non-superuser tries to set the time.
+
+NNOOTTEESS
+     Only the superuser can change the system's date or time.
+
+     ddaattee builds its printed output from the C library's
+     aassccttiimmee(), which ends with the four-digit year, followed by
+     the time zone name; this places the year immediately before
+     the zone name in ddaattee's output, rather than after it as in
+     some other systems' date commands.

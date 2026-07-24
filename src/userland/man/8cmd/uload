@@ -1,0 +1,51 @@
+.TH uload "" "Administration"
+.SH NAME
+uload \- unload a device driver
+.SH SYNOPSIS
+\fB/etc/uload \fIfile\fR
+.SH DESCRIPTION
+.HS
+uload -- unload device driver
+Usage:	/etc/uload file
+Driver 'file' is usually found in directory '/drv'.
+.HE
+.B uload
+removes from the running kernel the device driver contained in the
+loadable driver image
+.IR file ,
+which was previously attached with
+.BR load .
+Driver
+.I file
+is usually found in directory
+.BR /drv .
+.PP
+.B uload
+reads
+.I file
+as an
+.B l.out
+executable and scans its symbol table for configuration-table symbols,
+which the driver defines with a
+.B con_
+suffix (one per major device the driver implements).
+For each one found, it reads the driver's configuration structure to
+learn the major device number the driver occupies, and passes that
+number to the
+.BR suload ()
+system call, which detaches the driver from the kernel's device
+table.
+.SH "SEE ALSO"
+.B load
+.SH DIAGNOSTICS
+.B uload
+complains and exits if
+.I file
+cannot be opened, is not a valid
+.B l.out
+image, or contains no configuration-table symbol.
+For each configuration entry found, it also reports if the
+.BR suload ()
+call itself fails.
+.SH NOTES
+Only the superuser may unload a device driver.

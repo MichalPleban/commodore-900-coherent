@@ -1,0 +1,69 @@
+.TH lpr "" "Command"
+.SH NAME
+lpr \- send to line printer spooler
+.SH SYNOPSIS
+\fBlpr [\fIoptions\fB] [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+lpr -- send to line printer spooler
+Usage:	lpr [ options ] [ file ... ]
+Options:
+	-b	Next argument is the banner
+	-c	Make a copy of each 'file' in spool area
+	-m	Send a message when listing is complete
+	-n	No message (default)
+	-r	Remove files when they have been spooled
+.HE
+.B lpr
+spools each named
+.I file
+for printing on the line printer.
+If no
+.I file
+is named, it spools what it reads from the standard input.
+For each file,
+.B lpr
+writes a control-file entry and, unless the file is read directly from
+its home directory, a copy of the data into the spool directory,
+.BR /usr/spool/lpd ,
+and then starts the line-printer daemon,
+.BR /usr/lib/lpd .
+.IP "\fB\-b \fIbanner\fR"
+Use
+.I banner
+as one more line of the banner page, instead of the default,
+which is the user's login name.
+Up to two
+.B \-b
+banners may be given (the first four banner lines are already used
+for the Coherent logo, the date, and the user name).
+.IP \fB\-c\fR
+Copy each
+.I file
+into the spooling directory instead of printing it from its own
+location, so the file can be changed after it is queued.
+This is implied by
+.BR \-r .
+.IP \fB\-m\fR
+Write a message on the user's terminal when printing completes.
+.IP \fB\-n\fR
+Do not send a completion message (the default).
+.IP \fB\-r\fR
+Remove each
+.I file
+once it has been copied into the spool area (implies
+.BR \-c ).
+.SH FILES
+.DS
+.ta 20n
+\fB/usr/spool/lpd\fR	spool directory
+\fB/usr/lib/lpd\fR	line printer daemon
+.DE
+.SH "SEE ALSO"
+.B lpskip
+.SH DIAGNOSTICS
+.B lpr
+reports and removes any temporary spool files it created if it cannot
+open a named file, cannot create its control or data file, or cannot
+find the daemon
+.BR /usr/lib/lpd .

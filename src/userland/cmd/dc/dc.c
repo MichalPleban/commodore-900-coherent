@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * DC - Reverse Polish desk calculator (multi-precision)
  * Depends on mint value being defined as a `char *'
  * so mint may also be char string

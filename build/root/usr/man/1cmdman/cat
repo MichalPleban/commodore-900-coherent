@@ -1,0 +1,33 @@
+
+
+ccaatt                                                           ccaatt
+
+
+
+NNAAMMEE
+     cat - concatenate/print files
+
+SSYYNNOOPPSSIISS
+     ccaatt [-uu] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ccaatt copies each _f_i_l_e in turn to the standard output.  The
+     name - means the standard input.  If no _f_i_l_e is given, ccaatt
+     copies the standard input.
+
+     By default, ccaatt buffers its output in 512-byte blocks.
+
+     -uu   Do not buffer the output; each character is written as
+          soon as it is read.  This is useful when ccaatt feeds a
+          pipe or another program that should see the data
+          without delay.
+
+SSEEEE AALLSSOO
+     ccpp, pprr
+
+DDIIAAGGNNOOSSTTIICCSS
+     If a named _f_i_l_e cannot be opened, ccaatt prints a message
+     naming the file and the reason, skips it, and continues with
+     the remaining files; the overall exit status is still zero.
+     ccaatt exits with status 1 only if a read error occurs on an
+     input file or a write error occurs on the standard output.

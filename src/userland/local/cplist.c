@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Fragment a directory tree into smaller pieces.
  * Output is to stdout and is in a format which can be passed to the
  * shell for execution.

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #ifdef	FAKEINPUT
 #define	FAKEIN	('c'<<8|13)
 #endif
@@ -24,6 +29,12 @@ int	htstart();
 TTY	hrtty = {
 	{0},{0},0,htstart,NULL,0,0
 };
+
+/*
+**	Terminal-type name reported by the TIOCGTERM ioctl.  The hi-res
+**	console emulates ANSI/CSI, so termcap's vt100 entry is the match.
+*/
+static char	hrterm[TERMSZ] = "vt100";
 
 
 v0load()
@@ -106,6 +117,10 @@ struct	sgttyb *vec;
 		return;
 	}
 #endif
+	if (com == TIOCGTERM) {
+		kucopy(hrterm, vec, TERMSZ);
+		return;
+	}
 	s = sphi();
 	ttioctl(&hrtty, com, vec);
 	spl(s);

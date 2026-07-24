@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * check.h -- exit-status bit flags shared by icheck, dcheck and the check
  * driver that runs them.  icheck and dcheck accumulate these bits in their
  * `exstat' and return them as their exit status; `check' reads that status

@@ -1,0 +1,99 @@
+.TH mv "" "Command"
+.SH NAME
+mv \- move/rename files and directories
+.SH SYNOPSIS
+\fBmv [\-f] \fIoldfile newfile\fR
+.br
+\fBmv [\-f] \fIfile ... directory\fR
+.SH DESCRIPTION
+.HS
+mv -- move/rename files and directories
+Usage:	mv [ -f ] oldfile newfile
+	mv [ -f ] file ... directory
+Option:	-f	Force; remove current 'newfile', even if unwritable
+.HE
+.B mv
+renames files.
+In the first form,
+.B mv
+changes the name of
+.I oldfile
+to
+.IR newfile .
+If
+.I newfile
+already exists,
+.B mv
+replaces it with the file being moved; if not,
+.B mv
+creates it.
+If the last argument is a directory,
+.B mv
+instead uses the second form: each
+.I file
+is moved so that it resides under that
+.IR directory ,
+under its own last-component name.
+.PP
+Normally,
+.B mv
+performs the move by creating a link from
+.I newfile
+to
+.I oldfile
+and then removing
+.IR oldfile .
+If that fails because
+.I oldfile
+and
+.I newfile
+are on different file systems,
+.B mv
+instead copies
+.I oldfile
+to
+.I newfile
+(preserving its permission mode, and, unless the caller owns
+.IR oldfile ,
+clearing the set-user-id and set-group-id bits) and then removes
+.IR oldfile .
+.PP
+.B mv
+will not move a directory across file systems, will not rename
+.B .
+or
+.BR .. ,
+and will not move a directory into one of its own descendants.
+If
+.I newfile
+exists, is not a directory, and is unwritable,
+.B mv
+refuses to remove it unless
+.B \-f
+is given.
+.IP \fB\-f\fR
+Force the move: remove an existing, unwritable
+.I newfile
+instead of refusing to replace it.
+.SH "SEE ALSO"
+.BR cp ,
+.B ln
+.SH DIAGNOSTICS
+.B mv
+prints a message and sets a nonzero exit status for each
+.I file
+it cannot move, for example because
+.I oldfile
+does not exist, the caller lacks permission to remove it from its
+parent directory, the destination parent directory does not exist or
+is not writable, or
+.I oldfile
+and
+.I newfile
+are the same file.
+.SH NOTES
+.B mv
+tests the legality of a directory move using search permission on
+the directories from the destination back to the root; the superuser
+always has search permission and so can construct a move that
+disconnects part of the directory tree.

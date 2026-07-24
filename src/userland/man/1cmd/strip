@@ -1,0 +1,45 @@
+.TH strip "" "Command"
+.SH NAME
+strip \- strip symbol table and relocation information from object file
+.SH SYNOPSIS
+\fBstrip \fIfile ...\fR
+.SH DESCRIPTION
+.HS
+strip -- strip symbol table and relocation information from object file
+Usage:	strip file ...
+.HE
+.B strip
+rewrites each
+.I file
+in place, removing its debug table, symbol table, and relocation
+information, and marking it as stripped.
+This makes the object file smaller, at the cost of the information
+a debugger or
+.B ld \-r
+would need.
+.PP
+.B strip
+copies each
+.I file
+to a temporary file while stripping it, then copies the result back
+over the original; if
+.I file
+has already been stripped,
+.B strip
+leaves it unchanged.
+.SH "SEE ALSO"
+.B ld
+.SH DIAGNOSTICS
+.B strip
+complains if a
+.I file
+cannot be opened, is not in the expected object-file format, or ends
+unexpectedly while being read.
+If a write error occurs while rewriting
+.IR file ,
+the stripped copy is left in the temporary file and
+.B strip
+reports where, so that no data is lost.
+.SH NOTES
+.B strip
+removes its temporary file when interrupted.

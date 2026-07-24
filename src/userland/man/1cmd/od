@@ -1,0 +1,83 @@
+.TH od "" "Command"
+.SH NAME
+od \- file dump
+.SH SYNOPSIS
+\fBod [\-bcdox] [\fIfile\fB] [ [+] \fIoffset\fB[.][b] ]\fR
+.SH DESCRIPTION
+.HS
+od -- file dump
+Usage:	od  [ options ]  [ file ]  [ [ + ] offset[.][b] ]
+Options:
+	-b	Dump bytes in the default base
+	-c	Dump bytes as ASCII characters
+	-d	Dump words in decimal
+	-o	Dump words in octal
+	-x	Dump words in hexadecimal
+The default base is octal on the PDP-11 and hexadecimal on the i8086.
+The offset must be preceded by '+' if 'file' is omitted.
+The offset is decimal if '.' is present;
+'b' implies 512-byte blocks instead of bytes.
+.HE
+.B od
+prints the specified
+.I file
+as a sequence of octal or hexadecimal numbers, or machine words.
+If no
+.I file
+is given,
+.B od
+dumps the standard input.
+Only one format option may be given; giving more than one is an error.
+In this build (no
+.B \-DHEX
+compiled in), the default base for
+.B \-b
+and for machine words when no option is given is octal.
+.PP
+The following options set the format of
+.BR od 's
+output:
+.IP \fB\-b\fR
+Dump bytes in the default base.
+.IP \fB\-c\fR
+Dump bytes as ASCII characters.
+A printable byte is shown as a space and the character; a few control
+bytes are shown as a space and a backslash escape (\fB\en\fR,
+\fB\et\fR, and similarly for backspace, formfeed, carriage return, and
+NUL); any other byte falls back to the default base.
+.IP \fB\-d\fR
+Dump words in decimal.
+.IP \fB\-o\fR
+Dump words in octal.
+.IP \fB\-x\fR
+Dump words in hexadecimal.
+.PP
+Dumping can start at position
+.I offset
+into the file.
+The
+.I offset
+is octal unless followed by a
+.B .
+suffix, which makes it decimal; a trailing
+.B b
+suffix multiplies it by
+.B BUFSIZ
+(512-byte blocks) instead of bytes.
+An
+.I offset
+may be given only if a
+.I file
+is also named, or is preceded by a literal
+.B +
+if the input is the standard input.
+.SH "SEE ALSO"
+.B conv
+.SH DIAGNOSTICS
+.B od
+complains and exits if more than one format option is given, if the
+named
+.I file
+cannot be opened, or if the
+.I offset
+syntax is malformed.

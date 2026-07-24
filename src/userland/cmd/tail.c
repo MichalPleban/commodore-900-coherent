@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  *	Tail writes from a certain position on a file to EOF onto stdout.
  *	The position is specified as a number of characters, blocks or
  *	lines from either the start or the end of the file.

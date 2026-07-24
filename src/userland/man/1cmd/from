@@ -1,0 +1,60 @@
+.TH from "" "Command"
+.SH NAME
+from \- generate a list of numbers
+.SH SYNOPSIS
+\fBfrom \fIstart \fBto \fIstop \fB[by \fIincr\fB]\fR
+.SH DESCRIPTION
+.HS
+from -- generate list of numbers
+Usage:	from start to stop [ by incr ]
+'start', 'stop' and 'incr' (default: 1) are decimal integers with optional '-'.
+.HE
+.B from
+prints, one per line, the sequence of integers starting at
+.I start
+and continuing by steps of
+.I incr
+(default: 1) up to and including
+.IR stop ,
+in either direction.
+The literal words
+.B to
+and
+.B by
+must appear exactly as shown.
+.PP
+Each of
+.IR start ,
+.IR stop ,
+and
+.I incr
+is a decimal integer, optionally preceded by
+.BR \- .
+.I incr
+must have the same sign as
+.IR stop \- start
+(or be omitted, giving the default of 1); a zero
+.I incr
+is also rejected.
+.PP
+.B from
+is typically used inside a shell loop, for example
+.DS
+for i in `from 0 to 7`
+do
+	/etc/mknod /dev/hs0$i c 7 $i
+done
+.DE
+.SH "SEE ALSO"
+.B sh
+.SH DIAGNOSTICS
+.B from
+prints a usage message and exits with status 1 if the arguments do
+not have one of the two accepted forms, if
+.B to
+or
+.B by
+is missing or misspelled, if a numeric argument is not a valid
+signed integer, or if
+.I incr
+is zero or has the wrong sign for the requested direction.

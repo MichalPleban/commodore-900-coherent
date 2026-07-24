@@ -1,0 +1,138 @@
+.TH yacc "" "Command"
+.SH NAME
+yacc \- parser generator
+.SH SYNOPSIS
+\fByacc [\fIoptions\fB] \fIfile\fR
+.br
+\fBcc y.tab.c [\-ly]\fR
+.SH DESCRIPTION
+.HS
+yacc -- parser generator
+Usage:	yacc [ options ] file
+	cc y.tab.c [ -ly ]
+Options:
+	-d	Enable debugging output (implies '-v')
+	-hdr	Next argument is name of header file (default: 'y.tab.h')
+	-l	Next argument is name of listfile (default: 'y.output')
+	-st	Print statistics on standard output
+	-v	Verbose (extra output in listfile)
+After each of the following, the next argument is a number to reset table size:
+	-nterms	Nonterminal symbols (default: 100)
+	-prods	Productions or rules (default: 175)
+	-states	States (default: 300)
+	-terms	Terminal symbols (default: 300)
+	-types	Types (default: 10)
+.HE
+.B yacc
+reads a grammar description from
+.I file
+(or, if
+.I file
+is
+.BR \- ,
+from the standard input) and writes an LALR(1) parser for it, in C, to
+.BR y.tab.c ,
+together with a header of token definitions in
+.BR y.tab.h .
+.B y.tab.c
+is produced by copying the parser skeleton
+.B /lib/yyparse.c
+and splicing in the generated tables and semantic actions; the result
+is compiled and linked like any other C source, typically with the
+.B \-ly
+library, which supplies run-time support (such as a default
+.BR main ())
+that
+.B yacc
+does not generate directly.
+Any non-option argument is taken as
+.IR file ;
+options and the grammar file may appear in any order.
+.PP
+Table sizes for the number of terminal symbols, non-terminal symbols,
+.B %type
+tags, productions, and parser states are fixed when
+.B yacc
+starts; it reports a fatal error and stops if the grammar exceeds the
+current limit for any of them.
+.IP \fB\-d\fR
+Produce extra debugging output in the listing file; implies
+.BR \-v .
+.IP "\fB\-hdr\fR \fIfile\fR"
+Write the token-definition header to
+.I file
+instead of the default
+.BR y.tab.h .
+.IP "\fB\-l\fR \fIfile\fR"
+Write the verbose listing to
+.I file
+instead of the default
+.BR y.output ;
+implies
+.BR \-v .
+.IP \fB\-st\fR
+Print grammar statistics on the standard output.
+.IP \fB\-v\fR
+Produce a verbose listing file describing the states and conflicts of
+the generated parser.
+.IP "\fB\-prods\fR \fIn\fR"
+Reset the maximum number of productions (rules) to
+.IR n .
+.IP "\fB\-terms\fR \fIn\fR"
+Reset the maximum number of terminal symbols to
+.IR n .
+.IP "\fB\-nterms\fR \fIn\fR"
+Reset the maximum number of non-terminal symbols to
+.IR n .
+.IP "\fB\-states\fR \fIn\fR"
+Reset the maximum number of parser states to
+.IR n .
+.IP "\fB\-types\fR \fIn\fR"
+Reset the maximum number of
+.B %type
+tags to
+.IR n .
+.SH FILES
+.DS
+.ta 18n
+\fBy.tab.c\fR	generated parser source
+\fBy.tab.h\fR	generated token definitions (default name)
+\fBy.output\fR	verbose listing, with \-v or \-l (default name)
+\fB/lib/yyparse.c\fR	parser skeleton copied into y.tab.c
+\fB/usr/include/action.h\fR	action-table constants needed to compile y.tab.c
+\fB/lib/liby.a\fR	run-time support library, linked with \-ly
+\fB/tmp/ya*\fR, \fB/tmp/yo*\fR	temporary action and option files
+.DE
+.SH "SEE ALSO"
+.B lex
+.SH DIAGNOSTICS
+.B yacc
+reports each grammar error with the input line number and a
+description; a fatal error (for example a missing "%%" or an unreadable
+grammar file) stops it immediately, and any error at all suppresses
+generation of the parser tables.
+.B yacc
+also writes a count of shift/reduce and reduce/reduce conflicts.
+.SH NOTES
+.B yacc
+in this tree always writes
+.B y.tab.h
+on every run, whether or not
+.B \-d
+was given.
+.PP
+The compiled-in default for the maximum number of terminal symbols is
+150
+.RB ( MAXTERM
+in
+.BR yacc.h ),
+not 300 as given above (the other defaults shown -- 100
+non-terminals, 175 productions, 300 states, 10 types -- agree with the
+source).
+Also, an explicit
+.B \-terms
+value of 160 or more makes
+.B yacc
+stop with the fatal error
+.BR "get ciaran to change alloc for lsets" ,
+since the lookahead bitset is sized for at most 159 terminal symbols.

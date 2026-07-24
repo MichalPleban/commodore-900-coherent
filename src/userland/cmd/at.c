@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * At takes a list of commands and arranges for them to be executed at
  * a specified time.  When the commands are executed, the user id, group
  * id, exported shell variables and current directory will all be as they

@@ -1,0 +1,44 @@
+
+
+aacc                                                             aacc
+
+
+
+NNAAMMEE
+     ac - summarize login accounting information
+
+SSYYNNOOPPSSIISS
+     aacc [_o_p_t_i_o_n_s] [_u_s_e_r ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     aacc summarizes the login-accounting data recorded in
+     /uussrr/aaddmm/wwttmmpp. That file, if it exists, receives a raw ac-
+     counting record for each login, logout, date change, and
+     system reboot; by default aacc prints the total connect time
+     it finds there.  If one or more _u_s_e_r arguments are given, aacc
+     prints a summary only of those users' connect time.
+
+     aacc recognizes the following options:
+
+     -dd   Itemize the output into daily (midnight-to-midnight)
+          periods.
+
+     -pp   Print a separate total for every user.
+
+     -ww _w_t_m_p
+          Read accounting data from _w_t_m_p instead of
+          /uussrr/aaddmm/wwttmmpp.
+
+FFIILLEESS
+                         /uussrr/aaddmm/wwttmmppraw login-accounting records
+
+SSEEEE AALLSSOO
+     aaccccttoonn
+
+DDIIAAGGNNOOSSTTIICCSS
+     aacc complains if it cannot open the accounting file, and
+     warns of a possible bad file format if it finds an im-
+     plausible record.
+
+NNOOTTEESS
+     /uussrr/aaddmm/wwttmmpp can grow very large; truncate it periodically.

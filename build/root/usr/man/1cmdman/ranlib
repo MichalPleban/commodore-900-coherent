@@ -1,0 +1,40 @@
+
+
+rraannlliibb                                                     rraannlliibb
+
+
+
+NNAAMMEE
+     ranlib - create index for library
+
+SSYYNNOOPPSSIISS
+     rraannlliibb _l_i_b_r_a_r_y ...
+
+DDEESSCCRRIIPPTTIIOONN
+     rraannlliibb processes each named _l_i_b_r_a_r_y (an object archive as
+     produced by aarr) so that the loader can search it quickly: it
+     reads every module in the archive, collects the names of its
+     defined global symbols, and writes them, together with the
+     byte offset of the module that defines each one, into a
+     header file.  rraannlliibb then invokes aarr (via ssyysstteemm()) to in-
+     sert or replace that header as a module named __.SSYYMMDDEEFF at
+     the front of the archive, overwriting any __.SSYYMMDDEEFF already
+     there.
+
+     rraannlliibb is itself a standalone program, not a mode of aarr; it
+     drives aarr as a subprocess to do the actual archive surgery,
+     after building the symbol table itself by reading each mem-
+     ber's load-module header and symbol table directly.
+
+FFIILLEESS
+          __.SSYYMMDDEEFF     symbol-index module written at the front of the archive
+
+SSEEEE AALLSSOO
+     aarr, lldd
+
+DDIIAAGGNNOOSSTTIICCSS
+     rraannlliibb complains if a named archive cannot be opened, if it
+     cannot create its header file, or if a member of the archive
+     is not a valid load module.  rraannlliibb processes each named
+     _l_i_b_r_a_r_y independently; its exit status is the number of
+     libraries in which an error was reported.

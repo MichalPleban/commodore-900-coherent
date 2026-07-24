@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Rec'd from Lauren Weinstein, 7-16-84.
  * Dcheck - check consistency of directory
  * graph structure for a filesystem.
@@ -11,73 +16,36 @@
 #include <sys/ino.h>
 #include <check.h>
 #include <canon.h>
+#include <fs.h>		/* shared FS access + inode->pathname engine (libfs) */
 
 #define	IBLK	12		/* I-node read blocking factor */
 #define	NINUM	20		/* Maximum number of i-numbers to look for */
-#undef	NI
-#define	NI	1
-#define	NII	1
-#define	NIII	1
 #define	INOORG	2
 
 /*
- * A chain of these structures
- * holds all of the defective blocks found
- * in the bad block file. The list is sorted for
- * easy access by those parts of the program
- * that scan blocks.
+ * struct defect (the bad-block run list), the imap block map and the
+ * ranges/offsets/coeff access-polynomial tables now live in libfs; see
+ * fsimap()/fsfinddefective() in <fs.h>.
  */
-struct	defect
-{
-	struct defect	*d_next;	/* Link to next */
-	daddr_t		d_start;	/* First bad block in cluster */
-	int		d_length;	/* Size of cluster */
-};
-
-/*
- * Tables used by imap.
- * This effectively implements
- * the access polynomial for the indirect
- * blocks.
- */
-static	daddr_t	ranges[] = {
-	ND,
-	ND + (daddr_t)NI*NBN,
-	ND + (daddr_t)NI*NBN + (daddr_t)NII*NBN*NBN,
-	ND + (daddr_t)NI*NBN + (daddr_t)NII*NBN*NBN + (daddr_t)NIII*NBN*NBN*NBN,
-};
-
-static	char	offsets[] = {
-	0,
-	ND,
-	ND+NI,
-	ND+NI+NII,
-};
-
-static	daddr_t	coeff[] = {
-	1, (daddr_t)NBN, (daddr_t)NBN*NBN, (daddr_t)NBN*NBN*NBN
-};
 
 char	tmi[] = "Too many i-numbers given\n";
 char	irderr[] = "I-node read error -- pass %d\n";
 
 int	ninumber;
 ino_t	inums[NINUM];
-struct	defect *deflist;
 char	superb[BSIZE];
 char	ibuf[BSIZE*IBLK];
 char	dbuf[BSIZE];
 
 int	sflag;			/* Repair filesystem */
 int	exstat;			/* Exit status */
-FILE	*fs;			/* File system i/o stream pointer */
+FS	*fsp;			/* Open file system (libfs) */
 daddr_t	fsize	= SUPERI+1;	/* Allow read of super-block */
 ino_t	isize;
 ino_t	maxino;
 unsigned nhard;			/* Hard things requiring pass 3 to fix */
-short	unsigned *entries;
+short	unsigned *entries;	/* Per-inode reference (link) count */
 
-daddr_t	imap();
 int	imark();
 int	icompare();
 
@@ -135,10 +103,8 @@ char *fsname;
 {
 	register	i;
 	struct filsys *sbp;
-	char *mode;
 
-	mode = sflag ? "r+w" : "r";
-	if ((fs = fopen(fsname, mode)) == NULL) {
+	if ((fsp = fsopen(fsname, sflag, &exstat, DC_HARD)) == NULL) {
 		fprintf(stderr, "%s: cannot open\n", fsname);
 		exstat |= DC_MISC;
 		return;
@@ -165,9 +131,18 @@ char *fsname;
 	isize = sbp->s_isize;
 	if (isize<INODEI+1 || isize>=fsize)
 		cerr("Ridiculous fsize/isize");
+	fsp->fsize = fsize;
+	fsp->isize = isize;
+	/*
+	 * Build the inode->pathname map so a bad link count or a bad/argument
+	 * directory can be reported by name as well as by i-number.  Failure
+	 * is non-fatal -- names then come back as "??".
+	 */
+	if (fsnames(fsp, 0) < 0)
+		fprintf(stderr, "dcheck: no space for names -- i-numbers only\n");
 	if ((entries=calloc(isize*INOPB, sizeof(short unsigned))) == NULL)
 		cerr("Not enough space");
-	finddefective();
+	fsfinddefective(fsp);
 	maxino = (isize-INODEI) * INOPB;
 	/*
 	 * The first pass runs down the
@@ -192,9 +167,10 @@ char *fsname;
 	if (nhard && sflag)
 		pass(2, imark);
 	free(entries);
-	freedefective();
+	fsfreedefective(fsp);
 	nhard = 0;
-	fclose(fs);
+	fsclose(fsp);
+	fsp = NULL;
 }
 
 /*
@@ -214,7 +190,7 @@ int (*func)();
 
 	inum = 1;
 	seek = INOORG;
-	cdsp = deflist;
+	cdsp = fsp->deflist;
 	while (seek < isize) {
 		if (cdsp!=NULL && cdsp->d_start==seek) {
 			seek  += cdsp->d_length;
@@ -228,10 +204,10 @@ int (*func)();
 		if (limit > isize)
 			limit = isize;
 		thischunk = limit-seek;
-		lseek(fileno(fs), seek*BSIZE, 0);
+		lseek(fsp->fd, seek*BSIZE, 0);
 		seek += thischunk;
 		thischunk *= BSIZE;
-		if (read(fileno(fs), ibuf, thischunk) != thischunk) {
+		if (read(fsp->fd, ibuf, thischunk) != thischunk) {
 			fprintf(stderr, irderr, n);
 			exstat |= DC_HARD;
 			break;
@@ -290,12 +266,13 @@ int nent;
 
 	if (sflag == 0) {
 		if (needtitle != 0) {
-			printf(" Ino  Entries   Link\n");
+			printf(" Ino  Entries   Link  Name\n");
 			needtitle = 0;
 		}
 		printf("%4u  %7u %6u", ino, nent, ip->di_nlink);
 		if (ip->di_mode!=0 && ip->di_nlink==0)
 			printf(" (u)");
+		printf("  %s", fspath(fsp, ino));
 		putchar('\n');
 	}
 	if (nent == 0) {
@@ -347,7 +324,7 @@ int pn;
 	while (size) {
 		register struct direct *dp;
 
-		if ((pb = imap(ip, bn++)) == 0)
+		if ((pb = fsimap(fsp, ip, bn++)) == 0)
 			break;
 		bread(pb, dbuf);
 		for (dp=dbuf; dp < &dbuf[BSIZE]; dp++) {
@@ -404,179 +381,28 @@ ino_t ino;
 register struct direct *dp;
 char *str;
 {
-	printf("%u %s: %u/%-*.*s\n", dp->d_ino, str, ino,
-	    DIRSIZ, DIRSIZ, dp->d_name);
+	printf("%u %s: %u/%-*.*s in %s\n", dp->d_ino, str, ino,
+	    DIRSIZ, DIRSIZ, dp->d_name, fspath(fsp, ino));
 }
 
 /*
- * This routine finds all of the
- * defective space on the filsystem by reading
- * the bad block file and marking all the blocks.
- * The defective space list, used by the I-list
- * scanner and other guys, is constructued.
- */
-finddefective()
-{
-	register struct dinode *ip;
-	daddr_t  pb, lb;
-
-	lseek(fileno(fs), (long)iblockn(BADFIN)*BSIZE, 0);
-	if (read(fileno(fs), ibuf, BSIZE) != BSIZE) {
-		printf("I/O error reading bad block inode\n");
-		exstat |= IC_HARD;
-		return;
-	}
-	ip = (struct dinode *) &ibuf[0] + iblocko(BADFIN);
-	canshort(ip->di_mode);
-	if (ip->di_mode == 0)
-		return;
-	if ((ip->di_mode&IFMT) != IFREG) {
-		printf("Bad block file has bad mode\n");
-		exstat |= IC_HARD;
-		return;
-	}
-	lb = 0;
-	while ((pb=imap(ip, lb++)) != 0)
-		savedefective(pb);
-}
-
-/*
- * Free all of the nodes
- * in the defective space list.
- */
-freedefective()
-{
-	register struct defect *cdsp1, *cdsp2;
-
-	cdsp1 = deflist;
-	deflist = NULL;
-	while (cdsp1 != NULL) {
-		cdsp2 = cdsp1->d_next;
-		free((char *) cdsp1);
-		cdsp1 = cdsp2;
-	}
-}
-
-/*
- * Add a new, defective block
- * into the sorted defective block chain.
- * Merge this block with the ends of
- * any existing entries. No check is made
- * for entries fusing; bad blocks get scooped
- * (in general) up in order, and the bad blocks
- * are generally sparsely placed on the disc.
- */
-savedefective(bn)
-daddr_t bn;
-{
-	register struct defect *cdsp1, *cdsp2, *cdsp3;
-
-	cdsp1 = NULL;
-	cdsp2 = deflist;
-	while (cdsp2!=NULL && bn>cdsp2->d_start) {
-		cdsp1 = cdsp2;
-		cdsp2 = cdsp2->d_next;
-	}
-	if (cdsp1!=NULL && bn==cdsp1->d_start+cdsp1->d_length) {
-		++cdsp1->d_length;
-		return;
-	}
-	if (cdsp2!=NULL && bn==cdsp2->d_start-1) {
-		--cdsp2->d_start;
-		++cdsp2->d_length;
-		return;
-	}
-	if ((cdsp3=(struct defect *)malloc(sizeof(struct defect))) == NULL)
-		cerr("Out of space for bad blocks");
-	if (cdsp1 == NULL)
-		deflist = cdsp3; else
-		cdsp1->d_next = cdsp3;
-	cdsp3->d_next = cdsp2;
-	cdsp3->d_start = bn;
-	cdsp3->d_length = 1;
-}
-
-/*
- * For a given inode (`ip'),
- * map a logical block number (`bn')
- * onto a physical disc block number.
- */
-daddr_t
-imap(ip, lb)
-register struct dinode *ip;
-daddr_t lb;
-{
-	register il;
-	daddr_t bpos, pb;
-	register daddr_t *bp;
-	register daddr_t addrs[NADDR];
-
-	l3tol(addrs, ip->di_addr, NADDR);
-	for (il=0; il<4; il++)
-		if (lb < ranges[il]) {
-			if (il != 0)
-				lb -= ranges[il-1];
-			bpos = lb/coeff[il];
-			lb %= coeff[il];
-			bp = &addrs[(int)bpos + offsets[il]];
-			if ((pb = *bp) != 0) {
-				/*
-				 * Map through indirect
-				 * blocks here.
-				 */
-				while (il-- > 0) {
-					bread(pb, dbuf);
-					bpos = lb/coeff[il];
-					lb %= coeff[il];
-					bp = (daddr_t *)dbuf + bpos;
-					if ((pb = *bp) == 0)
-						break;
-					pb = *bp;
-					candaddr( pb);
-				}
-			}
-			return (pb);
-		}
-	return (0);
-}
-
-/*
- * Read the specified block number
- * into `buf'.
+ * The defective-block list (finddefective/savedefective/freedefective), the
+ * imap block map and the block I/O (bread/bwrite) now live in libfs; see
+ * fsfinddefective()/fsimap()/fsbread() in <fs.h>.  bread/bwrite remain as thin
+ * wrappers so the many call sites in this file are unchanged.
  */
 bread(bn, buf)
 daddr_t bn;
 char *buf;
 {
-	if (bn >= fsize) {
-		badblock(bn, "any");
-		bclear(buf, BSIZE);
-		return;
-	}
-	lseek(fileno(fs), (size_t)BSIZE * bn, 0);
-	if (read(fileno(fs), buf, BSIZE) != BSIZE) {
-		fprintf(stderr, "Read error %D\n", (long)bn);
-		exstat |= DC_HARD;
-		bclear(buf, BSIZE);
-	}
+	fsbread(fsp, bn, buf);
 }
 
-/*
- * Write block `bn' from `buf'.
- */
 bwrite(bn, buf)
 daddr_t bn;
 char *buf;
 {
-	if (bn >= fsize) {
-		badblock(bn, "any");
-		return;
-	}
-	lseek(fileno(fs), (size_t)BSIZE * bn, 0);
-	if (write(fileno(fs), buf, BSIZE) != BSIZE) {
-		fprintf(stderr, "Write error %D\n", (long)bn);
-		exstat |= DC_HARD;
-	}
+	fsbwrite(fsp, bn, buf);
 }
 
 /*
@@ -606,28 +432,21 @@ register ino_t ino;
 }
 
 /*
- * Clear a block of memory
- * pointed to by `bp' for size
- * `nb' bytes.
+ * bclear/bcopy now live in libfs (fsbclear/fsbcopy); kept as thin wrappers so
+ * this file's call sites are unchanged.
  */
 bclear(bp, nb)
-register char *bp;
-register unsigned nb;
+char *bp;
+unsigned nb;
 {
-	if (nb)
-		do {
-			*bp++ = 0;
-		} while (--nb);
+	fsbclear(bp, nb);
 }
 
-/*
- * Error routines
- */
-badblock(bn)
-daddr_t bn;
+bcopy(in, out, nb)
+char *in, *out;
+unsigned nb;
 {
-	printf("Bad block #%D\n", (long)bn);
-	exstat |= DC_HARD;
+	fsbcopy(in, out, nb);
 }
 
 /*
@@ -643,17 +462,4 @@ cerr(x)
 usage()
 {
 	cerr("Usage: dcheck [-s] [-i ino ...] filesystem ...");
-}
-
-/*
- * Block copy routine
- */
-bcopy(in, out, nb)
-register char *in, *out;
-register unsigned nb;
-{
-	if (nb)
-		do {
-			*out++ = *in++;
-		} while (--nb);
 }

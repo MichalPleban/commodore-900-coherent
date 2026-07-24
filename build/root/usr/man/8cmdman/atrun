@@ -1,0 +1,39 @@
+
+
+aattrruunn                                                       aattrruunn
+
+
+
+NNAAMMEE
+     atrun - execute commands at given time
+
+SSYYNNOOPPSSIISS
+     /uussrr/lliibb/aattrruunn
+
+DDEESSCCRRIIPPTTIIOONN
+     aattrruunn runs the jobs spooled by the command aatt once their
+     scheduled time has arrived.
+
+     aattrruunn examines each entry in directory /uussrr/ssppooooll/aatt, whose
+     file name encodes the year, month, day, hour, and minute at
+     which it is due.  If that time is at or before the current
+     time, aattrruunn forks, sets its user and group id to those
+     recorded in the file's owner and group, and passes the file
+     to /bbiinn/sshh for execution with its standard input, output,
+     and error attached to /ddeevv/nnuullll. As a safeguard, aattrruunn runs
+     a file only if it still has the set-user-id, set-group-id,
+     and owner-execute permission bits that aatt set when it
+     created the file.
+
+     aattrruunn is not a daemon: it examines the spool directory once
+     and exits.  It is typically invoked periodically from an
+     entry in the superuser's crontab.
+
+FFIILLEESS
+                         /uussrr/ssppooooll/aattspool directory for pending at jobs
+
+SSEEEE AALLSSOO
+     aatt, ccrroonn
+
+NNOOTTEESS
+     aattrruunn is never invoked directly by a user.

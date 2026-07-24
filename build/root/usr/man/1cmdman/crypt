@@ -1,0 +1,49 @@
+
+
+ccrryypptt                                                       ccrryypptt
+
+
+
+NNAAMMEE
+     crypt - encrypt/decrypt text
+
+SSYYNNOOPPSSIISS
+     ccrryypptt [_p_a_s_s_w_o_r_d]
+
+DDEESSCCRRIIPPTTIIOONN
+     ccrryypptt reads the standard input, enciphers or deciphers it
+     under _p_a_s_s_w_o_r_d, and writes the result to the standard out-
+     put.  The cipher is symmetric, so running ccrryypptt a second
+     time over the output, with the same _p_a_s_s_w_o_r_d, recovers the
+     original text.
+
+     If _p_a_s_s_w_o_r_d is not given as an argument, ccrryypptt prompts for
+     it at the terminal without echoing what is typed.  An empty
+     password typed at the prompt is rejected; only the first 10
+     characters of _p_a_s_s_w_o_r_d are significant.  Once the password
+     has been copied out of the argument vector (or out of the
+     prompt buffer), that copy is overwritten with nulls so the
+     plaintext password does not linger in memory.
+
+     Internally, ccrryypptt pads the password to 10 characters with a
+     fixed built-in key, forces the last two characters of the
+     padded key into the range legal for a password `salt', and
+     passes the result through the system password-hashing
+     routine ccrryypptt(). The last 11 characters of that hash become
+     the working key.  The first 6 characters of the working key
+     seed a pseudo-random shuffle of a 256-byte substitution
+     table (a self-inverse `rotor'); the last 6 characters seed a
+     second pseudo-random sequence that supplies a running of-
+     fset.  Each byte read from the standard input is combined
+     with the next offset from that sequence, passed through the
+     rotor, and the result is written to the standard output.
+
+DDIIAAGGNNOOSSTTIICCSS
+     ccrryypptt exits with status 1 if it is called with more than one
+     argument, or if no password is given on the command line and
+     an empty one is typed at the prompt.
+
+NNOOTTEESS
+     Giving _p_a_s_s_w_o_r_d as a command-line argument exposes it to
+     anyone who can list the process table while ccrryypptt is star-
+     ting; the terminal prompt is the safer way to supply it.

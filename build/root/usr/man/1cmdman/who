@@ -1,0 +1,51 @@
+
+
+wwhhoo                                                           wwhhoo
+
+
+
+NNAAMMEE
+     who - print who is logged in
+
+SSYYNNOOPPSSIISS
+     wwhhoo
+     wwhhoo _w_h_o-_f_i_l_e
+     wwhhoo aamm ii
+     wwhhoo _w_h_o-_f_i_l_e aamm ii
+
+DDEESSCCRRIIPPTTIIOONN
+     With no arguments, wwhhoo reads /eettcc/uuttmmpp and prints one line
+     for each user currently logged in, giving the login name,
+     terminal line, and login time; entries with no login name
+     (unused slots) are skipped.
+
+     If a _w_h_o-_f_i_l_e is named, wwhhoo reads that file instead of
+     /eettcc/uuttmmpp, and prints every entry found in it, including
+     unused entries.  This is useful, for example, with
+     /uussrr/aaddmm/wwttmmpp, which keeps a running record of logins and
+     logouts.
+
+     If the literal words aamm and ii follow (as the last two ar-
+     guments), wwhhoo prints only the entry whose terminal line
+     matches the invoker's own terminal.
+
+     Each line has the form
+
+          _n_a_m_e      _l_i_n_e    _m_o_n _d_a_y _h_h:_m_m
+
+     where _n_a_m_e and _l_i_n_e come from the utmp entry and the date
+     and time are taken from ccttiimmee(), with the day-of-week,
+     seconds, and year dropped.
+
+FFIILLEESS
+     /eettcc/uuttmmpp
+
+SSEEEE AALLSSOO
+     wwrriittee, llooggiinn, mmeessgg
+
+DDIIAAGGNNOOSSTTIICCSS
+     On an unsupported combination of arguments, wwhhoo prints
+     (prefixed with wwhhoo: unless standard output is a terminal)
+     UUssaaggee: wwhhoo [wwhhoo-ffiillee] [aamm II] and exits with status 1; the
+     same routine reports CCaannnnoott ooppeenn wwhhoo-ffiillee if the named, or
+     default, file cannot be opened.

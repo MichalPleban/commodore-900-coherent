@@ -1,0 +1,47 @@
+
+
+lleeaarrnn                                                       lleeaarrnn
+
+
+
+NNAAMMEE
+     learn - computer-aided instruction
+
+SSYYNNOOPPSSIISS
+     lleeaarrnn [-_d_i_r_e_c_t_o_r_y] [_s_u_b_j_e_c_t [_l_e_s_s_o_n [_s_p_e_e_d]]]
+
+DDEESSCCRRIIPPTTIIOONN
+     lleeaarrnn runs a computer-aided-instruction script that teaches
+     the student about _s_u_b_j_e_c_t by presenting a series of lessons
+     and checking the student's typed responses.
+
+     If invoked with no _s_u_b_j_e_c_t argument, lleeaarrnn lists the avail-
+     able subjects, read from lliibb/ssuubbjjeeccttss under its lesson
+     directory, and prompts EEnntteerr ssuubbjjeecctt ?.
+
+     Once a _s_u_b_j_e_c_t is known, lleeaarrnn may also be given a _l_e_s_s_o_n
+     name within that subject, and a _s_p_e_e_d rating from 0 through
+     10 (values outside that range are forced to 10) that con-
+     trols how lessons of varying difficulty are chosen next; a
+     correct answer raises the rating by one, an incorrect one
+     lowers it by four.
+
+     -_d_i_r_e_c_t_o_r_y
+          Use _d_i_r_e_c_t_o_r_y as the root of the lesson library, in
+          place of the default, /uussrr/lleeaarrnn.
+
+     While working a lesson, the student may type bbyyee in response
+     to an incorrect-answer prompt to end the session im-
+     mediately.
+
+FFIILLEESS
+          /uussrr/lleeaarrnn              default lesson-library root
+          /uussrr/lleeaarrnn/lliibb/ssuubbjjeeccttss list of available subjects
+          /uussrr/lleeaarrnn/lliibb/_s_u_b_j_e_c_t  lessons for _s_u_b_j_e_c_t
+          /uussrr/lleeaarrnn/ppllaayy         student's scratch work area
+
+NNOOTTEESS
+     lleeaarrnn must be installed set-user-ID to the owner of
+     /uussrr/lleeaarrnn/ppllaayy, since it creates and removes a scratch
+     directory there on the student's behalf, and drops the
+     privilege once the area is set up.

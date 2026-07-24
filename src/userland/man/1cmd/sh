@@ -1,0 +1,446 @@
+.TH sh "" "Command"
+.SH NAME
+sh \- command language interpreter
+.SH SYNOPSIS
+\fBsh [\-eiknstuvx] [\fIfile\fB [\fIarg ...\fB]]\fR
+.br
+\fBsh \-c \fIstring \fB[\fIarg ...\fB]\fR
+.SH DESCRIPTION
+.HS
+sh -- command language interpreter
+Usage:	sh [option ...] token ...
+Options:
+	-c cmds	Read commands from 'cmds'
+	-e	Exit on any error if noninteractive
+	-i	Interactive even if no tty attached
+	-k	Place all keyword args into global environment
+	-n	Read commands but do not execute them
+	-s	Read commands from stdin, write output to stderr
+	-t	Read and execute one command only
+	-u	Report error if actual value of shell variable is null
+	-v	Print each line as read
+	-x	Print each command and argument as executed
+	-	Cancel -v and -x options
+The following reserved tokens may not be used in the first
+position of the command unless quoted:
+	case do done elif else fi for in then until while { } ( )
+If the first token is not reserved, it is treated as the name of a command.
+The remaining tokens are treated as arguments.
+The characters * ? [ ] specify patterns that match file names.
+To quote characters or strings, these escape characters are provided:
+	'...' "..." \\
+Each 'token', unless quoted, is checked for substitutions.
+.HE
+.B sh
+reads commands, either from
+.I file
+(with any following
+.I arg
+words made available as its positional parameters), from the
+argument of
+.BR \-c ,
+or, if neither is given, from its standard input, and executes them.
+If the first character of argument 0 is
+.BR \- ,
+.B sh
+is a
+.IR "login shell" :
+before reading anything else it executes the commands in
+.B /etc/profile
+and then, if the variable
+.B HOME
+names a directory containing a file
+.BR .profile ,
+the commands in
+.BR $HOME/.profile .
+.PP
+A
+.I command
+is a sequence of
+.I tokens
+(words) separated by blanks or tabs.
+The first token names the command to execute; the remaining tokens are
+passed to it as arguments, after the substitutions described below.
+Commands may be combined with the following operators:
+.IP "\fIcommand\fB | \fIcommand\fR" 1i
+Pipe: connect the standard output of the first command to the
+standard input of the second.
+.IP "\fIcommand\fB ; \fIcommand\fR"
+Run the first command to completion, then the second.
+.IP "\fIcommand\fB &\fR"
+Run
+.I command
+in the background, without waiting for it; print its process id.
+A background command's standard input is
+.B /dev/null
+unless redirected.
+.IP "\fIcommand\fB && \fIcommand\fR"
+Run the second command only if the first returns a zero (successful)
+exit status.
+.IP "\fIcommand\fB || \fIcommand\fR"
+Run the second command only if the first returns a nonzero exit status.
+.PP
+Any of these commands may be redirected:
+.IP "\fB> \fIfile\fR" 1i
+Write the standard output to
+.IR file ,
+creating it if need be and discarding any previous contents.
+.IP "\fB>> \fIfile\fR"
+Append the standard output to
+.IR file .
+.IP "\fB< \fIfile\fR"
+Take the standard input from
+.IR file .
+.IP "\fB<< \fIword\fR"
+Read a
+.IR "here document" :
+take the standard input from the following lines of the shell input,
+up to but not including a line that consists solely of
+.IR word .
+Unless
+.I word
+is quoted, parameter and command substitution are performed on the
+document.
+.IP "\fIn\fB> \fIfile\fR, \fIn\fB< \fIfile\fR, \fIn\fB>> \fIfile\fR"
+Like the above, but redirect file descriptor
+.I n
+instead of 1 (output) or 0 (input).
+.IP "\fIn\fB<& \fIm\fR, \fIn\fB>& \fIm\fR"
+Duplicate file descriptor
+.I n
+from
+.IR m .
+.IP "\fIn\fB<&\-\fR, \fIn\fB>&\-\fR"
+Close file descriptor
+.IR n .
+.PP
+A token that contains any of the characters
+.BR ? ,
+.BR * ,
+or
+.B [
+is a file-name pattern:
+.B ?
+matches any one character,
+.B *
+matches any string of characters (including none), and
+\fB[\fIchars\fB]\fR
+matches any one of the enclosed characters (a range may be written
+.IR c1 \- c2 ).
+.B sh
+replaces such a token with the sorted list of file names in the
+current directory that match it; if none match, the token is passed
+through unchanged.
+A leading
+.B .
+in a file name, and every
+.BR / ,
+must be matched explicitly.
+.PP
+The characters
+.BR \e ,
+.BR ' ,
+and
+.B "\ "
+quote (turn off the special meaning of) other characters.
+.B \e
+quotes the single character that follows it; a
+.B \e
+immediately followed by a newline is discarded, letting a command be
+continued onto the next line.
+A pair of single quotes (\fB'\fR ... \fB'\fR) quotes everything between
+them.
+A pair of double quotes (\fB"\fR ... \fB"\fR) also quotes everything
+between them, except that
+.B $
+substitutions (below) still occur inside them.
+.PP
+A token of the form
+\fB$\fIname\fR,
+\fB${\fIname\fB}\fR,
+or
+\fB$\fIn\fR
+(a single digit
+.IR n ,
+1 through 9) is replaced by the value of the shell variable
+.I name
+or of positional parameter
+.IR n .
+The forms
+\fB${\fIname\fB\-\fIword\fB}\fR,
+\fB${\fIname\fB=\fIword\fB}\fR,
+\fB${\fIname\fB+\fIword\fB}\fR,
+and
+\fB${\fIname\fB?\fIword\fB}\fR
+substitute
+.I word
+if
+.I name
+is unset (and, for
+.BR = ,
+also assign it
+.IR word );
+.B +
+substitutes
+.I word
+only if
+.I name
+.I is
+set; and
+.B ?
+substitutes
+.I word
+(or a default message) and aborts the shell if
+.I name
+is unset.
+The following special parameters are also recognized:
+.RS
+.IP \fB$0\fR 0.5i
+The name the shell was invoked with.
+.IP \fB$#\fR
+The number of positional parameters.
+.IP \fB$*\fR
+All positional parameters.
+.IP \fB$@\fR
+All positional parameters; inside double quotes, each becomes a
+separate word.
+.IP \fB$\-\fR
+The options currently in effect.
+.IP \fB$?\fR
+The exit status of the last command.
+.IP \fB$!\fR
+The process id of the last background command.
+.IP \fB$$\fR
+The process id of the shell itself.
+.RE
+.PP
+A command enclosed in grave accents (\fB\`\fR ... \fB\`\fR) is run, and
+the token containing it is replaced by its standard output (trailing
+newlines removed).
+.PP
+.B sh
+recognizes the following reserved words as the start of a compound
+command, if unquoted and in the position of a command name:
+.RS
+.IP "\fBfor \fIname \fB[in \fIword ...\fB] do \fIcommand-list \fBdone\fR" 0.5i
+Set
+.I name
+to each
+.I word
+in turn (or to each positional parameter, if
+.B in
+is omitted) and run
+.I command-list
+once per value.
+.IP "\fBcase \fIword \fBin \fIpattern\fB[|\fIpattern\fB]...) \fIcommand-list\fB;; ... esac\fR"
+Run the
+.I command-list
+of the first
+.I pattern
+that matches
+.IR word .
+.IP "\fBwhile \fIcommand-list \fBdo \fIcommand-list \fBdone\fR"
+.IP "\fBuntil \fIcommand-list \fBdo \fIcommand-list \fBdone\fR"
+Run the second
+.I command-list
+as long as (or until) the first returns a zero exit status.
+.IP "\fBif \fIcommand-list \fBthen \fIcommand-list \fBfi\fR"
+The usual conditional; zero or more
+.B elif
+.I command-list
+.B then
+.I command-list
+clauses and one final
+.B else
+.I command-list
+may appear before the closing
+.BR fi .
+.IP "\fB( \fIcommand-list \fB)\fR"
+Run
+.I command-list
+in a subshell.
+.IP "\fB{ \fIcommand-list \fB}\fR"
+Run
+.I command-list
+in the current shell (without forking a subshell).
+.RE
+.PP
+.B break
+\fB[\fIn\fB]\fR
+and
+.B continue
+\fB[\fIn\fB]\fR
+leave, or skip to the next iteration of, the
+.IR n th
+enclosing
+.BR for ,
+.BR while ,
+or
+.B until
+loop (default the innermost).
+.SH "SPECIAL COMMANDS"
+The following commands are built into
+.B sh
+and are executed without a
+.BR fork :
+.IP "\fB: \fI[token ...]\fR" 1i
+Do nothing (successfully); the arguments are evaluated but ignored.
+.IP "\fB. \fIfile\fR"
+Read and execute commands from
+.I file
+(searched for along
+.BR PATH ),
+in the current shell, without positional parameters of its own.
+.IP "\fBcd \fI[dir]\fR"
+Change the working directory to
+.I dir
+(default
+.BR HOME ).
+.IP "\fBeval \fI[token ...]\fR"
+Run the tokens, joined together, as a command.
+.IP "\fBexec \fI[command [arg ...]]\fR"
+Apply any redirections and then, instead of forking, replace the
+shell with
+.I command
+(or, with no
+.IR command ,
+apply the redirections to the current shell).
+.IP "\fBexit \fI[n]\fR"
+Terminate the shell with exit status
+.I n
+(default the status of the last command).
+.IP "\fBexport \fI[name ...]\fR"
+Mark each
+.I name
+so that its value is passed to the environment of commands the shell
+runs; with no arguments, print the exported names and values.
+.IP "\fBreadonly \fI[name ...]\fR"
+Mark each
+.I name
+so that it cannot be reassigned; with no arguments, print the
+read-only names and values.
+.IP \fBlogin\fR
+.IP "\fBnewgrp \fI[arg ...]\fR"
+Replace the shell with
+.B /bin/login
+or
+.BR /bin/newgrp .
+.IP "\fBread \fIname ...\fR"
+Read one line from the standard input and assign successive
+blank-separated fields to the
+.I name
+list, the last
+.I name
+receiving whatever is left over.
+.IP "\fBset [\-eiknstuvx] [\fIarg ...\fB]\fR"
+With no arguments, print the value of every shell variable.
+Otherwise, set the option flags exactly as on the command line, and
+reset the positional parameters to
+.IR arg ...
+.IP "\fBshift \fI[n]\fR"
+Discard the first
+.I n
+(default 1) positional parameters, renumbering the rest from 1.
+.IP \fBtimes\fR
+Print the accumulated user and system time of the shell's children.
+.IP "\fBtrap \fI[command] [n ...]\fR"
+Arrange for
+.I command
+to be run when the shell catches signal
+.IR n .
+With
+.I command
+omitted, restore the default action for each
+.IR n .
+Signal 0 means the shell's own exit.
+With no arguments at all, print the traps now set.
+.IP "\fBumask \fI[nnn]\fR"
+Set the file-creation mask to the octal value
+.IR nnn ;
+with no argument, print the current mask.
+.IP "\fBwait \fI[pid]\fR"
+Wait for the background process
+.I pid
+(default: all background processes) to finish.
+.SH "COMMAND-LINE OPTIONS"
+.IP "\fB\-c \fIcmds\fR"
+Read commands from the following argument,
+.IR cmds ,
+instead of from a file or the standard input.
+.IP \fB\-e\fR
+If the shell is not interactive, exit as soon as any command returns
+a nonzero status or is not found.
+.IP \fB\-i\fR
+Treat the shell as interactive (print prompts, and ignore
+.B SIGTERM
+and
+.BR SIGINT )
+even if its input is not a terminal.
+.IP \fB\-k\fR
+Put all keyword (variable=value) arguments of a command into that
+command's environment, not just the ones that precede the command
+name.
+.IP \fB\-n\fR
+Read and parse commands but do not execute them; useful for checking
+a script's syntax.
+.IP \fB\-s\fR
+Read commands from the standard input even if file or
+.B \-c
+arguments are also given, and write ordinary output to the standard
+error.
+.IP \fB\-t\fR
+Read and execute a single command, then stop.
+.IP \fB\-u\fR
+Treat the reference to an unset shell variable as an error, instead
+of substituting the null string.
+.IP \fB\-v\fR
+Echo each input line as it is read.
+.IP \fB\-x\fR
+Echo each command and its arguments, after substitution, as it is
+executed.
+.IP \fB\-\fR
+Turn off the
+.B \-v
+and
+.B \-x
+options.
+.SH FILES
+.DS
+.ta 20n
+\fB/etc/profile\fR	commands run by every login shell
+\fB$HOME/.profile\fR	commands run by a user's login shell
+\fB/dev/null\fR	standard input of a background command
+\fB/tmp/sh*\fR	temporary files (here documents, and so on)
+.DE
+.SH "SEE ALSO"
+.B test
+.SH DIAGNOSTICS
+.B sh
+writes a diagnostic to the standard error for a syntax error, an
+unknown command, an illegal redirection, or an illegal variable name;
+a syntax error terminates a noninteractive shell.
+.B sh
+returns the exit status of the last command it ran, or the status
+given to
+.BR exit .
+.SH NOTES
+Positional parameters above
+.B $9
+cannot be referenced directly; use
+.B shift
+to bring later parameters into range 1-9.
+.PP
+The built-in default for
+.B PATH
+is
+.BR :/bin:/usr/bin ,
+which searches the current directory first; a script or interactive
+user that depends on this should set
+.B PATH
+explicitly.
+.PP
+There is no shell-function facility, no arithmetic expansion, and no
+\fB$(\fIcommand\fB)\fR
+form of command substitution in this
+.BR sh ;
+use grave accents for command substitution.

@@ -1,0 +1,77 @@
+
+
+llooggiinn                                                       llooggiinn
+
+
+
+NNAAMMEE
+     login - log in or change user name
+
+SSYYNNOOPPSSIISS
+     llooggiinn [-qq] [_u_s_e_r_n_a_m_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     llooggiinn identifies a user to the system.  It is normally in-
+     voked automatically, on a terminal line, by ggeettttyy; a user
+     may also invoke it directly (typically with eexxeecc /bbiinn/llooggiinn
+     from a shell) to change to another login name without dis-
+     connecting the line.
+
+     If _u_s_e_r_n_a_m_e is not given on the command line, llooggiinn prompts
+     CCoohheerreenntt llooggiinn:. It then looks up the name in /eettcc/ppaasssswwdd.
+     If the account has a password, llooggiinn prompts for it with
+     echoing turned off, encrypts what was typed with ccrryypptt(),
+     and compares the result against the encrypted password on
+     file.  If the terminal line is a remote (dial-in) line,
+     llooggiinn also asks for a second, remote-access password,
+     checked against a pseudo-account named rreemmaacccc.
+
+     After three failed remote attempts, or if the user does not
+     finish logging in within the timeout period, llooggiinn gives up
+     and, for a remote line, tries to force a hangup.  Every at-
+     tempt, successful or not, is logged to /eettcc/uuttmmpp and either
+     /uussrr/aaddmm/wwttmmpp or /uussrr/aaddmm/ffaaiilleedd.
+
+     Once the password check succeeds, llooggiinn changes to the
+     user's home directory, sets the process's user and group
+     IDs, and, unless -qq was given, prints the contents of
+     /eettcc/mmoottdd if it has changed since this user last logged in,
+     and any new material in /eettcc/nneewwss, together with a YYoouu hhaavvee
+     mmaaiill.  notice if the user's mailbox is not empty.  It then
+     sets up a minimal environment (_P_A_T_H, _H_O_M_E, and _P_S_1) and ex-
+     ecutes the user's shell, as recorded in the last field of
+     the /eettcc/ppaasssswwdd entry (or /bbiinn/sshh if none is recorded).
+
+FFIILLEESS
+          /eettcc/ppaasssswwdd             password file
+          /eettcc/mmoottdd               message of the day
+          /eettcc/nneewwss               news file
+          /eettcc/nneewwsslloogg            per-user record of news already read
+          /eettcc/uuttmmpp               identifiers of users currently logged in
+          /uussrr/aaddmm/wwttmmpp           history of successful logins
+          /uussrr/aaddmm/ffaaiilleedd         history of failed login attempts
+          /uussrr/ssppooooll/mmaaiill/_n_a_m_e    mailbox for _u_s_e_r
+
+SSEEEE AALLSSOO
+     ppaasssswwdd, sshh
+
+DDIIAAGGNNOOSSTTIICCSS
+     llooggiinn prints LLooggiinn iinnccoorrrreecctt and re-prompts if the name or
+     password does not match, and NNoo sshheellll.  if it cannot execute
+     the user's shell.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+llooggiinn                                                       llooggiinn
+
+
+
+NNOOTTEESS
+     Unless it was invoked with aarrggvv[00][00] equal to - (as done by
+     ggeettttyy), llooggiinn resets the terminal's tty modes and special
+     characters to the system's compiled-in defaults before
+     prompting.

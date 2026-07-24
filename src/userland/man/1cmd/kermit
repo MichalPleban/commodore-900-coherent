@@ -1,0 +1,129 @@
+.TH kermit "" "Command"
+.SH NAME
+kermit \- file transfer utility
+.SH SYNOPSIS
+\fBkermit c\fR|\fBC\fR [\fIbel baud esc line\fR]
+.br
+\fBkermit s\fR [\fIabdfhilmtx baud line\fR] \fIfile ...\fR
+.br
+\fBkermit r\fR [\fIbdfhilt baud line\fR]
+.SH DESCRIPTION
+.HS
+kermit -- file transfer utility
+Usage : kermit c|C [ bel baud esc line ]
+        kermit s [ abdfhilmtx baud line ] file ...
+        kermit r [ bdfhilt baud line ]
+Options:
+	c|C=connect, s=send, r=receive,
+ 	d=debug, i=image mode, f=no filename conversion, l=tty line,
+	b=baud rate, e=escape char, h=host (server) mode, t=tymnet mode,
+	m=special mode for sending files to Apple MacIntosh,
+ 	a=give complete patname for both sending and recieving files,
+	x=give complete path name for receiving file only.
+.HE
+.B kermit
+transfers files to and from a remote system using the Kermit protocol
+(Columbia University, 1981-1984).
+The first command-line argument is a single word whose first letter
+selects the mode --
+\fBc\fR, \fBC\fR, \fBs\fR, or \fBr\fR
+-- and whose remaining letters are single-letter options, run together
+with no separating dashes and no spaces; each option that takes a
+value (\fBl\fR, \fBe\fR, \fBb\fR) consumes the next command-line word,
+in the order its letter appears in the mode word.
+For example
+.RS
+kermit sfb file 9600
+.RE
+sends
+.I file
+with filename-case conversion disabled (\fBf\fR), at 9600 baud (\fBb\fR).
+.IP \fBc\fR
+Connect: turn the local terminal into a terminal emulator attached to
+the tty line named by
+.B l
+(default
+.BR /dev/tty38 ,
+default speed 2400).
+Typing the escape character (default
+.BR "^" ,
+a literal caret) followed by one more character invokes a local
+command:
+.B c
+or
+.B C
+hangs up the modem and closes the connection,
+.B s
+or
+.B S
+suspends the connection without hanging up, and
+.B h
+or
+.B H
+prints a ``still here'' message.
+Any other character after the escape character just rings the bell.
+.IP \fBC\fR
+Same as
+.BR c ,
+except the next command-line word (after any options and their
+values) is sent down the line, followed by a carriage return, before
+the terminal emulator starts.
+.IP \fBs\fR
+Send: transmit each named
+.I file
+to the remote Kermit.
+.IP \fBr\fR
+Receive: wait for the remote Kermit to send one or more files and
+store them in the current directory.
+.IP \fBd\fR
+Increase the debugging level by one (repeatable).
+.IP \fBi\fR
+Image mode: transfer 8-bit data without the usual 7-bit masking and
+CR/LF translation.
+.IP \fBf\fR
+Do not convert filename case (normally lower case is folded to upper
+on send and upper to lower on receive).
+.IP \fBl\fR
+The next word is the tty line to use, instead of the default.
+.IP \fBb\fR
+The next word is the line speed in baud, instead of the default.
+.IP \fBe\fR
+The next word's first character becomes the escape character for
+.B c\fR/\fBC\fR
+mode, instead of the default caret.
+.IP \fBh\fR
+Host (server) mode: treat standard input and output as the connection
+to the remote system (no line is opened) -- used when
+.B kermit
+is invoked as a login shell or from a getty on a dial-in line.
+.IP \fBt\fR
+Tymnet mode: pause briefly between incoming data packets.
+.IP \fBm\fR
+Macintosh mode: send an extra end-of-line character after each packet,
+for MacKermit.
+.IP \fBx\fR
+Leave slashes in file names alone and transmit the directory structure
+(normally only the last component of a name is sent).
+.IP \fBa\fR
+Take file names in pairs: the first name of each pair is used on the
+sending side, the second on the receiving side.
+.SH FILES
+.DS
+.ta 16n
+\fB/dev/tty38\fR	default communication line
+.DE
+.SH "SEE ALSO"
+.B login
+.SH NOTES
+This is the public-domain Columbia University Kermit for UNIX-like
+systems, ported to COHERENT by Lauren Weinstein and Charles Fiterman.
+.PP
+Without
+.BR h ,
+.B kermit
+opens the tty
+.I line
+itself and assumes it is the local end of the connection; with
+.B h
+it assumes its standard input and output are already the remote
+connection.

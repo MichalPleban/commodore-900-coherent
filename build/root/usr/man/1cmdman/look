@@ -1,0 +1,39 @@
+
+
+llooookk                                                         llooookk
+
+
+
+NNAAMMEE
+     look - find matching lines in a sorted file
+
+SSYYNNOOPPSSIISS
+     llooookk [-ddff] _s_t_r_i_n_g [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     llooookk does a binary search of the sorted _f_i_l_e and prints
+     every line that begins with _s_t_r_i_n_g. If no _f_i_l_e is given,
+     llooookk searches /uussrr/ddiicctt/wwoorrddss and behaves as if both -dd and
+     -ff had been given.
+
+     -dd   Dictionary order: while comparing, _s_t_r_i_n_g and the file
+          are considered a character at a time and only al-
+          phanumerics and blanks participate; all other charac-
+          ters are skipped over.
+
+     -ff   Fold case: both _s_t_r_i_n_g and the lines read from the file
+          have their lower-case letters converted to upper case
+          before being compared, so the search is case-insensi-
+          tive.
+
+FFIILLEESS
+          /uussrr/ddiicctt/wwoorrddss     default dictionary file
+
+SSEEEE AALLSSOO
+     ssoorrtt
+
+NNOOTTEESS
+     _s_t_r_i_n_g and _f_i_l_e should already be sorted in the same order
+     that -dd and -ff select; if the file was not sorted with
+     matching ssoorrtt options, llooookk may fail to find lines that are
+     actually present.

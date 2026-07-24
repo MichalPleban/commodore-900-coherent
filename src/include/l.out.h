@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * This is the format of the `l.out'
  * file (assembler output, linkage editor
  * input and output) as defined for

@@ -1,0 +1,81 @@
+.TH ncheck "" "Administration"
+.SH NAME
+ncheck \- print file names corresponding to i-numbers
+.SH SYNOPSIS
+\fBncheck [\-as] [\-i \fIn ...\fB] [\fIfilesystem ...\fR]
+.SH DESCRIPTION
+.HS
+ncheck -- print file names corresponding to i-numbers
+Usage:	ncheck [ options ] [ filesystem ... ]
+Options:
+	-a	Print names including '.' and '..'
+	-i n... Only print names for listed i-numbers 'n...'
+	-s	Print only special files and files with setuid mode
+.HE
+An i-number identifies an i-node.
+.B ncheck
+prints, for each named
+.IR filesystem ,
+a list of the path names that lead to each i-node in that file
+system; each line gives an i-number followed by one of the path
+names by which it can be reached.
+With no
+.I filesystem
+argument,
+.B ncheck
+checks
+.BR /dev/rrm00 .
+.PP
+.B ncheck
+first scans the whole i-list to find which i-numbers are
+directories, then scans every directory to build the path from each
+directory to its entries, and finally prints a name for every
+i-node (or, with
+.BR \-i ,
+only for the listed i-numbers; or, with
+.BR \-s ,
+only for special files and files with the set-user-id or
+set-group-id bit on).
+By default, entries named
+.B .
+and
+.B ..
+are not printed;
+.B \-a
+prints them too.
+Names ending in
+.B /.
+identify directories.
+.IP \fB\-a\fR
+Include entries named
+.B .
+and
+.B ..
+in the output.
+.IP "\fB\-i\ \fIn ...\fR"
+Print only the names of the listed i-numbers, instead of every
+i-node in the file system.
+Up to 20 numbers may be given, either after one
+.B \-i
+or repeated; the list ends at the first non-numeric argument.
+.IP \fB\-s\fR
+Print only the names of block-special, character-special, set-user-id,
+and set-group-id files; useful for a quick security check of a file
+system.
+.IP \fB\-u\fR
+Accepted but currently a no-op; reserved for a future search for
+orphaned (unreferenced) structure.
+.SH DIAGNOSTICS
+.B ncheck
+marks a directory entry whose i-number is out of range as
+.BR bad ,
+and represents a loop found while tracing a path back to the root
+with
+.BR "..." .
+It prints a message and sets a nonzero exit status if a file system
+cannot be opened, its super block looks implausible, or an i-node
+block cannot be read.
+.SH "SEE ALSO"
+.BR check ,
+.BR dcheck ,
+.B icheck

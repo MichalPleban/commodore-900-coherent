@@ -1,0 +1,39 @@
+
+
+ffaaccttoorr                                                     ffaaccttoorr
+
+
+
+NNAAMMEE
+     factor - print the prime factors of a number
+
+SSYYNNOOPPSSIISS
+     ffaaccttoorr [_n_u_m_b_e_r ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ffaaccttoorr prints, on a single output line, the prime factors of
+     each _n_u_m_b_e_r given on the command line, separated by spaces,
+     in increasing order, each repeated as many times as it
+     divides the number.
+
+     If no _n_u_m_b_e_r is given, ffaaccttoorr instead reads numbers from the
+     standard input, one at a time, skipping leading white space,
+     and factoring each in turn.  It stops reading as soon as it
+     sees end of file, the number 00, or a character that is not
+     part of a number.
+
+     A _n_u_m_b_e_r may be written in decimal, or, with a leading 00, in
+     octal, or, with a leading 00xx (letters aa through ff allowed,
+     in either case), in hexadecimal.  Numbers are held intern-
+     ally in floating point, so very large values may be fac-
+     tored, subject to the precision of a ddoouubbllee and to the time
+     needed to search for factors by trial division.
+
+SSEEEE AALLSSOO
+     eexxpprr
+
+DDIIAAGGNNOOSSTTIICCSS
+     ffaaccttoorr prints NNuummbbeerr ttoooo bbiigg and exits if an input number
+     has too many digits, and bbaadd nnuummbbeerr or NNuummbbeerr ttoooo bbiigg (with
+     the offending text) if a command-line argument is not a
+     valid number or overflows.

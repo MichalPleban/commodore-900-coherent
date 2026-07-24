@@ -1,0 +1,152 @@
+.TH cu "" "Command"
+.SH NAME
+cu \- call up and converse with another system over a serial line
+.SH SYNOPSIS
+\fBcu [\-h] [\-l \fIline\fB] [\-s \fIspeed\fB] [\fIprofile\fB]\fR
+.SH DESCRIPTION
+.HS
+cu -- terminal emulator for a serial line
+Usage:	cu [ -h ] [ -l line ] [ -s speed ] [ profile ]
+Options:
+	-h	Half-duplex (echo locally what is sent)
+	-l line	Use device 'line' instead of '/dev/modem'
+	-s speed	Set the serial port speed to 'speed' (default: 1200)
+Reads special '~' commands as documented under 'cu Commands' below.
+.HE
+.B cu
+turns your terminal into a terminal on a serial line, so that you can
+converse with a modem or with whatever system answers on the other
+end.
+By default it opens
+.B /dev/modem
+at 1200 baud in full-duplex mode and connects your terminal to it.
+.PP
+If a
+.I profile
+is named on the command line,
+.B cu
+reads `~' commands from that file (see
+.B "Profile Commands"
+below) before opening the port, typically to set the line, speed, and
+duplex before dialing.
+.IP \fB\-h\fR
+Run in half-duplex mode: echo locally every character sent to the
+remote system.
+Use this if the remote system does not echo what you type.
+.IP "\fB\-l \fIline\fR"
+Use
+.I line
+instead of the default
+.BR /dev/modem .
+.IP "\fB\-s \fIspeed\fR"
+Set the serial port to
+.I speed
+baud (one of 50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2000,
+2400, 3600, 4800, 7200, 9600, or 19200).
+The default is 1200.
+.SH "cu Commands"
+While connected, a line beginning with a tilde (\fB~\fR) is read by
+.B cu
+itself instead of being sent to the remote system:
+.IP \fB~#\fR
+A comment; the rest of the line is ignored.
+.IP \fB~~\fR
+Send a single literal tilde to the remote system.
+.IP \fB~!\fR
+Start a shell on the local system.
+.IP "\fB~<\fIfile\fR"
+Redirect further local input from
+.I file
+instead of the terminal.
+.IP "\fB~>\fIfile\fR"
+Redirect what the remote system sends into
+.IR file .
+Write
+.B >>
+.I file
+to append instead of overwrite, or
+.B >:
+.I file
+to redirect silently, without also echoing to the screen.
+.IP \fB~>\fR
+End output redirection begun with
+.BR ~> .
+.IP \fB~m\fR
+Search the incoming stream for a pattern.
+Not implemented in this version; it prints ``Pattern matching not
+supported''.
+.IP "\fB~P\fIn\fR"
+Pause
+.I n
+seconds.
+.IP \fB~q\fR
+Leave
+.B cu
+and hang up the line.
+.IP \fB~Q\fR
+Leave
+.B cu
+without hanging up the line.
+.IP \fB~f\fR
+Switch to full-duplex (no local echo) mode.
+.IP \fB~h\fR
+Switch to half-duplex (local echo) mode.
+.IP "\fB~s \fIn\fR"
+Set the serial port speed to
+.I n
+baud.
+.IP "\fB~g\fIfile\fR"
+Get
+.I file
+from the remote system, via
+.BR /etc/cuxcvr .
+.IP "\fB~p\fIfile\fR"
+Put
+.I file
+to the remote system, via
+.BR /etc/cuxcvr .
+.IP \fB~?\fR
+Print a list of the special commands.
+.SH "Profile Commands"
+A
+.I profile
+file named on the command line is read one `~' command per line, using
+the same letters as the in-session commands
+.BR f ,
+.BR h ,
+.BR l ,
+and
+.B s
+above, to set the duplex, line, and speed before the port is opened.
+A profile line beginning with
+.B ~w
+tells
+.B cu
+to stop reading the profile and open the port; the remainder of the
+profile is then pushed back to be read as further `~' commands once
+the connection is up.
+.SH FILES
+.DS
+.ta 1.6i
+\fB/dev/modem\fR	default serial line
+\fB/etc/cuxcvr\fR	file-transfer helper invoked by ~g and ~p
+.DE
+.SH "SEE ALSO"
+.B sh
+.SH DIAGNOSTICS
+.B cu
+prints ``Data terminal ready'' once the serial line is open, and
+``Hangup'' when the line drops.
+.SH NOTES
+This
+.B cu
+is only a terminal emulator for a single serial line; it has no
+dialing directory or telephone-number database, and cannot look up or
+dial a remote system by name.
+Pattern matching (\fB~m\fR) is not implemented in this version.
+The built-in command summary printed by
+.B ~?
+still describes
+.B ~p
+as a pattern search; in this version that letter instead starts a
+file transfer, as documented above.

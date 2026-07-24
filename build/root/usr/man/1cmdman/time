@@ -1,0 +1,40 @@
+
+
+ttiimmee                                                         ttiimmee
+
+
+
+NNAAMMEE
+     time - time the execution of a command
+
+SSYYNNOOPPSSIISS
+     ttiimmee [_c_o_m_m_a_n_d]
+
+DDEESSCCRRIIPPTTIIOONN
+     ttiimmee runs _c_o_m_m_a_n_d, and when it finishes, reports on the
+     standard error the time it took, broken down into three
+     lines: RReeaall (elapsed clock time), UUsseerr (CPU time charged to
+     _c_o_m_m_a_n_d itself), and SSyyss (CPU time charged to the system on
+     _c_o_m_m_a_n_d's behalf), each given in minutes, seconds, and
+     tenths of a second.
+
+     If _c_o_m_m_a_n_d is omitted, ttiimmee instead execs /bbiinn/ddaattee and does
+     no timing.
+
+     While _c_o_m_m_a_n_d runs, ttiimmee ignores the signals SSIIGGHHUUPP, SSIIGGIINNTT,
+     SSIIGGQQUUIITT, and SSIIGGTTEERRMM. If _c_o_m_m_a_n_d is killed by a signal, ttiimmee
+     reports the signal name (or number, if out of range) before
+     printing the timing lines, noting it if a core image was
+     produced.
+
+SSEEEE AALLSSOO
+     ddaattee
+
+DDIIAAGGNNOOSSTTIICCSS
+     ttiimmee prints the message `Try again.' and exits if it cannot
+     fork, and prints _c_o_m_m_a_n_d followed by `: not found' if _c_o_m-
+     _m_a_n_d cannot be executed.
+
+NNOOTTEESS
+     ttiimmee is a separate command, not a shell built-in; it can
+     only time a single command, not a pipeline.

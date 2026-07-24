@@ -1,0 +1,23 @@
+
+
+ttttyy                                                           ttttyy
+
+
+
+NNAAMMEE
+     tty - print the user's terminal name
+
+SSYYNNOOPPSSIISS
+     ttttyy
+
+DDEESSCCRRIIPPTTIIOONN
+     ttttyy prints the pathname of the character-special file as-
+     sociated with the standard error, which is ordinarily your
+     controlling terminal.
+
+DDIIAAGGNNOOSSTTIICCSS
+     ttttyy prints the message `Not a tty' if the standard error is
+     not associated with a terminal.
+
+SSEEEE AALLSSOO
+     wwhhoo

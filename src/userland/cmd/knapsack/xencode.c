@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * xencode [user].
  * Encode stdin for user. If user is missing prompt for a passphrase,
  * make a public key, and use it to encode stdin.

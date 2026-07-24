@@ -1,16 +1,8 @@
-/* (-lgl
- * 	The information contained herein is a trade secret of Mark Williams
- * 	Company, and  is confidential information.  It is provided  under a
- * 	license agreement,  and may be  copied or disclosed  only under the
- * 	terms of  that agreement.  Any  reproduction or disclosure  of this
- * 	material without the express written authorization of Mark Williams
- * 	Company or persuant to the license agreement is unlawful.
- * 
- * 	COHERENT Version 0.7.3
- * 	Copyright (c) 1982, 1983, 1984.
- * 	An unpublished work by Mark Williams Company, Chicago.
- * 	All rights reserved.
- -lgl) */
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #include <coherent.h>
 #include <drvcon.h>
 #include <errno.h>
@@ -28,6 +20,13 @@ int mmstart();
 TTY	kvtty = {
 	{0}, {0}, 0, mmstart, NULL, 0, 0
 };
+
+/*
+ * Terminal-type name reported by the TIOCGTERM ioctl.  The low-res
+ * console emulates the Heath/Zenith H-19 (Z-19), so termcap's h19
+ * entry is the match.
+ */
+static char kvterm[TERMSZ] = "h19";
 
 v0open(dev)
 dev_t dev;
@@ -86,6 +85,9 @@ struct sgttyb *vec;
 	register int s;
 
 	switch (com) {
+	case TIOCGTERM:
+		kucopy(kvterm, vec, TERMSZ);
+		return;
 	case TIOVGETB:
 	case TIOVPUTB:
 		while (kvtty.t_oq.cq_cc != 0) {

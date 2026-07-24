@@ -1,0 +1,63 @@
+.TH kill "" "Command"
+.SH NAME
+kill \- signal a process
+.SH SYNOPSIS
+\fBkill [\-\fIsignal\fB] \fIpid ...\fR
+.SH DESCRIPTION
+.HS
+kill -- signal a process
+Usage:	kill [ -signal ] pid ...
+Send 'signal' (default: terminate signal) to each specified 'pid'.
+.HE
+.B kill
+sends a signal to each process named by a
+.IR pid .
+By default it sends the software termination signal,
+.BR SIGTERM .
+.PP
+If the first argument begins with
+.BR \- ,
+it names the signal to send instead of the default.
+.I signal
+may be given either as a decimal number, or as a signal name (with or
+without the leading
+.B SIG
+prefix; case is not significant).
+.B kill
+recognizes the following signal names:
+.DS
+.ta 10n 20n 30n
+\fBHUP\fR	\fBINT\fR	\fBQUIT\fR	\fBALRM\fR
+\fBTERM\fR	\fBREST\fR	\fBSYS\fR	\fBPIPE\fR
+\fBKILL\fR	\fBTRAP\fR	\fBSEGV\fR	\fBILL\fR
+\fBIOT\fR	\fBEMT\fR	\fBFPE\fR	\fBBUS\fR
+.DE
+.PP
+Each remaining argument is a
+.I pid
+that must begin with a decimal digit or a
+.B \-
+(the latter for a process-group id); anything else is rejected as
+not being a process id.
+.SH DIAGNOSTICS
+For each
+.I pid
+that does not begin with a digit or
+.BR \- ,
+.B kill
+reports that it is not a process id and goes on to the next one.
+If
+.I signal
+is not one of the names or numbers above,
+.B kill
+reports that there is no such signal and exits.
+For a
+.I pid
+that exists but cannot be signaled (for example, because it is not
+owned by the caller),
+.B kill
+prints the system error message and continues with the next
+.IR pid .
+.SH NOTES
+.B kill
+exits with a nonzero status if any signal could not be sent.

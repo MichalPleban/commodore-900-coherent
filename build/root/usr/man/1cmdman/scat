@@ -1,0 +1,113 @@
+
+
+ssccaatt                                                         ssccaatt
+
+
+
+NNAAMMEE
+     scat - segmented concatenation
+
+SSYYNNOOPPSSIISS
+     ssccaatt [ [_o_p_t_i_o_n ...] [_f_i_l_e ...] ] ...
+
+DDEESSCCRRIIPPTTIIOONN
+     ssccaatt copies each named _f_i_l_e to standard output, one screen-
+     page at a time.  With no _f_i_l_e arguments, ssccaatt reads standard
+     input.  When output is a terminal, ssccaatt pauses after each
+     page and reads a single character to decide what to do next;
+     when output is not a terminal, or when -rr is given, it runs
+     straight through without pausing.
+
+     ssccaatt scans two argument lists: first the environment vari-
+     able SSCCAATT (a string of options separated by blanks, tabs, or
+     newlines, with no quoting), then the command-line arguments.
+     Options may be interspersed with file names and take effect
+     for the files that follow.  An argument of the form -._s_u_f_f_i_x
+     followed by more options associates those options only with
+     a later file whose name ends in ._s_u_f_f_i_x the sublist of op-
+     tions it introduces ends at the next file name, at --, or at
+     another -._s_u_f_f_i_x _A_n _a_r_g_u_m_e_n_t _o_f -- _e_n_d_s _a _s_u_b_l_i_s_t, _o_r (_o_u_t-
+     _s_i_d_e _a _s_u_b_l_i_s_t) _e_n_d_s _o_p_t_i_o_n _s_c_a_n_n_i_n_g _s_o _t_h_a_t _l_a_t_e_r _a_r_g_u_m_e_n_t_s
+     _a_r_e _t_a_k_e_n _a_s _f_i_l_e _n_a_m_e_s _e_v_e_n _i_f _t_h_e_y _b_e_g_i_n _w_i_t_h `-'.
+
+     Numeric option arguments may begin with 00 for octal, and may
+     be followed by bb or kk to be scaled by 512 or 1024.
+
+     Options:
+
+     -bb_n  Discard the first _n lines of the file before displaying
+          anything.
+
+     -cc   Display control characters unambiguously: a character
+          in the range 0-037 is shown as a caret followed by the
+          character 0100 higher (so SOH appears as ^AA), and a
+          character with the top bit set is shown with a leading
+          ~. The characters ^,  ~, and  are themselves prefixed
+          with \. This overrides -tt. Two sub-options may follow
+          directly after -cc: ss also maps blanks to _ (prefixing a
+          literal underscore with \), and tt prints tabs literally
+          instead of as ^II.
+
+     -ii_n  Shift the display window _n columns to the right, dis-
+          carding that many leading columns of each line; useful
+          for viewing long lines.
+
+     -ll_n  Use _n as the screen length in lines, instead of the
+          default of 24 (34 for a Tektronix 4012 terminal).
+
+     -nn   Prefix each (non-wrapped) input line with its line num-
+          ber.
+
+     -rr   Remote mode: write straight through without pausing for
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ssccaatt                                                         ssccaatt
+
+
+
+          ppaaggiinnaattiioonn, even if standard output is a terminal.
+
+     -ss   Squash empty lines out of the output.
+
+     -SS_n  Seek _n bytes into the file before starting to read it.
+
+     -tt   Truncate lines that are wider than the screen, instead
+          of the default of wrapping the excess onto the next
+          line (marked with a trailing \).
+
+     -ww_n  Use _n as the screen width in columns, instead of the
+          default of 80 (72 for a Tektronix 4012 terminal).
+
+     -xx   Expand tabs to spaces on output.
+
+     While paused between pages, ssccaatt accepts a single character
+     in response:
+
+          RREETTUURRNN
+               Show the next page.
+
+          SSPPAACCEE
+               Show one more line.
+
+          /    Show the next half page.
+
+          ff    Print the current file name and line number, then
+               continue waiting.
+
+          nn    Skip to the next file.
+
+          qq    Quit ssccaatt immediately.
+
+SSEEEE AALLSSOO
+     ccaatt
+
+NNOOTTEESS
+     ssccaatt recognizes the terminal type 44001122 (from the TTEERRMM en-
+     vironment variable) specially, choosing a different default
+     page length and width and a different erase sequence for
+     that terminal.

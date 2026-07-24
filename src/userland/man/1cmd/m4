@@ -1,0 +1,243 @@
+.TH m4 "" "Command"
+.SH NAME
+m4 \- macro processor
+.SH SYNOPSIS
+\fBm4 [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+m4 -- macro processor
+Usage:	m4 [ file ... ]
+If 'file' is '-' or omitted, m4 reads the standard input.
+.HE
+.B m4
+copies each named
+.I file
+in turn to the standard output, expanding macros as it goes; a
+.I file
+named
+.B \-
+means the standard input, and if no
+.I file
+is given at all,
+.B m4
+reads the standard input.
+.PP
+.B m4
+copies its input to the output until it finds a potential macro: a
+string of letters, digits, and underscores that begins with a
+non-digit and is surrounded by non-alphanumerics.
+If the string names a defined macro,
+.B m4
+removes it (and, if the next character is
+.BR "(" ,
+a parenthesized, comma-separated argument list, collected by
+processing it exactly like other text so that an argument may itself
+contain macro calls) from the input, and replaces it with the macro's
+value.
+Up to nine arguments are kept per call; commas inside quotes or
+balanced parentheses do not separate arguments, and leading unquoted
+whitespace in an argument is discarded.
+If the string does not name a defined macro, it is copied through
+unchanged.
+.PP
+A pair of quote characters (by default the backquote
+.B `
+and the apostrophe
+.BR ' )
+inhibits macro recognition of the text between them; one level of
+quotes is stripped away wherever
+.B m4
+encounters it, and quotes nest.
+.PP
+A user-defined macro's value is the text of its definition, with each
+.BI $ n
+(where
+.I n
+is a digit) replaced by the
+.IR n th
+argument of the call (argument 0 is the macro name itself); a
+.B $
+not followed by a digit is passed through as itself.
+.PP
+.B m4
+provides the following built-in macros:
+.IP "\fBchangequote[(\fR[\fIopenquote\fR][\fB,\fR[\fIclosequote\fR]]\fB)]\fR"
+Change the quote characters to the first character of
+.I openquote
+and of
+.IR closequote .
+A missing or empty argument restores that quote character to its
+default
+(\fB`\fR or \fB'\fR).
+Value is null.
+.IP "\fBdecr[(\fInumber\fB)]\fR"
+Value is
+.I number
+(default 0) minus one.
+.IP "\fBdefine(\fImacro\fB[,\fIdefinition\fB])\fR"
+Define or redefine
+.I macro
+to expand to
+.I definition
+(default null).
+Value is null.
+.IP "\fBdivert[(\fIn\fB)]\fR"
+Redirect the output to diversion
+.I n
+(default 0).
+Diversion 0 is the standard output; diversions 1 through 9 are held in
+temporary files, to be recovered later with
+.BR undivert ;
+diverting to any other number discards all further output until the
+next
+.B divert
+call.
+Value is null.
+.IP \fBdivnum\fR
+Value is the number of the diversion currently in effect.
+.IP \fBdnl\fR
+Delete to newline: discard all characters from the input, up to and
+including the next newline.
+Value is null.
+.IP "\fBdumpdef[(\fImacro\fB[,\fI...\fB])]\fR"
+Write, directly to the output, the quoted definition of each named
+.IR macro ,
+or of every defined macro (in internal hash-table order) if none are
+named.
+Value is null.
+.IP "\fBerrprint(\fItext\fB[,\fI...\fB])\fR"
+Write each
+.I text
+argument to standard error.
+Value is null.
+.IP "\fBeval(\fIexpression\fB)\fR"
+Value is the number that results from evaluating
+.I expression
+as a C-like integer expression, recognizing, from highest to lowest
+precedence: parentheses; exponentiation
+(\fB^\fR or \fB**\fR);
+unary
+\fB+\fR and \fB\-\fR;
+\fB*\fR, \fB/\fR, and \fB%\fR;
+binary
+\fB+\fR and \fB\-\fR;
+the relations
+\fB==\fR, \fB!=\fR, \fB<=\fR, \fB>=\fR, \fB<\fR, and \fB>\fR;
+logical
+.B &&
+or
+.B &
+(identical); and logical
+.B ||
+or
+.B |
+(identical).
+If
+.I expression
+is omitted, value is 0.
+Arithmetic is done in C
+.BR long s.
+.IP "\fBifdef(\fImacro\fB,\fIdefvalue\fB[,\fIundefvalue\fB])\fR"
+Value is
+.I defvalue
+if
+.I macro
+is currently defined, or
+.I undefvalue
+(default null) if not.
+.IP "\fBifelse(\fIarg1\fB,\fIarg2\fB,\fIarg3\fB[,\fIarg4\fB,\fIarg5\fB,\fIarg6\fB[,\fIarg7\fB,\fIarg8\fB,\fIarg9\fB]])\fR"
+Compare
+.I arg1
+against
+.IR arg2 :
+if they are the same string, value is
+.IR arg3 ;
+otherwise the comparison repeats with the next group of three
+arguments, up to three groups (nine arguments) in all.
+.IP "\fBinclude(\fIfile\fB)\fR"
+Process the contents of
+.I file
+as further input, as if it had been inserted at this point; a fatal
+error results if
+.I file
+cannot be opened.
+.IP "\fBincr[(\fInumber\fB)]\fR"
+Value is
+.I number
+(default 0) plus one.
+.IP "\fBindex(\fItext\fB,\fIpattern\fB)\fR"
+Value is the character position (counting from 0) of the first
+occurrence of
+.I pattern
+in
+.IR text ,
+or \-1 if it does not occur (or if either argument is missing).
+.IP "\fBlen(\fItext\fB)\fR"
+Value is the length of
+.I text
+(0 if omitted).
+.IP "\fBmaketemp(\fIfilenameXXXXXX\fB)\fR"
+Value is
+.I filenameXXXXXX
+with the trailing run of
+.BR X 's
+replaced by a unique string, as with the system call
+.BR mktemp() ;
+the argument must be at least six characters long.
+.IP "\fBsinclude(\fIfile\fB)\fR"
+Like
+.BR include ,
+but does nothing (instead of failing) if
+.I file
+cannot be opened.
+.IP "\fBsubstr(\fItext\fB[,\fIstart\fB[,\fIcount\fB]])\fR"
+Value is the substring of
+.I text
+beginning at position
+.I start
+(counting from 0; a negative value counts back from the end) and
+running for
+.I count
+characters (a negative value takes characters before
+.IR start ;
+if
+.I count
+is omitted, the rest of
+.I text
+is taken in the given direction).
+.IP "\fBsyscmd(\fIcommand\fB)\fR"
+Pass
+.I command
+to the shell for execution, as with the system call
+.BR system() .
+Value is null.
+.IP "\fBtranslit(\fItext\fB,\fIcharacters\fB[,\fIreplacements\fB])\fR"
+Value is
+.I text
+with each character found in
+.I characters
+replaced by the character at the same position in
+.IR replacements ,
+or deleted if
+.I replacements
+is shorter than
+.I characters
+(or omitted).
+.IP "\fBundefine(\fImacro\fB)\fR"
+Remove the definition of
+.IR macro ;
+a later use of the name is copied through literally.
+.IP "\fBundivert[(\fIn\fB[,\fI...\fB])]\fR"
+Copy the saved text of diversion
+.I n
+(1 through 9) into the current output, then discard it; a diversion
+that is still the current output is left untouched.
+With no arguments, all nine diversions are copied, in numeric order.
+Value is null.
+.PP
+At the end of processing all input files,
+.B m4
+automatically diverts back to the standard output and undiverts every
+remaining diversion.
+.SH "SEE ALSO"
+.B cpp

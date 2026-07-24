@@ -1,16 +1,8 @@
-/* (-lgl
- * 	The information contained herein is a trade secret of Mark Williams
- * 	Company, and  is confidential information.  It is provided  under a
- * 	license agreement,  and may be  copied or disclosed  only under the
- * 	terms of  that agreement.  Any  reproduction or disclosure  of this
- * 	material without the express written authorization of Mark Williams
- * 	Company or persuant to the license agreement is unlawful.
- * 
- * 	COHERENT Version 0.7.3
- * 	Copyright (c) 1982, 1983, 1984.
- * 	An unpublished work by Mark Williams Company, Chicago.
- * 	All rights reserved.
- -lgl) */
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 /*
  * Coherent for Commodore M-series z8001 processor
  * running in Segmented mode.
@@ -30,10 +22,12 @@
 int	unone();
 int	ubpt();
 int	uhalt();
+int	ureboot();
 struct systab sysdtab[NMDCALL] ={
 	0,		  INT,	unone,		/* 128 = sgrow */
 	0,		 VOID,	ubpt,		/* 129 = bpt */
 	0,		 VOID,	uhalt,		/* 130 = halt */
+	0,		 VOID,	ureboot,	/* 131 = reboot */
 };
 
 /* Segment trap reason bits */
@@ -135,6 +129,27 @@ uhalt()
 	if (super() == 0)
 		return;
 	halt();
+}
+
+/*
+ * Reboot the machine.  Mark all file systems clean, flush everything, then
+ * jump to the ROM restart entry (romconf.rom_restart).  Does not return.
+ */
+ureboot()
+{
+	if (super() == 0)
+		return;
+	/*
+	 * Sync everything and remount all file systems read only.  Syncing
+	 * flushes pending changes -- which makes each file system consistent,
+	 * so msync() marks it clean -- and the read-only remount stops anything
+	 * from dirtying it again before the restart.  A file system that was
+	 * consistent thus comes back read/write next boot; a crash (no clean
+	 * reboot) leaves it dirty -> read only + check.
+	 */
+	fsshutdown();
+	restart();
+	/* NOTREACHED (restart re-enters the ROM cold-start) */
 }
 
 /*

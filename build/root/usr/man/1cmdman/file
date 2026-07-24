@@ -1,0 +1,88 @@
+
+
+ffiillee                                                         ffiillee
+
+
+
+NNAAMMEE
+     file - guess type of a file
+
+SSYYNNOOPPSSIISS
+     ffiillee _n_a_m_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     For each given _n_a_m_e, ffiillee prints its best guess as to the
+     type of the file, based on the file's mode and, for an ordi-
+     nary file, the first part of its contents.  If _n_a_m_e cannot
+     be examined (for example, because it does not exist or the
+     caller lacks permission), ffiillee reports it as not accessible
+     instead.
+
+     For a file that is not an ordinary file, ffiillee reports the
+     mode's category directly, one of ddiirreeccttoorryy, (a directory
+     whose name begins with ss.), bblloocckk ssppeecciiaall ffiillee, cchhaarraacctteerr
+     ssppeecciiaall ffiillee, bblloocckk mmuullttiipplleexxoorr ffiillee, cchhaarraacctteerr mmuullttiipplleexxoorr
+     ffiillee, or nnaammeedd ppiippee, tagging the two special-file cases with
+     their major and minor device numbers.
+
+     For an ordinary file, ffiillee reads the start of the file and
+     reports one of the following:
+
+     eemmppttyy The file has zero length.
+
+     object file classification
+           The file begins with the magic number of a load-and-go
+           object header.  ffiillee goes on to describe whether it is
+           a kernel, a driver, or an ordinary executable, whether
+           it is 32-bit, a shared library, a library reference,
+           shared, separate I&D, and whether it still carries
+           relocation information, followed by the machine type
+           in parentheses.
+
+     aarrcchhiivvee
+           The file begins with the current archive magic number,
+           made by aarr, or with one of the older UNIX archive
+           magic numbers, in which case ffiillee reports sseevveenntthh eeddii-
+           ttiioonn aarrcchhiivvee or ssiixxtthh eeddiittiioonn aarrcchhiivvee instead.
+
+     bbiinnaarryy ddaattaa
+           The file contains a byte that is not printable ASCII,
+           white space, or backspace.
+
+     ccoommmmaannddss
+           The file's execute permission bit is set, but it is
+           not an object file; presumably a shell script.
+
+     Otherwise ffiillee inspects the text for a few recognizable pat-
+     terns: a line beginning .gglloobbll means aasssseemmbblleerr; a line
+     beginning with a period means nnrrooffff, ttbbll oorr eeqqnn iinnppuutt; a
+     line ending in a colon means ccoommmmaannddss; a line beginning %
+     followed immediately by %, {, or } means yyaacccc oorr lleexx iinnppuutt;
+     a mixture of braces and either semicolons or # lines means CC
+
+
+CCOOHHEERREENNTT CCoommmmaanndd MMaannuuaall                                    PPaaggee 11
+
+
+
+
+ffiillee                                                         ffiillee
+
+
+
+     pprrooggrraamm; short, fairly regular line lengths suggest xxmmaaiill
+     eennccooddeedd tteexxtt. Failing all of these, ffiillee reports pprroobbaabbllyy
+     tteexxtt.
+
+SSEEEE AALLSSOO
+     aarr, llss
+
+DDIIAAGGNNOOSSTTIICCSS
+     ffiillee prints nnaammee: nnoott aacccceessssiibbllee for a _n_a_m_e it cannot
+     ssttaatt(), and exits with a nonzero status if any _n_a_m_e could
+     not be examined.
+
+NNOOTTEESS
+     This is a heuristic guess based on a handful of simple pat-
+     terns; it looks only at the first part of the file and can
+     be fooled.

@@ -1,0 +1,51 @@
+
+
+llpprr                                                           llpprr
+
+
+
+NNAAMMEE
+     lpr - send to line printer spooler
+
+SSYYNNOOPPSSIISS
+     llpprr [_o_p_t_i_o_n_s] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     llpprr spools each named _f_i_l_e for printing on the line printer.
+     If no _f_i_l_e is named, it spools what it reads from the stan-
+     dard input.  For each file, llpprr writes a control-file entry
+     and, unless the file is read directly from its home direc-
+     tory, a copy of the data into the spool directory,
+     /uussrr/ssppooooll/llppdd, and then starts the line-printer daemon,
+     /uussrr/lliibb/llppdd.
+
+     -bb _b_a_n_n_e_r
+          Use _b_a_n_n_e_r as one more line of the banner page, instead
+          of the default, which is the user's login name.  Up to
+          two -bb banners may be given (the first four banner
+          lines are already used for the Coherent logo, the date,
+          and the user name).
+
+     -cc   Copy each _f_i_l_e into the spooling directory instead of
+          printing it from its own location, so the file can be
+          changed after it is queued.  This is implied by -rr.
+
+     -mm   Write a message on the user's terminal when printing
+          completes.
+
+     -nn   Do not send a completion message (the default).
+
+     -rr   Remove each _f_i_l_e once it has been copied into the spool
+          area (implies -cc).
+
+FFIILLEESS
+          /uussrr/ssppooooll/llppdd      spool directory
+          /uussrr/lliibb/llppdd        line printer daemon
+
+SSEEEE AALLSSOO
+     llppsskkiipp
+
+DDIIAAGGNNOOSSTTIICCSS
+     llpprr reports and removes any temporary spool files it created
+     if it cannot open a named file, cannot create its control or
+     data file, or cannot find the daemon /uussrr/lliibb/llppdd.

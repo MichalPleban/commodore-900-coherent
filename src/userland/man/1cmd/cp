@@ -1,0 +1,55 @@
+.TH cp "" "Command"
+.SH NAME
+cp \- copy files
+.SH SYNOPSIS
+\fBcp \fIoldfile newfile\fR
+.br
+\fBcp \fIfile ... directory\fR
+.SH DESCRIPTION
+.HS
+cp -- copy files
+Usage:	cp oldfile newfile
+	cp file ... directory
+.HE
+.B cp
+copies
+.I oldfile
+to
+.IR newfile ,
+creating
+.I newfile
+if necessary.
+.PP
+In the second form, if the last argument is an existing directory,
+.B cp
+copies each
+.I file
+into that directory, keeping the same base name.
+.PP
+The new file's contents are a byte-for-byte copy of the source.
+Blocks of the source that are entirely zero are reproduced by
+seeking over them in the new file (preserving holes in a sparse
+file) rather than by writing zero bytes, except that the last block
+written always contains real data so the copy has the correct
+length.
+The new file's permission bits are copied from the source's low 9
+mode bits; the setuid, setgid, and sticky bits are not copied, and
+the new file is owned by the user running
+.BR cp .
+.PP
+A file may not be copied onto itself.
+.SH "SEE ALSO"
+.BR cpdir ,
+.BR ln ,
+.B mv
+.SH DIAGNOSTICS
+.B cp
+prints a message and skips a file if it is a directory, cannot be
+opened or created, is the same file as the destination, or is a
+busy shared-text file that cannot be overwritten; a write error also
+aborts that file's copy.
+.SH NOTES
+When copying multiple files into a directory, the exit status
+reflects only whether at least one file was copied successfully:
+.B cp
+exits 0 if any copy succeeded, and 1 only if every copy failed.

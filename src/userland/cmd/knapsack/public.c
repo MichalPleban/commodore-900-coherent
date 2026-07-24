@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Public() creates a public key from the knapsack structure *k and stores it
  * in the mint array pointed to by key. The public key is scrambled here.
  * Given a user, pubkeyfile() returns the appropriate public key file name.

@@ -1,0 +1,56 @@
+
+
+dduu                                                             dduu
+
+
+
+NNAAMMEE
+     du - summarize disk usage
+
+SSYYNNOOPPSSIISS
+     dduu [-aa] [-ss] [_d_i_r_e_c_t_o_r_y ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     For each named _d_i_r_e_c_t_o_r_y, dduu walks the directory tree rooted
+     there and prints, in 512-byte blocks, the space used by each
+     subdirectory (as a running subtotal, most deeply nested
+     first), followed by the grand total for _d_i_r_e_c_t_o_r_y itself.
+     If no _d_i_r_e_c_t_o_r_y is given, dduu reports on the current direc-
+     tory.  If a named argument is a plain file rather than a
+     directory, dduu prints its size and nothing else.
+
+     -aa   Also print a line for every plain file, not just for
+          directories.
+
+     -ss   Print only the single grand total for each named _d_i_r_e_c-
+          _t_o_r_y (or file); suppresses the per-subdirectory and, if
+          -aa was also given, per-file lines.
+
+     dduu counts a file that has more than one link to it only
+     once, using an internal table of up to 500 (device, i-num-
+     ber) pairs already seen; if a tree contains more distinct
+     multiply-linked files than that, dduu warns and the excess
+     ones are counted more than once.
+
+     Because each level of directory recursion holds a file
+     descriptor and some stack, a directory tree nested more than
+     12 levels deep is finished by a forked child process rather
+     than by further recursion in the same process; this is nor-
+     mal and not reported as an error.
+
+DDIIAAGGNNOOSSTTIICCSS
+     dduu prints a warning and skips (counting it as zero blocks)
+     any directory it cannot open or a directory entry it cannot
+     ssttaatt(), and a ``directory structure too deep to traverse''
+     warning if a path name grows too long to hold, or if forking
+     to continue a deeply nested tree fails.  None of these war-
+     nings changes the exit status, which is 0 unless dduu was
+     given an unrecognized option.
+
+SSEEEE AALLSSOO
+     ddff, ffiinndd
+
+NNOOTTEESS
+     dduu does not account for indirect blocks or other file-system
+     overhead, so its totals can under-report the space a tree
+     actually occupies on a device.

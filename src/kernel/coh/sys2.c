@@ -1,16 +1,8 @@
-/* (-lgl
- * 	The information contained herein is a trade secret of Mark Williams
- * 	Company, and  is confidential information.  It is provided  under a
- * 	license agreement,  and may be  copied or disclosed  only under the
- * 	terms of  that agreement.  Any  reproduction or disclosure  of this
- * 	material without the express written authorization of Mark Williams
- * 	Company or persuant to the license agreement is unlawful.
- * 
- * 	COHERENT Version 0.7.3
- * 	Copyright (c) 1982, 1983, 1984.
- * 	An unpublished work by Mark Williams Company, Chicago.
- * 	All rights reserved.
- -lgl) */
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 /*
  * Coherent.
  * System calls (filesystem related).
@@ -424,6 +416,21 @@ char *np;
 		goto err;
 	}
 	idetach(ip);
+	/*
+	 * Remount (mount -w): promote the already-mounted device to
+	 * read/write in place.  Only the device matters, so the mount
+	 * directory `np' is not consulted.
+	 */
+	if ((f&MFRMT) != 0) {
+		for (mp=mountp; mp!=NULL; mp=mp->m_next)
+			if (mp->m_dev == rdev)
+				break;
+		if (mp == NULL)
+			u.u_error = EINVAL;
+		else
+			fsremount(mp, f);
+		return (0);
+	}
 	if (ftoi(np, 'r') != 0)
 		return;
 	ip = u.u_cdiri;

@@ -1,0 +1,80 @@
+.TH cron "" "Administration"
+.SH NAME
+cron \- execute commands at preset times
+.SH SYNOPSIS
+\fB/etc/cron &\fR
+.SH DESCRIPTION
+.HS
+cron -- execute commands at preset times
+Usage:	/etc/cron &
+cron takes no command-line options or arguments.  It is normally
+started once, from /etc/rc, and runs in the background forever.
+.HE
+.B cron
+is a daemon that runs commands at preset times.
+It takes no command-line arguments; it is normally started once, from
+.BR /etc/rc ,
+and never exits.
+.PP
+After starting,
+.B cron
+sets its user and group ids to those of
+.B daemon
+(if that user is found in the password file), changes its working
+directory to
+.BR /bin ,
+and enters a loop that wakes once every minute.
+Each time it wakes, it reopens
+.B /usr/lib/crontab
+and reads it one entry at a time, comparing the entry's time fields
+against the current time.
+.PP
+Each entry begins with five time fields, separated by blanks:
+.DS
+.ta 0.3i 1.6i
+	\fIminute\fR	0-59
+	\fIhour\fR	0-23
+	\fIday of month\fR	1-31
+	\fImonth\fR	1-12
+	\fIday of week\fR	0-6 (0 is Sunday)
+.DE
+Each field is either a lone
+.BR * ,
+matching every value; a single number; a range such as
+\fI8\fR\-\fI17\fR;
+or a comma-separated list of numbers and ranges.
+The rest of the entry, following the fifth field, is the command to be
+executed.
+.PP
+When every field of an entry matches the current minute, hour, day of
+month, month, and day of week,
+.B cron
+runs the entry's command by piping it to a new shell.
+A command may be continued onto more than one line of the entry by
+ending each line but the last with a percent sign; before handing the
+text to the shell,
+.B cron
+turns each such percent sign into a newline.
+.PP
+.B cron
+ignores the signals
+.BR SIGHUP ,
+.BR SIGINT ,
+and
+.BR SIGPIPE ,
+and uses
+.B SIGALRM
+internally to wake itself once a minute.
+.SH FILES
+.DS
+.ta 1.6i
+\fB/usr/lib/crontab\fR	table of commands to run
+.DE
+.SH "SEE ALSO"
+.BR at ,
+.B sh
+.SH NOTES
+.B cron
+takes no options or arguments; any given on its command line are
+ignored.
+It does not keep a log of the commands it has run.

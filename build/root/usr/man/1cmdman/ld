@@ -1,0 +1,152 @@
+
+
+lldd                                                             lldd
+
+
+
+NNAAMMEE
+     ld - load/bind relocatable object files
+
+SSYYNNOOPPSSIISS
+     lldd [_o_p_t_i_o_n ...] _f_i_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     lldd combines relocatable object files, produced by cccc,  aass,
+     or  lldd, with routines drawn from library archives produced
+     by aarr, to build an executable (or further relocatable) out-
+     put file.
+
+     lldd scans its arguments left to right.  Each non-option argu-
+     ment is either a relocatable object file or a library ar-
+     chive.  A library archive is searched only to resolve un-
+     defined references; if there are none outstanding, lldd goes
+     on to the next argument immediately.  The library is scanned
+     from first module to last, repeatedly, until a whole pass
+     adds nothing further to the output; a module is bound in as
+     soon as it resolves an outstanding undefined symbol.
+
+     The following options are recognized:
+
+     -dd   Define common symbols in the output even if undefined
+          symbols remain.  Normally commons are defined only when
+          the link is otherwise complete (no undefined symbols,
+          or relocatable output).
+
+     -ee _e_n_t
+          Set the entry point of the output to _e_n_t, given either
+          as a symbol name or as a number (a leading 00 means
+          octal, 00xx means hexadecimal).
+
+     -ii   Bind the output with separated (sepid) text and data.
+
+     -kk[_s_y_s]
+          Link a kernel process or loadable driver: read the sym-
+          bol table of _s_y_s (default /ccoohheerreenntt) to resolve
+          references against the running kernel, and mark the
+          output as a kernel image.
+
+     -ll_l_i_b
+          An abbreviation for the library /lliibb/lliibb_l_i_b.aa, or
+          /uussrr/lliibb/lliibb_l_i_b.aa if the first is not found.
+
+     -LL   Build large-model output: relax the check that a seg-
+          ment's address range fits within the machine's normal
+          per-segment size limit.
+
+     -mm   Build the output image in memory, when it is small
+          enough to fit, instead of seeking a disk file for each
+          segment.  Larger memory use, faster link.
+
+     -nn   Bind the output as a shared (pure) text image.
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+lldd                                                             lldd
+
+
+
+     -oo _f_i_l_e
+          Write the output into _f_i_l_e instead of the default,
+          ll.oouutt.
+
+     -rr   Retain relocation information in the output and do not
+          complain about undefined symbols; produces a .oo file as
+          if its pieces had been compiled together.
+
+     -RR _b_a_s_e
+          Set the relocation base of the output to _b_a_s_e (a symbol
+          name or a number) instead of the machine's usual
+          default.
+
+     -ss   Discard the symbol table from the output.
+
+     -uu _s_y_m
+          Add _s_y_m to the symbol table as an undefined global
+          reference, to force a library search that pulls in
+          whichever module defines it -- for example, -uu _ddttooaa_,
+          to force the real floating-point formatter ahead of its
+          stub in lliibbcc.aa.
+
+     -ww   Watch: print progress messages (module and undefined-
+          symbol counts, final image size) as linking proceeds.
+          This option is accepted by the program but is not
+          listed in the Options table above.
+
+     -XX   Discard C-internal local symbols.
+
+     -xx   Discard all local symbols.
+
+FFIILLEESS
+          ll.oouutt               default output file
+          /ccoohheerreenntt           default kernel symbol table for -kk
+          /lliibb/lliibb*.aa         standard libraries
+          /uussrr/lliibb/lliibb*.aa     more libraries
+
+SSEEEE AALLSSOO
+     aarr, aass, cccc
+
+DDIIAAGGNNOOSSTTIICCSS
+     no input found
+          No relocatable object file was read; there is nothing
+          to link.
+
+     cannot open _f_i_l_e
+          lldd prints ccaann'tt ooppeenn _f_i_l_e and exits: it could not open
+          the named object file or library.
+
+     cannot create _f_i_l_e
+          lldd could not create the output file named by -oo (or
+          ll.oouutt).
+
+     segment larger than _nKb
+          A segment of the output exceeds the machine's normal
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+lldd                                                             lldd
+
+
+
+          ssiizzee limit for a segment; relink with -LL if the output
+          is genuinely large-model.
+
+     address wraparound
+          A segment's address computation overflowed; the output
+          would not run correctly.  Printed with the added hint
+          ``use `-L''' when the wraparound would be cured by lar-
+          ge-model output.
+
+NNOOTTEESS
+     When linking a program by hand (running lldd independently of
+     cccc), be sure to include the appropriate run-time start-up
+     object (such as ccrrttss00.oo) on the command line; otherwise the
+     program will not link correctly.

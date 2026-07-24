@@ -1,9 +1,16 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Init.
  */
 #include <dir.h>
 #include <signal.h>
+#include <sgtty.h>
 #include <utmp.h>
+#include <machine.h>
 
 /*
  * Miscellaneous constants.
@@ -29,6 +36,7 @@ char *envl[] ={
 	"HOME=/etc",
 	"PS1=# ",
 	"PS2=> ",
+	NULL,			/* TERM= (filled in for the console shell) */
 	NULL
 };
 
@@ -53,18 +61,38 @@ char *argv[];
 	register struct tty *tp;
 	register int n;
 	unsigned status;
+	int rootro;
 
-	if ((n = creat("/etc/boottime", 0644)) >= 0)
+	/*
+	 * Stamping /etc/boottime doubles as a probe for a writable root:
+	 * if root came up read-only (dirty, per the kernel's clean/dirty
+	 * check) the creat fails and we defer the stamp until root is made
+	 * writable at the single-user -> multi-user transition below.
+	 */
+	if ((n = creat("/etc/boottime", 0644)) >= 0) {
 		close(n);
+		rootro = 0;
+	} else
+		rootro = 1;
 	if (argc >= 2)
 		loadswp(argv[1]);
 	for (n=2; n<argc; n++)
 		loaddrv(argv[n]);
+	/*
+	 * The console driver named in argv[2] is now loaded, so /dev/console
+	 * is live; announce ourselves before spawning the first shell.
+	 */
+	console("\nOpenCoherent version ");
+	console(VERSION);
+	console("\nHit Ctrl+D to exit the single user shell\n");
 	putwtmp("~", "");
 	signal(SIGHUP, sighang);
 	signal(SIGQUIT, sigquit);
+	if (rootro)
+		console("\nWARNING: Root file system was not unmounted cleanly.\nRepair it with 'check -s' on the root device, then '/etc/reboot'.\n");
 	for (;;) {
 		while (attendc() == 0) {
+			envl[2] = rootro ? "PS1=(ro)# " : "PS1=# ";
 			n = spawn("/dev/console",
 				"/bin/sh", "-sh", NULL);
 			waitc(n);
@@ -72,6 +100,21 @@ char *argv[];
 				sinflag = 0;
 				kill(-1, 9);
 				continue;
+			}
+			/*
+			 * Do not enter multi-user until root is writable.
+			 * A read-only (dirty) root must be checked and either
+			 * remounted (mount -w) or rebooted first; otherwise
+			 * stay in single-user rather than run /etc/rc on it.
+			 */
+			if (rootro) {
+				if ((n = creat("/etc/boottime", 0644)) >= 0) {
+					close(n);
+					rootro = 0;
+				} else {
+					console("\nRoot is still read-only.\nRepair it with 'check -s' on the root device, then '/etc/reboot'.\n");
+					continue;
+				}
 			}
 			if (access("/etc/rc", 0) == 0) {
 				n = spawn("/dev/null",
@@ -310,6 +353,26 @@ char *ap;
 		panic("Cannot open ", tp, NULL);
 	dup2(0, 1);
 	dup2(0, 2);
+	/*
+	 * Ask the tty which terminal type it emulates and pass it to the
+	 * child as TERM.  Only the graphics console drivers answer TIOCGTERM
+	 * (hrtty -> "vt100", lrtty -> "h19"); on a serial console, /dev/null
+	 * (rc, driver loading) or the no-display console the ioctl fails or
+	 * yields nothing, so TERM is left for /etc/profile to default.
+	 */
+	{
+		register char **ep;
+		static char termbuf[5+TERMSZ];	/* "TERM=" + name */
+
+		strcpy(termbuf, "TERM=");
+		if (ioctl(0, TIOCGTERM, &termbuf[5]) >= 0 && termbuf[5] != '\0') {
+			termbuf[5+TERMSZ-1] = '\0';
+			for (ep = envl; *ep != NULL; ep++)
+				;
+			*ep++ = termbuf;
+			*ep = NULL;
+		}
+	}
 	execve(np, &ap, envl);
 	panic("Cannot execute ", np, NULL);
 	return (pid);
@@ -383,4 +446,22 @@ register char *cp1;
 	for (cp2=cp1; *cp2; cp2++)
 		;
 	write(0, cp1, cp2-cp1);
+}
+
+/*
+ * Write a message to the system console (the controlling terminal, i.e.
+ * the screen the operator is looking at), independent of init's own fds.
+ */
+console(cp1)
+register char *cp1;
+{
+	register char *cp2;
+	register int fd;
+
+	if ((fd = open("/dev/console", 1)) < 0)
+		return;
+	for (cp2=cp1; *cp2; cp2++)
+		;
+	write(fd, cp1, cp2-cp1);
+	close(fd);
 }

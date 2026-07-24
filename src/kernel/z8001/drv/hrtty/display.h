@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 
 
 #define	SEG0	((uint *)0x3a000000L)

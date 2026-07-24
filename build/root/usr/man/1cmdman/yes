@@ -1,0 +1,20 @@
+
+
+yyeess                                                           yyeess
+
+
+
+NNAAMMEE
+     yes - print infinitely many responses
+
+SSYYNNOOPPSSIISS
+     yyeess [_a_n_s_w_e_r]
+
+DDEESSCCRRIIPPTTIIOONN
+     yyeess repeatedly prints _a_n_s_w_e_r (default: yy) followed by a
+     newline, forever, until it is killed or its standard output
+     is closed.  It takes at most one argument.
+
+DDIIAAGGNNOOSSTTIICCSS
+     yyeess prints UUssaaggee: yyeess [aannsswweerr] and exits with status 1 if
+     given more than one argument.

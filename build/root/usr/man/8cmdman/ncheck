@@ -1,0 +1,54 @@
+
+
+nncchheecckk                                                     nncchheecckk
+
+
+
+NNAAMMEE
+     ncheck - print file names corresponding to i-numbers
+
+SSYYNNOOPPSSIISS
+     nncchheecckk [-aass] [-ii _n ...] [_f_i_l_e_s_y_s_t_e_m ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     An i-number identifies an i-node.  nncchheecckk prints, for each
+     named _f_i_l_e_s_y_s_t_e_m, a list of the path names that lead to each
+     i-node in that file system; each line gives an i-number
+     followed by one of the path names by which it can be
+     reached.  With no _f_i_l_e_s_y_s_t_e_m argument, nncchheecckk checks
+     /ddeevv/rrrrmm0000.
+
+     nncchheecckk first scans the whole i-list to find which i-numbers
+     are directories, then scans every directory to build the
+     path from each directory to its entries, and finally prints
+     a name for every i-node (or, with -ii, only for the listed i-
+     numbers; or, with -ss, only for special files and files with
+     the set-user-id or set-group-id bit on).  By default,
+     entries named .  and ..  are not printed; -aa prints them
+     too.  Names ending in /.  identify directories.
+
+     -aa   Include entries named .  and ..  in the output.
+
+     -ii _n ...
+          Print only the names of the listed i-numbers, instead
+          of every i-node in the file system.  Up to 20 numbers
+          may be given, either after one -ii or repeated; the list
+          ends at the first non-numeric argument.
+
+     -ss   Print only the names of block-special, character-
+          special, set-user-id, and set-group-id files; useful
+          for a quick security check of a file system.
+
+     -uu   Accepted but currently a no-op; reserved for a future
+          search for orphaned (unreferenced) structure.
+
+DDIIAAGGNNOOSSTTIICCSS
+     nncchheecckk marks a directory entry whose i-number is out of
+     range as bbaadd, and represents a loop found while tracing a
+     path back to the root with .... It prints a message and sets
+     a nonzero exit status if a file system cannot be opened, its
+     super block looks implausible, or an i-node block cannot be
+     read.
+
+SSEEEE AALLSSOO
+     cchheecckk, ddcchheecckk, iicchheecckk

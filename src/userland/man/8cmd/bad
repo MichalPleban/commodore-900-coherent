@@ -1,0 +1,64 @@
+.TH bad "" "Administration"
+.SH NAME
+bad \- maintain bad block list
+.SH SYNOPSIS
+\fBbad \fIoption filesystem \fB[\fIblock ...\fB]\fR
+.SH DESCRIPTION
+.HS
+bad -- maintain bad block list
+Usage:	bad option filesystem [ block ... ]
+Options:
+	a	Add blocks
+	d	Delete blocks
+	l	List blocks
+.HE
+A disk may have bad blocks: portions of the medium that are flawed
+and cannot reliably be read or written.
+.B bad
+maintains the list of bad blocks kept for the given
+.IR filesystem ,
+which must be a block-special file.
+The mandatory
+.I option
+argument is one of the following letters:
+.IP \fBa\fR
+Add each given
+.I block
+to the bad-block list.
+.IP \fBc\fR
+Rewrite the bad-block file without adding or deleting any blocks.
+.IP \fBd\fR
+Delete each given
+.I block
+from the bad-block list.
+.IP \fBl\fR
+List all blocks currently on the bad-block list; no
+.I block
+arguments are taken.
+.PP
+Each
+.I block
+may also be given as a range
+.IB b1 \-\fIb2\fR,
+meaning every block from
+.I b1
+through
+.I b2
+inclusive.
+.PP
+.B bad
+merely adds a block to, or removes a block from, the bad-block list;
+it does not free any i-node that may already reference a block being
+added.
+.SH "SEE ALSO"
+.BR icheck ,
+.B mkfs
+.SH DIAGNOSTICS
+.B bad
+prints a message and exits if
+.I filesystem
+cannot be opened, if a block given to
+.B a
+is already on the list, or if a block given to
+.B d
+is not on the list.

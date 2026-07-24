@@ -1,0 +1,51 @@
+
+
+pprrooff                                                         pprrooff
+
+
+
+NNAAMMEE
+     prof - print execution profile
+
+SSYYNNOOPPSSIISS
+     pprrooff [-aabbccss] [_p_r_o_g_f_i_l_e [_m_o_n_f_i_l_e]]
+
+DDEESSCCRRIIPPTTIIOONN
+     pprrooff interprets the _m_o_n_f_i_l_e produced by an instrumented run
+     of a program compiled with the cccc -pp option, and reports how
+     execution time and calls were distributed among the routines
+     of _p_r_o_g_f_i_l_e. The _p_r_o_g_f_i_l_e argument gives the load module
+     that was profiled (default ll.oouutt); the _m_o_n_f_i_l_e argument
+     gives the raw profile data written by that run's monitor
+     (default mmoonn.oouutt).
+
+     With none of -bb,  -cc, or  -ss given,  pprrooff prints one line
+     for each symbol that accumulated any time or call count: the
+     symbol's name, its percentage of total ticks, and, if it was
+     called, the number of calls and the average time per call as
+     a percentage.
+
+     -aa   Use all symbols found in _p_r_o_g_f_i_l_e, not only ones with
+          external (global) linkage.
+
+     -bb   Print, for every profiled address range (``bin''), the
+          tick count and the symbol plus offset it falls in;
+          useful for finding hot spots at finer resolution than
+          whole routines.
+
+     -cc   Print, for every recorded call, the number of times it
+          was made and the calling symbol plus offset.
+
+     -ss   Print the high-water mark of stack usage recorded in
+          _m_o_n_f_i_l_e and skip the normal profile report.
+
+FFIILLEESS
+          ll.oouutt       default _p_r_o_g_f_i_l_e
+          mmoonn.oouutt     default _m_o_n_f_i_l_e
+
+SSEEEE AALLSSOO
+     lldd, nnmm
+
+DDIIAAGGNNOOSSTTIICCSS
+     pprrooff complains and exits if _p_r_o_g_f_i_l_e is not a valid load
+     module, or if _m_o_n_f_i_l_e is missing or truncated.

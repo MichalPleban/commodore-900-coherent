@@ -1,0 +1,254 @@
+
+
+sseedd                                                           sseedd
+
+
+
+NNAAMMEE
+     sed - stream editor
+
+SSYYNNOOPPSSIISS
+     sseedd [-nn] [-ee _c_o_m_m_a_n_d_s] [-ff _s_c_r_i_p_t] ... _f_i_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     sseedd copies each _f_i_l_e, or the standard input if none is
+     given, to the standard output, applying to it the editing
+     commands given by -ee arguments and -ff script files, in the
+     order those arguments appear on the command line.  If
+     neither -ee nor -ff is given, the first non-option argument is
+     taken as a single -ee command instead of a file name.
+
+     sseedd reads one line at a time into a _p_a_t_t_e_r_n _s_p_a_c_e, runs
+     every command whose address selects that line against it,
+     and then, unless -nn was given, writes the pattern space to
+     the standard output before reading the next line.  There is
+     also a _h_o_l_d _s_p_a_c_e that commands may copy the pattern space
+     into and out of.
+
+AADDDDRREESSSSEESS
+     A command may be preceded by zero, one, or two _a_d_d_r_e_s_s_e_s.
+     With no address, the command applies to every line.  With
+     one address, it applies only to a line selected by that ad-
+     dress.  With two addresses, separated by a comma, it applies
+     to the first line selected by the first address, and to
+     every following line up to and including the next line
+     selected by the second address; a new such range cannot
+     begin until the current one has ended.  An address is one
+     of:
+
+     _n       Line number _n of the input (lines are numbered from
+             1 across all the files given).
+
+     $       The last line of input.
+
+     /_p_a_t_t_e_r_n/
+             The next line that matches the regular expression
+             _p_a_t_t_e_r_n.
+
+     A !  immediately before the command applies it to every line
+     _n_o_t selected by the address (or addresses).
+
+CCOOMMMMAANNDDSS
+     Each command occupies one line (except that the aa, ii, and cc
+     commands take following text lines, each but the last ending
+     in \, as their argument, and the ss, yy, ww, and rr commands
+     take the rest of their line as argument).  Commands may be
+     grouped in braces: [_a_d_d_r_e_s_s[,_a_d_d_r_e_s_s]]{command ...} runs
+     each enclosed command on the selected lines.
+
+     =       Print the current line number.
+
+     aa\      Append the following text (up to the line not ending
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+sseedd                                                           sseedd
+
+
+
+             iinn \) to the output after the current line.
+
+     bb [_l_a_b_e_l]
+             Branch unconditionally to _l_a_b_e_l, or to the end of
+             the script if _l_a_b_e_l is omitted.
+
+     cc\      Delete the pattern space (like dd), and, once at the
+             end of the addressed range, write the following text
+             in its place.
+
+     dd       Delete the pattern space and start the next cycle
+             without printing it.
+
+     DD       Delete up to and including the first embedded
+             newline in the pattern space (left there by NN), and
+             start the next cycle on what remains, without
+             reading new input; if there is no embedded newline,
+             DD acts like dd.
+
+     gg       Replace the pattern space with a copy of the hold
+             space.
+
+     GG       Append a newline and a copy of the hold space to the
+             pattern space.
+
+     hh       Replace the hold space with a copy of the pattern
+             space.
+
+     HH       Append a newline and a copy of the pattern space to
+             the hold space.
+
+     ii\      Write the following text to the output before the
+             current line.
+
+     ll       Write the pattern space to the output with non-
+             graphic characters made visible: backslash is
+             doubled, and other non-graphic bytes are shown as a
+             backslash followed by a three-digit octal number;
+             long lines are folded, with a trailing backslash
+             marking the fold.
+
+     nn       Write the pattern space to the output (unless -nn was
+             given), then replace it with the next input line; if
+             there is no next line, sseedd exits.
+
+     NN       Append the next input line to the pattern space,
+             separated by an embedded newline; if there is no
+             next line, sseedd exits without writing the pattern
+             space.
+
+     pp       Write the pattern space to the output.
+
+     PP       Write up to the first embedded newline of the pat-
+             tern space to the output.
+
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+sseedd                                                           sseedd
+
+
+
+     qq       Write the pattern space to the output (unless -nn),
+             and exit immediately.
+
+     rr _f_i_l_e  Read _f_i_l_e and copy its contents to the output after
+             the current line.
+
+     ss/_p_a_t_t_e_r_n/_r_e_p_l_a_c_e_m_e_n_t/[_n][_g][_p][_w _f_i_l_e]
+             Search the pattern space for _p_a_t_t_e_r_n and replace it
+             with _r_e_p_l_a_c_e_m_e_n_t. By default only the first match is
+             replaced; a digit _n selects the _nth match instead,
+             and gg replaces every match from there on.  pp writes
+             the pattern space if a replacement was made, and ww
+             _f_i_l_e appends it to _f_i_l_e under the same condition.
+             In _r_e_p_l_a_c_e_m_e_n_t, & stands for the text that _p_a_t_t_e_r_n
+             matched, and \_d (a digit _d) stands for the text
+             delimited by the _dth \(... \).
+
+     tt [_l_a_b_e_l]
+             Branch to _l_a_b_e_l (or to the end of the script) if any
+             substitution has succeeded since the last input line
+             was read or the last tt branched.
+
+     ww _f_i_l_e  Append the pattern space, followed by a newline, to
+             _f_i_l_e.
+
+     xx       Exchange the pattern space and the hold space.
+
+     yy/_c_h_a_r_s/_r_e_p_l_a_c_e_m_e_n_t_s/
+             Transliterate each character in the pattern space
+             that appears in _c_h_a_r_s to the corresponding character
+             in _r_e_p_l_a_c_e_m_e_n_t_s; the two lists must be the same
+             length.
+
+     :_l_a_b_e_l  Declare _l_a_b_e_l as the target of a later bb or tt com-
+             mand.
+
+RREEGGUULLAARR EEXXPPRREESSSSIIOONNSS
+     The patterns used in addresses and in the ss command are
+     regular expressions built from:
+
+     cc       An ordinary character matches itself.
+
+     .       Matches any single character.
+
+     *       Matches zero or more occurrences of the single
+             preceding character (or of a preceding ., [...], or
+             \(...\)).
+
+     ^       At the start of a pattern, anchors the match to the
+             beginning of the pattern space.
+
+     $       At the end of a pattern, anchors the match to the
+             end of the pattern space.
+
+     [_c_h_a_r_s], [^_c_h_a_r_s]
+
+
+COHERENT Command Manual                                    Page 3
+
+
+
+
+sseedd                                                           sseedd
+
+
+
+             Matches any one character in (or, with a leading ^,
+             not in) _c_h_a_r_s, which may include ranges written _c_1-
+             _c_2.
+
+     \( ... \)
+             Groups a sub-pattern so it can be referred to as \_d
+             (where _d is 1-9), either later in the same pattern
+             or, in a substitution's replacement, as the text
+             that sub-pattern matched.  Up to nine such groups
+             are allowed in one pattern.
+
+     \nn      Matches a newline embedded in the pattern space (as
+             left there by NN).
+
+     \cc      Matches the literal character _c even if it would
+             otherwise be special.
+
+     If -ss is in effect, every letter typed in a pattern (whether
+     alone, in a character class, or as the range endpoints of a
+     character class) matches either its upper- or lower-case
+     form in the pattern space.
+
+OOPPTTIIOONNSS
+     -ee   The next argument is one or more sseedd commands,
+          separated by newlines.  More than one -ee (and -ff) argu-
+          ment may be given; the commands are run in the order
+          given.
+
+     -ff   The next argument names a file of sseedd commands, one
+          command per line.
+
+     -nn   Suppress the automatic writing of the pattern space at
+          the end of each cycle; only explicit pp, PP, ll, and
+          similar output commands produce output.
+
+     -ss   Fold case: a letter in a pattern matches either its up-
+          per- or lower-case form in the input.
+
+DDIIAAGGNNOOSSTTIICCSS
+     sseedd reports each error found while compiling the commands,
+     with the number of the command line it occurred on, and ex-
+     its without processing any input if there were any.
+     Execution-time errors (such as a buffer overflow) are also
+     reported, with a diagnostic and no line number.
+
+NNOOTTEESS
+     The line, pattern, and hold buffers are each limited to 512
+     characters; a label name or a file name given to ww or rr is
+     truncated to 15 characters.  Up to nine \( ...  \) groups
+     are allowed per pattern.

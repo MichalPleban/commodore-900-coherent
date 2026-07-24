@@ -1,0 +1,108 @@
+.TH bc "" "Command"
+.SH NAME
+bc \- interactive calculator with arbitrary precision
+.SH SYNOPSIS
+\fBbc [\-l] [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+bc -- interactive calculator with arbitrary precision
+Usage:	bc [ -l ] [ file ... ]
+	-l	Use the extended bc library
+After reading each input 'file', bc reads the standard input.
+.HE
+.B bc
+is a language that performs calculations on numbers with an
+arbitrary number of digits.
+It is most commonly used as an interactive calculator, where the
+user types arithmetic expressions in a syntax reminiscent of C.
+.PP
+.B bc
+recognizes one option:
+.IP \fB\-l\fR
+Read the extended math library
+.B /usr/lib/lib.b
+before reading any file or standard input.
+.PP
+After
+.B bc
+reads each named
+.IR file ,
+it reads the standard input.
+This lets you load a program stored in a file and then continue
+typing at the terminal.
+.PP
+The delimiters
+.B /*
+and
+.B */
+enclose comments.
+The three built-in variables
+.BR obase ,
+.BR ibase ,
+and
+.B scale
+give, respectively, the number base used for printing numbers
+(default: ten), the number base used for reading numbers (default:
+ten), and the number of digits kept after the decimal point
+(default: zero).
+Variables may be simple variables or arrays, and need not be
+declared, except for variables local to a function.
+.PP
+.B bc
+recognizes the following keywords, with syntax modeled on C:
+.IP "\fBif, for, do, while\fR"
+Test conditions and define loops.
+.IP "\fBbreak, continue\fR"
+Alter control flow within a
+.B for
+or
+.B while
+loop.
+.IP \fBquit\fR
+Exit
+.B bc
+immediately.
+.IP "\fBdefine \fIfunction\fB(\fIarg, ..., arg\fB)\fR"
+Define a
+.B bc
+function as a compound statement.
+.IP "\fBauto \fIvar, ..., var\fR"
+Declare variables local to a function.
+.IP "\fBreturn(\fIvalue\fB)\fR"
+Return a value from a function.
+.PP
+.B bc
+recognizes the operators
+.BR + ", " \- ", " * ", " / ", " % ", " ^ ", " ++ ", " \-\- ", "
+.BR = ", " += ", " \-= ", " *= ", " /= ", " %= ", " ^= ", "
+.BR == ", " != ", " < ", " <= ", " > ", and " >= ,
+similar to C except that
+.B ^
+and
+.B ^=
+perform exponentiation.
+Statements are separated by semicolons or newlines and may be
+grouped into compound statements with braces;
+.B bc
+prints the value of any statement that is an expression but not an
+assignment.
+As in the editor
+.BR ed ,
+a
+.B !
+at the beginning of a line sends the rest of the line to the shell
+as a command.
+.SH FILES
+.DS
+.ta 1.5i
+	\fB/usr/lib/lib.b\fR	source code for the mathematical library
+.DE
+.SH "SEE ALSO"
+.B dc
+.SH NOTES
+Line numbers do not accompany error messages in source files.
+.B bc
+performs integer calculations with arbitrary precision, limited only
+by available memory; results of calculations on numbers with
+fractional parts depend on the current
+.BR scale .

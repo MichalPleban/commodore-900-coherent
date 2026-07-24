@@ -1,0 +1,29 @@
+
+
+aaccccttoonn                                                     aaccccttoonn
+
+
+
+NNAAMMEE
+     accton - enable/disable process accounting
+
+SSYYNNOOPPSSIISS
+     /eettcc/aaccccttoonn [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     aaccccttoonn turns process accounting on or off.  Invoked with a
+     _f_i_l_e argument, it turns accounting on: thereafter the system
+     writes an accounting record for every process into _f_i_l_e. By
+     convention _f_i_l_e should be /uussrr/aaddmm/aacccctt. Invoked with no ar-
+     gument, aaccccttoonn turns accounting off.
+
+SSEEEE AALLSSOO
+     aacc, ssaa
+
+DDIIAAGGNNOOSSTTIICCSS
+     aaccccttoonn prints a system error message if it cannot enable or
+     disable accounting on the given _f_i_l_e.
+
+NNOOTTEESS
+     The accounting file can grow very large; truncate it from
+     time to time.

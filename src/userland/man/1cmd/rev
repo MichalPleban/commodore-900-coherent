@@ -1,0 +1,31 @@
+.TH rev "" "Command"
+.SH NAME
+rev \- reverse lines of files
+.SH SYNOPSIS
+\fBrev [\fIfile ...\fR]
+.SH DESCRIPTION
+.HS
+rev -- reverse lines of files
+Usage:	rev [ file ... ]
+.HE
+.B rev
+reverses the order of the characters in every line of every named
+.I file
+and writes the result to the standard output.
+If no
+.I file
+is given,
+.B rev
+reads the standard input instead.
+If a named
+.I file
+cannot be opened,
+.B rev
+complains and goes on to the next
+.IR file .
+.SH "SEE ALSO"
+.B cat
+.SH NOTES
+.B rev
+buffers each line in a fixed 1000-character array; an input line
+longer than that is not handled correctly.

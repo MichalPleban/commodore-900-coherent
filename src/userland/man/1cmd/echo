@@ -1,0 +1,39 @@
+.TH echo "" "Command"
+.SH NAME
+echo \- print arguments
+.SH SYNOPSIS
+\fBecho [\-n] [\fIargument ...\fB]\fR
+.SH DESCRIPTION
+.HS
+echo -- print arguments
+Usage:	echo [ -n ] [ argument ... ]
+Option:	-n	Do not print terminal newline
+Copies all command arguments to the standard output.
+.HE
+.B echo
+prints each
+.I argument
+on the standard output, separating consecutive arguments with a
+single space, and follows the last one with a newline.
+.IP \fB\-n\fR 0.4i
+Suppress the trailing newline.
+Recognized only as the very first argument; if it is present and
+spelled exactly
+.BR \-n ,
+it is taken as this option and is not itself printed.
+There is consequently no way to make this
+.B echo
+print a first argument that is literally the two characters
+.BR \-n .
+.SH DIAGNOSTICS
+.B echo
+always exits with status 0.
+.SH NOTES
+This
+.B echo
+does not interpret backslash escape sequences such as
+.B \e\en
+or
+.B \e\et
+in its arguments; each argument is copied through exactly as given on
+the command line.

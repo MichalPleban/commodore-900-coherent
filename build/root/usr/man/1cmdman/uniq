@@ -1,0 +1,45 @@
+
+
+uunniiqq                                                         uunniiqq
+
+
+
+NNAAMMEE
+     uniq - remove/count repeated lines in a sorted file
+
+SSYYNNOOPPSSIISS
+     uunniiqq [-ccdduu] [-_n] [+_n] [_i_n_f_i_l_e [_o_u_t_f_i_l_e]]
+
+DDEESSCCRRIIPPTTIIOONN
+     uunniiqq reads _i_n_f_i_l_e (or the standard input, if _i_n_f_i_l_e is
+     omitted) and copies it to _o_u_t_f_i_l_e (or the standard output,
+     if _o_u_t_f_i_l_e is omitted), collapsing each run of two or more
+     equal, adjacent lines into (by default) a single copy.
+     Because uunniiqq only compares each line against the one before
+     it, _i_n_f_i_l_e should already be sorted.
+
+     -cc   Precede each output line with the number of times it
+          occurred in that run.
+
+     -dd   Print only lines that occurred more than once, and only
+          one copy of each.
+
+     -uu   Print only lines that occurred exactly once.
+
+     If none of -cc, -dd, or -uu is given, uunniiqq behaves as if both
+     -dd and -uu were given, so every distinct line is printed once
+     regardless of how many times it was repeated.
+
+     Two further options control how much of each line is skipped
+     before lines are compared for equality (the full line is
+     still copied to the output):
+
+     -_n   Skip the first _n fields of each line, where a field is
+          a run of non-blank, non-tab characters bounded by
+          blanks or tabs.
+
+     +_n   Skip the first _n characters of each line, applied after
+          any field-skipping requested by -_n.
+
+SSEEEE AALLSSOO
+     ccoommmm, ssoorrtt

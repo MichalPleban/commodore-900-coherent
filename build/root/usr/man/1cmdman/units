@@ -1,0 +1,56 @@
+
+
+uunniittss                                                       uunniittss
+
+
+
+NNAAMMEE
+     units - measurement conversion
+
+SSYYNNOOPPSSIISS
+     uunniittss [-uu]
+
+DDEESSCCRRIIPPTTIIOONN
+     uunniittss is an interactive program that computes the conversion
+     factor between two units of the same dimension.  It prints
+     the prompt YYoouu hhaavvee: and reads the quantity you wish to con-
+     vert from, then prints YYoouu wwaanntt: and reads the quantity you
+     wish to convert to.  If the two are conformable (the same
+     dimension), it prints the multiplicative factor to convert
+     the first quantity into the second, and its reciprocal;
+     otherwise it prints CCoonnffoorrmmaabbiilliittyy followed by each quantity
+     broken down into its fundamental units, and prompts again.
+     uunniittss loops asking for pairs of quantities until it reaches
+     end of file on the standard input.
+
+     A quantity is a number (default 1, if omitted) followed by a
+     unit expression (default dimensionless, if omitted).  A unit
+     expression is built from named units, optionally scaled by a
+     metric prefix (such as kkiilloo or mmiillllii), raised to a power
+     with a trailing +nn or -nn, and combined with / for division
+     and adjacent units for multiplication; the words ppeerr
+     (divide), ssqquuaarree (power 2), and ccuubbiicc (power 3) may also be
+     used.
+
+     -uu   Read the ASCII units table and rewrite the binary units
+          file, then exit without prompting for any conversion.
+
+FFIILLEESS
+          /uussrr/lliibb/uunniittss  table of known units, in ASCII
+          /uussrr/lliibb/bbiinnuunniittssthe same table, precompiled to binary
+
+DDIIAAGGNNOOSSTTIICCSS
+     uunniittss prints RReebbuuiillddiinngg /uussrr/lliibb/bbiinnuunniittss ffrroomm
+     /uussrr/lliibb/uunniittss ...  and regenerates the binary table when-
+     ever /uussrr/lliibb/uunniittss is newer than /uussrr/lliibb/bbiinnuunniittss or the
+     latter is missing or unreadable; this can take a while.  It
+     prints UUnnrreeccooggnniisseedd uunniitt followed by the offending name for
+     a word it cannot match against any known unit, and CCoonnffoorr-
+     mmaabbiilliittyy for a pair of quantities that do not have the same
+     dimension.
+
+NNOOTTEESS
+     uunniittss is installed set-user-id to bbiinn so that it can write
+     the shared binary table /uussrr/lliibb/bbiinnuunniittss the first time it
+     is regenerated; it drops this privilege (by calling
+     sseettuuiidd()) before doing any conversion.

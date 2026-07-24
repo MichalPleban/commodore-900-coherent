@@ -1,0 +1,62 @@
+.TH mknod "" "Administration"
+.SH NAME
+mknod \- make a special file or named pipe
+.SH SYNOPSIS
+\fB/etc/mknod \fIfilename \fBb \fImajor minor\fR
+.br
+\fB/etc/mknod \fIfilename \fBc \fImajor minor\fR
+.br
+\fB/etc/mknod \fIfilename \fBp\fR
+.SH DESCRIPTION
+.HS
+mknod -- make a special file or named pipe
+Usage:	/etc/mknod filename type major minor
+	/etc/mknod filename p
+The 'type' is 'b' for block special or 'c' for character special;
+'major' and 'minor' are numbers.
+The second form creates a pipe with the given filename.
+.HE
+.B mknod
+creates a new i-node named
+.I filename
+in the file system.
+In the first form,
+.I type
+selects the kind of device special file to create:
+.B b
+for a block-special device, or
+.B c
+for a character-special device;
+.I major
+and
+.I minor
+give the major and minor device numbers that together identify the
+device to the kernel.
+In the second form (three arguments, the last being
+.BR p ),
+.B mknod
+instead creates a named pipe (FIFO) called
+.IR filename ,
+and no device numbers are given.
+.PP
+The new node is created with mode
+.BR 0666 .
+.SH DIAGNOSTICS
+If the underlying
+.B mknod()
+system call fails,
+.B mknod
+prints
+.RS
+mknod: cannot create node
+.I filename
+.RE
+and exits with status 1 -- typically because
+.I filename
+already exists, its parent directory does not permit the caller to
+create files in it, or an invalid
+.I type
+or argument count was given.
+.SH "SEE ALSO"
+.BR mkdir ,
+.B mkfs

@@ -1,0 +1,46 @@
+
+
+ccpp                                                             ccpp
+
+
+
+NNAAMMEE
+     cp - copy files
+
+SSYYNNOOPPSSIISS
+     ccpp _o_l_d_f_i_l_e _n_e_w_f_i_l_e
+     ccpp _f_i_l_e ... _d_i_r_e_c_t_o_r_y
+
+DDEESSCCRRIIPPTTIIOONN
+     ccpp copies _o_l_d_f_i_l_e to _n_e_w_f_i_l_e, creating _n_e_w_f_i_l_e if necessary.
+
+     In the second form, if the last argument is an existing
+     directory, ccpp copies each _f_i_l_e into that directory, keeping
+     the same base name.
+
+     The new file's contents are a byte-for-byte copy of the
+     source.  Blocks of the source that are entirely zero are
+     reproduced by seeking over them in the new file (preserving
+     holes in a sparse file) rather than by writing zero bytes,
+     except that the last block written always contains real data
+     so the copy has the correct length.  The new file's permis-
+     sion bits are copied from the source's low 9 mode bits; the
+     setuid, setgid, and sticky bits are not copied, and the new
+     file is owned by the user running ccpp.
+
+     A file may not be copied onto itself.
+
+SSEEEE AALLSSOO
+     ccppddiirr, llnn, mmvv
+
+DDIIAAGGNNOOSSTTIICCSS
+     ccpp prints a message and skips a file if it is a directory,
+     cannot be opened or created, is the same file as the des-
+     tination, or is a busy shared-text file that cannot be over-
+     written; a write error also aborts that file's copy.
+
+NNOOTTEESS
+     When copying multiple files into a directory, the exit
+     status reflects only whether at least one file was copied
+     successfully: ccpp exits 0 if any copy succeeded, and 1 only
+     if every copy failed.

@@ -16,6 +16,10 @@ f	/bin/sh	755	3	1
 f	/bin/ls	755	3	1
 f	/bin/cat	755	3	1
 f	/bin/echo	755	3	1
+f	/bin/check	755	3	1
+f	/bin/dcheck	755	3	1
+f	/bin/icheck	755	3	1
+f	/bin/ncheck	755	3	1
 f	/usr/bin/kermit	755	3	1
 f	/etc/getty	755	3	0
 f	/etc/group	644	3	1
@@ -28,6 +32,7 @@ f	/etc/motd	644	0	0
 f	/etc/rc	644	0	1
 f	/etc/mount	755	3	1
 f	/etc/umount	755	3	1
+f	/etc/reboot	755	3	1
 f	/etc/swap	755	0	1
 f	/etc/ttys	644	3	0
 f	/drv/hrtty	755	0	1

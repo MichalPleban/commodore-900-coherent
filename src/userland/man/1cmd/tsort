@@ -1,0 +1,35 @@
+.TH tsort "" "Command"
+.SH NAME
+tsort \- topological sort
+.SH SYNOPSIS
+\fBtsort [\fIfile\fB]\fR
+.SH DESCRIPTION
+.HS
+tsort -- topological sort
+Usage:	tsort [ file ]
+.HE
+.B tsort
+reads pairs of items from
+.I file
+(or the standard input, if no
+.I file
+is given) and prints, on the standard output, a sequence of all the
+items such that each item comes before every item that must follow
+it, according to the pairs given.
+.PP
+The input consists of pairs of items (words) separated by blanks,
+tabs, or newlines.
+A pair in which the two items are the same simply records that the
+item is present in the input set.
+Otherwise, a pair means that the first item must precede the second
+in the output ordering.
+.SH "SEE ALSO"
+.B sort
+.SH DIAGNOSTICS
+.B tsort
+reports and exits if its input holds an odd number of items, or if a
+word is longer than 99 characters.
+If the given ordering contains a cycle,
+.B tsort
+first dumps the items still involved in the cycle, in no particular
+order, then reports `tsort: cycles' and exits with a nonzero status.

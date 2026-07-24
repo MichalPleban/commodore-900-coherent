@@ -1,0 +1,43 @@
+
+
+kkiillll                                                         kkiillll
+
+
+
+NNAAMMEE
+     kill - signal a process
+
+SSYYNNOOPPSSIISS
+     kkiillll [-_s_i_g_n_a_l] _p_i_d ...
+
+DDEESSCCRRIIPPTTIIOONN
+     kkiillll sends a signal to each process named by a _p_i_d. By
+     default it sends the software termination signal, SSIIGGTTEERRMM.
+
+     If the first argument begins with -, it names the signal to
+     send instead of the default.  _s_i_g_n_a_l may be given either as
+     a decimal number, or as a signal name (with or without the
+     leading SSIIGG prefix; case is not significant).  kkiillll recog-
+     nizes the following signal names:
+
+          HHUUPP       IINNTT       QQUUIITT      AALLRRMM
+          TTEERRMM      RREESSTT      SSYYSS       PPIIPPEE
+          KKIILLLL      TTRRAAPP      SSEEGGVV      IILLLL
+          IIOOTT       EEMMTT       FFPPEE       BBUUSS
+
+     Each remaining argument is a _p_i_d that must begin with a
+     decimal digit or a - (the latter for a process-group id);
+     anything else is rejected as not being a process id.
+
+DDIIAAGGNNOOSSTTIICCSS
+     For each _p_i_d that does not begin with a digit or -, kkiillll
+     reports that it is not a process id and goes on to the next
+     one.  If _s_i_g_n_a_l is not one of the names or numbers above,
+     kkiillll reports that there is no such signal and exits.  For a
+     _p_i_d that exists but cannot be signaled (for example, because
+     it is not owned by the caller), kkiillll prints the system error
+     message and continues with the next _p_i_d.
+
+NNOOTTEESS
+     kkiillll exits with a nonzero status if any signal could not be
+     sent.

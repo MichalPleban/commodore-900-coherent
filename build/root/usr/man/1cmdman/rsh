@@ -1,0 +1,89 @@
+
+
+rrsshh                                                           rrsshh
+
+
+
+NNAAMMEE
+     rsh - restricted command interpreter
+
+SSYYNNOOPPSSIISS
+     rrsshh [-cceeiikknnpprrssttuuvvxx] _f_i_l_e [_a_r_g_u_m_e_n_t ...]
+     rrsshh [-eeiikknnpprrssttuuvvxx] -cc _s_t_r_i_n_g [_a_r_g_u_m_e_n_t ...]
+     rrsshh [-eeiikknnpprrssttuuvvxx]
+
+DDEESSCCRRIIPPTTIIOONN
+     rrsshh is built from the same command-interpreter sources as
+     sshh, compiled as a separate program from a copy of those
+     sources kept under its own name; it accepts the same option
+     letters and the same command language.  With no _f_i_l_e and
+     without -cc or -ss, rrsshh reads commands from its standard in-
+     put.  With a _f_i_l_e argument (and neither -cc nor -ss), rrsshh
+     reads commands from _f_i_l_e, and any further arguments become
+     that script's positional parameters.  With -cc, rrsshh executes
+     _s_t_r_i_n_g as a command, and any further arguments become its
+     positional parameters.
+
+     Option letters may be combined after a single leading -, as
+     in -eexx.
+
+     -cc _s_t_r_i_n_g
+          Execute _s_t_r_i_n_g as a command.
+
+     -ee   Exit as soon as any command exits with nonzero status,
+          if not running interactively.
+
+     -ii   Be interactive (prompt, and ignore some signals) even
+          if the standard input is not a terminal.
+
+     -kk   Place keyword (_n_a_m_e=_v_a_l_u_e) arguments anywhere in a com-
+          mand line into the environment of that command, not
+          only those that precede the command name.
+
+     -nn   Read commands and check their syntax, but do not ex-
+          ecute them.
+
+     -pp   Recorded in the shell's flag array by letter, but its
+          purpose is not documented in this source (the header
+          comment marks it ``Unknown'').
+
+     -rr   Mark the session as a restricted shell.  See NOTES.
+
+     -ss   Read commands from the standard input even if a _f_i_l_e or
+          -cc _s_t_r_i_n_g was also given, and write ordinary command
+          output to the standard error instead of the standard
+          output.
+
+     -tt   Read and execute a single command, then exit.
+
+     -uu   Treat reference to an unset shell variable as an error,
+          instead of substituting a null value.
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+rrsshh                                                           rrsshh
+
+
+
+     -vv   Print each line of input as it is read, before any sub-
+          stitution.
+
+     -xx   Print each command and its expanded arguments just
+          before executing it.
+
+SSEEEE AALLSSOO
+     llooggiinn, sshh
+
+NNOOTTEESS
+     The -rr flag is recorded in the shell's flag array (as the
+     character rr under rrffllaagg), exactly like every other option
+     letter, but no other routine in this source examines rrffllaagg
+     again afterward: nothing in this source consults it to
+     refuse a ccdd, a command named with a /, output redirection,
+     or reassignment of any variable.  Giving -rr to this build
+     has no effect beyond being recorded.

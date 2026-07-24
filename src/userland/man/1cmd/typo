@@ -1,0 +1,86 @@
+.TH typo "" "Command"
+.SH NAME
+typo \- detect possible typographical and spelling errors
+.SH SYNOPSIS
+\fBtypo [\-nrs] [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+typo -- detect possible typographical and spelling errors
+Usage:	typo [ -nrs ] [ file ... ]
+Options:
+	-n	Do not use built-in English statistics or dictionary
+	-r	Raw; do not remove nroff commands from the input
+	-s	Produce 'digrams' and 'trigrams' files (maintenance only)
+.HE
+.B typo
+looks for likely typographical errors in an English-language
+document by a statistical test, rather than by matching words against
+a fixed dictionary.
+For each word, it computes an index of peculiarity from the digram
+(letter-pair) and trigram (letter-triple) frequencies of that word,
+measured against the digram and trigram frequencies of the whole
+document (helped, unless
+.B \-n
+is given, by built-in frequency tables and a small exception
+dictionary of common technical words).
+Words that use letter combinations rarely seen elsewhere in the
+document score a high index and are the ones most likely to be
+misspellings.
+.PP
+.B typo
+reads each
+.I file
+named (or the standard input if none is given), extracts the
+alphabetic words, folds them to lower case, and discards any word
+found in its exception dictionary (\fB/usr/dict/dict\fR).
+It sorts the remaining distinct words by descending index of
+peculiarity and prints each one preceded by its index.
+.IP \fB\-n\fR
+Do not load the built-in digram and trigram statistics or the
+exception dictionary.
+More words will be printed, and their indices of peculiarity will be
+less reliable, especially for a short document.
+.IP \fB\-r\fR
+Raw mode: do not strip lines beginning with `.' or remove the
+.B nroff
+escape character `\e', which
+.B typo
+otherwise assumes surround formatting requests rather than text.
+.IP \fB\-s\fR
+Instead of printing an index of peculiarity for each word, write the
+digram and trigram frequency counts observed in the input to files
+named
+.B digrams
+and
+.B trigrams
+in the current directory.
+These are the same format as
+.B /usr/dict/digrams
+and
+.B /usr/dict/trigrams
+and are meant for regenerating the built-in tables, not for everyday
+use.
+.SH FILES
+.DS
+.ta 16n
+\fB/usr/dict/dict\fR	exception dictionary
+\fB/usr/dict/digrams\fR	built-in digram frequencies
+\fB/usr/dict/trigrams\fR	built-in trigram frequencies
+\fB/tmp/typo*\fR	temporary file holding the unsorted word list
+.DE
+.SH "SEE ALSO"
+.B sort
+.SH DIAGNOSTICS
+.B typo
+complains and exits if it cannot open an input
+.IR file ,
+if it runs out of memory building the trigram tables, or if it cannot
+locate the
+.B sort
+command it pipes the word list through.
+.SH NOTES
+.B typo
+sorts its intermediate word list by invoking
+.B sort
+in a child process; this must be found on
+.BR PATH .

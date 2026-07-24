@@ -1,0 +1,51 @@
+.TH newgrp "" "Command"
+.SH NAME
+newgrp \- change to a new group
+.SH SYNOPSIS
+\fBnewgrp \fIgroup\fR
+.SH DESCRIPTION
+.HS
+newgrp -- change to a new group
+Usage:	newgrp group
+.HE
+.B newgrp
+changes the caller's group identification to
+.I group
+and starts a new shell,
+.BR /bin/sh ,
+under that group id.
+Access is checked against the entry for
+.I group
+in
+.BR /etc/group :
+membership is granted if the caller's login name appears in the
+group's member list, if the group has no password and no member
+list, or, failing that, if the caller supplies the group's password
+correctly.
+A member name prefixed with
+.B !
+in the member list is instead explicitly denied access.
+.PP
+On success,
+.B newgrp
+sets its real and effective group id to that of
+.I group
+and its real and effective user id back to the caller's own user id,
+then execs
+.B /bin/sh
+as a login shell.
+On failure it prints a short message and execs an ordinary
+.B /bin/sh
+without changing group.
+.SH FILES
+.B /etc/group
+.SH "SEE ALSO"
+.BR login ,
+.B sh
+.SH NOTES
+.B newgrp
+is normally installed set-user-id to root so that it can read the
+encrypted password in
+.BR /etc/group ;
+it always drops back to the caller's own user id before running the
+shell.

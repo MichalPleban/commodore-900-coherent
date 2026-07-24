@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 /*		       
  * Rec'd from Luaren Weinstein, 7-16-84.
  * login [-q] [username]
@@ -65,7 +70,9 @@ int 	timeout();
 char	*env[] = {
 	"PATH=:/bin",
 	"PS1=% ",
-	0,
+	0,			/* HOME= (filled in) */
+	0,			/* PS1= for root / spare */
+	0,			/* TERM= (filled in when the console reports one) */
 	0
 };
 
@@ -219,6 +226,27 @@ ok:
 	env[1] = nb;
 	if (s_uid == 0)
 	   env[2] = "PS1=# ";
+
+	/*
+	 * Ask the console driver which terminal type it emulates and pass
+	 * it to the shell as TERM.  Only the graphics console drivers answer
+	 * TIOCGTERM (hrtty -> "vt100", lrtty -> "h19"); on a serial line the
+	 * ioctl fails and we leave TERM unset, so /etc/profile defaults it.
+	 * An ioctl needs no filesystem, so this works on a read-only root.
+	 */
+	{
+		register char **ep;
+		static char termbuf[5+TERMSZ];	/* "TERM=" + name */
+
+		strcpy(termbuf, "TERM=");
+		if (ioctl(0, TIOCGTERM, &termbuf[5]) >= 0) {
+			termbuf[5+TERMSZ-1] = '\0';
+			for (ep = env; *ep != (char *)0; ep++)
+				;
+			*ep++ = termbuf;
+			*ep = (char *)0;
+		}
+	}
 
 	setgid(s_gid);
 	setuid(s_uid);

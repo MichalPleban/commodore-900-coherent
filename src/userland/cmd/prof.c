@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Prof interprets the mon.out files produced by monitor(3) and hence by
  * the cc(1) option -p.  The usage is as follows:
  *	prof [-a] [-b] [-c] [-s] [l.out_file [mon.out_file]]

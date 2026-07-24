@@ -1,0 +1,303 @@
+.TH sed "" "Command"
+.SH NAME
+sed \- stream editor
+.SH SYNOPSIS
+\fBsed [\-n] [\-e \fIcommands\fB] [\-f \fIscript\fB] ... \fIfile ...\fR
+.SH DESCRIPTION
+.HS
+sed -- stream editor
+Usage:	sed [ -n ] [ -e commands ] [ -f script ] ... file ...
+Options:
+	-e	Direct commands follow
+	-f	File name of command script follows
+	-n	No implicit output
+.HE
+.B sed
+copies each
+.IR file ,
+or the standard input if none is given, to the standard output,
+applying to it the editing commands given by
+.B \-e
+arguments and
+.B \-f
+script files, in the order those arguments appear on the command
+line.
+If neither
+.B \-e
+nor
+.B \-f
+is given, the first non-option argument is taken as a single
+.B \-e
+command instead of a file name.
+.PP
+.B sed
+reads one line at a time into a
+.IR "pattern space" ,
+runs every command whose address selects that line against it, and
+then, unless
+.B \-n
+was given, writes the pattern space to the standard output before
+reading the next line.
+There is also a
+.I "hold space"
+that commands may copy the pattern space into and out of.
+.SH ADDRESSES
+A command may be preceded by zero, one, or two
+.I addresses.
+With no address, the command applies to every line.
+With one address, it applies only to a line selected by that address.
+With two addresses, separated by a comma, it applies to the first
+line selected by the first address, and to every following line up
+to and including the next line selected by the second address; a new
+such range cannot begin until the current one has ended.
+An address is one of:
+.IP \fIn\fR 0.75i
+Line number
+.I n
+of the input (lines are numbered from 1 across all the files given).
+.IP \fB$\fR
+The last line of input.
+.IP \fB/\fIpattern\fB/\fR
+The next line that matches the regular expression
+.IR pattern .
+.PP
+A
+.B !
+immediately before the command applies it to every line
+.I not
+selected by the address (or addresses).
+.SH COMMANDS
+Each command occupies one line (except that the
+.BR a ,
+.BR i ,
+and
+.B c
+commands take following text lines, each but the last ending in
+.BR \e ,
+as their argument, and the
+.BR s ,
+.BR y ,
+.BR w ,
+and
+.B r
+commands take the rest of their line as argument).
+Commands may be grouped in braces:
+\fB[\fIaddress\fB[\fI,address\fB]]{\fRcommand ...\fB}\fR
+runs each enclosed command on the selected lines.
+.PP
+.IP "\fB=\fR" 0.75i
+Print the current line number.
+.IP "\fBa\e\fR"
+Append the following text (up to the line not ending in
+.BR \e )
+to the output after the current line.
+.IP "\fBb \fI[label]\fR"
+Branch unconditionally to
+.IR label ,
+or to the end of the script if
+.I label
+is omitted.
+.IP "\fBc\e\fR"
+Delete the pattern space (like
+.BR d ),
+and, once at the end of the addressed range, write the following text
+in its place.
+.IP "\fBd\fR"
+Delete the pattern space and start the next cycle without printing it.
+.IP "\fBD\fR"
+Delete up to and including the first embedded newline in the pattern
+space (left there by
+.BR N ),
+and start the next cycle on what remains, without reading new input;
+if there is no embedded newline,
+.B D
+acts like
+.BR d .
+.IP "\fBg\fR"
+Replace the pattern space with a copy of the hold space.
+.IP "\fBG\fR"
+Append a newline and a copy of the hold space to the pattern space.
+.IP "\fBh\fR"
+Replace the hold space with a copy of the pattern space.
+.IP "\fBH\fR"
+Append a newline and a copy of the pattern space to the hold space.
+.IP "\fBi\e\fR"
+Write the following text to the output before the current line.
+.IP "\fBl\fR"
+Write the pattern space to the output with non-graphic characters
+made visible: backslash is doubled, and other non-graphic bytes are
+shown as a backslash followed by a three-digit octal number; long
+lines are folded, with a trailing backslash marking the fold.
+.IP "\fBn\fR"
+Write the pattern space to the output (unless
+.B \-n
+was given), then replace it with the next input line; if there is no
+next line,
+.B sed
+exits.
+.IP "\fBN\fR"
+Append the next input line to the pattern space, separated by an
+embedded newline; if there is no next line,
+.B sed
+exits without writing the pattern space.
+.IP "\fBp\fR"
+Write the pattern space to the output.
+.IP "\fBP\fR"
+Write up to the first embedded newline of the pattern space to the
+output.
+.IP "\fBq\fR"
+Write the pattern space to the output (unless
+.BR \-n ),
+and exit immediately.
+.IP "\fBr \fIfile\fR"
+Read
+.I file
+and copy its contents to the output after the current line.
+.IP "\fBs/\fIpattern\fB/\fIreplacement\fB/\fI[n][g][p][w file]\fR"
+Search the pattern space for
+.I pattern
+and replace it with
+.IR replacement .
+By default only the first match is replaced; a digit
+.I n
+selects the
+.IR n th
+match instead, and
+.B g
+replaces every match from there on.
+.B p
+writes the pattern space if a replacement was made, and
+.B w \fIfile\fR
+appends it to
+.I file
+under the same condition.
+In
+.IR replacement ,
+.B &
+stands for the text that
+.I pattern
+matched, and
+.BI \e d
+(a digit
+.IR d )
+stands for the text delimited by the
+.IR d th
+.BR \e( ... \e) .
+.IP "\fBt \fI[label]\fR"
+Branch to
+.I label
+(or to the end of the script) if any substitution has succeeded since
+the last input line was read or the last
+.B t
+branched.
+.IP "\fBw \fIfile\fR"
+Append the pattern space, followed by a newline, to
+.IR file .
+.IP "\fBx\fR"
+Exchange the pattern space and the hold space.
+.IP "\fBy/\fIchars\fB/\fIreplacements\fB/\fR"
+Transliterate each character in the pattern space that appears in
+.I chars
+to the corresponding character in
+.IR replacements ;
+the two lists must be the same length.
+.IP "\fB:\fIlabel\fR"
+Declare
+.I label
+as the target of a later
+.B b
+or
+.B t
+command.
+.SH "REGULAR EXPRESSIONS"
+The patterns used in addresses and in the
+.B s
+command are regular expressions built from:
+.IP \fBc\fR 0.75i
+An ordinary character matches itself.
+.IP \fB.\fR
+Matches any single character.
+.IP \fB*\fR
+Matches zero or more occurrences of the single preceding character (or
+of a preceding
+.BR . ,
+.BR [...] ,
+or
+.BR \e(...\e) ).
+.IP \fB^\fR
+At the start of a pattern, anchors the match to the beginning of the
+pattern space.
+.IP \fB$\fR
+At the end of a pattern, anchors the match to the end of the pattern
+space.
+.IP "\fB[\fIchars\fB]\fR, \fB[^\fIchars\fB]\fR"
+Matches any one character in (or, with a leading
+.BR ^ ,
+not in)
+.IR chars ,
+which may include ranges written
+.IR c1 \- c2 .
+.IP "\fB\e(\fR ... \fB\e)\fR"
+Groups a sub-pattern so it can be referred to as
+.BI \e d
+(where
+.I d
+is 1-9), either later in the same pattern or, in a substitution's
+replacement, as the text that sub-pattern matched.
+Up to nine such groups are allowed in one pattern.
+.IP \fB\en\fR
+Matches a newline embedded in the pattern space (as left there by
+.BR N ).
+.IP \fB\ec\fR
+Matches the literal character
+.I c
+even if it would otherwise be special.
+.PP
+If
+.B \-s
+is in effect, every letter typed in a pattern (whether alone, in a
+character class, or as the range endpoints of a character class)
+matches either its upper- or lower-case form in the pattern space.
+.SH OPTIONS
+.IP \fB\-e\fR
+The next argument is one or more
+.B sed
+commands, separated by newlines.
+More than one
+.B \-e
+(and
+.BR \-f )
+argument may be given; the commands are run in the order given.
+.IP \fB\-f\fR
+The next argument names a file of
+.B sed
+commands, one command per line.
+.IP \fB\-n\fR
+Suppress the automatic writing of the pattern space at the end of
+each cycle; only explicit
+.BR p ,
+.BR P ,
+.BR l ,
+and similar output commands produce output.
+.IP \fB\-s\fR
+Fold case: a letter in a pattern matches either its upper- or
+lower-case form in the input.
+.SH DIAGNOSTICS
+.B sed
+reports each error found while compiling the commands, with the
+number of the command line it occurred on, and exits without
+processing any input if there were any.
+Execution-time errors (such as a buffer overflow) are also reported,
+with a diagnostic and no line number.
+.SH NOTES
+The line, pattern, and hold buffers are each limited to 512
+characters; a label name or a file name given to
+.B w
+or
+.B r
+is truncated to 15 characters.
+Up to nine
+.B \e(
+\&...
+.B \e)
+groups are allowed per pattern.

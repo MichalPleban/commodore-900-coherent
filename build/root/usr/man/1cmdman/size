@@ -1,0 +1,36 @@
+
+
+ssiizzee                                                         ssiizzee
+
+
+
+NNAAMMEE
+     size - print size of an object file
+
+SSYYNNOOPPSSIISS
+     ssiizzee [-cc] [-tt] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ssiizzee prints, for each _f_i_l_e, the size in bytes of its text,
+     initialized data, and uninitialized data (bss) segments,
+     followed by the total size of those segments in both decimal
+     and octal.  Each _f_i_l_e must be a linked object file (in ll.oouutt
+     format); if none is given, ssiizzee examines the file ll.oouutt.
+
+     Options:
+
+     -cc   Also add in the total size of the file's common (exter-
+          nal, unresolved at link time) data, taken from its sym-
+          bol table.
+
+     -tt   If more than one _f_i_l_e is given, print a final TToottaall:
+          line summing the segment sizes (and, with -cc, the com-
+          mon data) across all files.
+
+SSEEEE AALLSSOO
+     ssttrriipp
+
+NNOOTTEESS
+     The size of the common area is computed by scanning the sym-
+     bol table for global, referenced symbols and summing their
+     sizes; if -cc is not given, this scan is skipped.

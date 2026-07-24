@@ -1,0 +1,81 @@
+.TH awk "" "Command"
+.SH NAME
+awk \- report generation, pattern scanning and processing language
+.SH SYNOPSIS
+\fBawk [\-y] [\-F\fIc\fB] [\-f \fIprogfile\fB] [\fIprog\fB] [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+awk -- report generation, pattern scanning and processing language
+Usage:	awk [ -y ] [ -Fc ] [ -f progfile ] [ prog ] [ file ... ]
+Options:
+	-y	Dual case match (as in grep)
+	-Fc	Set field separator character to 'c' (default: blank and tab)
+	-f	'progfile' is the awk program; otherwise,
+		the first non-option argument ('prog') is the awk program
+If no 'file' is present, the standard input is used.
+File '-' means the standard input.
+.HE
+.B awk
+scans each
+.I file
+(or the standard input, if none is given) for lines matching
+patterns given in an
+.B awk
+program, and performs the associated actions.
+The program is given either as the argument
+.I prog
+or, with
+.BR \-f ,
+read from
+.IR progfile .
+.PP
+.B awk
+recognizes the following options:
+.IP \fB\-y\fR
+Match patterns without regard to upper or lower case, as
+.B grep
+does with its
+.B \-y
+option.
+.IP \fB\-F\fIc\fR
+Set the input field separator to the character
+.I c
+(default: blank and tab).
+.IP \fB\-f\ \fIprogfile\fR
+Take the
+.B awk
+program from
+.I progfile
+instead of from the command line.
+.PP
+An
+.B awk
+program consists of a sequence of
+.I pattern
+\-\fIaction\fR pairs.
+For each input record (normally, each line), every pattern is
+tested; the action associated with each pattern that matches is
+performed.
+Either the pattern or the action may be omitted: a missing pattern
+matches every record, and a missing action prints the matched
+record.
+An action is a sequence of statements, enclosed in braces, in a
+language similar to C, operating on fields of the current record
+(referred to as
+.BR $1 ", " $2 ", " ... ),
+built-in variables such as
+.B NR
+(current record number) and
+.B NF
+(number of fields), and user-defined variables.
+.SH "SEE ALSO"
+.BR grep ,
+.B sed
+.SH NOTES
+This
+.B awk
+recognizes only the options
+.BR \-y ,
+.BR \-F ,
+and
+.BR \-f .

@@ -1,0 +1,120 @@
+.TH cpdir "" "Command"
+.SH NAME
+cpdir \- copy directory hierarchy
+.SH SYNOPSIS
+\fBcpdir [\fIoption ...\fB] \fIdir1 dir2\fR
+.SH DESCRIPTION
+.HS
+cpdir -- copy directory hierarchy
+Usage:	cpdir [ option ... ] dir1 dir2
+Options:
+	-d	Preserve last-modified date
+	-e	Recover from errors and continue
+	-r[n]	Recur n levels only (default: 1)
+	-sname	Suppress copy of name, name is relative to dir1
+	-t	Test and report errors - do not change anything
+	-u	Update regular files if more recent
+	-v	Verbose file by file account
+.HE
+.B cpdir
+copies the directory hierarchy rooted at
+.I dir1
+onto
+.IR dir2 ,
+creating
+.I dir2
+(via
+.BR mkdir )
+if it does not already exist.
+Regular files, subdirectories, and (for the superuser) device
+special files and named pipes are all copied; hierarchies may
+straddle device boundaries.
+.PP
+Files within
+.I dir1
+that have more than one link to each other are recreated as links
+to each other under
+.I dir2
+instead of as separate copies.
+Links to files outside the
+.I dir1
+hierarchy, or that cannot be recreated (for example, because the
+target crosses a device boundary), are reported at the end of the
+run as missed or broken external links, provided
+.B \-v
+or
+.B \-t
+was given.
+.PP
+If a target file corresponding to a source file already exists and
+is not a directory,
+.B cpdir
+unlinks it before copying.
+If
+.I dir1
+and
+.I dir2
+turn out to be the same directory (or one nested inside the copy of
+the other), that directory is skipped to avoid an infinite copy.
+.PP
+Copied files get the source file's permission bits.
+When run by the superuser, the owner, group, and full mode
+(including the sticky bit) are preserved as well; otherwise the
+invoking user owns the new files and the sticky bit is not copied.
+.IP \fB\-d\fR
+Give each copied file the source file's last-modified time,
+instead of the time at which it was copied.
+.IP \fB\-e\fR
+After an error, print a message and continue with the rest of the
+hierarchy instead of exiting immediately.
+.IP \fB\-r\fR[\fIn\fR]
+Recur at most
+.I n
+levels into the source hierarchy; the contents of
+.I dir1
+itself are level 1.
+A bare
+.B \-r
+with no
+.I n
+limits the copy to level 1 (no recursion into subdirectories).
+Without
+.BR \-r ,
+.B cpdir
+recurs without limit.
+.IP \fB\-s\fIname\fR
+Do not copy
+.IR name ,
+a pathname relative to
+.IR dir1 .
+May be repeated to suppress more than one name.
+.IP \fB\-t\fR
+Test only: report what would be done (implies
+.B \-e
+and verbose reporting) without creating, copying, linking, or
+unlinking anything.
+.IP \fB\-u\fR
+Copy a regular file only if the source is newer than an existing
+target, or if the target does not yet exist.
+.IP \fB\-v\fR
+Print a line for each file as it is copied, in addition to the
+information printed under
+.BR \-t .
+.SH "SEE ALSO"
+.BR cp ,
+.BR mkdir ,
+.B ln
+.SH DIAGNOSTICS
+.B cpdir
+prints a usage message and exits 1 if given a bad option or not
+exactly two directory arguments.
+During the copy, it reports (and, without
+.BR \-e ,
+stops on) conditions such as a source or target that cannot be
+found, opened, or read; a target that is not a directory or lacks
+needed permission; a device boundary crossing; a link that could
+not be recreated; or running out of memory.
+With
+.BR \-e ,
+.B cpdir
+exits 1 at the end if any error occurred.

@@ -1,0 +1,165 @@
+.TH scat "" "Command"
+.SH NAME
+scat \- segmented concatenation
+.SH SYNOPSIS
+\fBscat [ [\fIoption ...\fB] [\fIfile ...\fB] ] ...\fR
+.SH DESCRIPTION
+.HS
+scat -- segmented concatenation
+Usage:	scat [ [ options ] [ file ... ] ] ...
+Options:
+	-bn	Begin output at line n
+	-c	Mark control characters (overrides -t)
+	-in	Skip n columns on output
+	-ln	Set screen length to n lines
+	-n	Number input lines
+	-r	Remote--no paging
+	-s	Squash empty lines
+	-Sn	Seek n bytes into input before processing
+	-t	Truncate lines to line length (default: wraparound)
+	-wn	Set screen width to n columns
+	-x	Expand tabs
+Responses to pause for pagination:
+	RETURN	Next page
+	SPACE	Next line
+	/	Next half page
+	f	Print file name and line number
+	n	Next file
+	q	Quit
+.HE
+.B scat
+copies each named
+.I file
+to standard output, one screen-page at a time.
+With no
+.I file
+arguments,
+.B scat
+reads standard input.
+When output is a terminal,
+.B scat
+pauses after each page and reads a single character to decide what to
+do next; when output is not a terminal, or when
+.B \-r
+is given, it runs straight through without pausing.
+.PP
+.B scat
+scans two argument lists: first the environment variable
+.B SCAT
+(a string of options separated by blanks, tabs, or newlines, with no
+quoting), then the command-line arguments.
+Options may be interspersed with file names and take effect for the
+files that follow.
+An argument of the form
+.BI \-. suffix
+followed by more options associates those options only with a later
+file whose name ends in
+.BI . suffix ;
+the sublist of options it introduces ends at the next file name, at
+.BR \-\- ,
+or at another
+.BR \-. \fIsuffix\fR .
+An argument of
+.B \-\-
+ends a sublist, or (outside a sublist) ends option scanning so that
+later arguments are taken as file names even if they begin with `\-'.
+.PP
+Numeric option arguments may begin with
+.B 0
+for octal, and may be followed by
+.B b
+or
+.B k
+to be scaled by 512 or 1024.
+.PP
+Options:
+.IP \fB\-b\fIn\fR
+Discard the first
+.I n
+lines of the file before displaying anything.
+.IP \fB\-c\fR
+Display control characters unambiguously: a character in the range
+0-037 is shown as a caret followed by the character 0100 higher (so
+SOH appears as
+.BR ^A ),
+and a character with the top bit set is shown with a leading
+.BR ~ .
+The characters
+.BR ^ ", " ~ ", and " \e
+are themselves prefixed with
+.BR \e .
+This overrides
+.BR \-t .
+Two sub-options may follow directly after
+.BR \-c :
+.B s
+also maps blanks to
+.B _
+(prefixing a literal underscore with
+.BR \e ),
+and
+.B t
+prints tabs literally instead of as
+.BR ^I .
+.IP \fB\-i\fIn\fR
+Shift the display window
+.I n
+columns to the right, discarding that many leading columns of each
+line; useful for viewing long lines.
+.IP \fB\-l\fIn\fR
+Use
+.I n
+as the screen length in lines, instead of the default of 24 (34 for a
+Tektronix 4012 terminal).
+.IP \fB\-n\fR
+Prefix each (non-wrapped) input line with its line number.
+.IP \fB\-r\fR
+Remote mode: write straight through without pausing for pagination,
+even if standard output is a terminal.
+.IP \fB\-s\fR
+Squash empty lines out of the output.
+.IP \fB\-S\fIn\fR
+Seek
+.I n
+bytes into the file before starting to read it.
+.IP \fB\-t\fR
+Truncate lines that are wider than the screen, instead of the default
+of wrapping the excess onto the next line (marked with a trailing
+.BR \e ).
+.IP \fB\-w\fIn\fR
+Use
+.I n
+as the screen width in columns, instead of the default of 80 (72 for
+a Tektronix 4012 terminal).
+.IP \fB\-x\fR
+Expand tabs to spaces on output.
+.PP
+While paused between pages,
+.B scat
+accepts a single character in response:
+.RS
+.IP \fBRETURN\fR
+Show the next page.
+.IP \fBSPACE\fR
+Show one more line.
+.IP \fB/\fR
+Show the next half page.
+.IP \fBf\fR
+Print the current file name and line number, then continue waiting.
+.IP \fBn\fR
+Skip to the next file.
+.IP \fBq\fR
+Quit
+.B scat
+immediately.
+.RE
+.SH "SEE ALSO"
+.B cat
+.SH NOTES
+.B scat
+recognizes the terminal type
+.B 4012
+(from the
+.B TERM
+environment variable) specially, choosing a different default page
+length and width and a different erase sequence for that terminal.

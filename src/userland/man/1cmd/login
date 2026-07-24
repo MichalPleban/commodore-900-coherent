@@ -1,0 +1,102 @@
+.TH login "" "Command"
+.SH NAME
+login \- log in or change user name
+.SH SYNOPSIS
+\fBlogin [\-q] [\fIusername\fB]\fR
+.SH DESCRIPTION
+.HS
+login -- log in or change user name
+Usage:	login [ -q ] [ username ]
+Option:	-q	Do not print the news
+.HE
+.B login
+identifies a user to the system.
+It is normally invoked automatically, on a terminal line, by
+.BR getty ;
+a user may also invoke it directly (typically with
+.B "exec /bin/login"
+from a shell) to change to another login name without disconnecting
+the line.
+.PP
+If
+.I username
+is not given on the command line,
+.B login
+prompts
+.BR "Coherent login:" .
+It then looks up the name in
+.BR /etc/passwd .
+If the account has a password,
+.B login
+prompts for it with echoing turned off, encrypts what was typed with
+.BR crypt() ,
+and compares the result against the encrypted password on file.
+If the terminal line is a remote (dial-in) line,
+.B login
+also asks for a second, remote-access password, checked against a
+pseudo-account named
+.BR remacc .
+.PP
+After three failed remote attempts, or if the user does not finish
+logging in within the timeout period,
+.B login
+gives up and, for a remote line, tries to force a hangup.
+Every attempt, successful or not, is logged to
+.B /etc/utmp
+and either
+.B /usr/adm/wtmp
+or
+.BR /usr/adm/failed .
+.PP
+Once the password check succeeds,
+.B login
+changes to the user's home directory, sets the process's user and
+group IDs, and, unless
+.B \-q
+was given, prints the contents of
+.B /etc/motd
+if it has changed since this user last logged in, and any new
+material in
+.BR /etc/news ,
+together with a
+.B "You have mail."
+notice if the user's mailbox is not empty.
+It then sets up a minimal environment
+(\fIPATH\fR, \fIHOME\fR, and \fIPS1\fR)
+and executes the user's shell, as recorded in the last field of the
+.B /etc/passwd
+entry (or
+.B /bin/sh
+if none is recorded).
+.SH FILES
+.DS
+.ta 24n
+\fB/etc/passwd\fR	password file
+\fB/etc/motd\fR	message of the day
+\fB/etc/news\fR	news file
+\fB/etc/newslog\fR	per-user record of news already read
+\fB/etc/utmp\fR	identifiers of users currently logged in
+\fB/usr/adm/wtmp\fR	history of successful logins
+\fB/usr/adm/failed\fR	history of failed login attempts
+\fB/usr/spool/mail/\fIname\fR	mailbox for \fIuser\fR
+.DE
+.SH "SEE ALSO"
+.BR passwd ,
+.B sh
+.SH DIAGNOSTICS
+.B login
+prints
+.B "Login incorrect"
+and re-prompts if the name or password does not match, and
+.B "No shell."
+if it cannot execute the user's shell.
+.SH NOTES
+Unless it was invoked with
+.B argv[0][0]
+equal to
+.B \-
+(as done by
+.BR getty ),
+.B login
+resets the terminal's tty modes and special characters to the
+system's compiled-in defaults before prompting.

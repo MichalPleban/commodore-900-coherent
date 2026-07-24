@@ -1,0 +1,226 @@
+.TH me "" "Command"
+.SH NAME
+me \- MicroEMACS screen editor
+.SH SYNOPSIS
+\fBme [\fIfile\fR]
+.SH DESCRIPTION
+.HS
+me -- MicroEMACS screen editor
+Usage:	me [ file ]
+With no 'file', starts editing an empty buffer named 'main'.
+.HE
+.B me
+is MicroEMACS, a screen editor that keeps the text being edited in one
+or more memory buffers, each shown in its own window on the screen.
+If
+.I file
+is given,
+.B me
+reads it into a buffer named after
+.IR file 's
+last component and displays it in a window; if
+.I file
+does not exist,
+.B me
+starts an empty buffer under that name so the file can be created by
+saving it later.
+With no argument,
+.B me
+starts with a single empty buffer named
+.BR main .
+.PP
+Ordinary printable characters typed are inserted at the current
+position, which lies between two characters rather than on one.
+Control characters and the two-character sequences beginning with
+.B ESC
+(the meta prefix) or
+.B ^X
+(the control-X prefix) invoke editing commands, listed below by
+category.
+.B ^Q
+inserts the following character literally, even if it is one of
+these command characters.
+.SH "Moving the Cursor"
+.IP \fB^A\fR
+Move to the start of the line.
+.IP \fB^B\fR
+Move backward one character.
+.IP "\fBESC B\fR"
+Move backward one word.
+.IP \fB^E\fR
+Move to the end of the line.
+.IP \fB^F\fR
+Move forward one character.
+.IP "\fBESC F\fR"
+Move forward one word.
+.IP \fB^N\fR
+Move to the next line.
+.IP \fB^P\fR
+Move to the previous line.
+.IP \fB^V\fR
+Move forward one page (screen).
+.IP "\fBESC V\fR"
+Move backward one page.
+.IP "\fBESC <\fR"
+Move to the start of the buffer.
+.IP "\fBESC >\fR"
+Move to the end of the buffer.
+.IP "\fBESC !\fR"
+Reposition the window so the current line appears at the row given by
+the numeric argument (top if positive, bottom if negative, middle if
+zero).
+.SH "Killing, Deleting, and Yanking"
+.IP \fB^D\fR
+Delete the next character (forward delete).
+.IP \fB^H\fR
+Delete the previous character (backward delete); with an argument,
+delete that many previous characters.
+.IP \fB<DEL>\fR
+Same as
+.BR ^H .
+.IP "\fBESC ^H\fR"
+Delete the previous word.
+.IP "\fBESC <DEL>\fR"
+Same as
+.BR "ESC ^H" .
+.IP "\fBESC D\fR"
+Delete the next word.
+.IP \fB^K\fR
+Kill (delete, saving into the kill buffer) from the current position
+to the end of the line.
+.IP \fB^W\fR
+Kill the region between the mark and the current position.
+.IP "\fBESC W\fR"
+Copy the region between the mark and the current position into the
+kill buffer without deleting it.
+.IP \fB^Y\fR
+Yank the kill buffer back into the text at the current position.
+.IP \fB^T\fR
+Transpose the two characters on either side of the current position.
+.IP "\fB^X ^O\fR"
+Delete blank lines around the current position.
+.SH Marking
+.IP \fB^@\fR
+Set the mark at the current position.
+.IP "\fBESC .\fR"
+Same as
+.BR ^@ .
+.IP "\fBESC X ^X\fR"
+Set the mark at the current position, then move to the previous mark
+(exchange point and mark).
+.SH "Windows"
+.IP "\fB^X 1\fR"
+Make the current window the only window on the screen.
+.IP "\fB^X 2\fR"
+Split the current window into two.
+.IP "\fB^X N\fR"
+Move to the next window.
+.IP "\fB^X P\fR"
+Move to the previous window.
+.IP "\fB^X ^N\fR"
+Move the text in the current window down.
+.IP "\fB^X ^P\fR"
+Move the text in the current window up.
+.IP "\fB^X Z\fR"
+Enlarge the current window.
+.IP "\fB^X ^Z\fR"
+Shrink the current window.
+.IP \fB^L\fR
+Redraw (refresh) the screen.
+.SH "Buffers and Files"
+.IP "\fB^X B\fR"
+Select a buffer by name for display in the current window.
+.IP "\fB^X K\fR"
+Delete (kill) a named buffer.
+.IP "\fB^X ^B\fR"
+List all buffers, with their change flag, size, and associated file
+name.
+.IP "\fB^X ^F\fR"
+Change the file name associated with the current buffer.
+.IP "\fB^X ^R\fR"
+Read a named file into a new buffer, for reading only.
+.IP "\fB^X ^V\fR"
+Visit a named file: read it into a new buffer for reading and
+writing.
+.IP "\fB^X ^S\fR"
+Save the current buffer to its associated file, if it has changed.
+.IP "\fB^X ^W\fR"
+Write the current buffer to a named file.
+.IP \fB^Z\fR
+Save the current buffer if changed, then exit
+.BR me .
+.IP "\fB^X ^C\fR"
+Exit
+.B me
+without saving; asks for confirmation if any buffer has unsaved
+changes, unless given a numeric argument.
+.SH "Search"
+.IP \fB^R\fR
+Incremental search backward; the search progresses as each character
+of the pattern is typed.
+.IP \fB^S\fR
+Incremental search forward.
+.IP "\fBESC R\fR"
+Search backward for a complete pattern read on the message line.
+.IP "\fBESC S\fR"
+Search forward for a complete pattern read on the message line.
+.SH "Case Conversion"
+.IP "\fBESC C\fR"
+Capitalize the next word.
+.IP "\fBESC L\fR"
+Lower-case the next word.
+.IP "\fBESC U\fR"
+Upper-case the next word.
+.IP "\fB^X ^L\fR"
+Lower-case the region between the mark and the current position.
+.IP "\fB^X ^U\fR"
+Upper-case the region between the mark and the current position.
+.SH "Keyboard Macros"
+.IP "\fB^X (\fR"
+Begin defining a keyboard macro; everything typed up to
+.B "^X )"
+is recorded.
+.IP "\fB^X )\fR"
+End the keyboard macro definition.
+.IP "\fB^X E\fR"
+Execute the keyboard macro.
+.SH "Running Other Commands"
+.IP \fB^C\fR
+Suspend
+.B me
+and run an interactive command interpreter (subshell); exiting the
+subshell returns to
+.BR me .
+.IP "\fB^X !\fR"
+Prompt for a single shell command, run it, and show its output.
+.SH "Miscellaneous"
+.IP \fB^G\fR
+Abort the command in progress.
+.IP \fB^I\fR
+Insert a tab.
+.IP \fB^J\fR
+Insert a new line and indent it to the current level.
+.IP \fB^M\fR
+Insert a new line (carriage return).
+.IP \fB^O\fR
+Open a blank line at the current position.
+.IP \fB^Q\fR
+Insert the next character literally.
+.IP "\fBESC Q\fR"
+Insert a character given by its numeric value.
+.IP \fB^U\fR
+Introduce a numeric argument for the next command; typed alone it
+sets the argument to 4, and repeating
+.B ^U
+multiplies it by 4 each time.
+.SH DIAGNOSTICS
+.B me
+writes error and informational messages on the last line of the
+screen.
+It keeps all editing in memory and does not alter the file on disk
+until the buffer is saved.
+.SH "SEE ALSO"
+.B ed
+.SH NOTES
+.B me
+is derived from the public-domain MicroEMACS editor by Dave Conroy.

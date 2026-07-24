@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Strip nroff/troff control lines and eqn
  * and tbl sequences from input.
  * Also, optionally, produce the

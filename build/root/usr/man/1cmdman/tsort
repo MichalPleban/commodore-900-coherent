@@ -1,0 +1,34 @@
+
+
+ttssoorrtt                                                       ttssoorrtt
+
+
+
+NNAAMMEE
+     tsort - topological sort
+
+SSYYNNOOPPSSIISS
+     ttssoorrtt [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     ttssoorrtt reads pairs of items from _f_i_l_e (or the standard input,
+     if no _f_i_l_e is given) and prints, on the standard output, a
+     sequence of all the items such that each item comes before
+     every item that must follow it, according to the pairs
+     given.
+
+     The input consists of pairs of items (words) separated by
+     blanks, tabs, or newlines.  A pair in which the two items
+     are the same simply records that the item is present in the
+     input set.  Otherwise, a pair means that the first item must
+     precede the second in the output ordering.
+
+SSEEEE AALLSSOO
+     ssoorrtt
+
+DDIIAAGGNNOOSSTTIICCSS
+     ttssoorrtt reports and exits if its input holds an odd number of
+     items, or if a word is longer than 99 characters.  If the
+     given ordering contains a cycle, ttssoorrtt first dumps the items
+     still involved in the cycle, in no particular order, then
+     reports `tsort: cycles' and exits with a nonzero status.

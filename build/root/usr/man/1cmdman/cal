@@ -1,0 +1,43 @@
+
+
+ccaall                                                           ccaall
+
+
+
+NNAAMMEE
+     cal - print a calendar
+
+SSYYNNOOPPSSIISS
+     ccaall [_m_o_n_t_h] [_y_e_a_r]
+
+DDEESSCCRRIIPPTTIIOONN
+     ccaall prints a calendar.  With no arguments, it prints a
+     calendar for the current month.
+
+     With one argument: if the argument is numeric it is taken as
+     a _y_e_a_r and ccaall prints a twelve-month calendar for that year;
+     otherwise the argument is taken as a _m_o_n_t_h and ccaall prints
+     that month of the current year.
+
+     With two arguments, one gives the month and the other the
+     year, in either order, provided the month is not itself
+     given as a plain number (in which case the first argument is
+     the month and the second is the year).
+
+     A _m_o_n_t_h may be given as a decimal number from 1 to 12, as an
+     upper- or lower-case English or French name (in full, or ab-
+     breviated to three letters, with or without a trailing
+     period), or as an upper- or lower-case roman numeral from ii
+     to xxiiii. A _y_e_a_r must be in the range 1 through 9999.
+
+     ccaall accounts for the Gregorian calendar reform: England and
+     its colonies skipped 11 days after 3 September 1752, so
+     weekday calculations differ before and after that date.
+
+SSEEEE AALLSSOO
+     ddaattee
+
+DDIIAAGGNNOOSSTTIICCSS
+     ccaall prints a usage message and exits with nonzero status if
+     it is given more than two arguments, or if the resulting
+     month or year is out of range.

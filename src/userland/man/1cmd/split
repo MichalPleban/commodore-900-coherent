@@ -1,0 +1,53 @@
+.TH split "" "Command"
+.SH NAME
+split \- split a large file into smaller files
+.SH SYNOPSIS
+\fBsplit [\-\fInlines\fB] [\fIinfile \fB[\fIoutfile\fB]]\fR
+.SH DESCRIPTION
+.HS
+split -- split a large file into smaller files
+Usage:	split [ -nlines ] [ infile [ outfile ] ]
+'infile' of '-' or no 'infile' means standard input.
+'outfile' defaults to 'x'.
+.HE
+.B split
+copies
+.I infile
+(or the standard input, if
+.I infile
+is omitted or is
+.BR \- )
+into a series of new files, each holding at most
+.I nlines
+lines of the input (the last file may hold fewer).
+The new files are named by appending
+.BR aa ,
+.BR ab ,
+.BR ac ,
+and so on, in turn, to
+.I outfile
+(default
+.BR x ),
+so that the first file is
+.IR outfile aa,
+the second
+.IR outfile ab,
+and so on through
+.IR outfile zz.
+.PP
+The default number of lines per output file is 1000; this may be
+changed by giving
+.BI \- nlines
+as the first argument.
+.SH DIAGNOSTICS
+.B split
+complains and exits if
+.I infile
+cannot be opened, if an output file cannot be created, or if more
+than 676 output files (through
+.IR outfile zz)
+would be needed.
+.SH NOTES
+.I nlines
+must be a positive number; anything else is rejected with a usage
+message.

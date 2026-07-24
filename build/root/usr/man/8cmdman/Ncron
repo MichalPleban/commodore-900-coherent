@@ -1,0 +1,56 @@
+
+
+NNccrroonn                                                       NNccrroonn
+
+
+
+NNAAMMEE
+     Ncron - run commands at scheduled times
+
+SSYYNNOOPPSSIISS
+     /uussrr/lliibb/NNccrroonn
+
+DDEESSCCRRIIPPTTIIOONN
+     NNccrroonn reads the file /uussrr/lliibb/ccrroonnttaabb and, once each minute,
+     runs every entry in it whose time fields match the current
+     minute, hour, day of the month, month, and day of the week.
+
+     At start-up NNccrroonn sets its user and group id to those of
+     user ddaaeemmoonn if that user exists, changes its working direc-
+     tory to /bbiinn, and arranges to wake up once every minute.  On
+     each wakeup it rereads /uussrr/lliibb/ccrroonnttaabb from the beginning,
+     testing every entry; once every command it has started has
+     finished, it sleeps until the next minute.
+
+     Each line of /uussrr/lliibb/ccrroonnttaabb has the form
+
+                  _m_i_n_u_t_e _h_o_u_r _m_o_n_t_h-_d_a_y _m_o_n_t_h _w_e_e_k-_d_a_y _c_o_m_m_a_n_d
+
+     The five time fields are separated by white space.  Each may
+     be a single number, a range of two numbers separated by a
+     hyphen, a comma-separated list of numbers and/or ranges, or
+     an asterisk meaning every value of that field.  An entry
+     runs only when the current time matches every one of its
+     five fields.  The _c_o_m_m_a_n_d is the rest of the line and is
+     passed to ppooppeenn so that it runs under the shell.  A percent
+     sign within _c_o_m_m_a_n_d is turned into a newline, and everything
+     following it is instead fed to the command's standard input;
+     a backslash escapes a literal percent sign or continues the
+     line onto the next.
+
+     NNccrroonn appends a line to /uussrr/lliibb/ccrroonnlloogg each time it starts
+     a command, and, on the hour, a time stamp as well.
+
+FFIILLEESS
+                         /uussrr/lliibb/ccrroonnttaabbtable of scheduled commands
+                         /uussrr/lliibb/ccrroonnlloogglog of commands run and hourly time stamps
+
+SSEEEE AALLSSOO
+     aatt, aattrruunn, ccrroonn
+
+NNOOTTEESS
+     NNccrroonn is a variant of the command ccrroonn found elsewhere in
+     this source tree; the two differ only in that NNccrroonn also
+     writes an hourly time stamp, and each command it runs, to
+     /uussrr/lliibb/ccrroonnlloogg. There is no shipped binary built from this
+     source in this tree; the installed daemon is ccrroonn.

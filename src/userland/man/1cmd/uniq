@@ -1,0 +1,71 @@
+.TH uniq "" "Command"
+.SH NAME
+uniq \- remove/count repeated lines in a sorted file
+.SH SYNOPSIS
+\fBuniq [\-cdu] [\-\fIn\fB] [+\fIn\fB] [\fIinfile\fB [\fIoutfile\fB]]\fR
+.SH DESCRIPTION
+.HS
+uniq -- remove/count repeated lines in a sorted file
+Usage:	uniq [ options ] [ infile [ outfile] ]
+Options:
+	-c	Print duplication count with lines
+	-d	Print only duplicated lines
+	-n	Skip 'n' fields during comparison
+	+n	Skip 'n' characters (after skipping fields)
+	-u	Print only non-repeated lines
+.HE
+.B uniq
+reads
+.I infile
+(or the standard input, if
+.I infile
+is omitted) and copies it to
+.I outfile
+(or the standard output, if
+.I outfile
+is omitted), collapsing each run of two or more equal, adjacent lines
+into (by default) a single copy.
+Because
+.B uniq
+only compares each line against the one before it,
+.I infile
+should already be sorted.
+.IP \fB\-c\fR
+Precede each output line with the number of times it occurred in that
+run.
+.IP \fB\-d\fR
+Print only lines that occurred more than once, and only one copy of
+each.
+.IP \fB\-u\fR
+Print only lines that occurred exactly once.
+.PP
+If none of
+.BR \-c ,
+.BR \-d ,
+or
+.B \-u
+is given,
+.B uniq
+behaves as if both
+.B \-d
+and
+.B \-u
+were given, so every distinct line is printed once regardless of how
+many times it was repeated.
+.PP
+Two further options control how much of each line is skipped before
+lines are compared for equality (the full line is still copied to the
+output):
+.IP \fB\-\fIn\fR
+Skip the first
+.I n
+fields of each line, where a field is a run of non-blank, non-tab
+characters bounded by blanks or tabs.
+.IP \fB+\fIn\fR
+Skip the first
+.I n
+characters of each line, applied after any field-skipping requested by
+\fB\-\fIn\fR.
+.SH "SEE ALSO"
+.BR comm ,
+.B sort

@@ -1,0 +1,39 @@
+.TH reboot "" "Administration"
+.SH NAME
+reboot \- flush the file systems and restart the machine
+.SH SYNOPSIS
+\fB/etc/reboot\fR
+.SH DESCRIPTION
+.HS
+reboot -- flush the file systems and restart the machine
+Usage:	/etc/reboot
+This command takes no options and may be run only by the superuser.
+.HE
+.B reboot
+calls
+.B sync()
+twice and then calls the
+.B reboot()
+system call.
+.B reboot()
+marks every file system clean, flushes the buffer cache, and jumps to
+the ROM restart entry; it does not return except on failure.
+.PP
+Only the superuser may reboot the machine: if
+.B reboot()
+fails (which happens when the caller is not the superuser), it
+returns instead of restarting the machine, and
+.B reboot
+prints a diagnostic on the standard error and exits with status 1.
+.SH "SEE ALSO"
+.B sync
+.SH DIAGNOSTICS
+If the
+.B reboot()
+system call fails,
+.B reboot
+prints
+.RS
+.B "reboot: cannot reboot (not super-user?)"
+.RE
+on the standard error and exits with status 1.

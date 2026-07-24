@@ -78,20 +78,22 @@ INC_TARGET := $(patsubst $(INCSRC)/%,$(INCDIR)/%,$(HDRS))
 # files are the hand-written primitives: syscall stubs, strcmp, setjmp, ...).
 # ---------------------------------------------------------------------------
 LIBC_SUB := crt gen stdio sys
-libc_c   := $(wildcard $(foreach d,$(LIBC_SUB),$(UL)/libc/$(d)/*.c))
-libc_s   := $(wildcard $(foreach d,$(LIBC_SUB),$(UL)/libc/$(d)/*.s))
+libc_c   := $(wildcard $(foreach d,$(LIBC_SUB),$(UL)/lib/libc/$(d)/*.c))
+libc_s   := $(wildcard $(foreach d,$(LIBC_SUB),$(UL)/lib/libc/$(d)/*.s))
 libc_sonly := $(filter-out $(addsuffix .s,$(basename $(libc_c))),$(libc_s))
 
 LIBC_OBJ := $(patsubst $(SRC)/%.c,$(OBJ)/%.o,$(libc_c)) \
             $(patsubst $(SRC)/%.s,$(OBJ)/%.o,$(libc_sonly))
 
-# libm / libmp / liby - all .c in the directory (per their run/compile scripts)
-libm_c   := $(wildcard $(UL)/libm/*.c)
-libmp_c  := $(wildcard $(UL)/libmp/*.c)
-liby_c   := $(wildcard $(UL)/liby/*.c)
+# libm / libmp / liby / libfs - all .c in the directory (per their run/compile scripts)
+libm_c   := $(wildcard $(UL)/lib/libm/*.c)
+libmp_c  := $(wildcard $(UL)/lib/libmp/*.c)
+liby_c   := $(wildcard $(UL)/lib/liby/*.c)
+libfs_c  := $(wildcard $(UL)/lib/libfs/*.c)
 LIBM_OBJ  := $(patsubst $(SRC)/%.c,$(OBJ)/%.o,$(libm_c))
 LIBMP_OBJ := $(patsubst $(SRC)/%.c,$(OBJ)/%.o,$(libmp_c))
 LIBY_OBJ  := $(patsubst $(SRC)/%.c,$(OBJ)/%.o,$(liby_c))
+LIBFS_OBJ := $(patsubst $(SRC)/%.c,$(OBJ)/%.o,$(libfs_c))
 
 # ---------------------------------------------------------------------------
 # Top-level targets
@@ -103,11 +105,13 @@ LIBM  = $(LIBDIR)/libm.a
 # the reference image keeps libmp.a in /usr/lib, not /lib
 LIBMP = $(USRLIBDIR)/libmp.a
 LIBY  = $(LIBDIR)/liby.a
+# libfs: shared file-system access for the check tools (icheck/dcheck/ncheck).
+LIBFS = $(LIBDIR)/libfs.a
 
-LIBS = $(CRT) $(DTOA) $(LIBC) $(LIBM) $(LIBMP) $(LIBY)
+LIBS = $(CRT) $(DTOA) $(LIBC) $(LIBM) $(LIBMP) $(LIBY) $(LIBFS)
 
-.PHONY: all headers libs cmds kernel dist image diskmanifest floppy clean
-all: headers libs cmds kernel dist image
+.PHONY: all headers libs cmds kernel dist man image diskmanifest floppy clean
+all: headers libs cmds kernel dist man image
 headers: $(INC_TARGET)
 libs: $(LIBS)
 
@@ -132,11 +136,11 @@ $(OBJ)/%.o: $(OBJ)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # crt objects: standalone in $(LIBDIR) (build/root/lib), assembled from csu/
-$(LIBDIR)/crts0.o: $(UL)/csu/crts0.s
+$(LIBDIR)/crts0.o: $(UL)/lib/csu/crts0.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) -o $@ $<
 
-$(LIBDIR)/dtoa.o: $(UL)/csu/dtoa.s
+$(LIBDIR)/dtoa.o: $(UL)/lib/csu/dtoa.s
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) -o $@ $<
 
@@ -150,6 +154,9 @@ $(USRLIBDIR)/libmp.a: $(LIBMP_OBJ)
 	$(ar-sorted)
 
 $(LIBDIR)/liby.a: $(LIBY_OBJ)
+	$(ar-sorted)
+
+$(LIBDIR)/libfs.a: $(LIBFS_OBJ)
 	$(ar-sorted)
 
 # ===========================================================================
@@ -194,14 +201,17 @@ endef
 
 # --- single-file commands -> /bin ------------------------------------------
 BIN_CMDS := ac ar at bad banner basename c cal cat check chgrp chmod chown \
-	cmp col comm conv cp cpdir crypt date dcheck dd deroff df diff3 du echo file \
-	from head help icheck join kill lc learn ln login look ls m4 mesg mkdir \
-	msg mv ncheck newgrp nm od passwd pr prep prof pwd quot ranlib rev rm \
+	cmp col comm conv cp cpdir crypt date dd deroff df diff3 du echo file \
+	from head help join kill lc learn ln login look ls m4 mesg mkdir \
+	msg mv newgrp nm od passwd pr prep prof pwd quot ranlib rev rm \
 	rmdir sa scat size sleep sort split strip stty su sum sync tail tar tee \
 	time touch tr tty typo uniq version wc who write yes
 
+# icheck/dcheck/ncheck are built separately (they link libfs.a) -- see below.
+FS_CMDS := icheck dcheck ncheck
+
 # --- single-file commands -> /etc ------------------------------------------
-ETC_CMDS := accton clri cron getty init mkfs mknod mkproto umount update wall
+ETC_CMDS := accton clri cron getty init mkfs mknod mkproto reboot umount update wall
 
 # system utilities that pull in kernel headers (struct proc, drvcon.h, mount.h).
 KERN_ETC_CMDS := load mount uload
@@ -215,6 +225,10 @@ $(BIN_TARGETS): $(BINDIR)/%: $(OBJ)/userland/cmd/%.o $(CRT) $(LIBC)
 
 $(ETC_TARGETS): $(ETCDIR)/%: $(OBJ)/userland/cmd/%.o $(CRT) $(LIBC)
 	$(call link,$<)
+
+# init embeds VERSION from <machine.h>, so rebuild it when that header changes
+# (the generic %.o rule has no header prerequisites).
+$(OBJ)/userland/cmd/init.o: $(INCSRC)/machine.h
 
 $(addprefix $(OBJ)/userland/cmd/,$(addsuffix .o,$(KERN_ETC_CMDS))): CFLAGS += -I$(SRC)/kernel/h
 $(KERN_ETC_TARGETS): $(ETCDIR)/%: $(OBJ)/userland/cmd/%.o $(CRT) $(LIBC)
@@ -242,6 +256,16 @@ $(BINDIR)/units: $(OBJ)/userland/cmd/units.o $(CRT) $(DTOA) $(LIBC)
 # and needs an explicit rule.  Installed setuid-root (perms applied at pack time).
 $(BINDIR)/mail: $(OBJ)/userland/cmd/7mail.o $(CRT) $(LIBC)
 	$(call link,$<)
+
+# file-system check tools: each links libfs.a (the shared FS access layer and
+# the inode->pathname engine).  libfs.a precedes libc.a so its references to
+# libc (malloc/fprintf/strncpy/l3tol) resolve under Coherent's single-pass ld.
+$(BINDIR)/icheck: $(OBJ)/userland/cmd/icheck.o $(CRT) $(LIBFS) $(LIBC)
+	$(call link,$< $(LIBFS))
+$(BINDIR)/dcheck: $(OBJ)/userland/cmd/dcheck.o $(CRT) $(LIBFS) $(LIBC)
+	$(call link,$< $(LIBFS))
+$(BINDIR)/ncheck: $(OBJ)/userland/cmd/ncheck.o $(CRT) $(LIBFS) $(LIBC)
+	$(call link,$< $(LIBFS))
 
 # atrun installs to /usr/lib; diff3 ships in both /bin and /usr/lib.
 $(USRLIBDIR)/atrun: $(OBJ)/userland/cmd/atrun.o $(CRT) $(LIBC)
@@ -412,6 +436,14 @@ $(USRBINDIR)/kermit: $(OBJ)/userland/cmd/kermit.o $(CRT) $(LIBC)
 	$(call link,$<)
 
 # --- yacc-based commands ---------------------------------------------------
+# Cancel make's built-in implicit rule "%.c: %.y".  bc ships a checked-in,
+# hand-tuned gram.c (built directly, using the bundled yy.h -- there is no
+# y.tab.h generation step for it).  Without this, editing gram.y so it becomes
+# newer than gram.c makes the built-in rule silently regenerate gram.c with the
+# modern yacc (referencing a nonexistent y.tab.h), breaking the build.  The real
+# yacc commands below use the explicit gen-yacc targets, not this implicit rule.
+%.c: %.y
+
 # coherent-yacc writes y.tab.c / y.tab.h into its working directory, so each
 # grammar is run in its own obj subdir (with the .y given by absolute path).
 # gen-yacc: $(1) = command subdir under cmd/.
@@ -456,6 +488,7 @@ $(BINDIR)/test $(BINDIR)/[: $(OBJ)/userland/cmd/test/y.tab.o $(CRT) $(LIBY) $(LI
 
 # Aggregate of every command the tree can currently build.
 CMD_TARGETS := $(BIN_TARGETS) $(ETC_TARGETS) $(KERN_ETC_TARGETS) \
+	$(addprefix $(BINDIR)/,$(FS_CMDS)) \
 	$(BINDIR)/factor $(BINDIR)/units $(BINDIR)/mail $(USRLIBDIR)/atrun $(USRLIBDIR)/diff3 \
 	$(BINDIR)/as $(BINDIR)/awk $(BINDIR)/bc $(BINDIR)/cu $(BINDIR)/dc \
 	$(BINDIR)/expr $(BINDIR)/find $(BINDIR)/grep $(BINDIR)/ps \
@@ -715,6 +748,38 @@ $(DIST_TARGETS): $(ROOT)/%: $(SRC)/dist/%
 dist: $(DIST_TARGETS)
 
 # ===========================================================================
+# Manual pages  (src/userland/man -> pre-formatted catman pages in /usr/man)
+# ===========================================================================
+# Each nroff -man source under src/userland/man/<N>cmd/ is formatted at build
+# time with the HOST nroff (coherent-nroff) into a pre-formatted "catman" page
+# under build/root/usr/man/<N>cmdman/.  This release's /bin/man is a shell
+# script that, by default, pages a pre-formatted file it finds by globbing
+# /usr/man/*cmdman (and *sysman) with `scat -s`; our 1cmd/8cmd sections install
+# as 1cmdman/8cmdman so both match the *cmdman glob.  (`man -n` would re-nroff a
+# source under /usr/man/*cmd, which we do not install.)
+#
+# -x drops the trailing page pad, so a page is ~1KB.  COHERENT_TMAC points the
+# host nroff at the installed tmac.an (the -man macro package); it is given as a
+# RELATIVE path so its Windows drive-letter form never matters.  The pages must
+# also be listed in src/image/hdd_manifest.txt (644 0 1) or `make image` errors
+# on the undeclared paths -- the manifest is authoritative for what ships.
+MANROFF  ?= coherent-nroff
+MAN_TMAC  := $(ROOT)/usr/lib/tmac.an
+MAN1_SRC  := $(wildcard $(UL)/man/1cmd/*)
+MAN8_SRC  := $(wildcard $(UL)/man/8cmd/*)
+MAN_TARGETS := $(patsubst $(UL)/man/1cmd/%,$(ROOT)/usr/man/1cmdman/%,$(MAN1_SRC)) \
+               $(patsubst $(UL)/man/8cmd/%,$(ROOT)/usr/man/8cmdman/%,$(MAN8_SRC))
+
+$(ROOT)/usr/man/1cmdman/%: $(UL)/man/1cmd/% $(MAN_TMAC)
+	@mkdir -p $(dir $@)
+	COHERENT_TMAC="$(ROOT)/usr/lib" $(MANROFF) -x -man $< > $@ || { rm -f $@; exit 1; }
+$(ROOT)/usr/man/8cmdman/%: $(UL)/man/8cmd/% $(MAN_TMAC)
+	@mkdir -p $(dir $@)
+	COHERENT_TMAC="$(ROOT)/usr/lib" $(MANROFF) -x -man $< > $@ || { rm -f $@; exit 1; }
+
+man: $(MAN_TARGETS)
+
+# ===========================================================================
 # Disk image  (pack build/root -> build/dist/hdd.bin)
 # ===========================================================================
 # tools/build_disk.py takes file CONTENTS from build/root and applies ownership,
@@ -733,7 +798,7 @@ DISKIMG      := $(DISTDIR)/hdd.bin
 HDD_MANIFEST := $(SRC)/image/hdd_manifest.txt
 HDD_DEVICES  := $(SRC)/image/hdd_devices.txt
 
-image: headers libs cmds kernel dist
+image: headers libs cmds kernel dist man
 	$(PYTHON) tools/build_disk.py build --root "$(ROOT)" \
 	    --perms "$(HDD_MANIFEST)" --devices "$(HDD_DEVICES)" --out "$(DISKIMG)"
 
@@ -785,4 +850,5 @@ floppy: $(FLOPPYDIR)/coherent $(FLOPPY_SRCS)
 
 clean:
 	rm -rf $(OBJ) $(LIBS) $(CMD_TARGETS) $(KERNEL_TARGETS) $(DIST_TARGETS) \
+	       $(ROOT)/usr/man \
 	       $(DISKIMG) $(FLOPPYIMG) $(FLOPPYDIR)

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Machine dependent signals.
  */
 #define	SIGEPA	12			/* Extended processor trap (uni) */

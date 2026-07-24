@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Commodore 900 Keyboard driver.
  * Character definitions from the keyboard.
  * Eventually, all of this will be replaced

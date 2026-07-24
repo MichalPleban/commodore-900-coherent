@@ -1,0 +1,103 @@
+.TH nm "" "Command"
+.SH NAME
+nm \- print name list
+.SH SYNOPSIS
+\fBnm [\-adgnopru] [\fIfile ...\fR]
+.SH DESCRIPTION
+.HS
+nm -- print name list
+Usage:	nm [ options ] [ file ... ]
+Options:
+	-a	Print all symbols
+	-d	Print only definitions
+	-g	Print only global symbols
+	-n	Sort numerically (default: sort by name)
+	-o	Prepend file or member name to each line
+	-p	Print in symbol table order (no sort)
+	-r	Reverse order of sort
+	-u	Print undefined symbols
+'file' may be an object file or an archive.
+.HE
+.B nm
+prints the symbol table of each
+.IR file .
+Each
+.I file
+may be a linked
+.B l.out
+object or executable, or an archive (a file beginning with the
+archive magic number) made by
+.BR ar ;
+for an archive,
+.B nm
+prints the symbols of every member except
+.BR __.SYMDEF .
+With no
+.I file
+argument,
+.B nm
+reads
+.BR l.out .
+.PP
+By default,
+.B nm
+prints only symbols whose names look like C identifiers (a trailing
+underscore is stripped before printing, or the name is at least
+seven characters long); the
+.B \-a
+option disables this filtering.
+Symbols are sorted by name unless
+.B \-n
+or
+.B \-p
+is given.
+Each line gives the symbol's segment (one of
+.BR si ", " pi ", " bi ", " sd ", " pd ", " bd ", or " d
+for defined symbols, blank for a common symbol, or
+.B u
+or
+.B U
+for an undefined reference, capitalized if the symbol is global) and
+either its address or, for a common symbol, its size, followed by the
+symbol name.
+.PP
+When more than one
+.I file
+is given, or a
+.I file
+is an archive,
+.B nm
+prints a heading line naming the file or archive member before its
+symbols, unless
+.B \-o
+was given, in which case the file or member name is instead prepended
+to every symbol line.
+.IP \fB\-a\fR
+Print all symbols, including ones that are not C identifiers.
+.IP \fB\-d\fR
+Print only defined symbols (suppress undefined references).
+.IP \fB\-g\fR
+Print only global (external) symbols.
+.IP \fB\-n\fR
+Sort symbols numerically by address, instead of by name.
+.IP \fB\-o\fR
+Prepend the file (or, for an archive member, the member) name to each
+output line instead of printing it as a heading.
+.IP \fB\-p\fR
+Print symbols in the order they occur in the symbol table; do not
+sort them.
+.IP \fB\-r\fR
+Reverse the sort order.
+.IP \fB\-u\fR
+Print only undefined symbols.
+.SH "SEE ALSO"
+.BR ar ,
+.BR ld ,
+.BR size ,
+.B strip
+.SH DIAGNOSTICS
+.B nm
+complains if a
+.I file
+cannot be opened, is not a recognized object file, or has no symbol
+table.

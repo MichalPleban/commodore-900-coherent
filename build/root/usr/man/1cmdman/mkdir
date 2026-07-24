@@ -1,0 +1,88 @@
+
+
+mmkkddiirr                                                       mmkkddiirr
+
+
+
+NNAAMMEE
+     mkdir - make a new directory
+
+SSYYNNOOPPSSIISS
+     mmkkddiirr _d_i_r_e_c_t_o_r_y ...
+
+DDEESSCCRRIIPPTTIIOONN
+     mmkkddiirr creates each named _d_i_r_e_c_t_o_r_y. For each _d_i_r_e_c_t_o_r_y, it
+     verifies that the parent directory exists and that the
+     caller has write and search permission on it, then creates
+     _d_i_r_e_c_t_o_r_y itself together with the two entries .  and ..
+     that every directory must contain: .  links to _d_i_r_e_c_t_o_r_y it-
+     self, and ..  links to its parent.
+
+     Because only the superuser may create the underlying direc-
+     tory node, mmkkddiirr is normally installed set-user-id to root;
+     the new directory is then given to the invoking user with
+     cchhoowwnn(), so that it is owned by the user who ran mmkkddiirr
+     rather than by root.
+
+     mmkkddiirr catches the SSIIGGIINNTT and SSIIGGHHUUPP signals while it works,
+     so that an interrupt cannot leave behind a half-formed
+     directory that lacks its .  or ..  entry.
+
+DDIIAAGGNNOOSSTTIICCSS
+     mmkkddiirr returns a nonzero exit status if any _d_i_r_e_c_t_o_r_y could
+     not be created, after printing one of the following com-
+     plaints to the standard error:
+
+     cannot get child dir name %s
+          The last component of _d_i_r_e_c_t_o_r_y could not be extracted
+          from the pathname.
+
+     %s not allowed
+          The last component of _d_i_r_e_c_t_o_r_y is .  or .., which can-
+          not be created as a new directory.
+
+     parent dir %s does not exist
+          The directory that would contain _d_i_r_e_c_t_o_r_y does not ex-
+          ist.
+
+     no permission to mkdir in %s
+          The caller lacks write and search permission on the
+          parent directory.
+
+     %s already exists
+          _d_i_r_e_c_t_o_r_y (or a file of that name) is already present.
+
+     not the super-user
+          The underlying directory node could not be created be-
+          cause mmkkddiirr is not running with superuser privilege.
+
+     link to %s failed
+          The .  or ..  entry could not be linked into the new
+          directory; in this case mmkkddiirr removes the partially
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+mmkkddiirr                                                       mmkkddiirr
+
+
+
+          mmaaddee directory.
+
+     cannot make %s
+          The underlying directory node could not be created, for
+          a reason other than a missing parent or a lack of
+          privilege.
+
+     out of memory
+          mmkkddiirr could not allocate working storage for a path-
+          name.
+
+SSEEEE AALLSSOO
+     mmkknnoodd, rrmmddiirr
+
+NNOOTTEESS
+     mmkkddiirr will not create a directory named .  or ...

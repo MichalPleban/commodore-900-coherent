@@ -1,0 +1,50 @@
+.TH as "" "Command"
+.SH NAME
+as \- assembler for host computer
+.SH SYNOPSIS
+\fBas [\-glx] [\-o \fIdest\fB] \fIfile ...\fR
+.SH DESCRIPTION
+.HS
+as -- assembler for host computer
+Usage:	as [ options ] file ...
+Options:
+	-g	Make all undefined symbols global
+	-l	Output listing to standard output
+	-o dest	Rename output file 'dest' (default: 'l.out')
+	-x	Strip local symbols from symbol table
+.HE
+.B as
+is the COHERENT assembler for the host machine (the Zilog Z8001).
+It assembles one or more
+.I file
+arguments into a single relocatable object module, suitable for
+linking by
+.BR ld ,
+by default named
+.BR l.out .
+Options and file names may be given in any order.
+.PP
+.B as
+recognizes the following options:
+.IP \fB\-g\fR
+Make every symbol that is referenced but never defined in this
+assembly global, so the linker will look for its definition in
+another module.
+.IP \fB\-l\fR
+Write an assembly listing to the standard output.
+.IP \fB\-o\ \fIdest\fR
+Write the assembled object module into
+.I dest
+instead of
+.BR l.out .
+.IP \fB\-x\fR
+Strip local (non-global) symbols from the symbol table written into
+the output object module.
+.SH "SEE ALSO"
+.B cc ,
+.B ld
+.SH DIAGNOSTICS
+.B as
+prints a message on the standard error for each erroneous line and,
+if any errors are found, exits with a nonzero status without
+producing a usable object module.

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Cpdir. Copy hierarchies in a file system, preserving structure.
  *	  Define SLOW for 'block at a time copying' - not recommended tho.
  */

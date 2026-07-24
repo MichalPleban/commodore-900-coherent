@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Common routines to read and write words
  * in the compressed dictionary for the
  * simple (but complete) version of spell.

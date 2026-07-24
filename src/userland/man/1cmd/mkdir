@@ -1,0 +1,104 @@
+.TH mkdir "" "Command"
+.SH NAME
+mkdir \- make a new directory
+.SH SYNOPSIS
+\fBmkdir \fIdirectory ...\fR
+.SH DESCRIPTION
+.HS
+mkdir -- make a new directory
+Usage:	mkdir directory ...
+.HE
+.B mkdir
+creates each named
+.IR directory .
+For each
+.IR directory ,
+it verifies that the parent directory exists and that the caller has
+write and search permission on it, then creates
+.I directory
+itself together with the two entries
+.B .
+and
+.B ..
+that every directory must contain:
+.B .
+links to
+.I directory
+itself, and
+.B ..
+links to its parent.
+.PP
+Because only the superuser may create the underlying directory node,
+.B mkdir
+is normally installed set-user-id to root; the new directory is then
+given to the invoking user with
+.BR chown() ,
+so that it is owned by the user who ran
+.B mkdir
+rather than by root.
+.PP
+.B mkdir
+catches the
+.B SIGINT
+and
+.B SIGHUP
+signals while it works, so that an interrupt cannot leave behind a
+half-formed directory that lacks its
+.B .
+or
+.B ..
+entry.
+.SH DIAGNOSTICS
+.B mkdir
+returns a nonzero exit status if any
+.I directory
+could not be created, after printing one of the following complaints
+to the standard error:
+.IP "cannot get child dir name %s"
+The last component of
+.I directory
+could not be extracted from the pathname.
+.IP "%s not allowed"
+The last component of
+.I directory
+is
+.B .
+or
+.BR .. ,
+which cannot be created as a new directory.
+.IP "parent dir %s does not exist"
+The directory that would contain
+.I directory
+does not exist.
+.IP "no permission to mkdir in %s"
+The caller lacks write and search permission on the parent directory.
+.IP "%s already exists"
+.I directory
+(or a file of that name) is already present.
+.IP "not the super-user"
+The underlying directory node could not be created because
+.B mkdir
+is not running with superuser privilege.
+.IP "link to %s failed"
+The
+.B .
+or
+.B ..
+entry could not be linked into the new directory; in this case
+.B mkdir
+removes the partially made directory.
+.IP "cannot make %s"
+The underlying directory node could not be created, for a reason
+other than a missing parent or a lack of privilege.
+.IP "out of memory"
+.B mkdir
+could not allocate working storage for a pathname.
+.SH "SEE ALSO"
+.BR mknod ,
+.B rmdir
+.SH NOTES
+.B mkdir
+will not create a directory named
+.B .
+or
+.BR .. .

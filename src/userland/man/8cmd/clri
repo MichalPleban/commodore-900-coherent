@@ -1,0 +1,50 @@
+.TH clri "" "Administration"
+.SH NAME
+clri \- clear i-node
+.SH SYNOPSIS
+\fB/etc/clri \fIfilesystem inumber ...\fR
+.SH DESCRIPTION
+.HS
+clri -- clear i-node
+Usage:	/etc/clri filesystem inumber ...
+.HE
+.B clri
+zeroes each i-node named by an
+.I inumber
+argument on
+.IR filesystem .
+.I filesystem
+should be the raw (character-special) device holding the file
+system, e.g.
+.BR /dev/rhd0 .
+.B clri
+reads the superblock of
+.I filesystem
+to locate the i-node list, then, for each
+.IR inumber ,
+reads the disk block containing that i-node, zeroes the i-node's
+entry in the in-memory copy of the block, and writes the block
+back.
+.PP
+The i-node is identified purely by number; no check is made that it
+is of any particular type or that it is otherwise a sensible thing
+to clear.
+.SH "SEE ALSO"
+.BR check ,
+.B mkfs
+.SH DIAGNOSTICS
+.B clri
+prints a diagnostic and exits 1 if
+.I filesystem
+cannot be opened, its superblock cannot be read, an
+.I inumber
+is out of range for the file system, or a read or write error
+occurs.
+.SH NOTES
+.B clri
+operates directly on the raw device and does not go through the
+file system; run it only on an unmounted file system, since any
+in-memory copy of the affected i-node will otherwise overwrite this
+change when it is later written back to disk.
+If the i-node cleared belongs to the root file system, reboot
+immediately afterward.

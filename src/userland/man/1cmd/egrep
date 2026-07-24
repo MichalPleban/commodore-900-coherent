@@ -1,0 +1,142 @@
+.TH egrep "" "Command"
+.SH NAME
+egrep \- extended pattern search
+.SH SYNOPSIS
+\fBegrep [\-bcefhlnsvy] [\fIpattern\fB] [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+egrep -- extended pattern search
+Usage:	egrep [ option ... ] [ pattern ] [ file ... ]
+Options:
+	-b	Each output line has the block number of the match
+	-c	Print only a count of the number of matching lines
+	-e	The next argument is the pattern
+	-f	The next argument is a file containing one pattern per line
+	-h	Suppress the printing of file names on matched lines
+	-l	Print only the names of files containing matches
+	-n	Print line number of file with each matched line output
+	-s	Suppress output, just return status
+	-v	Negate the sense of the match
+	-y	Lower-case letters in the pattern match upper- and lower-case
+The 'pattern' is a pattern roughly like that found in 'ed'.
+If no 'file' is specified, the standard input is used.
+egrep is like 'grep -a', but is an order of magnitude faster.
+.HE
+.B egrep
+searches each
+.I file
+for lines matching
+.IR pattern .
+If no
+.I file
+is given, it searches the standard input.
+Normally each matching line is printed.
+Unlike
+.BR grep ,
+.B egrep
+always accepts the extended metacharacters
+.BR ( ,
+.BR ) ,
+.BR | ,
+.BR + ,
+and
+.B ?
+described below, and it builds a deterministic finite automaton from
+the pattern before scanning any input, which is why it runs
+considerably faster than
+.B grep
+on long input.
+.PP
+Exactly one
+.I pattern
+must be supplied, either as the first non-option argument, with
+.BR \-e ,
+or as the contents of the file named by
+.BR \-f ;
+these three sources are mutually exclusive.
+.SH Patterns
+A
+.I pattern
+is built from ordinary characters, which match themselves, and the
+following:
+.IP \fB^\fR 0.4i
+Anchors the match to the start of the line.
+.IP \fB$\fR
+Anchors the match to the end of the line.
+.IP \fB.\fR
+Matches any single character.
+.IP \fB*\fR
+Matches zero or more occurrences of the preceding pattern element.
+.IP \fB+\fR
+Matches one or more occurrences of the preceding pattern element.
+.IP \fB?\fR
+Matches zero or one occurrence of the preceding pattern element.
+.IP \fB[\fIchars\fB]\fR
+Matches any one of the enclosed characters; a leading
+.B ^
+complements the set, and ranges may be written with
+.BR \- .
+.IP \fB\e\fIc\fR
+Matches the character
+.I c
+literally.
+.IP "\fB(\fIpattern\fB)\fR"
+Groups a subpattern, for use with
+.BR * ,
+.BR + ,
+.BR ? ,
+or
+.BR | .
+.IP \fB|\fR
+Matches either the pattern before it or the pattern after it.
+A newline embedded in the
+.I pattern
+argument acts the same as
+.BR | .
+.PP
+Because several of these characters are also special to the shell,
+a
+.I pattern
+that uses them should be quoted.
+.SH Options
+.IP \fB\-b\fR 0.4i
+Precede each matching line with the number of the input block it
+started in.
+.IP \fB\-c\fR
+Print only a count of matching lines, not the lines themselves.
+.IP \fB\-e\fR
+The next argument is
+.IR pattern ,
+useful when it begins with
+.BR \- .
+.IP \fB\-f\fR
+The next argument names a file containing one pattern per line;
+no
+.I pattern
+argument is given on the command line.
+.IP \fB\-h\fR
+Do not print file names ahead of matched lines.
+.IP \fB\-l\fR
+Print only the names of files that contain a match.
+.IP \fB\-n\fR
+Precede each matching line with its line number within its file.
+.IP \fB\-s\fR
+Print nothing; only set the exit status.
+.IP \fB\-v\fR
+Print lines that do
+.I not
+match
+.IR pattern .
+.IP \fB\-y\fR
+Make lower-case letters in
+.I pattern
+match either case in the input.
+.SH "SEE ALSO"
+.BR awk ,
+.BR ed ,
+.BR expr ,
+.B grep
+.SH DIAGNOSTICS
+.B egrep
+returns 0 if any line matched, 1 if none did, and 2 if invoked
+incorrectly or a file could not be opened.

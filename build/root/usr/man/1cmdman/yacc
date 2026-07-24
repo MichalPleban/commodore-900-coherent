@@ -1,0 +1,104 @@
+
+
+yyaacccc                                                         yyaacccc
+
+
+
+NNAAMMEE
+     yacc - parser generator
+
+SSYYNNOOPPSSIISS
+     yyaacccc [_o_p_t_i_o_n_s] _f_i_l_e
+     cccc yy.ttaabb.cc [-llyy]
+
+DDEESSCCRRIIPPTTIIOONN
+     yyaacccc reads a grammar description from _f_i_l_e (or, if _f_i_l_e is
+     -, from the standard input) and writes an LALR(1) parser for
+     it, in C, to yy.ttaabb.cc, together with a header of token
+     definitions in yy.ttaabb.hh. yy.ttaabb.cc is produced by copying the
+     parser skeleton /lliibb/yyyyppaarrssee.cc and splicing in the generated
+     tables and semantic actions; the result is compiled and
+     linked like any other C source, typically with the -llyy
+     library, which supplies run-time support (such as a default
+     mmaaiinn()) that yyaacccc does not generate directly.  Any non-op-
+     tion argument is taken as _f_i_l_e; options and the grammar file
+     may appear in any order.
+
+     Table sizes for the number of terminal symbols, non-terminal
+     symbols, %ttyyppee tags, productions, and parser states are
+     fixed when yyaacccc starts; it reports a fatal error and stops
+     if the grammar exceeds the current limit for any of them.
+
+     -dd   Produce extra debugging output in the listing file; im-
+          plies -vv.
+
+     -hhddrr _f_i_l_e
+          Write the token-definition header to _f_i_l_e instead of
+          the default yy.ttaabb.hh.
+
+     -ll _f_i_l_e
+          Write the verbose listing to _f_i_l_e instead of the
+          default yy.oouuttppuutt; implies -vv.
+
+     -sstt  Print grammar statistics on the standard output.
+
+     -vv   Produce a verbose listing file describing the states
+          and conflicts of the generated parser.
+
+     -pprrooddss _n
+          Reset the maximum number of productions (rules) to _n.
+
+     -tteerrmmss _n
+          Reset the maximum number of terminal symbols to _n.
+
+     -nntteerrmmss _n
+          Reset the maximum number of non-terminal symbols to _n.
+
+     -ssttaatteess _n
+          Reset the maximum number of parser states to _n.
+
+     -ttyyppeess _n
+          Reset the maximum number of %ttyyppee tags to _n.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+yyaacccc                                                         yyaacccc
+
+
+
+FFIILLEESS
+          yy.ttaabb.cc           generated parser source
+          yy.ttaabb.hh           generated token definitions (default name)
+          yy.oouuttppuutt          verbose listing, with -v or -l (default name)
+          /lliibb/yyyyppaarrssee.cc    parser skeleton copied into y.tab.c
+          /uussrr/iinncclluuddee/aaccttiioonn.hhaction-table constants needed to compile y.tab.c
+          /lliibb/lliibbyy.aa       run-time support library, linked with -ly
+          /ttmmpp/yyaa*, /ttmmpp/yyoo*temporary action and option files
+
+SSEEEE AALLSSOO
+     lleexx
+
+DDIIAAGGNNOOSSTTIICCSS
+     yyaacccc reports each grammar error with the input line number
+     and a description; a fatal error (for example a missing "%%"
+     or an unreadable grammar file) stops it immediately, and any
+     error at all suppresses generation of the parser tables.
+     yyaacccc also writes a count of shift/reduce and reduce/reduce
+     conflicts.
+
+NNOOTTEESS
+     yyaacccc in this tree always writes yy.ttaabb.hh on every run,
+     whether or not -dd was given.
+
+     The compiled-in default for the maximum number of terminal
+     symbols is 150 (MMAAXXTTEERRMM in yyaacccc.hh), not 300 as given above
+     (the other defaults shown -- 100 non-terminals, 175 produc-
+     tions, 300 states, 10 types -- agree with the source).
+     Also, an explicit -tteerrmmss value of 160 or more makes yyaacccc
+     stop with the fatal error ggeett cciiaarraann ttoo cchhaannggee aalllloocc ffoorr
+     llsseettss, since the lookahead bitset is sized for at most 159
+     terminal symbols.

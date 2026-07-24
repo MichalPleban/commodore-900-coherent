@@ -1,0 +1,36 @@
+
+
+mmkknnoodd                                                       mmkknnoodd
+
+
+
+NNAAMMEE
+     mknod - make a special file or named pipe
+
+SSYYNNOOPPSSIISS
+     /eettcc/mmkknnoodd _f_i_l_e_n_a_m_e bb _m_a_j_o_r _m_i_n_o_r
+     /eettcc/mmkknnoodd _f_i_l_e_n_a_m_e cc _m_a_j_o_r _m_i_n_o_r
+     /eettcc/mmkknnoodd _f_i_l_e_n_a_m_e pp
+
+DDEESSCCRRIIPPTTIIOONN
+     mmkknnoodd creates a new i-node named _f_i_l_e_n_a_m_e in the file sys-
+     tem.  In the first form, _t_y_p_e selects the kind of device
+     special file to create: bb for a block-special device, or cc
+     for a character-special device; _m_a_j_o_r and _m_i_n_o_r give the
+     major and minor device numbers that together identify the
+     device to the kernel.  In the second form (three arguments,
+     the last being pp), mmkknnoodd instead creates a named pipe (FIFO)
+     called _f_i_l_e_n_a_m_e, and no device numbers are given.
+
+     The new node is created with mode 00666666.
+
+DDIIAAGGNNOOSSTTIICCSS
+     If the underlying mmkknnoodd() system call fails, mmkknnoodd prints
+          mknod: cannot create node _f_i_l_e_n_a_m_e
+     and exits with status 1 -- typically because _f_i_l_e_n_a_m_e al-
+     ready exists, its parent directory does not permit the
+     caller to create files in it, or an invalid _t_y_p_e or argument
+     count was given.
+
+SSEEEE AALLSSOO
+     mmkkddiirr, mmkkffss

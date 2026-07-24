@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Chmod -- change the mode of
  * files (both symbolic and octal)
  * I really don't like the syntax though.

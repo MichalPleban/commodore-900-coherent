@@ -1,0 +1,147 @@
+
+
+ssttttyy                                                         ssttttyy
+
+
+
+NNAAMMEE
+     stty - set/print terminal modes
+
+SSYYNNOOPPSSIISS
+     ssttttyy [-tt_t_t_y_n_a_m_e] [_m_o_d_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     With no _m_o_d_e arguments, ssttttyy prints the erase and kill
+     characters, the special characters, the line speed, and the
+     enabled modes of the standard output.  With _m_o_d_e arguments,
+     ssttttyy sets each requested mode, character, or speed, and ap-
+     plies them all at once after the whole command line has been
+     parsed.
+
+     Each _m_o_d_e argument is one of the following.  Any mode may be
+     preceded by - to select its opposite, except where noted.
+
+     _n_u_m_b_e_r       Set both the input and output line speed to
+                  _n_u_m_b_e_r, a recognized baud rate: 00,  5500,  7755,
+                  660000,  11220000,  11880000,  77220000,  99660000,  1199220000,  A
+                  speed of 00 hangs up the phone (drops modem con-
+                  trol) immediately.
+
+     eevveenn         Use even parity.
+
+     oodddd          Use odd parity.
+
+     rraaww, -rraaww (also ccooookkeedd)
+                  Enable, or disable, raw mode for both input and
+                  output: disable all input and output character
+                  processing (including erase/kill editing, sig-
+                  nal characters, and newline mapping).
+
+     rraawwiinn        Raw mode for input only.
+
+     rraawwoouutt       Raw mode for output only.
+
+     ccbbrreeaakk       Break out of a read after every input character
+                  (character-at-a-time input) instead of waiting
+                  for a full line.
+
+     nnll           Disable mapping of carriage return to newline
+                  on input.  -nnll restores the mapping (the
+                  default).
+
+     eecchhoo         Echo input characters as they are typed.
+
+     llccaassee        Map upper-case input to lower case, for ter-
+                  minals that cannot generate lower case.
+
+     ttaabbss         Disable expansion of tabs to spaces on output.
+                  -ttaabbss expands them (the default).
+
+     ttaannddeemm       Enable tandem mode: start and stop output in
+                  response to the ssttaarrtt and ssttoopp characters.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ssttttyy                                                         ssttttyy
+
+
+
+     ccrrtt          Enable erase and kill processing suited to a
+                  CRT terminal (which can back up and overwrite)
+                  rather than a hardcopy terminal.
+
+     eekk           Reset the erase and kill characters to # and @,
+                  respectively.
+
+     eerraassee _c      Set the character that erases the last-typed
+                  character to _c.
+
+     kkiillll _c       Set the character that erases the current input
+                  line to _c.
+
+     ssttaarrtt _c      Set the character that resumes output to _c.
+
+     ssttoopp _c       Set the character that suspends output to _c.
+
+     eeooff _c        Set the character that signals end of input to
+                  _c.
+
+     bbrreeaakk _c      Set the alternate line-break character to _c.
+
+     qquuiitt _c       Set the character that raises a quit signal to
+                  _c.
+
+     iinntt _c        Set the character that raises an interrupt sig-
+                  nal to _c.
+
+     hhuupp          Hang up the line when the last process that has
+                  the terminal open closes it.
+
+     eexxccll         Reserve the terminal for exclusive use by this
+                  process; a later ooppeenn by another process fails
+                  until it is closed.  -eexxccll clears the reserva-
+                  tion.
+
+     fflluusshh        When the modes given on this command line are
+                  applied, flush any pending input first. This is
+                  the default.  -fflluusshh applies the modes without
+                  flushing pending input.
+
+     pprriinntt        Print the terminal's attributes (as with no ar-
+                  guments), after applying any other modes given
+                  on the same command line.
+
+     Each character _c above may be given as a single literal
+     character; as the word DDEELL; as \_o_o_o, an octal escape
+     (leading backslash, up to three octal digits); as ^_x or
+     ccttrrll-_x, a control character; or as the word ooffff, which dis-
+     ables that character (no character will trigger the action).
+
+     An option -tt_t_t_y_n_a_m_e names the terminal /ddeevv/_t_t_y_n_a_m_e to
+     operate on, instead of the standard output; if given, it
+     must be the first argument.
+
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+ssttttyy                                                         ssttttyy
+
+
+
+DDIIAAGGNNOOSSTTIICCSS
+     ssttttyy complains if the standard output (or the terminal named
+     by -tt) is not a terminal, if a _m_o_d_e word is not recognized,
+     or if a character specification is badly formed.
+
+NNOOTTEESS
+     Whether a given mode has any effect depends on the terminal
+     driver in use; requesting an unsupported mode is not itself
+     an error.

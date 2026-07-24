@@ -1,0 +1,32 @@
+
+
+tteeee                                                           tteeee
+
+
+
+NNAAMMEE
+     tee - branch pipe output
+
+SSYYNNOOPPSSIISS
+     tteeee [-aa] [-ii] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     tteeee copies its standard input to its standard output, and
+     also copies it to each _f_i_l_e named.  It is meant to sit in
+     the middle of a pipeline and split off a copy of the data
+     flowing through it.
+
+     -aa   Append to each _f_i_l_e instead of creating (truncating)
+          it.
+
+     -ii   Ignore interrupts, so that tteeee survives an interrupt
+          that kills the rest of the pipeline.
+
+DDIIAAGGNNOOSSTTIICCSS
+     tteeee complains and exits if it cannot create (or, with -aa,
+     open for append) one of the named files, or if more than
+     twenty output files are given.
+
+NNOOTTEESS
+     Unless -ii is given, tteeee exits on the first interrupt signal
+     it receives.

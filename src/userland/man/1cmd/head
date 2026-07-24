@@ -1,0 +1,75 @@
+.TH head "" "Command"
+.SH NAME
+head \- print the beginning (or all but the end) of a file
+.SH SYNOPSIS
+\fBhead [{+\-}\fIn\fB[lbc]] [\fIfile\fB]\fR
+.SH DESCRIPTION
+.HS
+head -- print the beginning (or all but the end) of a file
+Usage:	head [{+-}n[lbc]] [file]
+A leading '+' measures 'n' from the beginning of the file; a
+leading '-' measures 'n' from the end.  The following letter
+selects lines (default), blocks ('b') or characters ('c').
+If the whole specifier is omitted, '+4l' is assumed.
+If 'file' is omitted, the standard input is used.
+.HE
+.B head
+copies part of
+.IR file ,
+or of the standard input if
+.I file
+is not given, to the standard output.
+.PP
+The optional specifier gives the leading
+.B +
+or
+.BR \- ,
+a count
+.IR n ,
+and an optional trailing letter
+.BR l ,
+.BR b ,
+or
+.BR c .
+A
+.B +
+measures
+.I n
+lines, blocks, or characters from the beginning of the file, and
+.B head
+copies input up to and including that point.
+A
+.B \-
+measures
+.I n
+from the end of the file, and
+.B head
+copies all but the last
+.I n
+lines, blocks, or characters.
+The trailing letter selects the unit:
+.BR l
+for lines (the default if the letter is omitted),
+.B b
+for 512-byte blocks, or
+.B c
+for characters.
+If the specifier is omitted entirely,
+.B "+4l"
+is assumed, copying the first four lines.
+.SH "SEE ALSO"
+.BR dd ,
+.BR egrep ,
+.B tail
+.SH DIAGNOSTICS
+.B head
+prints
+.B "Can't open %s"
+if
+.I file
+cannot be opened, and
+.B "Window too large"
+if a
+.B \-
+count in blocks or lines is too large to buffer, then exits with a
+nonzero status.

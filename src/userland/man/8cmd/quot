@@ -1,0 +1,94 @@
+.TH quot "" "Administration"
+.SH NAME
+quot \- summarize file system usage
+.SH SYNOPSIS
+\fBquot [\-c] [\-f] [\-n] [\-t] \fIfilesystem ...\fR
+.SH DESCRIPTION
+.HS
+quot -- summarize file system usage
+Usage:	quot [ -c ] [ -f ] [ -n ] [ -t ] filesystem ...
+Normally prints number of blocks used in filesystem by each user.
+Options:
+	-c	Print file size, number of files of size,
+		and cumulative total blocks up to size
+	-f	Print number of files in addition to number of blocks per user
+	-n	Input (i-number, file system) pairs one per line;
+		output owners and file names
+		(e.g.: ncheck fs | sort +0n | quot -n fs)
+		Works only on small raw devices
+	-t	Print totals (where applicable)
+The options '-c', '-n' and other options are disjoint.
+.HE
+.B quot
+scans each named
+.I filesystem
+(a block or raw special file, or a mounted directory) and reports on
+how its space is used.
+With no options,
+.B quot
+prints, for each user owning any file in the file system, the number
+of blocks that user occupies, sorted with the largest space user
+first, and the owner's login name (or numeric uid, if not found in
+.BR /etc/passwd ).
+If more than one
+.I filesystem
+is given,
+.B quot
+prints the name of each before its report.
+.PP
+.IP \fB\-c\fR
+Instead of a per-user report, print a three-column breakdown by file
+size: file size in blocks, the number of files of that size, and the
+cumulative total of blocks used by files of that size or smaller.
+.IP \fB\-f\fR
+Add a column giving the number of files, as well as the number of
+blocks, for each user.
+.IP \fB\-n\fR
+Read, on the standard input, lines of i-number and file name pairs
+already sorted by i-number -- typically the output of
+.B ncheck
+on the same
+.IR filesystem ,
+piped through
+.BR "sort +0n" ,
+as in
+.BR "ncheck fs | sort +0n | quot \-n fs" .
+For each i-number in
+.I filesystem
+that matches one in the input,
+.B quot
+prints the owner and the file name.
+.IP \fB\-t\fR
+Add a totals line to the per-user or size-breakdown report.
+.PP
+.BR \-c ", " \-f ", and " \-n
+are mutually exclusive; giving more than one is an error.
+.B \-t
+may be combined with
+.B \-c
+or
+.BR \-f ,
+but not with
+.BR \-n .
+.SH FILES
+.DS
+.ta 16n
+\fB/etc/passwd\fR	to translate user ids into names
+.DE
+.SH "SEE ALSO"
+.BR ac ,
+.BR dcheck ,
+.BR ncheck ,
+.B sort
+.SH DIAGNOSTICS
+.B quot
+complains and skips a
+.I filesystem
+it cannot open or whose superblock size fields are unreasonable.
+.SH NOTES
+.B quot
+reads the raw device directly; it runs much faster given a raw
+special file for
+.I filesystem
+than a block special file, and needs read permission on that device,
+which is ordinarily restricted to the superuser.

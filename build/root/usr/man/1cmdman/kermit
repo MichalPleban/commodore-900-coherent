@@ -1,0 +1,108 @@
+
+
+kkeerrmmiitt                                                     kkeerrmmiitt
+
+
+
+NNAAMMEE
+     kermit - file transfer utility
+
+SSYYNNOOPPSSIISS
+     kkeerrmmiitt cc|CC [_b_e_l _b_a_u_d _e_s_c _l_i_n_e]
+     kkeerrmmiitt ss [_a_b_d_f_h_i_l_m_t_x _b_a_u_d _l_i_n_e] _f_i_l_e ...
+     kkeerrmmiitt rr [_b_d_f_h_i_l_t _b_a_u_d _l_i_n_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     kkeerrmmiitt transfers files to and from a remote system using the
+     Kermit protocol (Columbia University, 1981-1984).  The first
+     command-line argument is a single word whose first letter
+     selects the mode -- cc, CC, ss, or rr -- and whose remaining
+     letters are single-letter options, run together with no
+     separating dashes and no spaces; each option that takes a
+     value (ll, ee, bb) consumes the next command-line word, in the
+     order its letter appears in the mode word.  For example
+          kermit sfb file 9600
+     sends _f_i_l_e with filename-case conversion disabled (ff), at
+     9600 baud (bb).
+
+     cc    Connect: turn the local terminal into a terminal
+          emulator attached to the tty line named by ll (default
+          /ddeevv/ttttyy3388, default speed 2400).  Typing the escape
+          character (default ^, a literal caret) followed by one
+          more character invokes a local command: cc or CC hangs up
+          the modem and closes the connection, ss or SS suspends
+          the connection without hanging up, and hh or HH prints a
+          ``still here'' message.  Any other character after the
+          escape character just rings the bell.
+
+     CC    Same as cc, except the next command-line word (after any
+          options and their values) is sent down the line,
+          followed by a carriage return, before the terminal
+          emulator starts.
+
+     ss    Send: transmit each named _f_i_l_e to the remote Kermit.
+
+     rr    Receive: wait for the remote Kermit to send one or more
+          files and store them in the current directory.
+
+     dd    Increase the debugging level by one (repeatable).
+
+     ii    Image mode: transfer 8-bit data without the usual 7-bit
+          masking and CR/LF translation.
+
+     ff    Do not convert filename case (normally lower case is
+          folded to upper on send and upper to lower on receive).
+
+     ll    The next word is the tty line to use, instead of the
+          default.
+
+     bb    The next word is the line speed in baud, instead of the
+          default.
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+kkeerrmmiitt                                                     kkeerrmmiitt
+
+
+
+     ee    The next word's first character becomes the escape
+          character for cc/CC mode, instead of the default caret.
+
+     hh    Host (server) mode: treat standard input and output as
+          the connection to the remote system (no line is opened)
+          -- used when kkeerrmmiitt is invoked as a login shell or from
+          a getty on a dial-in line.
+
+     tt    Tymnet mode: pause briefly between incoming data pack-
+          ets.
+
+     mm    Macintosh mode: send an extra end-of-line character
+          after each packet, for MacKermit.
+
+     xx    Leave slashes in file names alone and transmit the
+          directory structure (normally only the last component
+          of a name is sent).
+
+     aa    Take file names in pairs: the first name of each pair
+          is used on the sending side, the second on the
+          receiving side.
+
+FFIILLEESS
+          /ddeevv/ttttyy3388      default communication line
+
+SSEEEE AALLSSOO
+     llooggiinn
+
+NNOOTTEESS
+     This is the public-domain Columbia University Kermit for
+     UNIX-like systems, ported to COHERENT by Lauren Weinstein
+     and Charles Fiterman.
+
+     Without hh, kkeerrmmiitt opens the tty _l_i_n_e itself and assumes it
+     is the local end of the connection; with hh it assumes its
+     standard input and output are already the remote connection.

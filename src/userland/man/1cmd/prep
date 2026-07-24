@@ -1,0 +1,83 @@
+.TH prep "" "Command"
+.SH NAME
+prep \- produce a word list
+.SH SYNOPSIS
+\fBprep [\-dfp] [\-i \fIfile\fB] [\-o \fIfile\fB] [\fIfile ...\fR]
+.SH DESCRIPTION
+.HS
+prep -- produce a word list
+Usage:	prep [ options ]  [ file ... ]
+Options:
+	-d	Print number of each word output
+	-f	Fold upper case to lower case
+	-i file	Ignore all words in 'file' on output
+	-o file	Output only words from 'file'
+	-p	Print punctuation marks on separate lines (not numbered)
+Text is taken from each input 'file' or the standard input if none.
+Words consist of alphabetic characters and apostrophes.
+.HE
+.B prep
+breaks the text of each input
+.I file
+(or the standard input, if none is named) into words and writes them,
+one per line, to the standard output.
+A word is a run of alphabetic characters and apostrophes; a hyphen
+followed immediately by a newline joins the word before it to the
+word after, and any other hyphen ends the current word.
+.PP
+.B prep
+recognizes the following options; they are given before any
+.IR file :
+.IP \fB\-d\fR
+Precede each output word with its word number in the input (a count
+of words seen so far), followed by a tab.
+.IP \fB\-f\fR
+Fold upper-case letters to lower case as each character is read.
+.IP "\fB\-i \fIfile\fR"
+Read a list of words, one per line, from
+.IR file ,
+and do not output any input word that matches one of them.
+.B \-i
+and
+.B \-o
+may not both be given.
+.IP "\fB\-o \fIfile\fR"
+Read a list of words, one per line, from
+.IR file ,
+and output only input words that match one of them.
+.B \-i
+and
+.B \-o
+may not both be given.
+.IP \fB\-p\fR
+Also write each punctuation character (any non-alphabetic, printable
+character outside a word) to the standard output, alone on its own
+line; these lines are not counted for
+.BR \-d .
+.SH "SEE ALSO"
+.BR deroff ,
+.BR sort ,
+.BR spell ,
+.BR typo ,
+.B wc
+.SH DIAGNOSTICS
+.B prep
+complains and exits if
+.B \-i
+and
+.B \-o
+are both given, if the file named by
+.B \-i
+or
+.B \-o
+cannot be opened, or if any input
+.I file
+cannot be opened.
+.SH NOTES
+What counts as a
+.I word
+differs among
+.BR deroff ,
+.BR prep ,
+and
+.BR wc .

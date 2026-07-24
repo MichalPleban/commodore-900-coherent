@@ -1,0 +1,68 @@
+.TH df "" "Command"
+.SH NAME
+df \- print free space on file systems
+.SH SYNOPSIS
+\fBdf [\-a] [\-i] [\-t] [\fIdirectory ...\fB] [\fIfilesystem ...\fB]\fR
+.SH DESCRIPTION
+.HS
+df -- print free space on file systems
+Usage:	df [ -a ][ -i ][ -t ] filesystem ...
+Options:
+	-a	Give entries only for mounted devices
+	-i	Summarize i-node usage
+	-t	Give total number of blocks on device
+.HE
+.B df
+prints the amount of free space on one or more file systems.
+Each named argument may be a block- or character-special file
+(the raw or block file system device), or an ordinary directory, in
+which case
+.B df
+looks up the device that directory resides on by searching
+.B /dev
+for a special file with a matching device number.
+.PP
+With no arguments,
+.B df
+reports on the file system that holds the current directory (unless
+.B \-a
+is given alone, in which case it reports only on the mounted file
+systems, as below).
+With one or more arguments, it reports on each in turn.
+.PP
+For each file system,
+.B df
+prints its name, then the number of free blocks over the total number
+of blocks (excluding the space used by the i-list), and that fraction
+again as a percentage.
+.IP \fB\-a\fR 0.4i
+Also report on every file system currently listed in
+.B /etc/mnttab
+(or, if that does not exist, in the older
+.B /etc/mtab
+format), in addition to any
+.I directory
+or
+.I filesystem
+arguments given.
+.IP \fB\-i\fR
+Also print the number of free i-nodes over the total number of
+i-nodes, and that fraction as a percentage.
+.IP \fB\-t\fR
+Also print the total number of blocks on the device.
+.SH FILES
+.DS
+.ta 1.4i
+\fB/etc/mnttab\fR	table of mounted file systems
+\fB/etc/mtab\fR	older-format mount table, used if /etc/mnttab is absent
+.DE
+.SH "SEE ALSO"
+.BR du ,
+.BR mkfs ,
+.B mount
+.SH DIAGNOSTICS
+.B df
+complains and skips a file system it cannot stat, cannot open, cannot
+read a superblock from, or whose superblock does not pass its
+consistency check; it exits with status 1 if any file system was
+skipped for such a reason, or if given an unrecognized option.

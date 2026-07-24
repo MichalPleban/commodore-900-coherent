@@ -1,0 +1,63 @@
+.TH conv "" "Command"
+.SH NAME
+conv \- convert between various numeric bases and ASCII
+.SH SYNOPSIS
+\fBconv [\fInumber\fB]\fR
+.SH DESCRIPTION
+.HS
+conv -- convert between various numeric bases and ASCII
+Usage:	conv [number]
+If no `number' is found, numbers are one per line on standard input
+.HE
+.B conv
+converts
+.I number
+and prints it as a hexadecimal, decimal, octal, and binary value,
+followed by its low-order byte as a quoted character, all on one
+line.
+If no
+.I number
+is given on the command line,
+.B conv
+reads lines from the standard input and converts each nonblank line
+the same way, until end of file.
+.PP
+.I number
+may be written with an optional leading
+.B \-
+for a negative value, followed by one of the prefixes below:
+.DS
+.ta 12n
+\fB0x\fR or \fB0X\fR	a hexadecimal value
+\fB#\fR	also introduces a hexadecimal value
+\fB0\fR	(no following x or X) introduces an octal value
+\fB$\fR	introduces a binary value
+.DE
+A prefix consisting of a quote character followed by one other
+character gives the ASCII code of that other character as the
+value.
+.PP
+With none of the above prefixes, the number is read as decimal.
+Embedded blanks and tabs within the digits are ignored; hexadecimal
+digits may be given in either case.
+.PP
+In the character field of the output,
+.B conv
+prints the value's low-order byte in quotes.
+If the byte's high bit is set,
+.B conv
+prints a leading
+.B ~
+and clears the bit before printing the character.
+If the resulting code is a control character or DEL,
+.B conv
+prints a leading
+.B ^
+and the corresponding visible letter (DEL is shown as
+.BR ^? ).
+.SH DIAGNOSTICS
+.B conv
+prints
+.B "bad digit"
+and discards the current number if a digit outside the selected
+base is found.

@@ -1,16 +1,6 @@
-/ (lgl-
-/ 	The information contained herein is a trade secret of Mark Williams
-/ 	Company, and  is confidential information.  It is provided  under a
-/ 	license agreement,  and may be  copied or disclosed  only under the
-/ 	terms of  that agreement.  Any  reproduction or disclosure  of this
-/ 	material without the express written authorization of Mark Williams
-/ 	Company or persuant to the license agreement is unlawful.
-/ 
-/ 	COHERENT Version 0.7.3
-/ 	Copyright (c) 1982, 1983, 1984.
-/ 	An unpublished work by Mark Williams Company, Chicago.
-/ 	All rights reserved.
-/ -lgl)
+/ Copyright (c) 1977-1995 Robert Swartz.
+/ Copyright (c) 2026 Michal Pleban.
+/ SPDX-License-Identifier: BSD-3-Clause
 /* Configuration stuff that should go away eventually */
 #define	JR	jp
 #define	CLKENABLED	1	/* set to generate clock ticks */ 
@@ -700,6 +690,42 @@ halt_:
 	di	VI
 	JR	.
 #endif
+
+/ restart()
+/ Reboot by re-entering the ROM cold-start at physical 0x38 (the reset-vector
+/ entry).  The ROM runs that code with the MMU disabled, but we cannot just
+/ turn the MMU off here: the kernel executes through logical segment 0x30
+/ (mapped to physical 0x080000), so the first instruction fetched after the
+/ MMU went off would come from the wrong physical address.
+/ Trick: build an *identity* alias of the kernel at logical segment 8 (whose
+/ untranslated address, 8<<16 = 0x080000, is exactly the kernel's physical
+/ base), transfer execution to it, THEN disable the MMU -- there logical ==
+/ physical, so we keep running -- and jump to the ROM.  Does not return.
+	.globl	restart_
+restart_:
+	di	VI
+/ Point MMU descriptor 8 at the kernel's physical base (identity alias).
+	ld	r0, $8
+	soutb	MMU+0x0100, rl0		/ SAR = descriptor 8 (also resets DSC)
+	ld	r0, $0x0800		/ base 0x0800 -> physical 0x080000
+	soutb	MMU+0x0800, rh0		/ base, high byte (0x08)
+	soutb	MMU+0x0800, rl0		/ base, low byte  (0x00)
+	ld	r0, $0x00FF
+	soutb	MMU+0x0900, rl0		/ limit = 0xFF (full 64K)
+	ld	r0, $0x0082
+	soutb	MMU+0x0A00, rl0		/ attr (readable/executable, as text)
+/ Transfer to the identity alias (same code, reached via segment 8).
+	ldar	rr2, 1f
+	ld	r2, $0x0800		/ retarget segment 0x30 -> 8
+	jp	(rr2)
+1:
+/ Now executing via segment 8.  Disable the MMU (mode register = 0, MSEN off):
+/ addresses pass through untranslated, segment 8 still reaches this same code.
+	sub	r0, r0
+	soutb	MMU+0x0000, rl0		/ MMU mode := 0 (translation off)
+/ MMU off: logical == physical.  Enter the ROM cold-start at physical 0x38.
+	ldl	rr2, $0x00000038
+	jp	(rr2)
 
 / Routines to do the context switch.  The
 / switch takes two forms:

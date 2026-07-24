@@ -1,0 +1,156 @@
+.TH ar "" "Command"
+.SH NAME
+ar \- maintain archives
+.SH SYNOPSIS
+\fBar \fIoption\fB[\fImodifier\fB] [\fIposition\fB] \fIarchive \fB[\fImember ...\fB]\fR
+.SH DESCRIPTION
+.HS
+ar -- maintain archives
+Usage:	ar option[modifier] [ position ] archive [ member ... ]
+Options:
+	d	Delete given members
+	m	Move member to indicated position (default: end)
+	p	Print members
+	q	Quick append--put members at end with no checking
+	r	Replace each member specified in the archive
+	t	Print a table of members (default: all)
+	x	Extract the specified members (default: all)
+Modifiers:
+	a	Place new member after 'position' in archive
+	b	Place new member before 'position' in archive
+	c	Suppress message when new archive is created
+	i	Insert new member before 'position' in archive
+	l	Use current directory for temporaries (default: '/tmp')
+	u	Update--replace members only if newer than those in archive
+	v	Print extra information when used with certain options
+.HE
+.B ar
+maintains an
+.I archive
+(also called a
+.IR library ):
+a single file holding a collection of other files, called
+.IR members ,
+each preceded by a header giving its name, date, owner, group, mode,
+and size.
+The chief use of archives is to hold libraries of object files for
+the linker
+.BR ld ,
+which understands the archive format and can search a library to
+resolve undefined references.
+.PP
+The mandatory
+.I option
+argument is exactly one of the following letters, optionally
+followed by one or more
+.I modifier
+letters, with no introducing hyphen:
+.IP \fBd\fR
+Delete each given
+.I member
+from
+.IR archive .
+.IP \fBm\fR
+Move each given
+.I member
+within
+.IR archive .
+With no
+.I modifier
+governing placement, move each member to the end.
+.IP \fBp\fR
+Print each given
+.I member
+on the standard output.
+.IP \fBq\fR
+Quick append: put each named
+.I member
+at the end of
+.I archive
+without checking whether it is already present.
+.IP \fBr\fR
+Replace each named
+.I member
+of
+.IR archive ,
+or append it if not already present.
+If
+.I archive
+does not exist,
+.B ar
+creates it.
+.IP \fBt\fR
+Print a table of the members named; if none is named, print a table
+of all members.
+.IP \fBx\fR
+Extract each named member into the current directory; if none is
+named, extract all members.
+.I archive
+is not changed.
+.PP
+Any of the following modifiers may follow the option letter:
+.IP \fBa\fR
+Place the new member after
+.I position
+in the archive (used with
+.B m
+or
+.BR r ).
+.IP \fBb\fR
+Place the new member before
+.I position
+in the archive (used with
+.B m
+or
+.BR r ).
+.IP \fBc\fR
+Suppress the message that
+.B ar
+normally prints when it creates a new archive.
+.IP \fBi\fR
+Same as the
+.B b
+modifier.
+.IP \fBl\fR
+Build the temporary file
+.B ar
+uses while it works in the current directory, rather than in
+.BR /tmp .
+.IP \fBu\fR
+Replace a member only if the file named on the command line is
+newer than the version already in
+.IR archive .
+.IP \fBv\fR
+Print extra information when used with
+.BR p ,
+.BR t ,
+.BR x ,
+.BR m ,
+.BR r ,
+.BR d ,
+or
+.BR q .
+.PP
+Each archive begins with a magic number, followed by the members,
+each preceded by an
+.B ar_hdr
+header giving its name, date, group and user id, mode, and size in
+bytes.
+.SH "SEE ALSO"
+.BR ld ,
+.B ranlib
+.SH DIAGNOSTICS
+.B ar
+prints a diagnostic and a nonzero exit status if
+.I archive
+cannot be opened or created, if a named file cannot be opened, or if
+an I/O error occurs; it prints the names of any requested members
+that were not found.
+.SH NOTES
+.B ar
+does not itself build or maintain a symbol-index member of an
+archive; after creating or updating an archive that
+.B ld
+will search for symbols, run
+.B ranlib
+on it separately.

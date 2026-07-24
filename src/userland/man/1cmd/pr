@@ -1,0 +1,92 @@
+.TH pr "" "Command"
+.SH NAME
+pr \- paginate and print files
+.SH SYNOPSIS
+\fBpr [+\fIskip\fB] [\-\fIn\fB] [\-n] [\-h \fIheader\fB] [\-l\fIn\fB]
+[\-m] [\-s\fIc\fB] [\-t] [\-w\fIn\fB] [\fIfile ...\fR]
+.SH DESCRIPTION
+.HS
+pr -- paginate and print files
+Usage:	pr [ options ] [ file ... ]
+Options:
+	+n	Skip the first 'n' pages of input before printing
+	-n	Print the input in 'n' columns
+	-h	The next argument is the header (replaces file name)
+	-ln	Page size is set to 'n' lines (default: 66)
+	-m	Print each input 'file' in a separate column
+	-sc	Separate each column with character 'c'
+	-t	Suppress top and bottom margins and header
+	-wn	Page width is set to 'n' columns (default: 80)
+A 'file' named '-' means standard input.
+.HE
+.B pr
+paginates each
+.I file
+and writes it to the standard output.
+At the top of each page (unless
+.B \-t
+is given),
+.B pr
+writes a header giving today's date, the file's name (or the
+.B \-h
+header), the page number, and the input line number at which printing
+of that page begins.
+.PP
+A
+.I file
+named
+.B \-
+means the standard input; if no
+.I file
+is given at all,
+.B pr
+also reads the standard input.
+.PP
+Options are recognized up to the first file name; each of the
+following may be given:
+.IP \fB+\fIn\fR
+Skip the first
+.I n
+pages of input before printing begins.
+.IP \fB\-\fIn\fR
+A bare decimal number after the
+.B \-
+sets the number of output columns to
+.IR n .
+.IP \fB\-n\fR
+Number each output line, in a 4-column field followed by a colon.
+.IP "\fB\-h \fIheader\fR"
+Use
+.I header
+in place of the file name in the page title.
+If not attached directly to
+.BR \-h ,
+.I header
+is taken as the next command-line argument (so a multi-word header
+must be one shell argument, e.g. quoted).
+.IP \fB\-l\fIn\fR
+Set the page length to
+.I n
+lines (default 66).
+.IP \fB\-m\fR
+Print each input
+.I file
+in its own column, side by side; opens all the named files at once.
+.IP \fB\-s\fIc\fR
+Separate each column with the character
+.IR c ;
+if
+.I c
+is omitted, a tab is used.
+.IP \fB\-t\fR
+Suppress the top and bottom margins and the header.
+.IP \fB\-w\fIn\fR
+Set the page width to
+.I n
+columns (default 80).
+.SH "SEE ALSO"
+.B cat
+.SH NOTES
+.B pr
+generates plain ASCII text; it has no notion of a page-description
+output format.

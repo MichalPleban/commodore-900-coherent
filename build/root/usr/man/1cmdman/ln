@@ -1,0 +1,48 @@
+
+
+llnn                                                             llnn
+
+
+
+NNAAMMEE
+     ln - create a link to a file
+
+SSYYNNOOPPSSIISS
+     llnn [-ff] _o_l_d_f_i_l_e _n_e_w_f_i_l_e
+     llnn [-ff] _f_i_l_e ... _d_i_r_e_c_t_o_r_y
+
+DDEESSCCRRIIPPTTIIOONN
+     Each file is known by an i-node number, and is _l_i_n_k_e_d to one
+     or more names, each stored in a directory; the same file can
+     therefore be known by several names, in several directories.
+     llnn creates a new link to a file.
+
+     In its first form, llnn links the name _n_e_w_f_i_l_e to the file al-
+     ready named _o_l_d_f_i_l_e, provided _n_e_w_f_i_l_e does not already ex-
+     ist.  If the last argument is instead an existing directory,
+     llnn links each _f_i_l_e into that directory under its own last-
+     component name.  With exactly two arguments where the second
+     is not a directory, the name given as _n_e_w_f_i_l_e is used
+     directly.
+
+     -ff   If _n_e_w_f_i_l_e (or the like-named entry that would be
+          created in _d_i_r_e_c_t_o_r_y) already exists and is not itself
+          a directory, llnn removes it first and then makes the
+          link; without -ff, an existing _n_e_w_f_i_l_e is left alone and
+          the link fails.
+
+SSEEEE AALLSSOO
+     ccpp, llss, mmvv, rrmm
+
+DDIIAAGGNNOOSSTTIICCSS
+     llnn prints a system error message and continues with the next
+     file if a link cannot be made.
+
+NNOOTTEESS
+     Links across file systems are impossible: if two file sys-
+     tems are mounted, say, on / and /uussrr, a file on one cannot
+     be linked to a name on the other.
+
+     llnn does not prevent linking a directory to another name; the
+     source predates symbolic links, and this feature should be
+     avoided.

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Factor prints out the prime factorization of numbers.  If there are
  * any arguments, then it factors these.  If there are no arguments,
  * then it reads stdin until either EOF or the number zero or a non-numeric

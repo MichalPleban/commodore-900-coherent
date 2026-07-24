@@ -1,0 +1,54 @@
+.TH cal "" "Command"
+.SH NAME
+cal \- print a calendar
+.SH SYNOPSIS
+\fBcal [\fImonth\fB] [\fIyear\fB]\fR
+.SH DESCRIPTION
+.HS
+cal -- print a calendar
+Usage:	cal [ month ] [ year ]
+.HE
+.B cal
+prints a calendar.
+With no arguments, it prints a calendar for the current month.
+.PP
+With one argument: if the argument is numeric it is taken as a
+.I year
+and
+.B cal
+prints a twelve-month calendar for that year; otherwise the argument is
+taken as a
+.I month
+and
+.B cal
+prints that month of the current year.
+.PP
+With two arguments, one gives the month and the other the year, in
+either order, provided the month is not itself given as a plain
+number (in which case the first argument is the month and the
+second is the year).
+.PP
+A
+.I month
+may be given as a decimal number from 1 to 12, as an upper- or
+lower-case English or French name (in full, or abbreviated to three
+letters, with or without a trailing period), or as an upper- or
+lower-case roman numeral from
+.B i
+to
+.BR xii .
+A
+.I year
+must be in the range 1 through 9999.
+.PP
+.B cal
+accounts for the Gregorian calendar reform: England and its colonies
+skipped 11 days after 3 September 1752, so weekday calculations differ
+before and after that date.
+.SH "SEE ALSO"
+.B date
+.SH DIAGNOSTICS
+.B cal
+prints a usage message and exits with nonzero status if it is given
+more than two arguments, or if the resulting month or year is out of
+range.

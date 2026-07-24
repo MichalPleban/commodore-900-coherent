@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * write goto table and parsing table out to temp file
  * to be picked up later by the optimizer
  * at this point, the tables are fit to be processed by the C parser

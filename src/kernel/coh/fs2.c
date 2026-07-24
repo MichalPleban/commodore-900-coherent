@@ -1,16 +1,8 @@
-/* (-lgl
- * 	The information contained herein is a trade secret of Mark Williams
- * 	Company, and  is confidential information.  It is provided  under a
- * 	license agreement,  and may be  copied or disclosed  only under the
- * 	terms of  that agreement.  Any  reproduction or disclosure  of this
- * 	material without the express written authorization of Mark Williams
- * 	Company or persuant to the license agreement is unlawful.
- * 
- * 	COHERENT Version 0.7.3
- * 	Copyright (c) 1982, 1983, 1984.
- * 	An unpublished work by Mark Williams Company, Chicago.
- * 	All rights reserved.
- -lgl) */
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 /*
  * Coherent.
  * Filesystem (disk inodes).
@@ -55,10 +47,12 @@ register dev_t dev;
 {
 	register MOUNT *mp;
 	register BUF *bp;
+	register int ro;
 
 	if ((mp=kalloc(sizeof(MOUNT))) == NULL)
 		return (NULL);
-	dopen(dev, (f?IPR:IPR|IPW), DFBLK);
+	ro = (f&MFRON) != 0;
+	dopen(dev, (ro?IPR:IPR|IPW), DFBLK);
 	if (u.u_error != 0) {
 		kfree(mp);
 		return (NULL);
@@ -71,13 +65,104 @@ register dev_t dev;
 	kkcopy(bp->b_vaddr, &mp->m_super, sizeof(struct filsys));
 	brelease(bp);
 	cansuper(&mp->m_super);
+	/*
+	 * A file system that was not cleanly unmounted (s_dirty != FSCLEAN)
+	 * is forced read only unless the caller forces it writable with
+	 * MFFORCE.  This is how ronflag=0 yields a writable root only when
+	 * the root file system is clean; a dirty root comes up read only for
+	 * `check' to repair (ronflag=1 always forces read only via MFRON).
+	 */
+	if (ro==0 && mp->m_super.s_dirty!=FSCLEAN && (f&MFFORCE)==0)
+		ro = 1;
 	mp->m_ip = NULL;
 	mp->m_dev = dev;
-	mp->m_flag = f;
+	mp->m_flag = ro ? MFRON : 0;
 	mp->m_super.s_fmod = 0;
 	mp->m_next = mountp;
 	mountp = mp;
+	/*
+	 * Do not mark dirty here: mounting read/write does not by itself make
+	 * the on-disk image inconsistent.  The first modification (smod()) is
+	 * what persists FSDIRTY, and a sync writes FSCLEAN again.  So a freshly
+	 * mounted, unmodified file system stays exactly as clean as it was.
+	 */
 	return (mp);
+}
+
+/*
+ * Note that file system `mp' is about to be modified.  On the first
+ * modification after a sync (s_fmod == 0) persist FSDIRTY to disk *before*
+ * the change is written, so a crash mid-modification is detected as dirty.
+ * Later modifications in the same sync interval are free.
+ */
+smod(mp)
+register MOUNT *mp;
+{
+	register struct filsys *sbp;
+
+	sbp = &mp->m_super;
+	if (sbp->s_fmod == 0) {
+		sbp->s_fmod = 1;
+		sbp->s_dirty = FSDIRTY;
+		superwrite(mp);
+	}
+}
+
+/*
+ * Write the in-core super block of `mp' out to disk synchronously.
+ */
+superwrite(mp)
+register MOUNT *mp;
+{
+	register struct filsys *sbp;
+	register BUF *bp;
+
+	sbp = &mp->m_super;
+	bp = bclaim(mp->m_dev, (daddr_t)SUPERI);
+	kkcopy(sbp, bp->b_vaddr, sizeof(*sbp));
+	cansuper(bp->b_vaddr);
+	bwrite(bp, 1);
+	brelease(bp);
+}
+
+/*
+ * Remount the already-mounted file system `mp' read/write (mount -w).
+ * Used after `check' has repaired a file system that came up read only.
+ * `check' rewrote the raw device behind the buffer cache, so stale cached
+ * blocks are flushed and in-core inodes re-read before the super block is
+ * re-read and the file system made writable.  The file system must be clean
+ * (FSCLEAN) unless the caller forces it with MFFORCE.
+ */
+fsremount(mp, f)
+register MOUNT *mp;
+{
+	register BUF *bp;
+
+	if ((mp->m_flag&MFRON) == 0)
+		return;			/* already writable */
+	/*
+	 * Drop stale cached blocks first, so the super block and inodes are
+	 * re-read from the repaired disk rather than from the cache.
+	 */
+	bflush(mp->m_dev);
+	if ((bp=bread(mp->m_dev, (daddr_t)SUPERI, 1)) == NULL) {
+		u.u_error = EIO;
+		return;
+	}
+	kkcopy(bp->b_vaddr, &mp->m_super, sizeof(struct filsys));
+	brelease(bp);
+	cansuper(&mp->m_super);
+	if (mp->m_super.s_dirty!=FSCLEAN && (f&MFFORCE)==0) {
+		u.u_error = EROFS;	/* still dirty: run `check' first */
+		return;
+	}
+	iremap(mp->m_dev);
+	mp->m_flag &= ~MFRON;
+	mp->m_super.s_fmod = 0;
+	/*
+	 * Leave s_dirty as read from disk (FSCLEAN, since `check' cleared it):
+	 * the first modification after this remount marks it dirty via smod().
+	 */
 }
 
 /*
@@ -122,10 +207,27 @@ register MOUNT *mp;
 	bp = bclaim(mp->m_dev, (daddr_t)SUPERI);
 	sbp->s_time = timer.t_time;
 	sbp->s_fmod = 0;
+	sbp->s_dirty = FSCLEAN;		/* everything is now flushed: consistent */
 	kkcopy(sbp, bp->b_vaddr, sizeof(*sbp));
 	cansuper(bp->b_vaddr);
 	bwrite(bp, 1);
 	brelease(bp);
+}
+
+/*
+ * Prepare for reboot: flush everything to disk -- which marks each modified
+ * file system clean, since msync() now writes FSCLEAN -- and remount every
+ * file system read only so nothing can dirty it again before the restart.
+ * A file system that was genuinely idle+synced stays clean and comes back
+ * read/write on the next boot; only a crash leaves one dirty.
+ */
+fsshutdown()
+{
+	register MOUNT *mp;
+
+	usync();
+	for (mp=mountp; mp!=NULL; mp=mp->m_next)
+		mp->m_flag |= MFRON;
 }
 
 /*
@@ -175,7 +277,7 @@ unsigned mode;
 	sbp = &mp->m_super;
 	for (;;) {
 		lock(mp->m_ilock);
-		sbp->s_fmod = 1;
+		smod(mp);
 		if (sbp->s_ninode == 0) {
 			ino = 1;
 			inop = sbp->s_inode;
@@ -186,7 +288,6 @@ unsigned mode;
 					continue;
 				}
 				if ((bp=bread(dev, b, 1)) == NULL) {
-					brelease(bp);
 					ino += INOPB;
 					continue;
 				}
@@ -245,7 +346,7 @@ ino_t ino;
 		return;
 	lock(mp->m_ilock);
 	sbp = &mp->m_super;
-	sbp->s_fmod = 1;
+	smod(mp);
 	if (sbp->s_ninode < NICINOD)
 		sbp->s_inode[sbp->s_ninode++] = ino;
 	sbp->s_tinode++;
@@ -307,7 +408,7 @@ enospc:
 		u.u_error = ENOSPC;
 		b = 0;
 	} else {
-		sbp->s_fmod = 1;
+		smod(mp);
 		if ((b=sbp->s_free[--sbp->s_nfree]) == 0)
 			goto enospc;
 		if (sbp->s_nfree == 0) {
@@ -369,7 +470,7 @@ daddr_t b;
 	}
 	sbp->s_free[sbp->s_nfree++] = b;
 	sbp->s_tfree++;
-	sbp->s_fmod = 1;
+	smod(mp);
 	unlock(mp->m_flock);
 }
 

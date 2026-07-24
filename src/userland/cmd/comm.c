@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * comm -- see which lines two sorted files have in common
  * Tom Duff 80.08.08 (how symmetrical)
  */

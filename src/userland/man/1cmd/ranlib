@@ -1,0 +1,56 @@
+.TH ranlib "" "Command"
+.SH NAME
+ranlib \- create index for library
+.SH SYNOPSIS
+\fBranlib \fIlibrary ...\fR
+.SH DESCRIPTION
+.HS
+ranlib -- create index for library
+Usage:	ranlib library ...
+.HE
+.B ranlib
+processes each named
+.I library
+(an object archive as produced by
+.BR ar )
+so that the loader can search it quickly: it reads every module in
+the archive, collects the names of its defined global symbols, and
+writes them, together with the byte offset of the module that
+defines each one, into a header file.
+.B ranlib
+then invokes
+.B ar
+(via
+.BR system() )
+to insert or replace that header as a module named
+.B __.SYMDEF
+at the front of the archive, overwriting any
+.B __.SYMDEF
+already there.
+.PP
+.B ranlib
+is itself a standalone program, not a mode of
+.BR ar ;
+it drives
+.B ar
+as a subprocess to do the actual archive surgery, after building the
+symbol table itself by reading each member's load-module header and
+symbol table directly.
+.SH FILES
+.DS
+.ta 14n
+\fB__.SYMDEF\fR	symbol-index module written at the front of the archive
+.DE
+.SH "SEE ALSO"
+.BR ar ,
+.B ld
+.SH DIAGNOSTICS
+.B ranlib
+complains if a named archive cannot be opened, if it cannot create
+its header file, or if a member of the archive is not a valid load
+module.
+.B ranlib
+processes each named
+.I library
+independently; its exit status is the number of libraries in which
+an error was reported.

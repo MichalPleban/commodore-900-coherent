@@ -1,0 +1,109 @@
+.TH sa "" "Administration"
+.SH NAME
+sa \- process accounting
+.SH SYNOPSIS
+\fBsa [\-abcjlmnrstu] [\-v\fIN\fB] [\fIfile\fR]
+.SH DESCRIPTION
+.HS
+sa -- process accounting
+Usage:	sa [ options ] [ file ]
+Options:
+	-a	Commands seen once or unprintable called '***other'
+	-b	Sort by average CPU time per call
+	-c	Print CPU time as percentage of all CPU time used
+	-j	Print average times per call, not totals
+	-l	Separate user and system times
+	-m	Information per user, not per command
+	-n	Sort by number of calls
+	-r	Reverse sort
+	-s	Condense the information
+	-t	Print CPU time as percentage of real time
+	-u	Print user and command directly from raw file
+	-vN	If called no more than 'N' times, put it into '**junk**'
+The default 'file' is '/usr/adm/acct'.
+.HE
+.B sa
+reads the raw accounting records written by the kernel's
+.B acct()
+mechanism from
+.I file
+(default
+.BR /usr/adm/acct )
+and prints, for each distinct command name, the number of times it was
+called, its total CPU time (user plus system), and its total real time.
+Output is sorted by decreasing CPU time unless
+.B \-b
+or
+.B \-n
+is given.
+Before scanning the raw file,
+.B sa
+reads the summary files
+.B /usr/adm/savacct
+and
+.B /usr/adm/usracct
+so that totals accumulate across runs.
+.PP
+If
+.B \-u
+is given,
+.B sa
+instead prints, for every record in
+.IR file ,
+the user name and command name directly, and does no summarizing at
+all.
+.PP
+Options:
+.IP \fB\-a\fR
+Commands that were called only once, or whose name contains a
+non-printable character, are folded into the single category
+.BR ***other .
+.IP \fB\-b\fR
+Sort by average CPU time per call, instead of by total CPU time.
+.IP \fB\-c\fR
+Also print each command's CPU time as a percentage of the total CPU
+time used by all commands.
+.IP \fB\-j\fR
+Print average time per call rather than totals for each command.
+.IP \fB\-l\fR
+Print user time and system time in separate columns, instead of their
+sum.
+.IP \fB\-m\fR
+Accumulate and print statistics per user rather than per command.
+.IP \fB\-n\fR
+Sort by number of calls, instead of by CPU time.
+.IP \fB\-r\fR
+Reverse the sort order.
+.IP \fB\-s\fR
+After the raw file has been read and summarized, merge the results
+back into
+.B /usr/adm/savacct
+and
+.BR /usr/adm/usracct ,
+and truncate
+.IR file .
+.IP \fB\-t\fR
+Also print each command's CPU time as a percentage of its real time.
+.IP \fB\-u\fR
+Print the user name and command name directly from the raw accounting
+file, one line per record, rather than a summary.
+.IP \fB\-v\fIN\fR
+For any command called no more than
+.I N
+times, ask (on standard input) whether it should be moved into the
+category
+.BR **junk** .
+.SH FILES
+.DS
+.ta 20n
+\fB/usr/adm/acct\fR	raw accounting records (default)
+\fB/usr/adm/savacct\fR	saved per-command summary
+\fB/usr/adm/usracct\fR	saved per-user summary
+.DE
+.SH "SEE ALSO"
+.B accton
+.SH NOTES
+.B /usr/adm/acct
+grows without bound while accounting is enabled; run
+.B "sa \-s"
+periodically to condense it.

@@ -1,0 +1,39 @@
+.TH rmdir "" "Command"
+.SH NAME
+rmdir \- remove directories
+.SH SYNOPSIS
+\fBrmdir [\-f] \fIdirectory ...\fR
+.SH DESCRIPTION
+.HS
+rmdir -- remove directory
+Usage:	rmdir [ -f ] directory ...
+Option:	-f	Force override of empty and name checks for superuser
+.HE
+.B rmdir
+removes each named
+.IR directory .
+A directory must be empty before it can be removed: it may contain no entries
+other than
+.B .
+and
+.BR .. .
+.IP \fB\-f\fR
+Force the removal.
+For the superuser, this overrides the checks that the
+.I directory
+is empty and is not
+.B .
+or
+.BR .. .
+.SH "SEE ALSO"
+.BR rm ,
+.B unlink()
+.SH DIAGNOSTICS
+.B rmdir
+returns a nonzero exit status if any
+.I directory
+could not be removed, typically because it is not empty, does not exist, or the
+caller lacks permission.
+.SH NOTES
+.B rmdir
+will not remove a directory that is the working directory of any process.

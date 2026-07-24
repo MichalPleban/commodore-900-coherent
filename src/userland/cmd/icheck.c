@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Icheck - check i-list consistency of
  * filesystems and (optionally) repair
  * filesystems.
@@ -11,6 +16,7 @@ extern char *calloc();
 #include <ino.h>
 #include <check.h>
 #include <canon.h>
+#include <fs.h>		/* shared FS access + inode->pathname engine (libfs) */
 
 #define	ROOTINO	2		/* I-number of root */
 #define	NBLOCK	20		/* Maximum number of blocks to check */
@@ -35,19 +41,7 @@ extern char *calloc();
 #define	DIR	1
 #define	BAD	2
 
-/*
- * A chain of these structures
- * holds all of the defective blocks found
- * in the bad block file. The list is sorted for
- * easy access by those parts of the program
- * that scan blocks.
- */
-struct	defect
-{
-	struct defect	*d_next;	/* Link to next */
-	daddr_t		d_start;	/* First bad block in cluster */
-	int		d_length;	/* Size of cluster */
-};
+/* struct defect (the bad-block run list) now lives in <fs.h>. */
 
 #define	test(bn) (bitmap[((unsigned)bn)/NBPC] & 1<<(((unsigned)bn)%NBPC))
 #define	mark(bn) (bitmap[((unsigned)bn)/NBPC] |= 1<<(((unsigned)bn)%NBPC))
@@ -58,7 +52,6 @@ int	nblock;
 daddr_t	blocks[NBLOCK];
 ino_t	freei[NICFREE];		/* Free i-nodes to put into superblock */
 ino_t	*freeip;
-struct	defect	*deflist;
 char	superb[BSIZE];
 char	ibuf[IBLK*BSIZE];
 char	fbuf[BSIZE];
@@ -86,7 +79,7 @@ char	*btypes[] = {
 int	sflag;			/* Repair filesystem */
 int	vflag;			/* More verbose information */
 int	exstat;			/* Final exit status -- bits from <check.h> */
-FILE	*fs;			/* File system i/o stream pointer */
+FS	*fsp;			/* Open file system (libfs) */
 char	*bitmap;		/* Bit map for blocks */
 daddr_t	fsize	= SUPERB+1;	/* Allow read of super-block */
 unsigned	isize;
@@ -173,7 +166,6 @@ char *fsname;
 	register struct dinode *ip;
 	register int i;
 	register ino_t inum;
-	register char *mode;
 	int thischunk;
 	daddr_t seek, limit;
 	struct defect *cdsp;
@@ -196,8 +188,7 @@ char *fsname;
 	nfreeb = 0;
 	nifree = 0;
 	freeip = freei;
-	mode = sflag ? "r+w" : "r";
-	if ((fs = fopen(fsname, mode)) == NULL) {
+	if ((fsp = fsopen(fsname, sflag, &exstat, IC_HARD)) == NULL) {
 		fprintf(stderr, "%s: cannot open\n", fsname);
 		exstat |= IC_MISC;
 		return;
@@ -225,6 +216,16 @@ char *fsname;
 	isize = sbp->s_isize;
 	if (isize<INOORG+1 || isize>=fsize || fsize<INOORG+1)
 		cerr("Ridiculous fsize/isize");
+	fsp->fsize = fsize;
+	fsp->isize = isize;
+	/*
+	 * Build the inode->pathname map so the diagnostics below can name the
+	 * file that owns a duplicate/bad block or has a bad type.  This is an
+	 * independent read pass; failure is non-fatal (names just come back as
+	 * "??").
+	 */
+	if (fsnames(fsp, 0) < 0)
+		fprintf(stderr, "icheck: no space for names -- i-numbers only\n");
 	if ((bitmap=calloc((int)((fsize+NBPC-1)/NBPC), sizeof(char))) == NULL)
 		cerr("No space for bitmap");
 	bmark((daddr_t)BOOTB, "bootstrap", 0);
@@ -233,7 +234,7 @@ char *fsname;
 	nblk = isize;
 	inum = 1;
 	seek = INOORG;
-	cdsp = deflist;
+	cdsp = fsp->deflist;
 	while (seek < isize) {
 		if (cdsp!=NULL && cdsp->d_start==seek) {
 			nibad += cdsp->d_length;
@@ -248,11 +249,11 @@ char *fsname;
 		if (limit > isize)
 			limit = isize;
 		thischunk = limit-seek;
-		lseek(fileno(fs), seek*BSIZE, 0);
+		lseek(fsp->fd, seek*BSIZE, 0);
 		for (i=0; i<thischunk; ++i)
 			bmark((daddr_t)seek++, "inodes", 0);
 		thischunk *= BSIZE;
-		if (read(fileno(fs), ibuf, thischunk) != thischunk) {
+		if (read(fsp->fd, ibuf, thischunk) != thischunk) {
 			fprintf(stderr, "I-node read error\n");
 			exstat |= IC_HARD;
 			break;
@@ -276,7 +277,7 @@ char *fsname;
 	}
 	freecount();
 	free(bitmap);
-	freedefective();
+	fsfreedefective(fsp);
 	if (nmissing != 0)
 		exstat |= IC_MISS;
 	if (nfdup != 0)
@@ -301,7 +302,8 @@ char *fsname;
 	}
 	if (sflag)
 		makesuper();
-	fclose(fs);
+	fsclose(fsp);
+	fsp = NULL;
 	return (0);
 }
 
@@ -353,7 +355,8 @@ ino_t inum;
 		return;
 
 	default:
-		printf("%u: Bad filetype %o\n", inum, ip->di_mode&IFMT);
+		printf("%u (%s): Bad filetype %o\n", inum, fspath(fsp, inum),
+		    ip->di_mode&IFMT);
 		return;
 	}
 	l3tol(addrs, ip->di_addr, NADDR);
@@ -399,7 +402,7 @@ ino_t ino;
 	if (bmark(bn, type, ino))
 		return;
 	if (lev==0 && flag==BAD)
-		savedefective(bn);
+		fssavedefective(fsp, bn);
 	if (lev-- > 0) {
 		bread(bn, bp = idbuf[lev]);
 		for (i=0; i<NBN; i++) {
@@ -424,8 +427,8 @@ finddefective()
 	daddr_t	 addrs[NADDR];
 
 	++nfiles;
-	lseek(fileno(fs), (long)iblockn(BADFIN)*BSIZE, 0);
-	if (read(fileno(fs), ibuf, BSIZE) != BSIZE) {
+	lseek(fsp->fd, (long)iblockn(BADFIN)*BSIZE, 0);
+	if (read(fsp->fd, ibuf, BSIZE) != BSIZE) {
 		printf("I/O error reading bad block inode\n");
 		exstat |= IC_HARD;
 		return;
@@ -451,60 +454,9 @@ finddefective()
 }
 
 /*
- * Free all of the nodes
- * in the defective space list.
+ * The defective-block list (savedefective/freedefective) now lives in libfs;
+ * see fssavedefective()/fsfreedefective() in <fs.h>.
  */
-freedefective()
-{
-	register struct defect *cdsp1, *cdsp2;
-
-	cdsp1 = deflist;
-	deflist = NULL;
-	while (cdsp1 != NULL) {
-		cdsp2 = cdsp1->d_next;
-		free((char *) cdsp1);
-		cdsp1 = cdsp2;
-	}
-}
-
-/*
- * Add a new, defective block
- * into the sorted defective block chain.
- * Merge this block with the ends of
- * any existing entries. No check is made
- * for entries fusing; bad blocks get scooped
- * (in general) up in order, and the bad blocks
- * are generally sparsely placed on the disc.
- */
-savedefective(bn)
-daddr_t bn;
-{
-	register struct defect *cdsp1, *cdsp2, *cdsp3;
-
-	cdsp1 = NULL;
-	cdsp2 = deflist;
-	while (cdsp2!=NULL && bn>cdsp2->d_start) {
-		cdsp1 = cdsp2;
-		cdsp2 = cdsp2->d_next;
-	}
-	if (cdsp1!=NULL && bn==cdsp1->d_start+cdsp1->d_length) {
-		++cdsp1->d_length;
-		return;
-	}
-	if (cdsp2!=NULL && bn==cdsp2->d_start-1) {
-		--cdsp2->d_start;
-		++cdsp2->d_length;
-		return;
-	}
-	if ((cdsp3=(struct defect *)malloc(sizeof(struct defect))) == NULL)
-		cerr("Out of space for bad blocks");
-	if (cdsp1 == NULL)
-		deflist = cdsp3; else
-		cdsp1->d_next = cdsp3;
-	cdsp3->d_next = cdsp2;
-	cdsp3->d_start = bn;
-	cdsp3->d_length = 1;
-}
 
 /*
  * Look at the free count for a filesystem
@@ -648,17 +600,7 @@ bread(bn, buf)
 daddr_t bn;
 char *buf;
 {
-	if (bn<0 || bn>=fsize) {
-		badblock(bn, "any", 0);
-		bclear(buf, BSIZE);
-		return;
-	}
-	lseek(fileno(fs), (size_t)BSIZE * bn, 0);
-	if (read(fileno(fs), buf, BSIZE) != BSIZE) {
-		fprintf(stderr, "Read error %D\n", (long)bn);
-		exstat |= IC_HARD;
-		bclear(buf, BSIZE);
-	}
+	fsbread(fsp, bn, buf);
 }
 
 /*
@@ -668,15 +610,7 @@ bwrite(bn, buf)
 daddr_t bn;
 char *buf;
 {
-	if (bn<0 || bn>=fsize) {
-		badblock(bn, "any", 0);
-		return;
-	}
-	lseek(fileno(fs), (size_t)BSIZE * bn, 0);
-	if (write(fileno(fs), buf, BSIZE) != BSIZE) {
-		fprintf(stderr, "Write error %D\n", (long)bn);
-		exstat |= IC_HARD;
-	}
+	fsbwrite(fsp, bn, buf);
 }
 
 /*
@@ -704,8 +638,9 @@ ino_t inum;
 
 		for (i=0; i<nb; i++)
 			if (blocks[i] == bn)
-				printf("%D arg, class=%s, inode=%u\n",
-				    (long)bn, type, inum);
+				printf("%D arg, class=%s, inode=%u %s\n",
+				    (long)bn, type, inum,
+				    inum ? fspath(fsp, inum) : "");
 	}
 	{
 		register char *bp;
@@ -727,13 +662,10 @@ ino_t inum;
  * `nb' bytes.
  */
 bclear(bp, nb)
-register char *bp;
-register unsigned nb;
+char *bp;
+unsigned nb;
 {
-	if (nb)
-		do {
-			*bp++ = 0;
-		} while (--nb);
+	fsbclear(bp, nb);
 }
 
 /*
@@ -755,7 +687,8 @@ ino_t inum;
 			perr++;
 	}
 	if (perr)
-		printf("%D bad, class=%s, inode=%u\n", (long)bn, type, inum);
+		printf("%D bad, class=%s, inode=%u %s\n", (long)bn, type, inum,
+		    inum ? fspath(fsp, inum) : "");
 }
 
 dupblock(bn, type, inum)
@@ -768,7 +701,8 @@ ino_t inum;
 	else
 		nfdup++;
 	if (vflag || inum!=0)
-		printf("%D dup, class=%s, inode=%u\n", (long)bn, type, inum);
+		printf("%D dup, class=%s, inode=%u %s\n", (long)bn, type, inum,
+		    inum ? fspath(fsp, inum) : "");
 }
 
 badfreelist()
@@ -798,11 +732,8 @@ usage()
  * Block copy routine
  */
 bcopy(in, out, nb)
-register char *in, *out;
-register unsigned nb;
+char *in, *out;
+unsigned nb;
 {
-	if (nb)
-		do {
-			*out++ = *in++;
-		} while (--nb);
+	fsbcopy(in, out, nb);
 }

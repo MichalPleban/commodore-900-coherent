@@ -1,0 +1,327 @@
+.TH ed "" "Command"
+.SH NAME
+ed \- interactive text editor
+.SH SYNOPSIS
+\fBed [\-] [\-x] [+cmopsv] [\fIfile\fB]\fR
+.SH DESCRIPTION
+.HS
+ed -- interactive text editor
+Usage:	ed [ - ] [ -x ] [ +cmopsv ] [ file ]
+Options:
+	-	Suppress character counts on r, w, e commands
+	-x	Encrypt file
+	+c	Print character counts on r, w, e
+	+m	Allow multiple commands per line
+	+o	Print line counts instead of character counts
+	+p	Prompt for each command with *
+	+s	Lower case matches upper in patterns
+	+v	Verbose error messages
+.HE
+.B ed
+is a line-oriented text editor.
+It reads commands from the standard input, normally one command per line,
+and edits a copy of the text held in memory; no change reaches a file
+until a
+.B w
+command writes it out.
+If the optional
+.I file
+argument is given,
+.B ed
+reads it in as though by the
+.B e
+command below.
+.PP
+.B ed
+keeps a
+.I "current line" ,
+initially the last line read in and thereafter the line most recently
+addressed or affected by a command, and a
+.I "current file name" ,
+last set by an
+.B e ,
+.B E ,
+or
+.B f
+command.
+.SH "Line Addresses"
+Commands may be preceded by zero, one, or two addresses, separated by
+a comma or a semicolon.
+A semicolon behaves like a comma except that it also sets the current
+line to the first address before the second is evaluated.
+.IP \fIn\fR
+Line number
+.IR n ,
+counting from 1.
+.IP \fB.\fR
+The current line.
+.IP \fB$\fR
+The last line of the text.
+.IP "\fB+\fIn\fR, \fB\-\fIn\fR, \fB^\fIn\fR"
+An address relative to the current line;
+.B ^
+is a synonym for
+.BR \- .
+A lone
+.B +
+or
+.B \-
+(or a run of them) adds or subtracts one for each occurrence.
+.IP \fB/\fIpattern\fB/\fR
+The next line, searching forward and wrapping around the end of the
+text, that contains
+.IR pattern .
+.IP \fB?\fIpattern\fB?\fR
+The next line, searching backward and wrapping around the start of
+the text, that contains
+.IR pattern .
+.IP "mark \fIx\fR"
+Written as a quote character followed by the lower-case letter
+.IR x ,
+this addresses the line most recently marked with that letter by the
+.B k
+command.
+.IP \fB&\fR
+With no address before it, requests that the following command with
+no explicit address print the next 22 lines (a
+.IR "page" )
+starting at the current line, instead of just one line.
+.SH Commands
+Each command is a single letter, optionally preceded by the addresses
+above.
+.IP \fB.\fR 0.6i
+With no command letter and no address, print the line after the
+current line.
+With one address and no command, print that line and make it current.
+.IP \fB=\fR
+Print the line number of the given address (default: the last line).
+.IP "\fB!\fIcommand\fR"
+Pass the rest of the input line to the shell for execution.
+.IP "[\fIn\fB]a\fR"
+Append text, read line by line from the standard input and terminated
+by a line containing only
+.BR . ,
+after line
+.IR n .
+.IP "[\fIn\fB[,\fIm\fB]c\fR"
+Delete the given lines and append new text in their place, as for
+.BR a .
+.IP "[\fIn\fB[,\fIm\fB]d\fR"
+Delete the given lines.
+.IP "\fBe \fR[\fIfile\fB]\fR"
+Read
+.I file
+(default: the current file name) into a fresh buffer, discarding the
+current text.
+.B ed
+refuses if there are unsaved changes; repeating the command forces it.
+.IP "\fBE \fR[\fIfile\fB]\fR"
+Like
+.BR e ,
+but does not check for unsaved changes.
+.IP "\fBf \fR[\fIfile\fB]\fR"
+Set the current file name to
+.I file
+and print it; with no argument, just print the current file name.
+.IP "[\fIn\fB[,\fIm\fB]\fBg/\fIpattern\fB/\fIcommands\fR"
+For each line in the given range (default: the whole text) that
+matches
+.I pattern
+(default: the last pattern used), execute
+.I commands
+against it.
+.IP "[\fIn\fB]i\fR"
+Insert text, as for
+.BR a ,
+before line
+.IR n .
+.IP "[\fIn\fB[,\fIm\fB]j\fR"
+Join the given lines (default: the current and next line) into one.
+.IP "[\fIn\fB]k\fIx\fR"
+Mark line
+.I n
+with the lower-case letter
+.IR x ,
+for later use as address
+.BI ' x.
+.IP "[\fIn\fB[,\fIm\fB]l\fR"
+Print the given lines, making non-graphic characters visible.
+.IP "[\fIn\fB[,\fIm\fB]m\fId\fR"
+Move the given lines to follow line
+.IR d .
+.IP "\fBo \fIoptions\fR"
+Change the options in force, as described below; with no
+.I options
+argument, print the current settings.
+.IP "[\fIn\fB[,\fIm\fB]\fBp\fR"
+Print the given lines (default: the current line) and make the last
+one current.
+.IP \fBq\fR
+Quit. Refuses if there are unsaved changes; repeating the command
+forces it.
+.IP \fBQ\fR
+Quit unconditionally, discarding unsaved changes.
+.IP "[\fIn\fB]r \fR[\fIfile\fB]\fR"
+Read
+.I file
+(default: the current file name) into the text after line
+.I n
+(default: the last line).
+.IP "[\fIn\fB[,\fIm\fB]s/\fIpat\fB/\fIrepl\fB/\fR[\fIg\fB]\fR"
+Search each of the given lines for
+.I pat
+and replace the first occurrence (or, with the trailing
+.BR g ,
+every occurrence) with
+.IR repl .
+.IP "[\fIn\fB[,\fIm\fB]t\fId\fR"
+Copy the given lines to follow line
+.IR d .
+.IP "[\fIn\fB]u\fR"
+Undo the most recent substitution on line
+.IR n .
+.IP "[\fIn\fB[,\fIm\fB]v/\fIpattern\fB/\fIcommands\fR"
+Like
+.BR g ,
+but selects lines that do
+.I not
+match
+.IR pattern .
+.IP "[\fIn\fB[,\fIm\fB]w \fR[\fIfile\fB]\fR"
+Write the given lines (default: the whole text) to
+.I file
+(default: the current file name), replacing any previous contents.
+.IP "[\fIn\fB[,\fIm\fB]W \fR[\fIfile\fB]\fR"
+Like
+.BR w ,
+but appends to
+.I file
+instead of replacing it.
+.IP \fBx\fR
+Prompt for a new encryption key for subsequent reads and writes of
+the current file.
+.PP
+After
+.BR a ,
+.BR c ,
+.BR i ,
+.BR j ,
+.BR s ,
+or
+.BR u ,
+a trailing
+.B p
+or
+.B l
+on the same command line prints or lists the resulting current line.
+An
+.B a ,
+.BR c ,
+or
+.B i
+command may be followed by
+.BR q ,
+which quits after the append/change/insert completes.
+.SH Patterns
+Search addresses and the
+.B s
+command take a
+.IR pattern ,
+built from the following:
+.IP \fB^\fR
+Anchors the match to the start of the line.
+.IP \fB$\fR
+Anchors the match to the end of the line.
+.IP \fB.\fR
+Matches any single character.
+.IP \fB*\fR
+Matches zero or more repetitions of the preceding character.
+.IP \fB[\fIchars\fB]\fR
+Matches any one of the enclosed characters; a leading
+.B ^
+complements the set.
+Ranges may be written with
+.BR \- .
+.IP \fB\e\fIc\fR
+Matches the character
+.I c
+literally, removing any special meaning it would otherwise have.
+.IP "\fB\e(\fIpattern\fB\e)\fR"
+Delimits a subexpression for use with
+.B &
+and
+.B \e\fId\fR
+in the replacement text of an
+.B s
+command:
+.B &
+stands for the whole match, and
+.B \e\fId\fR
+for the text matched by the
+.IR d th
+.BR \e( ... \e)
+pair.
+.SH Options
+The
+.I options
+recognized by the
+.B o
+command, on the command line with a leading
+.BR + ,
+and in the environment variable
+.B ED
+are:
+.IP \fBc\fR 0.4i
+Print character counts after
+.BR e ,
+.BR r ,
+and
+.B w
+commands (set by default).
+.IP \fBm\fR
+Allow more than one command on a line.
+.IP \fBo\fR
+Print line counts, rather than character counts, after
+.BR e ,
+.BR r ,
+and
+.B w
+commands.
+.IP \fBp\fR
+Prompt with
+.B *
+before reading each command.
+.IP \fBs\fR
+Make lower-case letters in a pattern match either case in the text.
+.IP \fBv\fR
+Print a fuller message after an error, rather than just
+.BR ? .
+.PP
+Preceding a letter with
+.B \-
+resets the option instead of setting it.
+.SH FILES
+.DS
+.ta 12n
+\fB/tmp\fR	temporary copy of the edited text
+.DE
+.SH "SEE ALSO"
+.BR sed ,
+.B split
+.SH DIAGNOSTICS
+.B ed
+normally reports an error by printing
+.B ?
+alone; with the
+.B v
+option in force it also prints a short explanation.
+.SH NOTES
+The
+.B \-t
+command-line option, used to suspend interrupt and quit handling for
+a screen editor built on top of
+.BR ed ,
+and the
+.B \-u
+option, which disables output buffering, are not part of the usual
+interactive interface and are not listed above.

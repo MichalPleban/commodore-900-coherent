@@ -1,0 +1,72 @@
+.TH who "" "Command"
+.SH NAME
+who \- print who is logged in
+.SH SYNOPSIS
+\fBwho\fR
+.br
+\fBwho \fIwho-file\fR
+.br
+\fBwho \fBam i\fR
+.br
+\fBwho \fIwho-file \fBam i\fR
+.SH DESCRIPTION
+.HS
+who -- print who is logged in
+Usage:	who [ file ] [ am i ]
+.HE
+With no arguments,
+.B who
+reads
+.B /etc/utmp
+and prints one line for each user currently logged in, giving the
+login name, terminal line, and login time; entries with no login name
+(unused slots) are skipped.
+.PP
+If a
+.I who-file
+is named,
+.B who
+reads that file instead of
+.BR /etc/utmp ,
+and prints every entry found in it, including unused entries.
+This is useful, for example, with
+.BR /usr/adm/wtmp ,
+which keeps a running record of logins and logouts.
+.PP
+If the literal words
+.B am
+and
+.B i
+follow (as the last two arguments),
+.B who
+prints only the entry whose terminal line matches the invoker's own
+terminal.
+.PP
+Each line has the form
+.DS
+.ta 10n 18n
+\fIname\fR	\fIline\fR	\fImon day hh:mm\fR
+.DE
+where
+.I name
+and
+.I line
+come from the utmp entry and the date and time are taken from
+.BR ctime() ,
+with the day-of-week, seconds, and year dropped.
+.SH FILES
+.B /etc/utmp
+.SH "SEE ALSO"
+.BR write ,
+.BR login ,
+.B mesg
+.SH DIAGNOSTICS
+On an unsupported combination of arguments,
+.B who
+prints (prefixed with
+.B "who: "
+unless standard output is a terminal)
+.B "Usage: who [who-file] [am I]"
+and exits with status 1; the same routine reports
+.B "Cannot open who-file"
+if the named, or default, file cannot be opened.

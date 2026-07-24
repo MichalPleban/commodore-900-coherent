@@ -1,0 +1,194 @@
+.TH find "" "Command"
+.SH NAME
+find \- search for files satisfying a pattern
+.SH SYNOPSIS
+\fBfind \fIdirectory ... \fB[\fIexpression ...\fB]\fR
+.SH DESCRIPTION
+.HS
+find -- search for files satisfying a pattern
+Usage:	find directory ... [ expression ... ]
+Expression:
+	-atime n	File has been accessed in 'n' days
+	-ctime n	File's i-node has been changed in 'n' days
+	-exec command	Command is successful (arg. '{}' is file name)
+	-group gname	File belongs to group owner 'gname'
+	-inum n		File has i-node number 'n'
+	-links n	File has 'n' links to it
+	-mtime n	File has been modified in 'n' days
+	-name pattern	File name matches 'pattern' (shell conventions)
+	-newer file	File has been modified since 'file'
+	-nop		Always true; does nothing
+	-ok command	Like '-exec', except it asks
+	-perm octal	File permissions are 'octal'
+	-print		Always true; prints current pathname
+	-size n		File is 'n' blocks long
+	-type c		File matches type ('c' may be [bcdfmp])
+	-user uname	File belongs to 'uname'
+	exp -a exp	Both expressions are true (also: exp exp)
+	exp -o exp	One of the expressions is true
+	! exp		Expression is false
+	( exp )		Parentheses for grouping
+If no expression is specified, '-print' is assumed.
+.HE
+.B find
+descends each given
+.IR directory ,
+testing every file and subdirectory it finds against
+.IR expression .
+If
+.I expression
+is omitted, or specifies no
+.BR \-print ,
+.BR \-exec ,
+or
+.BR \-ok ,
+.B find
+prints the pathname of every file it visits, exactly as though
+.B \-print
+had been given at the end.
+.PP
+An
+.I expression
+is built from the primaries below, combined with
+.B \-a
+(logical and, also the default when two primaries are simply
+written one after the other),
+.B \-o
+(logical or),
+.B !
+(negation), and parentheses for grouping;
+.B \-a
+binds tighter than
+.BR \-o .
+Each primary not only tests something about the file, but, in the
+case of
+.BR \-exec ,
+.BR \-ok ,
+and
+.BR \-print ,
+also has the side effect of running a command or printing the
+pathname; evaluation stops as soon as the truth of an
+.B \-a
+or
+.B \-o
+expression is known, so a primary with a side effect to the right of
+.B \-o
+after a true left operand, or to the right of
+.B \-a
+after a false one, does not run.
+.PP
+A numeric argument
+.I n
+may be written plain, or prefixed with
+.B +
+(more than
+.IR n )
+or
+.B \-
+(fewer than
+.IR n ).
+.SH Primaries
+.IP "\-\fBatime \fIn\fR" 0.8i
+The file was last accessed
+.I n
+days ago.
+.IP "\-\fBctime \fIn\fR"
+The file's i-node was last changed
+.I n
+days ago.
+.IP "\-\fBexec \fIcommand\fR"
+Run
+.IR command ,
+which continues to collect arguments up to a
+.B ;
+argument (escaped from the shell); true if it exits with status
+zero.
+Any argument written
+.B {}
+is replaced by the current pathname.
+.IP "\-\fBgroup \fIgname\fR"
+The file's group owner is
+.IR gname ,
+or, if
+.I gname
+is numeric, the group number
+.IR gname .
+.IP "\-\fBinum \fIn\fR"
+The file's i-number is
+.IR n .
+.IP "\-\fBlinks \fIn\fR"
+The file has
+.I n
+links.
+.IP "\-\fBmtime \fIn\fR"
+The file was last modified
+.I n
+days ago.
+.IP "\-\fBname \fIpattern\fR"
+The last component of the file's pathname matches
+.IR pattern ,
+using the wildcard conventions of the shell
+.BR sh .
+.IP "\-\fBnewer \fIfile\fR"
+The file has been modified more recently than
+.IR file .
+.IP \-\fBnop\fR
+Always true; has no side effect.
+.IP "\-\fBok \fIcommand\fR"
+Like
+.BR \-exec ,
+but first prints the command and the current pathname and asks the
+user; runs
+.I command
+only if the answer begins with
+.BR y .
+.IP "\-\fBperm \fIoctal\fR"
+The file's permission bits equal
+.IR octal ;
+if
+.I octal
+begins with
+.BR \- ,
+match instead if all of the bits set in the (remaining) octal value
+are set in the file's mode, allowing setuid, setgid, and the sticky
+bit to be tested as well.
+.IP "\-\fBprint\fR"
+Always true; prints the current pathname.
+.IP "\-\fBsize \fIn\fR"
+The file is
+.I n
+512-byte blocks long, rounding up.
+.IP "\-\fBtype \fIc\fR"
+The file's type is
+.IR c :
+one of
+.BR b ", " c ", " d ", " f ", " m ", or " p
+for block special, character special, directory, ordinary file,
+multiplexor file, or named pipe.
+.IP "\-\fBuser \fIuname\fR"
+The file's owner is
+.IR uname ,
+or, if
+.I uname
+is numeric, the user number
+.IR uname .
+.SH Examples
+.DS
+find / \-name core \-mtime +7 \-exec rm {} ;
+.DE
+removes every file named
+.B core
+in the whole file tree that has not been changed in a week.
+.SH "SEE ALSO"
+.BR chmod ,
+.BR sh ,
+.B test
+.SH DIAGNOSTICS
+.B find
+complains and continues if a directory cannot be opened or read, or
+a
+.B \-newer
+file does not exist; it exits nonzero only if it was invoked with a
+bad expression or a starting
+.I directory
+does not exist or is not a directory.

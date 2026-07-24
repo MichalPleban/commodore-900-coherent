@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  *	Definitions and declarations for make - Created due to the offended 
  *	sensitivities of all MWC, 1-2-85
  */

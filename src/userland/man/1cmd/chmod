@@ -1,0 +1,150 @@
+.TH chmod "" "Command"
+.SH NAME
+chmod \- change permissions of a file
+.SH SYNOPSIS
+\fBchmod \fImode file ...\fR
+.SH DESCRIPTION
+.HS
+chmod -- change permissions of a file
+Usage:	chmod mode file ...
+Mode may be octal or a comma-separated symbolic list:
+	[which]howperm...[,...]
+'which':
+	a	User, group, and other permissions
+	g	Group permissions
+	o	Other permissions
+	u	User permissions
+Missing 'which' implies 'a'; 'g', 'o', and 'u' may be combined.
+'how':
+	=	Set permissions
+	+	Add permissions
+	-	Take away permissions
+'perm':
+	g	Current group permissions
+	o	Current other permissions
+	r	Read
+	s	Setuid on execution
+	t	Sticky bit (save text)
+	u	Current user permissions
+	w	Write
+	x	Execute
+.HE
+.B chmod
+changes the access permissions of each
+.I file
+to
+.IR mode .
+.PP
+If
+.I mode
+begins with a digit, it is read as an octal number and becomes the
+new mode directly.
+.PP
+Otherwise
+.I mode
+is a comma-separated list of one or more clauses of the form
+.RS
+.B [\fIwhich\fB]\fIhow\fBperm\fR...
+.RE
+each of which changes the permission bits selected by
+.I which
+according to
+.I how
+using the values given by
+.IR perm .
+Several clauses may be joined with commas to change more than one
+category in a single invocation, e.g.
+.B u+w,go\-w
+adds write permission for the owner and removes it for group and
+other.
+If
+.I which
+is omitted, it defaults to
+.B a
+adjusted by the file-creation mask (see
+.BR umask() ).
+.PP
+.I which
+selects one or more of:
+.IP \fBu\fR
+The file's owner permissions.
+.IP \fBg\fR
+The file's group permissions.
+.IP \fBo\fR
+The file's other permissions.
+.IP \fBa\fR
+All three of the above; this is the default if
+.I which
+is omitted.
+.PP
+.I how
+is one of:
+.IP \fB=\fR
+Set the selected permissions to
+.IR perm .
+.IP \fB+\fR
+Add the permissions named by
+.I perm
+to the selected permissions.
+.IP \fB\-\fR
+Remove the permissions named by
+.I perm
+from the selected permissions.
+.PP
+.I perm
+is one or more of:
+.IP \fBr\fR
+Read.
+.IP \fBw\fR
+Write.
+.IP \fBx\fR
+Execute (search, for a directory).
+.IP \fBs\fR
+Set-user-id and set-group-id on execution.
+.IP \fBt\fR
+Sticky bit (save text image after execution).
+.IP \fBu\fR
+The file's current owner permissions, replicated onto the
+selected
+.IR which .
+.IP \fBg\fR
+The file's current group permissions, replicated onto the
+selected
+.IR which .
+.IP \fBo\fR
+The file's current other permissions, replicated onto the
+selected
+.IR which .
+.PP
+.I mode
+may also be given entirely as an octal number, exactly as for the
+traditional octal mode word.
+.SH "SEE ALSO"
+.BR chgrp ,
+.BR chown ,
+.B umask()
+.SH DIAGNOSTICS
+.B chmod
+prints
+.B "chmod: badly formed octal mode"
+or
+.B "chmod: badly formed symbolic mode"
+and exits if
+.I mode
+cannot be parsed.
+If a
+.I file
+cannot be changed, it prints the reason and exits with status 2
+after processing the remaining files.
+.SH NOTES
+Setting the sticky bit
+.RB ( t )
+sets both the set-user-id and set-group-id bits together, since this
+implementation does not distinguish them in the
+.I perm
+letter
+.BR s .
+A non-superuser who sets the sticky bit gets a one-time warning;
+enforcement of the restriction is otherwise left to the
+.B chmod()
+system call.

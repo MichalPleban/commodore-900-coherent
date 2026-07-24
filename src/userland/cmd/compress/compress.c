@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 /* compress - Reduce file size using Modified Lempel-Ziv encoding */
 /*
  * compress.c - File compression ala IEEE Computer, June 1984.

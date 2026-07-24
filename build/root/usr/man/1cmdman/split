@@ -1,0 +1,32 @@
+
+
+sspplliitt                                                       sspplliitt
+
+
+
+NNAAMMEE
+     split - split a large file into smaller files
+
+SSYYNNOOPPSSIISS
+     sspplliitt [-_n_l_i_n_e_s] [_i_n_f_i_l_e [_o_u_t_f_i_l_e]]
+
+DDEESSCCRRIIPPTTIIOONN
+     sspplliitt copies _i_n_f_i_l_e (or the standard input, if _i_n_f_i_l_e is
+     omitted or is -) into a series of new files, each holding at
+     most _n_l_i_n_e_s lines of the input (the last file may hold
+     fewer).  The new files are named by appending aaaa, aabb, aacc,
+     and so on, in turn, to _o_u_t_f_i_l_e (default xx), so that the
+     first file is _o_u_t_f_i_l_eaa, the second _o_u_t_f_i_l_eab, and so on
+     through _o_u_t_f_i_l_ezz.
+
+     The default number of lines per output file is 1000; this
+     may be changed by giving -_n_l_i_n_e_s as the first argument.
+
+DDIIAAGGNNOOSSTTIICCSS
+     sspplliitt complains and exits if _i_n_f_i_l_e cannot be opened, if an
+     output file cannot be created, or if more than 676 output
+     files (through _o_u_t_f_i_l_ezz) would be needed.
+
+NNOOTTEESS
+     _n_l_i_n_e_s must be a positive number; anything else is rejected
+     with a usage message.

@@ -1,0 +1,40 @@
+
+
+ccllrrii                                                         ccllrrii
+
+
+
+NNAAMMEE
+     clri - clear i-node
+
+SSYYNNOOPPSSIISS
+     /eettcc/ccllrrii _f_i_l_e_s_y_s_t_e_m _i_n_u_m_b_e_r ...
+
+DDEESSCCRRIIPPTTIIOONN
+     ccllrrii zeroes each i-node named by an _i_n_u_m_b_e_r argument on
+     _f_i_l_e_s_y_s_t_e_m. _f_i_l_e_s_y_s_t_e_m should be the raw (character-special)
+     device holding the file system, e.g.  /ddeevv/rrhhdd00. ccllrrii reads
+     the superblock of _f_i_l_e_s_y_s_t_e_m to locate the i-node list,
+     then, for each _i_n_u_m_b_e_r, reads the disk block containing that
+     i-node, zeroes the i-node's entry in the in-memory copy of
+     the block, and writes the block back.
+
+     The i-node is identified purely by number; no check is made
+     that it is of any particular type or that it is otherwise a
+     sensible thing to clear.
+
+SSEEEE AALLSSOO
+     cchheecckk, mmkkffss
+
+DDIIAAGGNNOOSSTTIICCSS
+     ccllrrii prints a diagnostic and exits 1 if _f_i_l_e_s_y_s_t_e_m cannot be
+     opened, its superblock cannot be read, an _i_n_u_m_b_e_r is out of
+     range for the file system, or a read or write error occurs.
+
+NNOOTTEESS
+     ccllrrii operates directly on the raw device and does not go
+     through the file system; run it only on an unmounted file
+     system, since any in-memory copy of the affected i-node will
+     otherwise overwrite this change when it is later written
+     back to disk.  If the i-node cleared belongs to the root
+     file system, reboot immediately afterward.

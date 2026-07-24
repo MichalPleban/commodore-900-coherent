@@ -1,0 +1,54 @@
+
+
+ssppeellll                                                       ssppeellll
+
+
+
+NNAAMMEE
+     spell - find spelling errors
+
+SSYYNNOOPPSSIISS
+     ssppeellll [-aa] [-bb] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ssppeellll collects the words used in each _f_i_l_e, or in the stan-
+     dard input if none is given, and prints on the standard out-
+     put those that it cannot find in its dictionary.
+
+     ssppeellll is a shell procedure.  It extracts the words used in
+     the input with ddeerrooffff -ww, which also strips out formatting
+     commands, sorts them into a unique, case-folded list with
+     ssoorrtt -uuff, and passes the result to /uussrr/lliibb/ssppeellll together
+     with one of the two compressed dictionaries kept in
+     /uussrr/ddiicctt: cclliissttaa (American spelling) or cclliissttbb (British
+     spelling).  /uussrr/lliibb/ssppeellll case-folds each input word before
+     comparing it against the (also case-folded) dictionary; any
+     word it cannot find is written, in its original case, to the
+     standard output, and also appended to the history file
+     /uussrr/ddiicctt/ssppeellllhhiisstt.
+
+     Options:
+
+     -aa   Check against the American-spelling dictionary, cclliissttaa.
+          This is the default.
+
+     -bb   Check against the British-spelling dictionary, cclliissttbb.
+
+FFIILLEESS
+          /uussrr/ddiicctt/cclliissttaa    compressed American dictionary
+          /uussrr/ddiicctt/cclliissttbb    compressed British dictionary
+          /uussrr/ddiicctt/ssppeellllhhiisstt history of words not found
+          /uussrr/lliibb/ssppeellll      dictionary-lookup program run by ssppeellllccmmdd
+
+SSEEEE AALLSSOO
+     ddeerrooffff
+
+NNOOTTEESS
+     Because ssppeellll compares whole words against an exact diction-
+     ary rather than guessing at spelling, it will flag any word
+     that is not in the dictionary, including many correctly
+     spelled proper names and technical terms.  Words believed
+     correct but missing from the dictionary should be added to
+     the local word list by the dictionary maintainer; see the
+     RREEAADD_MMEE file that accompanies the ssppeellll sources for how the
+     dictionaries are built and maintained.

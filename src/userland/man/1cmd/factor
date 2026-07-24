@@ -1,0 +1,56 @@
+.TH factor "" "Command"
+.SH NAME
+factor \- print the prime factors of a number
+.SH SYNOPSIS
+\fBfactor [\fInumber ...\fB]\fR
+.SH DESCRIPTION
+.HS
+factor -- print the prime factors of a number
+Usage:	factor [ number ... ]
+If no 'number' is given, numbers are read one per line from
+the standard input until end of file, a zero, or a non-numeric
+character is seen.
+.HE
+.B factor
+prints, on a single output line, the prime factors of each
+.I number
+given on the command line, separated by spaces, in increasing order,
+each repeated as many times as it divides the number.
+.PP
+If no
+.I number
+is given,
+.B factor
+instead reads numbers from the standard input, one at a time,
+skipping leading white space, and factoring each in turn.
+It stops reading as soon as it sees end of file, the number
+.BR 0 ,
+or a character that is not part of a number.
+.PP
+A
+.I number
+may be written in decimal, or, with a leading
+.BR 0 ,
+in octal, or, with a leading
+.B 0x
+(letters
+.B a
+through
+.B f
+allowed, in either case), in hexadecimal.
+Numbers are held internally in floating point, so very large values
+may be factored, subject to the precision of a
+.B double
+and to the time needed to search for factors by trial division.
+.SH "SEE ALSO"
+.B expr
+.SH DIAGNOSTICS
+.B factor
+prints
+.B "Number too big"
+and exits if an input number has too many digits, and
+.B "bad number"
+or
+.B "Number too big"
+(with the offending text) if a command-line argument is not a valid
+number or overflows.

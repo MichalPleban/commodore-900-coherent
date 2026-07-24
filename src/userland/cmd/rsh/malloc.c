@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Memory allocator
  * Maintains address order list of contiguous blocks, with discontinuities in
  * arena represented as used blocks.

@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Mount a filesystem
  */
 
@@ -8,6 +13,8 @@ mount -- mount file system\n\
 Usage:	/etc/mount [ special directory [-fru] ]\n\
 Options:\n\
 	-r	Mount is read only\n\
+	-f	Force read/write even if not cleanly unmounted\n\
+	-w	Remount an already-mounted file system read/write\n\
 	-u	No mount, just update '/etc/mnttab' and/or '/etc/mtab'\n\
 The file system residing on the block special file 'special' becomes\n\
 accessible through the pathname 'directory'.\n\
@@ -29,6 +36,9 @@ If /etc/mnttab is present, then the dates of mounting will be reported.\n\
 
 int	uflag;			/* Update mount table only */
 int	rflag;			/* Read-only mount */
+int	fflag;			/* Force read/write even if dirty */
+int	wflag;			/* Remount read/write */
+int	dirty;			/* Set by chkspec: fs not cleanly unmounted */
 int	qmtab;			/* Mtab is out of date */
 char	mtabf[] = "/etc/mtab";
 char	mnttabf[] = "/etc/mnttab";	/* System 5 style */
@@ -51,7 +61,7 @@ char *argv[];
 			argc -= 1;
 		}
 		if (argc==3) {
-			domount(argv[1], argv[2], rflag);
+			domount(argv[1], argv[2], rflag|fflag|wflag);
 		} else
 			usage();
 	}
@@ -67,6 +77,14 @@ register char *ap;
 		switch (c) {
 		case 'r':
 			rflag = MFRON;
+			continue;
+
+		case 'f':
+			fflag = MFFORCE;
+			continue;
+
+		case 'w':
+			wflag = MFRMT;
 			continue;
 
 		case 'u':
@@ -112,6 +130,22 @@ int flag;
 	chkname(name);
 	if (!uflag) {
 		chkspec(special);
+		/*
+		 * A file system that was not cleanly unmounted is mounted
+		 * read only unless the caller forces read/write with -f.
+		 * Remount (-w) leaves the clean/dirty decision to the kernel,
+		 * which refuses r/w on a dirty fs unless forced.
+		 */
+		if (dirty && (flag&MFRMT)==0) {
+			if ((flag&(MFRON|MFFORCE)) == 0) {
+				flag |= MFRON;
+				fprintf(stderr,
+"mount: %s: not cleanly unmounted, mounting read only (run 'check -s %s')\n",
+					special, special);
+			} else if (flag&MFFORCE)
+				fprintf(stderr,
+"mount: %s: not cleanly unmounted, forcing read/write\n", special);
+		}
 		if (mount(special, name, flag) != 0)
 			merror("%s on %s", special, name);
 	}
@@ -128,7 +162,7 @@ int flag;
 		}
 		strncpy(mnttab.mt_dev, name, MNTNSIZ);
 		strncpy(mnttab.mt_filsys, mspec, MNTNSIZ);
-		mnttab.mt_ro_flg = flag;
+		mnttab.mt_ro_flg = flag & MFRON;
 		mnttab.mt_time = time(NULL);
 		if (fwrite(&mnttab, sizeof(mnttab), 1, fp) != 1)
 			merror("writing %s", mnttabf);
@@ -147,7 +181,7 @@ int flag;
 		}
 		strncpy(mtab.mt_name, name, MNAMSIZ);
 		strncpy(mtab.mt_special, mspec, MNAMSIZ);
-		mtab.mt_flags = flag;
+		mtab.mt_flags = flag & MFRON;
 		if (fwrite(&mtab, sizeof(mtab), 1, fp) != 1)
 			merror("writing %s", mtabf);
 		fclose(fp);
@@ -244,6 +278,8 @@ char *special;
 			"mount: %s: badly formed file system\n", special);
 		exit(1);
 	}
+	dirty = (f.s_dirty != FSCLEAN);
+	fclose(fp);
 }
 
 canf(fp)

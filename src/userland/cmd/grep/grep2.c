@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Regular expression routines.
  * These routines are currently used by grep but
  * they are somewhat general and thus could be

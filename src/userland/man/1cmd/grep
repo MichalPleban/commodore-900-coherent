@@ -1,0 +1,154 @@
+.TH grep "" "Command"
+.SH NAME
+grep \- pattern search
+.SH SYNOPSIS
+\fBgrep [\-abchlnsvxy] [\fIpattern\fB] [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+grep -- pattern search
+Usage:	grep [ option ... ] [ pattern ] [ file ... ]
+Options:
+	-a	Extra metacharacters supported ('(...)', '|', '+', and '?')
+	-b	Each output line has the block number of the match
+	-c	Print only a count of the number of matching lines
+	-e	The next argument is the pattern
+	-f	The next argument is a file containing one pattern per line
+	-h	Suppress the printing of file names on matched lines
+	-l	Print only the names of files containing matches
+	-n	Print line number of file with each matched line output
+	-s	Suppress output, just return status
+	-v	Negate the sense of the match
+	-x	Exact match (regular expression metacharacters are ordinary)
+	-y	Lower-case letters in the pattern match upper- and lower-case
+The 'pattern' is a regular expression roughly like that found in 'ed'.
+If no 'file' is specified, the standard input is used.
+.HE
+.B grep
+searches each
+.I file
+for lines matching
+.IR pattern ,
+a regular expression given in the same syntax as
+.BR ed .
+If no
+.I file
+is given, it searches the standard input.
+Normally each matching line is printed; several options change what
+is printed and how the match is made.
+.PP
+More than one
+.I pattern
+may be given, with repeated
+.B \-e
+or
+.B \-f
+options (or one of each); a line is a match if it matches any of
+them.
+If no
+.B \-e
+or
+.B \-f
+option is given, the first non-option argument is taken as
+.I pattern
+instead.
+.SH Patterns
+Ordinary characters in
+.I pattern
+match themselves.
+Without
+.BR \-a ,
+the following are also recognized:
+.IP \fB^\fR 0.4i
+Anchors the match to the start of the line.
+.IP \fB$\fR
+Anchors the match to the end of the line.
+.IP \fB.\fR
+Matches any single character.
+.IP \fB*\fR
+Matches zero or more occurrences of the preceding pattern element.
+.IP \fB[\fIchars\fB]\fR
+Matches any one of the enclosed characters; a leading
+.B ^
+complements the set, and ranges may be written with
+.BR \- .
+.IP \fB\e\fIc\fR
+Matches the character
+.I c
+literally.
+.PP
+With
+.BR \-a ,
+.BR ( ,
+.BR ) ,
+.BR | ,
+.BR + ,
+and
+.B ?
+are also recognized, with the same meaning as in
+.BR egrep .
+With
+.BR \-x ,
+none of the above are special: the whole
+.I pattern
+must equal the whole line, character for character.
+.SH Options
+.IP \fB\-a\fR 0.4i
+Accept the extended metacharacters
+.BR ( ,
+.BR ) ,
+.BR | ,
+.BR + ,
+and
+.B ?
+in
+.IR pattern ,
+as
+.B egrep
+does.
+.IP \fB\-b\fR
+Precede each matching line with the number of the input block it
+started in.
+.IP \fB\-c\fR
+Print only a count of matching lines, not the lines themselves.
+.IP \fB\-e\fR
+The next argument is
+.IR pattern ,
+useful when it begins with
+.BR \- .
+.IP \fB\-f\fR
+The next argument names a file containing one pattern per line.
+.IP \fB\-h\fR
+Do not print file names ahead of matched lines.
+.IP \fB\-l\fR
+Print only the names of files that contain a match.
+.IP \fB\-n\fR
+Precede each matching line with its line number within its file.
+.IP \fB\-s\fR
+Print nothing; only set the exit status.
+.IP \fB\-v\fR
+Print lines that do
+.I not
+match any
+.IR pattern .
+.IP \fB\-x\fR
+Require the whole line to equal
+.I pattern
+exactly; metacharacters in
+.I pattern
+are treated as ordinary text.
+.IP \fB\-y\fR
+Make lower-case letters in
+.I pattern
+match either case in the input.
+.SH "SEE ALSO"
+.BR awk ,
+.BR ed ,
+.B egrep
+.SH DIAGNOSTICS
+.B grep
+returns 0 if any line matched, 1 if none did, and 2 if invoked
+incorrectly or a file could not be opened.
+.SH NOTES
+.B egrep
+is an extended and faster version of
+.BR grep .

@@ -1,0 +1,42 @@
+.TH basename "" "Command"
+.SH NAME
+basename \- strip file name
+.SH SYNOPSIS
+\fBbasename \fIfile \fB[\fIsuffix\fB]\fR
+.SH DESCRIPTION
+.HS
+basename -- strip file name
+Usage:	basename file [ suffix ]
+.HE
+.B basename
+strips
+.I file
+of any leading directory prefix (everything up to and including the
+last
+.BR / ).
+If the optional
+.I suffix
+argument is given and the result ends with it,
+.B basename
+strips that too.
+.B basename
+prints the result on the standard output.
+.PP
+For example, the command
+.DS
+	basename /usr/fred/source.c
+.DE
+prints
+.DS
+	source.c
+.DE
+and the command
+.DS
+	basename /usr/fred/source.c .c
+.DE
+prints
+.DS
+	source
+.DE
+.SH "SEE ALSO"
+.B sh

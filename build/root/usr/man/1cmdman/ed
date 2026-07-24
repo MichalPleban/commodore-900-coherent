@@ -1,0 +1,273 @@
+
+
+eedd                                                             eedd
+
+
+
+NNAAMMEE
+     ed - interactive text editor
+
+SSYYNNOOPPSSIISS
+     eedd [-] [-xx] [+ccmmooppssvv] [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     eedd is a line-oriented text editor.  It reads commands from
+     the standard input, normally one command per line, and edits
+     a copy of the text held in memory; no change reaches a file
+     until a ww command writes it out.  If the optional _f_i_l_e argu-
+     ment is given, eedd reads it in as though by the ee command
+     below.
+
+     eedd keeps a _c_u_r_r_e_n_t _l_i_n_e , initially the last line read in
+     and thereafter the line most recently addressed or affected
+     by a command, and a _c_u_r_r_e_n_t _f_i_l_e _n_a_m_e , last set by an ee , EE
+     , or ff command.
+
+LLiinnee AAddddrreesssseess
+     Commands may be preceded by zero, one, or two addresses,
+     separated by a comma or a semicolon.  A semicolon behaves
+     like a comma except that it also sets the current line to
+     the first address before the second is evaluated.
+
+     _n    Line number _n, counting from 1.
+
+     .    The current line.
+
+     $    The last line of the text.
+
+     +_n, -_n, ^_n
+          An address relative to the current line; ^ is a synonym
+          for -. A lone + or - (or a run of them) adds or sub-
+          tracts one for each occurrence.
+
+     /_p_a_t_t_e_r_n/
+          The next line, searching forward and wrapping around
+          the end of the text, that contains _p_a_t_t_e_r_n.
+
+     ?_p_a_t_t_e_r_n?
+          The next line, searching backward and wrapping around
+          the start of the text, that contains _p_a_t_t_e_r_n.
+
+     mark _x
+          Written as a quote character followed by the lower-case
+          letter _x, this addresses the line most recently marked
+          with that letter by the kk command.
+
+     &    With no address before it, requests that the following
+          command with no explicit address print the next 22
+          lines (a _p_a_g_e) starting at the current line, instead of
+          just one line.
+
+CCoommmmaannddss
+
+
+CCOOHHEERREENNTT CCoommmmaanndd MMaannuuaall                                    PPaaggee 11
+
+
+
+
+eedd                                                             eedd
+
+
+
+     Each command is a single letter, optionally preceded by the
+     addresses above.
+
+     .     With no command letter and no address, print the line
+           after the current line.  With one address and no com-
+           mand, print that line and make it current.
+
+     =     Print the line number of the given address (default:
+           the last line).
+
+     !_c_o_m_m_a_n_d
+           Pass the rest of the input line to the shell for ex-
+           ecution.
+
+     [_n]aa  Append text, read line by line from the standard input
+           and terminated by a line containing only ., after line
+           _n.
+
+     [_n[,_m]cc
+           Delete the given lines and append new text in their
+           place, as for aa.
+
+     [_n[,_m]dd
+           Delete the given lines.
+
+     ee [_f_i_l_e]
+           Read _f_i_l_e (default: the current file name) into a
+           fresh buffer, discarding the current text.  eedd refuses
+           if there are unsaved changes; repeating the command
+           forces it.
+
+     EE [_f_i_l_e]
+           Like ee, but does not check for unsaved changes.
+
+     ff [_f_i_l_e]
+           Set the current file name to _f_i_l_e and print it; with
+           no argument, just print the current file name.
+
+     [_n[,_m]gg/_p_a_t_t_e_r_n/_c_o_m_m_a_n_d_s
+           For each line in the given range (default: the whole
+           text) that matches _p_a_t_t_e_r_n (default: the last pattern
+           used), execute _c_o_m_m_a_n_d_s against it.
+
+     [_n]ii  Insert text, as for aa, before line _n.
+
+     [_n[,_m]jj
+           Join the given lines (default: the current and next
+           line) into one.
+
+     [_n]kk_x Mark line _n with the lower-case letter _x, for later
+           use as address '_x.
+
+     [_n[,_m]ll
+           Print the given lines, making non-graphic characters
+           visible.
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+eedd                                                             eedd
+
+
+
+     [_n[,_m]mm_d
+           Move the given lines to follow line _d.
+
+     oo _o_p_t_i_o_n_s
+           Change the options in force, as described below; with
+           no _o_p_t_i_o_n_s argument, print the current settings.
+
+     [_n[,_m]pp
+           Print the given lines (default: the current line) and
+           make the last one current.
+
+     qq     Quit. Refuses if there are unsaved changes; repeating
+           the command forces it.
+
+     QQ     Quit unconditionally, discarding unsaved changes.
+
+     [_n]rr [_f_i_l_e]
+           Read _f_i_l_e (default: the current file name) into the
+           text after line _n (default: the last line).
+
+     [_n[,_m]ss/_p_a_t/_r_e_p_l/[_g]
+           Search each of the given lines for _p_a_t and replace the
+           first occurrence (or, with the trailing gg, every oc-
+           currence) with _r_e_p_l.
+
+     [_n[,_m]tt_d
+           Copy the given lines to follow line _d.
+
+     [_n]uu  Undo the most recent substitution on line _n.
+
+     [_n[,_m]vv/_p_a_t_t_e_r_n/_c_o_m_m_a_n_d_s
+           Like gg, but selects lines that do _n_o_t match _p_a_t_t_e_r_n.
+
+     [_n[,_m]ww [_f_i_l_e]
+           Write the given lines (default: the whole text) to
+           _f_i_l_e (default: the current file name), replacing any
+           previous contents.
+
+     [_n[,_m]WW [_f_i_l_e]
+           Like ww, but appends to _f_i_l_e instead of replacing it.
+
+     xx     Prompt for a new encryption key for subsequent reads
+           and writes of the current file.
+
+     After aa, cc, ii, jj, ss, or uu, a trailing pp or ll on the same
+     command line prints or lists the resulting current line.  An
+     aa , cc, or ii command may be followed by qq, which quits after
+     the append/change/insert completes.
+
+PPaatttteerrnnss
+     Search addresses and the ss command take a _p_a_t_t_e_r_n, built
+     from the following:
+
+     ^    Anchors the match to the start of the line.
+
+
+
+COHERENT Command Manual                                    Page 3
+
+
+
+
+eedd                                                             eedd
+
+
+
+     $    Anchors the match to the end of the line.
+
+     .    Matches any single character.
+
+     *    Matches zero or more repetitions of the preceding
+          character.
+
+     [_c_h_a_r_s]
+          Matches any one of the enclosed characters; a leading ^
+          complements the set.  Ranges may be written with -.
+
+     \_c   Matches the character _c literally, removing any special
+          meaning it would otherwise have.
+
+     \(_p_a_t_t_e_r_n\)
+          Delimits a subexpression for use with & and \_d in the
+          replacement text of an ss command: & stands for the
+          whole match, and \_d for the text matched by the _dth
+          \(... pair.
+
+OOppttiioonnss
+     The _o_p_t_i_o_n_s recognized by the oo command, on the command line
+     with a leading +, and in the environment variable EEDD are:
+
+     cc   Print character counts after ee, rr, and ww commands (set
+         by default).
+
+     mm   Allow more than one command on a line.
+
+     oo   Print line counts, rather than character counts, after
+         ee, rr, and ww commands.
+
+     pp   Prompt with * before reading each command.
+
+     ss   Make lower-case letters in a pattern match either case
+         in the text.
+
+     vv   Print a fuller message after an error, rather than just
+         ?.
+
+     Preceding a letter with - resets the option instead of set-
+     ting it.
+
+FFIILLEESS
+          /ttmmpp        temporary copy of the edited text
+
+SSEEEE AALLSSOO
+     sseedd, sspplliitt
+
+DDIIAAGGNNOOSSTTIICCSS
+     eedd normally reports an error by printing ?  alone; with the
+     vv option in force it also prints a short explanation.
+
+NNOOTTEESS
+     The -tt command-line option, used to suspend interrupt and
+
+
+COHERENT Command Manual                                    Page 4
+
+
+
+
+eedd                                                             eedd
+
+
+
+     qquuiitt handling for a screen editor built on top of eedd, and
+     the -uu option, which disables output buffering, are not part
+     of the usual interactive interface and are not listed above.

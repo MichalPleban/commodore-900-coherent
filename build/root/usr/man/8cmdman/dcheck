@@ -1,0 +1,81 @@
+
+
+ddcchheecckk                                                     ddcchheecckk
+
+
+
+NNAAMMEE
+     dcheck - directory consistency check
+
+SSYYNNOOPPSSIISS
+     ddcchheecckk [-ss] [-ii _i_n_u_m_b_e_r ...] _f_i_l_e_s_y_s_t_e_m ...
+
+DDEESSCCRRIIPPTTIIOONN
+     ddcchheecckk checks the consistency of the directory structure of
+     each named _f_i_l_e_s_y_s_t_e_m. It makes two passes over the i-list:
+     the first walks every directory reachable from the root and
+     counts, for every i-number, how many directory entries name
+     it; the second compares that count against the link count
+     recorded in the i-node itself.
+
+     For every i-node whose entry count does not match its link
+     count, ddcchheecckk prints a line giving the i-number, the entry
+     count, and the link count (marked (uu) if the i-node is
+     otherwise unused, i.e. its mode is zero); if -ss was given,
+     it corrects the on-disc link count to match instead of prin-
+     ting anything.
+
+     -ss   Instead of reporting bad link counts, repair them: an
+          i-node with a nonzero entry count has its link count
+          set to that entry count; an i-node with a zero entry
+          count and a nonzero mode is cleared (equivalent to
+          ccllrrii); an allocated i-node (nonzero mode) whose entry
+          count reaches zero only after some directory entries
+          pointing to it are themselves cleared during the second
+          pass requires a further, third pass, which ddcchheecckk runs
+          automatically when needed.  This option requires write
+          access to the raw _f_i_l_e_s_y_s_t_e_m.
+
+     -ii _i_n_u_m_b_e_r ...
+          While walking the directories, also report every entry
+          found whose i-number appears in this list, printing the
+          i-number, the containing directory's i-number, and the
+          entry name, tagged aarrgg. Up to 20 i-numbers may be
+          given.
+
+     Any directory entry whose i-number exceeds the highest valid
+     i-number for the file system is reported as bbaadd regardless
+     of the -ii list.
+
+     Because ddcchheecckk makes more than one pass over the file sys-
+     tem, the _f_i_l_e_s_y_s_t_e_m should be unmounted (or mounted read-
+     only) while it runs; use the raw device.  If -ss is used on
+     the root file system, the system should be rebooted im-
+     mediately afterward, without an intervening ssyynncc.
+
+SSEEEE AALLSSOO
+     cchheecckk, iicchheecckk, ssyynncc, uummoouunntt
+
+DDIIAAGGNNOOSSTTIICCSS
+     ddcchheecckk exits with a status that is the logical OR of small
+     flag values recorded in cchheecckk.hh: 1 for a usage or open er-
+
+
+COHERENT Administration Manual                             Page 1
+
+
+
+
+ddcchheecckk                                                     ddcchheecckk
+
+
+
+     rroorr, 2 for an unrecoverable read or write error, 4 if an i-
+     node with a zero link count was found (and -ss was not
+     given), and 8 if an i-node's link count needed correcting
+     (and -ss was not given).  An exit status of zero means no in-
+     consistency was found.
+
+NNOOTTEESS
+     ddcchheecckk requires a _f_i_l_e_s_y_s_t_e_m argument; it has no notion of a
+     default file system to check.

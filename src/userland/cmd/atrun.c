@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Atrun is the daemon which is regularly invoked by cron inorder
  * to run scripts saved by at.  It runs the files by changeing its
  * uid and gid to the owner and then running a shell on them.

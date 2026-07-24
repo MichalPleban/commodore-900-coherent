@@ -1,0 +1,55 @@
+
+
+pprreepp                                                         pprreepp
+
+
+
+NNAAMMEE
+     prep - produce a word list
+
+SSYYNNOOPPSSIISS
+     pprreepp [-ddffpp] [-ii _f_i_l_e] [-oo _f_i_l_e] [_f_i_l_e ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     pprreepp breaks the text of each input _f_i_l_e (or the standard in-
+     put, if none is named) into words and writes them, one per
+     line, to the standard output.  A word is a run of alphabetic
+     characters and apostrophes; a hyphen followed immediately by
+     a newline joins the word before it to the word after, and
+     any other hyphen ends the current word.
+
+     pprreepp recognizes the following options; they are given before
+     any _f_i_l_e:
+
+     -dd   Precede each output word with its word number in the
+          input (a count of words seen so far), followed by a
+          tab.
+
+     -ff   Fold upper-case letters to lower case as each character
+          is read.
+
+     -ii _f_i_l_e
+          Read a list of words, one per line, from _f_i_l_e, and do
+          not output any input word that matches one of them.  -ii
+          and -oo may not both be given.
+
+     -oo _f_i_l_e
+          Read a list of words, one per line, from _f_i_l_e, and out-
+          put only input words that match one of them.  -ii and -oo
+          may not both be given.
+
+     -pp   Also write each punctuation character (any non-al-
+          phabetic, printable character outside a word) to the
+          standard output, alone on its own line; these lines are
+          not counted for -dd.
+
+SSEEEE AALLSSOO
+     ddeerrooffff, ssoorrtt, ssppeellll, ttyyppoo, wwcc
+
+DDIIAAGGNNOOSSTTIICCSS
+     pprreepp complains and exits if -ii and -oo are both given, if the
+     file named by -ii or -oo cannot be opened, or if any input
+     _f_i_l_e cannot be opened.
+
+NNOOTTEESS
+     What counts as a _w_o_r_d differs among ddeerrooffff, pprreepp, and wwcc.

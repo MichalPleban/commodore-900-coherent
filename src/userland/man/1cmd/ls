@@ -1,0 +1,119 @@
+.TH ls "" "Command"
+.SH NAME
+ls \- list directory contents
+.SH SYNOPSIS
+\fBls [\-acdfgilrstu] [\fIfile ...\fB]\fR
+.SH DESCRIPTION
+.HS
+ls -- list directory contents
+Usage:	ls [ -acdfgilrstu ] [ file ... ]
+Options:
+	-a	List all files (including '.' and '..')
+	-c	Use attribute change instead of modified time for '-l' and '-t'
+	-d	Treat directories like files
+	-f	Treat file as a directory even if it is not (implies '-a')
+	-g	Display group owner, rather than owner
+	-i	Print the i-number as well
+	-l	Longer listing format
+	-r	Reverse the order of all sorting
+	-s	Print the file size in blocks as well
+	-t	Sort by times, normally newest first (default: sort by name)
+	-u	Use accessed rather than modified time
+.HE
+.B ls
+prints information about each named
+.IR file .
+By default,
+.B ls
+sorts by file name and prints only the name of each
+.IR file .
+If a
+.I file
+is a directory,
+.B ls
+sorts and lists its contents (not including
+.B .
+and
+.BR .. ,
+unless
+.B \-a
+is given) rather than the directory's own name; the argument list
+itself is always sorted and shown in full first, and each directory's
+contents follow, headed by the directory's name if more than one
+argument was given.
+If no
+.I file
+is named, the current directory is listed.
+.IP \fB\-a\fR
+List all entries, including
+.B .
+and
+.BR .. .
+.IP \fB\-c\fR
+Show (and, with
+.BR \-t ,
+sort by) the time the file's attributes were last changed (its ctime),
+instead of the modification time.
+.IP \fB\-d\fR
+Treat directories as plain files (list their own entry, not their
+contents).
+.IP \fB\-f\fR
+Force each argument to be treated as a directory (implies
+.BR \-a ,
+and turns off the
+\fBl\fR, \fBr\fR, \fBs\fR, and \fBt\fR
+options and all sorting).
+.IP \fB\-g\fR
+In the long format, print the group owner instead of the file's
+owner.
+.IP \fB\-i\fR
+Print the i-number of each file.
+.IP \fB\-l\fR
+Long format: mode bits, link count, owner (or group, with
+.BR \-g ),
+size in bytes (or major/minor device numbers for special files), time,
+and name.
+.IP \fB\-r\fR
+Reverse the sense of the sort.
+.IP \fB\-s\fR
+Print the size in blocks of each file.
+.IP \fB\-t\fR
+Sort by time, newest first, instead of by name.
+.IP \fB\-u\fR
+Sort by, and with
+.B \-l
+print, the access time instead of the modification time.
+.PP
+When more than one of
+.BR \-c ", " \-u ,
+and the default apply, the most recently given takes effect (they set
+the same internal selector).
+.PP
+The mode field printed by
+.B \-l
+begins with one of the following:
+.DS
+.ta 8n 30n
+	\fB\-\fR	regular file
+	\fBb\fR	block special file
+	\fBc\fR	character special file
+	\fBd\fR	directory
+	\fBp\fR	pipe
+	\fBm\fR	multiplexed (multiplexor) file
+	\fBx\fR	other/unknown
+.DE
+followed by nine permission characters in three groups of three
+(owner, group, other):
+.DS
+.ta 8n 30n
+	\fBr\fR	readable
+	\fBw\fR	writable
+	\fBx\fR	executable (or \fBs\fR, if set-user/group-ID is also set)
+	\fB\-\fR	permission not given
+.DE
+and a final character that is
+.B t
+if the sticky bit is set on the file, or a blank otherwise.
+.SH "SEE ALSO"
+.BR lc ,
+.B chmod

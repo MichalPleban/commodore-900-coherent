@@ -1,16 +1,8 @@
-/* (-lgl
- * 	The information contained herein is a trade secret of Mark Williams
- * 	Company, and  is confidential information.  It is provided  under a
- * 	license agreement,  and may be  copied or disclosed  only under the
- * 	terms of  that agreement.  Any  reproduction or disclosure  of this
- * 	material without the express written authorization of Mark Williams
- * 	Company or persuant to the license agreement is unlawful.
- * 
- * 	COHERENT Version 0.7.3
- * 	Copyright (c) 1982, 1983, 1984.
- * 	An unpublished work by Mark Williams Company, Chicago.
- * 	All rights reserved.
- -lgl) */
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 /*
  * Coherent.
  * Filesystem (mostly handling of in core inodes).
@@ -450,6 +442,28 @@ register INODE *ip;
 }
 
 /*
+ * Re-read all in-core inodes for device `dev' from disk.  Used by
+ * fsremount() after `check' has rewritten the raw device: the in-core
+ * copies are now stale and, if not refreshed, would be written back over
+ * the repairs.  The buffer cache for `dev' must be flushed first so the
+ * reads come from the repaired disk, not from stale cached blocks.
+ */
+iremap(dev)
+register dev_t dev;
+{
+	register INODE *ip;
+	register int mnt;
+
+	for (ip=inodep; ip<&inodep[NINODE]; ip++) {
+		if (ip->i_refc==0 || ip->i_dev!=dev)
+			continue;
+		mnt = ip->i_flag & IFMNT;	/* icopydm clears i_flag */
+		icopydm(ip);
+		ip->i_flag |= mnt;
+	}
+}
+
+/*
  * Copy an inode from memory back on to disk performing canonization.
  */
 icopymd(ip)
@@ -532,6 +546,8 @@ register dev_t dev;
 		if (ip->i_dev != dev)
 			continue;
 		if ((ip->i_flag&(IFACC|IFMOD|IFCRT)) == 0)
+			continue;
+		if ((ip->i_mode&IFMT) == IFCHR)
 			continue;
 		icopymd(ip);
 	}

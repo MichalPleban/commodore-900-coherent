@@ -1,0 +1,177 @@
+.TH test "" "Command"
+.SH NAME
+test \- evaluate conditional expression
+.SH SYNOPSIS
+\fBtest \fIexpression ...\fR
+.br
+\fB[ \fIexpression ...\fB ]\fR
+.SH DESCRIPTION
+.HS
+test -- evaluate conditional expression
+Usage:	test expression ...
+Expression:
+	-d file		'file' exists and is a directory
+	-f file		'file' exists and is not a directory
+	-n string	'string' is of nonzero length
+	-r file		'file' exists and is readable
+	-s file		'file' exists and has nonzero size
+	-t [fd]		File descriptor fd (default 1) is a terminal
+	-w file		'file' exists and is writable
+	-z string	'string' is of zero length
+	string		'string' is not zero-length
+	s1 = s2		's1' and 's2' are equal
+	s1 != s2	's1' and 's2' are not equal
+	n1 -eq n2	Numbers 'n1' and 'n2' are equal
+	n1 -ne n2	'n1' and 'n2' are unequal
+	n1 -gt n2	'n1' is greater than 'n2'
+	n1 -ge n2	'n1' is greater than or equal to 'n2'
+	n1 -lt n2	'n1' is less than 'n2'
+	n1 -le n2	'n1' is less than or equal to 'n2'
+	! exp		Negate the truth value of expression 'exp'
+	exp1 -a exp2	Expressions 'exp1' and 'exp2' are both true
+	exp1 -o exp2	Expression 'exp1' or 'exp2' is true
+	( exp )		Grouping
+.HE
+.B test
+evaluates
+.I expression
+and sets its exit status to reflect the result: zero (true) if
+.I expression
+is true, nonzero (false) if it is false.
+It is used from shell scripts, typically as the condition of an
+.B if
+or
+.B while
+statement, to test file attributes or to compare strings and
+numbers.
+.I expression
+is built from the primitives below, combined with
+.BR \-a ,
+.BR \-o ,
+.BR ! ,
+and parentheses.
+.B \-a
+binds more tightly than
+.BR \-o .
+.IP "\fB\-d \fIfile\fR"
+True if
+.I file
+exists and is a directory.
+.IP "\fB\-f \fIfile\fR"
+True if
+.I file
+exists and is not a directory.
+.IP "\fB\-n \fIstring\fR"
+True if
+.I string
+is of nonzero length.
+.IP "\fB\-r \fIfile\fR"
+True if
+.I file
+exists and is readable.
+.IP "\fB\-s \fIfile\fR"
+True if
+.I file
+exists and has nonzero size.
+.IP "\fB\-t \fR[\fIfd\fR]"
+True if file descriptor
+.I fd
+(default 1, standard output) is associated with a terminal.
+.IP "\fB\-w \fIfile\fR"
+True if
+.I file
+exists and is writable.
+.IP "\fB\-z \fIstring\fR"
+True if
+.I string
+is of zero length.
+.IP \fIstring\fR
+True if
+.I string
+is not the null string; equivalent to \fB\-n \fIstring\fR.
+.IP "\fIs1\fB = \fIs2\fR"
+True if strings
+.I s1
+and
+.I s2
+are equal.
+.IP "\fIs1\fB != \fIs2\fR"
+True if strings
+.I s1
+and
+.I s2
+are not equal.
+.IP "\fIn1 \fB\-eq \fIn2\fR"
+True if numbers
+.I n1
+and
+.I n2
+are equal.
+.IP "\fIn1 \fB\-ne \fIn2\fR"
+True if
+.I n1
+and
+.I n2
+are unequal.
+.IP "\fIn1 \fB\-gt \fIn2\fR"
+True if
+.I n1
+is greater than
+.IR n2 .
+.IP "\fIn1 \fB\-ge \fIn2\fR"
+True if
+.I n1
+is greater than or equal to
+.IR n2 .
+.IP "\fIn1 \fB\-lt \fIn2\fR"
+True if
+.I n1
+is less than
+.IR n2 .
+.IP "\fIn1 \fB\-le \fIn2\fR"
+True if
+.I n1
+is less than or equal to
+.IR n2 .
+.IP "\fB! \fIexp\fR"
+Negate the truth value of
+.IR exp .
+.IP "\fIexp1 \fB\-a \fIexp2\fR"
+True if both
+.I exp1
+and
+.I exp2
+are true.
+.IP "\fIexp1 \fB\-o \fIexp2\fR"
+True if either
+.I exp1
+or
+.I exp2
+is true.
+.IP "\fB( \fIexp \fB)\fR"
+Groups
+.I exp
+to override the default binding of
+.BR \-a ,
+.BR \-o ,
+and
+.BR ! .
+.PP
+When invoked under the name
+.BR [ ,
+.B test
+requires that its last argument be a literal
+.BR ] ,
+allowing the alternative form
+\fB[ \fIexpression \fB]\fR
+in place of
+\fBtest \fIexpression\fR.
+.SH "SEE ALSO"
+.BR expr ,
+.B sh
+.SH DIAGNOSTICS
+.B test
+prints the message `Test expression syntax error' and returns a
+nonzero status if
+.I expression
+is malformed.

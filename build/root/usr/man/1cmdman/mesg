@@ -1,0 +1,36 @@
+
+
+mmeessgg                                                         mmeessgg
+
+
+
+NNAAMMEE
+     mesg - permit/deny messages from other users
+
+SSYYNNOOPPSSIISS
+     mmeessgg [_s_t_a_t_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     mmeessgg controls whether other users may send messages to the
+     caller's terminal with wwrriittee or mmssgg. It does so by turning
+     the group/other execute bit of the terminal's device file
+     (which wwrriittee and mmssgg must be able to open for writing) on or
+     off; the terminal is taken to be the caller's standard er-
+     ror.
+
+     The _s_t_a_t_e argument is yy or yyeess to allow messages, or nn or nnoo
+     to disallow them.  With no argument, mmeessgg prints the current
+     state, yyeess or nnoo, and exits with status 0 if messages are
+     allowed, 1 if not.
+
+DDIIAAGGNNOOSSTTIICCSS
+     mmeessgg complains and exits with status 2 if the standard error
+     is not a terminal.
+
+SSEEEE AALLSSOO
+     mmssgg, wwrriittee
+
+NNOOTTEESS
+     mmeessgg is normally installed set-user-id, so that its execute
+     permission on the terminal can be changed without giving the
+     caller general write access to device files.

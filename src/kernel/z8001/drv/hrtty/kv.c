@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Configuration table for the Keyboard/video
  * driver.  The keyboard and the video part
  * are separate modules and have only a well-defined

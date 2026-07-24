@@ -1,0 +1,161 @@
+.TH diff3 "" "Command"
+.SH NAME
+diff3 \- summarize differences among three files
+.SH SYNOPSIS
+\fBdiff3 [\-e|\-x|\-3] \fIgenerator\fR
+.SH DESCRIPTION
+.HS
+diff3 -- summarize differences among three files
+Usage:	diff3 [ -ex3 ] file1 file2 file3
+Options:
+	-e	Editor script to make changes between 'file2' and 'file3'
+		to 'file1' (changes marked with '====' or '====3')
+	-x	Above script with only changes marked '====' (all different)
+	-3	Above script with changes marked '====3' (file3 different)
+.HE
+.B diff3
+collates two sets of line-oriented differences -- one between
+.I file1
+and
+.IR file3 ,
+the other between
+.I file2
+and
+.I file3
+-- into one three-way comparison, and either prints a summary of
+where the three files disagree, or, with
+.BR \-e ,
+.BR \-x ,
+or
+.BR \-3 ,
+an editor script.
+.PP
+The two input difference files must already exist, one giving the
+changes from
+.I file1
+to
+.I file3
+and the other the changes from
+.I file2
+to
+.IR file3 ,
+in the same range-and-letter notation that
+.B "diff \-e"
+produces.
+As shipped in this source tree,
+.B diff3
+is only the back end that reads those two difference files and
+collates them; it takes exactly one argument,
+.IR generator ,
+and reads
+.IB generator a
+and
+.IB generator b
+as the file1-versus-file3 and file2-versus-file3 difference files,
+respectively.
+Producing those two files (normally with two runs of
+.B "diff \-e"
+into temporary files named
+.IB generator a
+and
+\fIgenerator\fBb\fR)
+is the job of a front-end script; no such front end is present in
+this tree (see NOTES).
+.PP
+Without
+.BR \-e ,
+.BR \-x ,
+or
+.BR \-3 ,
+.B diff3
+prints a summary in which each region of disagreement is headed by
+one of:
+.IP \fB====\fR 0.6i
+All three files differ in this region.
+.IP "\fB====\fI1\fR"
+Only
+.I file1
+differs (its text is not reflected in the region of
+.IR file3 ).
+.IP "\fB====\fI2\fR"
+Only
+.I file2
+differs.
+.IP "\fB====\fI3\fR"
+Only
+.I file3
+differs.
+.PP
+Each header is followed by a line for each of the (up to three)
+files that differ in that region, giving the file number, and, in
+.B ed
+notation, the range of lines and whether they were appended (\fBa\fR)
+or changed (\fBc\fR), followed by the affected text itself.
+.IP \fB\-e\fR
+Instead of the summary, print an
+.B ed
+script that, applied to
+.IR file1 ,
+carries forward every change that was made getting from
+.I file2
+to
+.I file3
+(that is, every region marked
+.B ====
+or
+.BR ====3 ).
+.IP \fB\-x\fR
+Like
+.BR \-e ,
+but the script carries forward only the regions marked
+.B ====
+(where all three files differ).
+.IP \fB\-3\fR
+Like
+.BR \-e ,
+but the script carries forward only the regions marked
+.B ====3
+(where only
+.I file3
+differs).
+.SH DIAGNOSTICS
+.B diff3
+exits with status 0 if the collated differences were empty (the
+inputs describe no changes), 1 if they were not, and 2 if it could
+not open one of
+.IB generator a
+or
+\fIgenerator\fBb\fR,
+or was given a bad argument.
+.SH "SEE ALSO"
+.B diff
+.SH NOTES
+The header comment in this program's source describes it explicitly
+as ``the internal part of diff3'', meant to reside at
+.B /usr/lib/diff3
+and be invoked as
+.B "/usr/lib/diff3 [options] generator"
+after something else has run
+.B "diff \-e"
+twice to create
+.IB generator a
+and
+\fIgenerator\fBb\fR.
+This source tree installs the identical binary at both
+.B /bin/diff3
+and
+.BR /usr/lib/diff3 ,
+but does not contain the front-end script (traditionally also called
+.BR diff3 )
+that would create the two intermediate difference files and invoke
+this program with a temporary-file generator name.
+Consequently, running
+.B /bin/diff3
+with three file names, as the option summary above and the classic
+.B diff3
+command line suggest, does not work in this tree as built; it must be
+invoked with a single
+.I generator
+argument naming an already-prepared pair of
+.B "diff \-e"
+output files.

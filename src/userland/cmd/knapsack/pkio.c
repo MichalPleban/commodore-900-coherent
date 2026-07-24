@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * These routines write and read public key elements. The stream f is assumed
  * to be open in an appropriate mode and positioned appropriately. One element
  * is written/read at a time.

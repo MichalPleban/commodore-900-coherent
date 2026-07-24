@@ -1,0 +1,55 @@
+.TH load "" "Administration"
+.SH NAME
+load \- load device driver
+.SH SYNOPSIS
+\fB/etc/load \fIfile\fR
+.SH DESCRIPTION
+.HS
+load -- load device driver
+Usage:	/etc/load file
+Driver 'file' is usually found in directory '/drv'.
+.HE
+.B load
+loads the loadable device driver stored in
+.IR file ,
+which must be in the linker's
+.B l.out
+format, into the running kernel.
+.I file
+is usually one of the drivers kept in directory
+.BR /drv .
+.PP
+.B load
+reads the header of
+.IR file ,
+checks its magic number, and searches its symbol table for a
+configuration-table symbol (one whose name ends in
+.BR con_ ).
+For each such symbol it reads the referenced configuration structure
+and calls the kernel to bind the driver's text and data into memory
+and complete the load.
+.SH FILES
+.DS
+.ta 8n
+\fB/drv\fR	directory of loadable drivers
+.DE
+.SH "SEE ALSO"
+.B ld
+.SH DIAGNOSTICS
+.IP "Cannot open \fIfile\fR"
+.I file
+does not exist or is not readable.
+.IP "Not an l.out"
+.I file
+does not begin with a valid
+.B l.out
+magic number.
+.IP "Configuration table not found"
+.I file
+contains no configuration-table symbol, so
+.B load
+does not know how to bind it into the kernel.
+.SH NOTES
+Only the superuser may usefully run
+.BR load ,
+since it acts directly on the running kernel.

@@ -1,0 +1,47 @@
+.TH size "" "Command"
+.SH NAME
+size \- print size of an object file
+.SH SYNOPSIS
+\fBsize [\-c] [\-t] [\fIfile ...\fR]
+.SH DESCRIPTION
+.HS
+size -- print size of an object file
+Usage:	size [ -c ] [ -t ] [ file ... ]
+Options:
+	-c	Print size of common areas
+	-t	Print totals for all files
+.HE
+.B size
+prints, for each
+.IR file ,
+the size in bytes of its text, initialized data, and uninitialized data
+(bss) segments, followed by the total size of those segments in both
+decimal and octal.
+Each
+.I file
+must be a linked object file (in
+.B l.out
+format); if none is given,
+.B size
+examines the file
+.BR l.out .
+.PP
+Options:
+.IP \fB\-c\fR
+Also add in the total size of the file's common (external, unresolved
+at link time) data, taken from its symbol table.
+.IP \fB\-t\fR
+If more than one
+.I file
+is given, print a final
+.B Total:
+line summing the segment sizes (and, with
+.BR \-c ,
+the common data) across all files.
+.SH "SEE ALSO"
+.B strip
+.SH NOTES
+The size of the common area is computed by scanning the symbol table
+for global, referenced symbols and summing their sizes; if
+.B \-c
+is not given, this scan is skipped.

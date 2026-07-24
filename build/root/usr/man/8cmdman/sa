@@ -1,0 +1,87 @@
+
+
+ssaa                                                             ssaa
+
+
+
+NNAAMMEE
+     sa - process accounting
+
+SSYYNNOOPPSSIISS
+     ssaa [-aabbccjjllmmnnrrssttuu] [-vv_N] [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     ssaa reads the raw accounting records written by the kernel's
+     aacccctt() mechanism from _f_i_l_e (default /uussrr/aaddmm/aacccctt) and
+     prints, for each distinct command name, the number of times
+     it was called, its total CPU time (user plus system), and
+     its total real time.  Output is sorted by decreasing CPU
+     time unless -bb or -nn is given.  Before scanning the raw
+     file, ssaa reads the summary files /uussrr/aaddmm/ssaavvaacccctt and
+     /uussrr/aaddmm/uussrraacccctt so that totals accumulate across runs.
+
+     If -uu is given, ssaa instead prints, for every record in _f_i_l_e,
+     the user name and command name directly, and does no sum-
+     marizing at all.
+
+     Options:
+
+     -aa   Commands that were called only once, or whose name con-
+          tains a non-printable character, are folded into the
+          single category ***ootthheerr.
+
+     -bb   Sort by average CPU time per call, instead of by total
+          CPU time.
+
+     -cc   Also print each command's CPU time as a percentage of
+          the total CPU time used by all commands.
+
+     -jj   Print average time per call rather than totals for each
+          command.
+
+     -ll   Print user time and system time in separate columns,
+          instead of their sum.
+
+     -mm   Accumulate and print statistics per user rather than
+          per command.
+
+     -nn   Sort by number of calls, instead of by CPU time.
+
+     -rr   Reverse the sort order.
+
+     -ss   After the raw file has been read and summarized, merge
+          the results back into /uussrr/aaddmm/ssaavvaacccctt and /uussrr/aaddmm/uuss-
+          rraacccctt, and truncate _f_i_l_e.
+
+     -tt   Also print each command's CPU time as a percentage of
+          its real time.
+
+     -uu   Print the user name and command name directly from the
+          raw accounting file, one line per record, rather than a
+          summary.
+
+
+COHERENT Administration Manual                             Page 1
+
+
+
+
+ssaa                                                             ssaa
+
+
+
+     -vv_N  For any command called no more than _N times, ask (on
+          standard input) whether it should be moved into the
+          category **jjuunnkk**.
+
+FFIILLEESS
+          /uussrr/aaddmm/aacccctt       raw accounting records (default)
+          /uussrr/aaddmm/ssaavvaacccctt    saved per-command summary
+          /uussrr/aaddmm/uussrraacccctt    saved per-user summary
+
+SSEEEE AALLSSOO
+     aaccccttoonn
+
+NNOOTTEESS
+     /uussrr/aaddmm/aacccctt grows without bound while accounting is
+     enabled; run ssaa -ss periodically to condense it.

@@ -1,0 +1,24 @@
+.TH yes "" "Command"
+.SH NAME
+yes \- print infinitely many responses
+.SH SYNOPSIS
+\fByes [\fIanswer\fB]\fR
+.SH DESCRIPTION
+.HS
+yes -- print infinitely many responses
+Usage:	yes [ answer ]
+The default 'answer' is 'y'.
+.HE
+.B yes
+repeatedly prints
+.I answer
+(default:
+.BR y )
+followed by a newline, forever, until it is killed or its standard
+output is closed.
+It takes at most one argument.
+.SH DIAGNOSTICS
+.B yes
+prints
+.B "Usage: yes [answer]"
+and exits with status 1 if given more than one argument.

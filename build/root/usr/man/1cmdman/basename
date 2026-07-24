@@ -1,0 +1,37 @@
+
+
+bbaasseennaammee                                                 bbaasseennaammee
+
+
+
+NNAAMMEE
+     basename - strip file name
+
+SSYYNNOOPPSSIISS
+     bbaasseennaammee _f_i_l_e [_s_u_f_f_i_x]
+
+DDEESSCCRRIIPPTTIIOONN
+     bbaasseennaammee strips _f_i_l_e of any leading directory prefix
+     (everything up to and including the last /). If the optional
+     _s_u_f_f_i_x argument is given and the result ends with it,
+     bbaasseennaammee strips that too.  bbaasseennaammee prints the result on the
+     standard output.
+
+     For example, the command
+
+                  basename /usr/fred/source.c
+
+     prints
+
+                  source.c
+
+     and the command
+
+                  basename /usr/fred/source.c .c
+
+     prints
+
+                  source
+
+SSEEEE AALLSSOO
+     sshh

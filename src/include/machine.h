@@ -1,16 +1,8 @@
-/* (-lgl
- * 	The information contained herein is a trade secret of Mark Williams
- * 	Company, and  is confidential information.  It is provided  under a
- * 	license agreement,  and may be  copied or disclosed  only under the
- * 	terms of  that agreement.  Any  reproduction or disclosure  of this
- * 	material without the express written authorization of Mark Williams
- * 	Company or persuant to the license agreement is unlawful.
- * 
- * 	COHERENT Version 0.7.3
- * 	Copyright (c) 1982, 1983, 1984.
- * 	An unpublished work by Mark Williams Company, Chicago.
- * 	All rights reserved.
- -lgl) */
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 /*
  * Machine-dependent header file for the Commodore
  * M-series and Z8001HR processors.
@@ -23,6 +15,7 @@
 #endif
 
 /* Machine dependent constants for Z8001 */
+#define	VERSION		"0.8.0"		/* NLD, Shared libs, WD disk */
 #define	MSASIZE		16		/* Space reserved for sys args */
 #define	ISTSIZE		256		/* Counts on stack growth */
 #define	ISTVIRT		ADDR(USTACK+1, 0)
@@ -33,7 +26,7 @@
 #define SMICALL		0		/* Start of independent system calls */
 #define NMICALL		66		/* Machine independent system calls */
 #define SMDCALL		128		/* Start of dependent system calls */
-#define NMDCALL		3		/* Machine dependent system calls */
+#define NMDCALL		4		/* Machine dependent system calls */
 #define	BSIZE		512		/* Buffer size */
 #define	HZ		100		/* Number of clock ticks per second */
 #define	NCPCL		(256-sizeof(cmap_t))/* Number of characters in clist */

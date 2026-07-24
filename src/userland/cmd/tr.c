@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * Tr translates characters from the standard input to the standard output.
  * It usage is as follows:
  *	tr [-c] [-d] [-s] [string1] [string2]

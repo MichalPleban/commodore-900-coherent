@@ -1,0 +1,48 @@
+.TH c "" "Command"
+.SH NAME
+c \- multi-column output
+.SH SYNOPSIS
+\fBc [\-w\fIN\fB] [\-l\fIN\fB] [\-012]\fR
+.SH DESCRIPTION
+.HS
+c -- multi-column output
+Usage:	c [ -wN ] [ -012 ]
+	-wN	Set the page width to N columns
+	-0	Order fields horizontally across the page
+	-1	Order fields vertically down each column (default)
+	-2	Special case of -1
+.HE
+.B c
+reads lines from the standard input and prints them in columns on
+the standard output, using as many columns as fit across the page
+given the width of the longest input line.
+.PP
+.B c
+recognizes the following options:
+.IP \fB\-w\fIN\fR
+Set the width of the page to
+.I N
+columns (default: 80).
+.IP \fB\-l\fIN\fR
+Set the length of the page to
+.I N
+lines.
+.IP \fB\-0\fR
+Order the fields horizontally across the page.
+.IP \fB\-1\fR
+Order the fields vertically down each column (the default).
+.IP \fB\-2\fR
+A special case of
+.BR \-1 .
+.PP
+Options may also be supplied in the environment variable
+.BR C ,
+separated by white space; options given on the command line are
+processed afterward and so override those taken from the
+environment.
+.SH "SEE ALSO"
+.B pr
+.SH DIAGNOSTICS
+.B c
+prints "out of mem" and exits with status one if it cannot allocate
+enough memory to hold its input.

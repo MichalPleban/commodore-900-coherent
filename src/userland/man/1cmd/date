@@ -1,0 +1,69 @@
+.TH date "" "Command"
+.SH NAME
+date \- print/set date and time of day
+.SH SYNOPSIS
+\fBdate [\-u] [\fIyymmddhhmm\fB[\fI.ss\fB]]\fR
+.SH DESCRIPTION
+.HS
+date -- print/set date and time of day
+Usage:	date [ -u ] [ yymmddhhmm[.ss] ]
+Option:	-u	Print (and enter) date in Greenwich Mean Time
+.HE
+With no argument,
+.B date
+prints the current date and time, followed by the time zone name.
+.PP
+With a numeric argument,
+.B date
+sets the system's date and time (only the superuser may do this) and
+then prints the result exactly as it would with no argument.
+The argument gives, from the right, the minute and hour (\fImm\fR and
+\fIhh\fR, both required), and optionally the day of month, month, and
+last two digits of the year (\fIdd\fR, \fImm\fR, \fIyy\fR), each
+optional and taken two digits at a time working leftward; any of the
+optional leading fields that are omitted are left at their current
+value.
+A seconds field (\fI.ss\fR) may follow the minutes field.
+.B date
+refuses to set an impossible date, such as day 32 of a month, or a
+month that has fewer days than the given day of month allows.
+.IP \fB\-u\fR
+Print and, if setting the time, interpret the argument in Greenwich
+Mean Time instead of the local time zone.
+.PP
+When it sets the time,
+.B date
+also records the change in
+.B /usr/adm/wtmp
+and adjusts the modification time of
+.B /etc/boottime
+so that the recorded system-up-since time stays consistent across the
+change.
+.SH FILES
+.DS
+.ta 1.6i
+\fB/usr/adm/wtmp\fR	login/time-change accounting file
+\fB/etc/boottime\fR	holds the system boot time
+.DE
+.SH "SEE ALSO"
+.B who
+.SH DIAGNOSTICS
+.B date
+prints a usage message and exits with status 1 if given an option
+other than
+.BR \-u ,
+more than one non-option argument, an argument whose minute or hour
+field is not two digits, or a day of month that does not exist in the
+given (or current) month.
+It also exits with status 1, after printing ``No permission'', if a
+non-superuser tries to set the time.
+.SH NOTES
+Only the superuser can change the system's date or time.
+.PP
+.B date
+builds its printed output from the C library's
+.BR asctime() ,
+which ends with the four-digit year, followed by the time zone name;
+this places the year immediately before the zone name in
+.BR date 's
+output, rather than after it as in some other systems' date commands.

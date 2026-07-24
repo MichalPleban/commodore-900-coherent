@@ -1,0 +1,95 @@
+
+
+mmaaiill                                                         mmaaiill
+
+
+
+NNAAMMEE
+     mail - computer mail
+
+SSYYNNOOPPSSIISS
+     mmaaiill [-mmppqqrr] [-ff _f_i_l_e] [_u_s_e_r ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     mmaaiill is the COHERENT electronic postal system.  Invoked with
+     one or more _u_s_e_r arguments, mmaaiill reads a message from the
+     standard input and sends a copy to each named _u_s_e_r; the mes-
+     sage ends at end of file or at a line containing only a
+     single period.  Invoked with no _u_s_e_r argument, mmaaiill opens
+     the invoking user's mailbox and lets the user read, delete,
+     save, forward, and reply to the messages in it.
+
+     mmaaiill recognizes the following options:
+
+     -ff _f_i_l_e
+          Read mail from _f_i_l_e instead of the default mailbox.
+
+     -mm   When sending mail, notify each recipient who is cur-
+          rently logged in by writing a message to that user's
+          terminal.
+
+     -pp   Print the mailbox non-interactively: print every un-
+          deleted message and exit, without prompting for com-
+          mands.
+
+     -qq   Exit immediately on an interrupt, leaving the mailbox
+          unchanged.
+
+     -rr   Print messages in reverse order, latest first.
+
+     When reading a mailbox interactively, mmaaiill prints each un-
+     deleted message in turn and prompts (? for a command.
+
+                      ddDelete the current message; print the next message
+                      mm [user ...]Mail the current message to each named user
+                      ppPrint the current message again
+                      qqQuit, updating the mailbox
+                      ss [file ...]Save the message, with its header, in each file
+                      tt [user ...]Mail the standard input to each named user
+                      ww [file ...]Save the message, without its header, in each file
+                      xxExit without updating the mailbox
+                      newline, +Print the next message
+                      -Print the previous message
+                      EOFPut undeleted mail back and quit; same as qq
+                      ?Print this command summary
+                      !_c_o_m_m_a_n_dPass _c_o_m_m_a_n_d to the shell to execute
+
+     If no _f_i_l_e is given to ss or ww, mmaaiill saves the message in
+     mmbbooxx in the user's home directory.  If no _u_s_e_r is given to mm
+     or tt, mmaaiill sends to the invoking user.  When a message can-
+     not be delivered to every named recipient, mmaaiill saves it in
+     ddeeaadd.lleetttteerr in the sender's home directory.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+mmaaiill                                                         mmaaiill
+
+
+
+FFIILLEESS
+                            /uussrr/ssppooooll/mmaaiill/_u_s_e_rincoming mailbox for user
+                            $HHOOMMEE/mmbbooxxdefault file for saved messages
+                            $HHOOMMEE/ddeeaadd.lleetttteerrundeliverable outgoing mail
+
+SSEEEE AALLSSOO
+     sshh
+
+DDIIAAGGNNOOSSTTIICCSS
+     mmaaiill complains and exits if it cannot open the mailbox, if
+     the mailbox does not have mailbox format, or if a named
+     recipient has no entry in the password file.
+
+NNOOTTEESS
+     mmaaiill is written to run set-user-id to rroooott, checking every
+     file access itself against the invoking user's permissions.
+     mmaaiill does not implement mail to a remote system in the form
+     _s_y_s_t_e_m!uusseerr; attempting to send to such an address prints an
+     error and the message is not delivered.
+
+     This command's source file is 77mmaaiill.cc in the source tree (an
+     unused alternate implementation exists as xxmmaaiill.cc), but it
+     is built and installed as mmaaiill.

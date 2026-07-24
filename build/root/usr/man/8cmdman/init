@@ -1,0 +1,94 @@
+
+
+iinniitt                                                         iinniitt
+
+
+
+NNAAMMEE
+     init - process control initialization
+
+SSYYNNOOPPSSIISS
+     /eettcc/iinniitt [_s_w_a_p_p_e_r [_d_r_i_v_e_r ...]]
+
+DDEESSCCRRIIPPTTIIOONN
+     The kernel starts iinniitt as the first process, with process
+     identifier 1, and iinniitt runs for as long as the system is up.
+     Its job is to bring the system from boot into multi-user
+     mode and then to keep the login process running on every
+     enabled terminal.
+
+     If given an argument, iinniitt loads it as a _s_w_a_p_p_e_r program
+     with ffoorrkk() and eexxeeccvvee(). Every further argument names a
+     _d_r_i_v_e_r file, which iinniitt loads, one at a time, by running
+     /eettcc/llooaadd.
+
+BBoooott SSeeqquueennccee
+     iinniitt first tries to create the file /eettcc/bboooottttiimmee; this
+     doubles as a check that the root file system is writable.
+     If root came up read-only, because it was not cleanly un-
+     mounted, the ccrreeaatt() fails and iinniitt remembers that root is
+     read-only, printing a message on the console that it must be
+     repaired with cchheecckk -ss and the system rebooted, or remounted
+     read/write with mmoouunntt -ww.
+
+     iinniitt records the boot in /uussrr/aaddmm/wwttmmpp, and installs hand-
+     lers for SSIIGGHHUUPP and SSIIGGQQUUIITT. It then loops: while no ter-
+     minal has a login pending, it spawns an interactive shell on
+     /ddeevv/ccoonnssoollee, with prompt # (or (rroo)# while root is still
+     read-only).  When that shell exits (typically because the
+     operator typed an end-of-file), and root is now writable,
+     iinniitt runs /eettcc/rrcc if it exists, to complete multi-user
+     setup, then reads /eettcc/ttttyyss and starts ggeettttyy on every
+     enabled line listed there.  If root is still read-only when
+     the console shell exits, iinniitt prints another warning and
+     starts the console shell again instead of proceeding to mul-
+     ti-user mode.
+
+     iinniitt then waits for its children to exit.  If a ggeettttyy (or
+     the process it eventually replaced itself with, by way of
+     llooggiinn) on a given line exits, iinniitt clears that line's uuttmmpp
+     entry, restores the terminal's mode and ownership, and res-
+     tarts ggeettttyy on it, unless the line has since been disabled
+     in /eettcc/ttttyyss. Other terminating children are simply reaped.
+
+SSiiggnnaallss
+     iinniitt responds to two signals:
+
+     SSIIGGQQUUIITT  Re-reads /eettcc/ttttyyss, starting ggeettttyy on any newly
+              enabled line and killing the ggeettttyy (or login ses-
+              sion) on any line that has been disabled.  Sent to
+              iinniitt with kkiillll -qquuiitt 11.
+
+
+
+COHERENT Administration Manual                             Page 1
+
+
+
+
+iinniitt                                                         iinniitt
+
+
+
+     SSIIGGHHUUPP   Sends SSIIGGKKIILLLL to every process and returns the sys-
+              tem to single-user mode.  Sent to iinniitt with kkiillll -11
+              11.
+
+FFIILLEESS
+          /ddeevv/ccoonnssoollee    console terminal
+          /eettcc/bboooottttiimmee   boot-time stamp, and root-writable probe
+          /eettcc/rrcc         multi-user startup command file
+          /eettcc/ttttyyss       terminals to enable
+          /eettcc/uuttmmpp       currently logged-in lines
+          /eettcc/llooaadd       driver loader, run for each _d_r_i_v_e_r argument
+          /uussrr/aaddmm/wwttmmpp   login accounting log
+
+SSEEEE AALLSSOO
+     cchheecckk, ggeettttyy, kkiillll, llooggiinn, mmoouunntt, sshh
+
+NNOOTTEESS
+     This iinniitt does not run a separate fsck-style check before
+     entering single-user mode; instead, the writability of the
+     root file system is probed directly by attempting to create
+     /eettcc/bboooottttiimmee. While root remains read-only, iinniitt refuses to
+     run /eettcc/rrcc and stays in single-user mode.

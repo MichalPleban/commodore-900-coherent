@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 1977-1995 Robert Swartz.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 char helpmessage[] = "\
 mkproto - insert bad blocks into a proto specification\n\
 Usage: /etc/mkproto device < proto1 >proto2\n\
