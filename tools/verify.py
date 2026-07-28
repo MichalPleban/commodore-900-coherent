@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""verify.py -- check a packed disk image against the reference master.
+"""verify.py -- check a packed disk image against a reference image.
 
 Because the image is packed from freshly-built binaries (build/root), file
-CONTENT is NOT expected to be byte-identical to the master -- so content is
+CONTENT is NOT expected to be byte-identical to the reference -- so content is
 reported informationally.  What must match is the STRUCTURE the OS depends on:
 per-partition geometry/free counts, the set of paths, permissions/owners, the
 /dev nodes, and the hardlink groups.
 
-Usage: python verify.py [built-image] [master-image]
+The reference image is whatever original C900 disk you are comparing against;
+there is no default, since the build no longer depends on one.
+
+Usage: python verify.py [built-image] REFERENCE-IMAGE
 """
 
 import os
@@ -16,13 +19,17 @@ import sys
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_ROOT = os.path.dirname(SCRIPT_DIR)
-sys.path.insert(0, os.path.normpath(os.path.join(SRC_ROOT, "..", "Emulator", "tools")))
+sys.path.insert(0, SCRIPT_DIR)                 # tools/disk.py
 import disk
 from disk import CoherentFS, ROOTINO, SB_ISIZE, SB_FSIZE, SB_TFREE, SB_TINODE
 
-BUILT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(SRC_ROOT, "build", "dist", "hdd.bin")
-MASTER = sys.argv[2] if len(sys.argv) > 2 else os.path.normpath(
-    os.path.join(SRC_ROOT, "..", "Emulator", "disk", "hdd.bin"))
+if len(sys.argv) < 2:
+    sys.exit("usage: verify.py [built-image] REFERENCE-IMAGE")
+if len(sys.argv) > 2:
+    BUILT, MASTER = sys.argv[1], sys.argv[2]
+else:
+    BUILT = os.path.join(SRC_ROOT, "build", "dist", "hdd.bin")
+    MASTER = sys.argv[1]
 
 A = bytearray(open(MASTER, "rb").read())
 B = bytearray(open(BUILT, "rb").read())

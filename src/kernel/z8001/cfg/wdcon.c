@@ -19,6 +19,8 @@ extern	CON	alcon[];		/* Asynchronous line */
 extern	CON	wdcon[];		/* Western Digital hard disk */
 extern	CON	lpcon[];		/* line printer */
 extern	CON	kvcon[];		/* keyboard/lo-res screen */
+extern	CON	ptccon[];		/* pseudo-terminal master */
+extern	CON	ptscon[];		/* pseudo-terminal slave */
 
 /*
  * Device table.
@@ -26,7 +28,7 @@ extern	CON	kvcon[];		/* keyboard/lo-res screen */
 DRV drvl[16] ={
 	{nlcon},	{ctcon},	{wdcon},	{lpcon},
 	{NULL},		{alcon},	{NULL},		{NULL},
-	{NULL},		{NULL},		{NULL},		{NULL},
+	{NULL},		{ptccon},	{ptscon},	{NULL},
 	{NULL},		{NULL},		{NULL},		{NULL},
 };
 

@@ -4,37 +4,31 @@ hard-disk image (build/dist/hdd.bin).
 
 This is the OS image-packing step of the build.  The file *contents* come from
 build/root (what `make` produces); ownership, permissions and the /dev device
-nodes -- which a Windows staging tree cannot carry -- are taken from manifests
-derived from the reference master image (../Emulator/disk/hdd.bin).  See
-CLAUDE.md: "load-order/perms are applied when the image is packed".
+nodes -- which a Windows staging tree cannot carry -- are taken from the
+manifests in src/image/.  See CLAUDE.md: "load-order/perms are applied when the
+image is packed".
 
 The result is a four-partition C900 disk (no MBR; partitions at the fixed WD-
 driver offsets) formatted with the master's exact per-partition geometry
 (inode-block count `isize` and filesystem size `fsize`): partition 0 (hd0, /)
 populated from build/root, partitions 1-3 (/u /v /tmp) empty filesystems.
 
-The filesystem primitives (mkfs allocator, block mapping, directory writer) are
-reused from ../Emulator/tools/disk.py.
+The filesystem primitives (mkfs allocator, block mapping, directory writer) come
+from tools/disk.py alongside this script.
 
-The manifests are CHECKED-IN inputs, reviewed and committed -- NOT re-derived
-from the master on every build.  They live in src/image/ with descriptive names:
+The manifests are CHECKED-IN, hand-maintained inputs.  They live in src/image/
+with descriptive names:
   hdd_manifest.txt / hdd_devices.txt        (hard disk)
   floppy_manifest.txt / floppy_devices.txt  (floppy)
-`build` (the default, and what `make image`/`make floppy` run) reads a --perms
-and a --devices file; `extract` regenerates the HD pair from a master image and
-is run deliberately when the reference changes (`make diskmanifest`).
 
-  build   : (default) format the partitions, populate partition 0 from --root
-            (perms + hardlinks from --perms), inject the /dev nodes from
-            --devices, and write --out.  Errors if any file in --root has no
-            --perms entry -- the manifest must stay authoritative.
-  extract : read a master image and (re)write --perms and --devices:
-              --perms    owners+permissions of every dir/file (+ hardlinks)
-              --devices  every /dev node: owner, major, minor, raw dev word
+The pack formats the partitions, populates partition 0 from --root (perms +
+hardlinks from --perms), injects the /dev nodes from --devices, and writes
+--out.  It errors if any file in --root has no --perms entry -- the manifest
+must stay authoritative.  A new file therefore has to be added to the manifest
+as well as to build/root.
 
 Usage:
-  python build_disk.py [build|extract] [--master P] [--root D]
-                       [--perms P] [--devices P] [--floppy] [--out P]
+  python build_disk.py [--root D] [--perms P] [--devices P] [--floppy] [--out P]
 """
 
 import argparse
@@ -43,18 +37,17 @@ import struct
 import sys
 import time
 
-# Reuse the shared Coherent filesystem implementation from the emulator tools.
+# The shared Coherent filesystem implementation, tools/disk.py in this repo.
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_ROOT = os.path.dirname(SCRIPT_DIR)                       # .../Source
-EMU_TOOLS = os.path.normpath(os.path.join(SRC_ROOT, "..", "Emulator", "tools"))
-sys.path.insert(0, EMU_TOOLS)
+sys.path.insert(0, SCRIPT_DIR)
 import disk
 from disk import (CoherentFS, Inode, FSError, BLOCK, DIRENT_SIZE,
                   ROOTINO, S_IFREG, S_IFDIR, SB_ISIZE, SB_FSIZE, SB_NFREE,
                   SB_NINODE)
 
 # C900 partition geometry (fixed by the WD driver) and each partition's own
-# root-directory permissions, verified against the master by `extract`.
+# root-directory permissions, both taken from the shipped 20 MB MiniScribe disk.
 #   start : first block of the partition (== disk.WD_PARTITIONS[i][0])
 #   isize : first data block == 2 + inode blocks   (inode slots = (isize-2)*8)
 #   fsize : total blocks the filesystem spans (<= the partition region)
@@ -64,7 +57,7 @@ PARTITIONS = [
     dict(start=20672, isize=177, fsize=10336, rmode=0o040755, ruid=3, rgid=1),
     dict(start=31008, isize=127, fsize=7000,  rmode=0o040777, ruid=3, rgid=1),
 ]
-IMAGE_BYTES = 41616 * BLOCK          # HD image size == master hdd.bin (21307392 B)
+IMAGE_BYTES = 41616 * BLOCK          # HD image size: 41616 blocks (21307392 B)
 
 # Single-partition C900 floppy (Coherent filesystem at block 0); geometry taken
 # from the reference boot floppy disk1_hr.bin.  Selected with --floppy.
@@ -73,115 +66,11 @@ FLOPPY_PARTITIONS = [
 ]
 FLOPPY_BYTES = 1184656               # == disk1_hr.bin
 
-DEF_MASTER = os.path.normpath(os.path.join(SRC_ROOT, "..", "Emulator", "disk", "hdd.bin"))
 DEF_ROOT = os.path.join(SRC_ROOT, "build", "root")
 # Checked-in manifests all live in src/image/ with descriptive names.
 DEF_PERMS = os.path.join(SRC_ROOT, "src", "image", "hdd_manifest.txt")
 DEF_DEVICES = os.path.join(SRC_ROOT, "src", "image", "hdd_devices.txt")
 DEF_OUT = os.path.join(SRC_ROOT, "build", "dist", "hdd.bin")
-
-TYPE_CHARS = {S_IFREG: "f", S_IFDIR: "d", 0o020000: "c", 0o060000: "b"}
-
-
-def type_char(mode):
-    return TYPE_CHARS.get(mode & 0o170000, "?")
-
-
-# --------------------------------------------------------------------------
-# extract: master image -> perms.txt + devices.txt + holes.txt
-# --------------------------------------------------------------------------
-
-def _walk(fs, ino, path, out, seen):
-    node = fs.stat(ino)
-    for cino, name in sorted(fs.read_dir(node), key=lambda e: e[1]):
-        child = fs.stat(cino)
-        if child is None:
-            continue
-        cpath = path + "/" + name
-        out.append((cpath, cino, child))
-        if child.is_dir() and cino not in seen:
-            seen.add(cino)
-            _walk(fs, cino, cpath, out, seen)
-
-
-def _merge_local(lines, existing_path):
-    """Preserve hand-curated additions across a regeneration: any data line in
-    an existing manifest whose path (field 1) is not produced from the master
-    is kept and re-appended.  This is what lets `make diskmanifest` refresh the
-    master-derived entries without dropping local build-tree additions (e.g.
-    /bin/crypt, /etc/proto/proto.hd0, extra /usr/include headers)."""
-    master_paths = {l.split("\t")[1] for l in lines if not l.startswith("#")}
-    kept = []
-    if os.path.exists(existing_path):
-        with open(existing_path) as f:
-            for line in f:
-                line = line.rstrip("\n")
-                if line and not line.startswith("#") and line.split("\t")[1] not in master_paths:
-                    kept.append(line)
-    if kept:
-        lines.append("# --- local additions (paths not on the reference master) ---")
-        lines.extend(kept)
-    return lines
-
-
-def extract(master_path, perms_path, devices_path):
-    with open(master_path, "rb") as f:
-        image = bytearray(f.read())
-
-    for i, p in enumerate(PARTITIONS):
-        sb = image[(p["start"] + 1) * BLOCK:(p["start"] + 2) * BLOCK]
-        isize = struct.unpack_from("<H", sb, SB_ISIZE)[0]
-        fs = CoherentFS(image, p["start"])
-        fsize = fs.read32(sb, SB_FSIZE)
-        root = fs.stat(ROOTINO)
-        if (isize, fsize) != (p["isize"], p["fsize"]):
-            raise FSError("partition %d geometry drift: master=%d/%d table=%d/%d"
-                          % (i, isize, fsize, p["isize"], p["fsize"]))
-        if (root.mode, root.uid, root.gid) != (p["rmode"], p["ruid"], p["rgid"]):
-            raise FSError("partition %d root-meta drift" % i)
-
-    fs0 = CoherentFS(image, PARTITIONS[0]["start"])
-    records = [("/", ROOTINO, fs0.stat(ROOTINO))]
-    _walk(fs0, ROOTINO, "", records, {ROOTINO})
-
-    # perms.txt: 'd'/'f' lines carry mode/uid/gid; a hardlink (a second name for
-    # an already-listed file) is an 'l  path  target' line.  Link counts are not
-    # stored -- the packer derives them (dirs: 2+subdirs; files: 1 + hardlinks).
-    perms = ["# d/f\tpath\tmode\tuid\tgid   |   hardlink:  l\tpath\ttarget"]
-    devs = ["# type\tpath\tmode\tuid\tgid\tmajor\tminor\trawdev"]
-    first_for_ino = {}
-    n_dir = n_file = n_link = n_dev = 0
-
-    for path, ino, node in records:
-        t = type_char(node.mode)
-        if t in ("c", "b"):
-            dev = node.addrs[0]
-            devs.append("%s\t%s\t%o\t%d\t%d\t%d\t%d\t%d" % (
-                t, path, node.mode & 0o7777, node.uid, node.gid,
-                (dev >> 8) & 0xFF, dev & 0xFF, dev))
-            n_dev += 1
-            continue
-        if t == "f" and ino in first_for_ino:      # hardlink to an earlier name
-            perms.append("l\t%s\t%s" % (path, first_for_ino[ino]))
-            n_link += 1
-            continue
-        if t == "f":
-            first_for_ino[ino] = path
-            n_file += 1
-        else:
-            n_dir += 1
-        perms.append("%s\t%s\t%o\t%d\t%d" % (t, path, node.mode & 0o7777,
-                                             node.uid, node.gid))
-
-    for path, lines in ((perms_path, perms), (devices_path, devs)):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        lines = _merge_local(lines, path)
-        with open(path, "w", newline="\n") as f:
-            f.write("\n".join(lines) + "\n")
-
-    print("extract: %d dirs, %d files, %d hardlinks, %d devices -> %s, %s"
-          % (n_dir, n_file, n_link, n_dev, perms_path, devices_path))
-
 
 # --------------------------------------------------------------------------
 # mkfs + low-level writers
@@ -285,7 +174,7 @@ def build(root_dir, perms_path, devices_path, out_path,
     # The manifest is authoritative for ownership/permissions: every object in
     # build/root must have an entry (a 'd'/'f' line, or an 'l' hardlink).  A file
     # present in the staging tree but absent from the manifest is a hard error --
-    # add it to perms.txt (or `make diskmanifest` if it is on the master).
+    # add a line for it to src/image/hdd_manifest.txt.
     declared = set(meta) | link_paths
     undeclared = sorted(
         image_path(root_dir, os.path.join(dp, nm))
@@ -371,9 +260,6 @@ def build(root_dir, perms_path, devices_path, out_path,
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("phase", nargs="?", default="build",
-                    choices=["build", "extract"])
-    ap.add_argument("--master", default=DEF_MASTER, help="reference master image")
     ap.add_argument("--root", default=DEF_ROOT, help="build/root staging tree")
     ap.add_argument("--perms", default=DEF_PERMS,
                     help="permissions/owners manifest (default src/image/hdd_manifest.txt)")
@@ -384,12 +270,9 @@ def main(argv=None):
     ap.add_argument("--out", default=DEF_OUT, help="output image path")
     args = ap.parse_args(argv)
 
-    if args.phase == "extract":
-        extract(args.master, args.perms, args.devices)
-    else:
-        parts = FLOPPY_PARTITIONS if args.floppy else PARTITIONS
-        image_bytes = FLOPPY_BYTES if args.floppy else IMAGE_BYTES
-        build(args.root, args.perms, args.devices, args.out, parts, image_bytes)
+    parts = FLOPPY_PARTITIONS if args.floppy else PARTITIONS
+    image_bytes = FLOPPY_BYTES if args.floppy else IMAGE_BYTES
+    build(args.root, args.perms, args.devices, args.out, parts, image_bytes)
     return 0
 
 

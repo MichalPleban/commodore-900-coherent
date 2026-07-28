@@ -1,0 +1,10 @@
+# hrgui launchable applications, read by wserver at startup.
+# One line per app:  name:iconfile:execpath:contentW:contentH:multi
+#   name        menu label / window-title base
+#   iconfile    .icn under /usr/hr/icons (desktop icon when hidden)
+#   execpath    program; run as: execpath wid contentW contentH cellW cellH
+#   contentW/H  default content size in pixels (terminal: multiple of the 12x25 cell)
+#   multi       1 = may open many (launcher shows "New <name>...");
+#               0 = single instance (launcher shows "<name>..."; re-launch raises it)
+Shell:term.icn:/usr/hr/bin/wterm:960:600:1
+Clock:clock.icn:/usr/hr/bin/wclock:240:240:0

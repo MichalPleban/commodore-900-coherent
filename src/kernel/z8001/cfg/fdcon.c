@@ -18,6 +18,8 @@ extern	CON	ctcon[];		/* Console terminal */
 extern	CON	alcon[];		/* Asynchronous line */
 extern	CON	wdcon[];		/* Western Digital hard disk */
 extern	CON	lpcon[];		/* line printer */
+extern	CON	ptccon[];		/* pseudo-terminal master */
+extern	CON	ptscon[];		/* pseudo-terminal slave */
 
 /*
  * Device table.
@@ -25,7 +27,7 @@ extern	CON	lpcon[];		/* line printer */
 DRV drvl[16] ={
 	{nlcon},	{ctcon},	{wdcon},	{lpcon},
 	{NULL},		{alcon},	{NULL},		{NULL},		/* slot 6 was DTC hdcon (not in production) */
-	{NULL},		{NULL},		{NULL},		{NULL},
+	{NULL},		{ptccon},	{ptscon},	{NULL},
 	{NULL},		{NULL},		{NULL},		{NULL},
 };
 

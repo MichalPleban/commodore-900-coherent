@@ -110,7 +110,7 @@ LIBFS = $(LIBDIR)/libfs.a
 
 LIBS = $(CRT) $(DTOA) $(LIBC) $(LIBM) $(LIBMP) $(LIBY) $(LIBFS)
 
-.PHONY: all headers libs cmds kernel dist man image diskmanifest floppy clean
+.PHONY: all headers libs cmds kernel dist man image floppy hr clean
 all: headers libs cmds kernel dist man image
 headers: $(INC_TARGET)
 libs: $(LIBS)
@@ -556,9 +556,9 @@ COH_OBJS := $(addprefix $(OBJ)/kernel/coh/,\
 	misc.o null.o pipe.o printf.o proc.o seg.o sig.o sys1.o sys2.o sys3.o \
 	tab.o timeout.o var.o) \
 	$(OBJ)/kernel/drv/tty.o $(OBJ)/kernel/drv/ct.o
-# libcmdr.a: Commodore machine-dependent glue + al/lp drivers.
+# libcmdr.a: Commodore machine-dependent glue + al/lp/pty drivers.
 CMDR_OBJS := $(addprefix $(OBJ)/kernel/z8001/,\
-	drv/al.o drv/lp.o src/commodore.o src/console.o src/ddt.o src/trap.o)
+	drv/al.o drv/lp.o drv/pty.o src/commodore.o src/console.o src/ddt.o src/trap.o)
 
 LIBCOH  := $(OBJ)/kernel/libcoh.a
 LIBCMDR := $(OBJ)/kernel/libcmdr.a
@@ -703,6 +703,230 @@ KERNEL_TARGETS := $(ROOT)/coherent $(FLOPPYDIR)/coherent $(ROOT)/etc/swap \
 kernel: $(KERNEL_TARGETS)
 
 # ===========================================================================
+# hr windowing system  (_graphics/hr -> build/root/{drv/hr, usr/hr/bin/*})
+# ===========================================================================
+# The recovered MGR-style window system: a loadable kernel driver (hr, major 7,
+# a superset of hrtty - it owns the framebuffer, keyboard IRQ, polled mouse AND
+# is the inter-process message switch), the screen-manager server (smgr), the
+# desktop/window manager (dmgr), the client job library (jlib -> lib.j), and the
+# graphics/clock managers + window clients.  See SMGR.md for the architecture and
+# the exact source fixes this revival needed (a reconstructed hdr/jlib.h, a
+# <con.h>->drvcon.h rename, two split nested struct-assignments, etc.).
+#
+# NOT part of `all`: this builds but cannot RUN yet - the emulator is headless
+# (no video/mouse; see SMGR.md 8.4).  It is an opt-in target like `floppy`.
+#
+# Layout: sources under $(HRSRC)/<component>/, objects mirror to $(HROBJ)/, the
+# server/clients install to $(HRBIN), the driver to $(DRVDIR)/hr.  Userland units
+# use the same K&R leniency as the rest of userland plus the hr headers; the
+# driver additionally needs the kernel headers/defines (it is kernel code).
+HRSRC  = _graphics/hr/src
+HRHDR  = _graphics/hr/hdr
+HROBJ  = $(OBJ)/hr
+HRBIN  = $(ROOT)/usr/hr/bin
+
+HRCFLAGS  = -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRHDR)
+# driver: kernel flags, with the hr headers LAST so the kernel headers win.
+HRKCFLAGS = $(KCFLAGS) -I$(HRHDR)
+
+# hr object pattern rules (the generic src/ rules don't match _graphics/).
+$(HROBJ)/%.o: $(HRSRC)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(HRCFLAGS) -c $< -o $@
+# hr assembly: block1/2 and small1/2 use cpp directives; cpp -P is a harmless
+# pass-through for the rest.  (Mirrors the historical smgr .s.o rule.)
+$(HROBJ)/%.o: $(HRSRC)/%.s
+	@mkdir -p $(dir $@)
+	$(CPP) -P -I$(HRHDR) $< $@.i
+	$(AS) $(ASFLAGS) -o $@ $@.i
+# the driver translation unit (hr.c #includes hr2.c) needs the kernel flags.
+$(HROBJ)/driver/hr.o: HRCFLAGS = $(HRKCFLAGS)
+
+# --- screen manager (smgr) ---
+# GOBJ -> lib.g (graphics library); LOBJ + BLTOBJ + lib.g -> the smgr binary.
+# rmath.o (in LOBJ) is also bundled into lib.j and linked into dmgr.
+SMGR_GOBJ := $(addprefix $(HROBJ)/smgr/,gctrl.o gpoint.o gline.o gtext.o gtext2.o gcoord.o stubs.o glftn.o)
+SMGR_BLT  := $(addprefix $(HROBJ)/smgr/,ablt.o small1.o small2.o block1.o block2.o ptrmath.o)
+SMGR_LOBJ := $(addprefix $(HROBJ)/smgr/,f2.o bitblt.o globals.o kev.o layer.o masks.o rmath.o sm_funcs.o smgr.o wmgr.o fcpy.o)
+$(HROBJ)/smgr/lib.g: $(SMGR_GOBJ)
+	$(ar-kernel)
+$(HRBIN)/smgr: $(SMGR_BLT) $(SMGR_LOBJ) $(HROBJ)/smgr/lib.g $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(SMGR_BLT) $(SMGR_LOBJ) $(HROBJ)/smgr/lib.g $(LIBC)
+
+# --- job library (jlib -> lib.j) ---
+JLIB_OBJ := $(addprefix $(HROBJ)/jlib/jl,$(addsuffix .o,1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21)) \
+	$(HROBJ)/jlib/jsend.o $(HROBJ)/jlib/job.o
+$(HROBJ)/jlib/lib.j: $(JLIB_OBJ) $(HROBJ)/smgr/rmath.o
+	$(ar-kernel)
+
+# --- desktop / window manager (dmgr) ---
+DESK_OBJ := $(addprefix $(HROBJ)/desk/,dpmath.o dalert.o dmenu1.o dmenu2.o dmesg.o dmouse.o \
+	dopen.o drect.o dshell.o dtext.o dstretch.o f1.o f2.o main.o)
+$(HRBIN)/dmgr: $(DESK_OBJ) $(HROBJ)/smgr/rmath.o $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(DESK_OBJ) $(HROBJ)/smgr/rmath.o $(LIBC)
+
+# --- graphics manager + clients (link lib.j; -lm where the app uses it) ---
+$(HRBIN)/gmgr: $(HROBJ)/graph/gmgr.o $(HROBJ)/jlib/lib.j $(CRT) $(LIBM) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HROBJ)/graph/gmgr.o $(HROBJ)/jlib/lib.j $(LIBM) $(LIBC)
+$(HRBIN)/gsh: $(HROBJ)/graph/gsh.o $(HROBJ)/jlib/lib.j $(CRT) $(LIBM) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HROBJ)/graph/gsh.o $(HROBJ)/jlib/lib.j $(LIBM) $(LIBC)
+$(HRBIN)/clock: $(HROBJ)/clock/cmgr.o $(HROBJ)/clock/clock.o $(HROBJ)/jlib/lib.j $(CRT) $(LIBM) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HROBJ)/clock/cmgr.o $(HROBJ)/clock/clock.o $(HROBJ)/jlib/lib.j $(LIBM) $(LIBC)
+$(HRBIN)/clocksh: $(HROBJ)/clock/clocksh.o $(HROBJ)/jlib/lib.j $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HROBJ)/clock/clocksh.o $(HROBJ)/jlib/lib.j $(LIBC)
+
+# --- the GUI launcher (hrconsole) --- loads /drv/hr, forks the five managers,
+# waits for the desktop (dmgr) to exit, then unloads the driver.  Self-contained
+# (spawn/waitc/panic are defined in hrconsole.c); links only libc.
+$(HRBIN)/hrconsole: $(HROBJ)/misc/hrconsole.o $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HROBJ)/misc/hrconsole.o $(LIBC)
+
+# --- fonts --- installed verbatim from _graphics/hr/fonts/ to /usr/hr/fonts/.
+# smgr and dmgr require "sysfont" (the system font, == gacha.b.8) at startup.
+HRFONTSRC = _graphics/hr/fonts
+HRFONTS  := $(patsubst $(HRFONTSRC)/%,$(ROOT)/usr/hr/fonts/%,$(wildcard $(HRFONTSRC)/*))
+$(ROOT)/usr/hr/fonts/%: $(HRFONTSRC)/%
+	@mkdir -p $(dir $@)
+	cp $< $@
+
+# --- kernel driver (hr) --- loadable l.out, keep globals (-X) so `load` finds
+# the hrcon_ config symbol; bind -k against the symboled kernel; must be +x.
+# The driver carries NO font: hrgui loads the font file into the shared VRAM tail
+# (src/userland/hr/inc/shmem.h) and every client blits from that single copy.
+$(DRVDIR)/hr: $(HROBJ)/driver/hr.o $(HROBJ)/driver/hrasm.o $(KSYM)
+	@mkdir -p $(dir $@)
+	$(LD) -X -o $@ $(HROBJ)/driver/hr.o $(HROBJ)/driver/hrasm.o -k$(KSYM)
+	chmod +x $@
+
+HR_TARGETS := $(DRVDIR)/hr \
+	$(addprefix $(HRBIN)/,smgr dmgr gmgr gsh clock clocksh hrconsole) \
+	$(HRFONTS)
+hr: $(HR_TARGETS)
+
+# hrgui - the rebuilt windowing system  (src/userland/hr -> build/root).
+# Built as part of the normal `all'/`image' build (its outputs are in
+# HRGUI_TARGETS, folded into `image' below) -- there is no separate target.
+# GUI.md's green-field rebuild: the rendering engine is salvaged from the old
+# _graphics/hr smgr into a standalone library libhrgfx.a (Phase 0), then a
+# single window server + clock client are built on top (Phase 1), replacing the
+# fragile jlib/coroutine/per-daemon IPC layer with one blocking-read server
+# over pipe(2) + a shared-VRAM ring.  (The historical `hr' target above builds
+# the original, buggy stack for reference.)
+#
+#   gfx/     libhrgfx.a  - the divorced rendering engine (asm blitters, bitblt,
+#                          layer clipper, line/point/text/font rasterizers).
+#                          globals.o holds the engine's global state and is
+#                          linked DIRECTLY by each consumer (it defines only
+#                          tentative/common symbols, which Coherent's one-pass
+#                          ld will not pull from an archive).
+#   gfx/gfxtest          - Phase 0 standalone draw test (links libhrgfx alone).
+HRGUISRC = $(UL)/hr
+HRGFXDIR = $(HRGUISRC)/gfx
+HRGUIOBJ = $(OBJ)/userland/hr
+HRGUIBIN = $(ROOT)/usr/hr/bin
+
+# The engine's sources #include <smgr.h> etc. from their own directory.
+HRGFXCFLAGS = -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRGFXDIR)
+
+# hrgui object pattern rules (own CFLAGS; the .s use cpp directives like the
+# historical hr blitters, so preprocess with cpp -P before as).
+$(HRGUIOBJ)/%.o: $(HRGUISRC)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(HRGFXCFLAGS) -c $< -o $@
+$(HRGUIOBJ)/%.o: $(HRGUISRC)/%.s
+	@mkdir -p $(dir $@)
+	$(CPP) -P -I$(HRGFXDIR) $< $@.i
+	$(AS) $(ASFLAGS) -o $@ $@.i
+
+# libhrgfx.a: the engine code (functions).  globals.o is deliberately excluded
+# (linked directly by consumers, see above).  Member order is not load-bearing
+# here, so use the plain kernel-style archive rule.
+HRGFX_ASM := $(addprefix $(HRGUIOBJ)/gfx/,ablt.o small1.o small2.o block1.o block2.o ptrmath.o fcpy.o glftn.o)
+HRGFX_C   := $(addprefix $(HRGUIOBJ)/gfx/,bitblt.o layer.o masks.o rmath.o gcoord.o gline.o gpoint.o gtext.o gtext2.o f2.o gfxhooks.o)
+HRGFX_GLOB := $(HRGUIOBJ)/gfx/globals.o
+# libhrgfx.a is a build-time-only artifact (statically linked into the server
+# and test); keep it in the obj tree so it is not packed into the disk image.
+LIBHRGFX  := $(HRGUIOBJ)/libhrgfx.a
+
+$(LIBHRGFX): $(HRGFX_ASM) $(HRGFX_C)
+	$(ar-kernel)
+
+# Phase 0 draw test: links libhrgfx + globals.o + libc only (no server, no IPC).
+# That it links with no undefined message/jlib symbols IS the divorce gate.
+$(HRGUIBIN)/gfxtest: $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# --- Phase 1: window server + clock client ---
+# Both need the shared wire protocol header in addition to the engine headers.
+$(HRGUIOBJ)/wserver/wserver.o $(HRGUIOBJ)/clock/wclock.o \
+	$(HRGUIOBJ)/clgfx/clgfx.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+
+# clgfx.o: the client-side direct-render draw library (GUI.md Model A).  Clients
+# link it + globals.o + libhrgfx.a, which pulls ONLY bitblt + its asm inner loops
+# + rmath + masks + gfxhooks (not the server-only layer/daemon code).
+CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o
+
+# wserver owns the screen: links the engine (libhrgfx) + globals.o directly.
+# Fonts are loaded at runtime from /usr/hr/fonts/*.hf into the shared VRAM tail
+# (inc/shmem.h) and blitted with the engine's bitblt -- no embedded/kernel font.
+$(HRGUIBIN)/wserver: $(HRGUIOBJ)/wserver/wserver.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/wserver/wserver.o $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# wclock: direct-render graphics client -- links clgfx + globals + libhrgfx so it
+# blits its own face/hands straight to VRAM; needs libm (sin/cos).
+$(HRGUIBIN)/wclock: $(HRGUIOBJ)/clock/wclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBM) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/clock/wclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBM) $(LIBC)
+
+# ptytest is a plain client: no gfx, just exercises the kernel pty driver.
+$(HRGUIBIN)/ptytest: $(HRGUIOBJ)/ptytest/ptytest.o $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/ptytest/ptytest.o $(LIBC)
+
+# wterm: direct-render terminal -- pty + VT parser + clgfx (blits its own text
+# straight to VRAM, hardware-scrolls when fully visible).
+$(HRGUIOBJ)/wterm/wterm.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+$(HRGUIBIN)/wterm: $(HRGUIOBJ)/wterm/wterm.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/wterm/wterm.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# The hrgui system fonts: generated into the shared-VRAM .hf format the server
+# loads into the tail (tools/mkfont.py); every client blits from that single
+# copy -- no relink, no per-glyph trap.  gallant.hf (terminal) from the kernel
+# gall.c table; gacha.hf (UI chrome) + sail.hf (icon labels) from the FM fonts.
+HRGUIFONTS = $(ROOT)/usr/hr/fonts/gallant.hf $(ROOT)/usr/hr/fonts/gacha.hf \
+	$(ROOT)/usr/hr/fonts/sail.hf
+$(HRGUIFONTS): tools/mkfont.py src/kernel/z8001/drv/hrtty/gall.c \
+		$(ROOT)/usr/hr/fonts/gacha.b.8 $(ROOT)/usr/hr/fonts/sail.r.6
+	@mkdir -p $(dir $@)
+	$(PYTHON) tools/mkfont.py
+
+# the launchable-app catalog wserver reads at startup (src -> staging image).
+$(ROOT)/usr/hr/etc/apps: src/userland/hr/etc/apps
+	@mkdir -p $(dir $@)
+	cp $< $@
+
+# desktop icons (.icn) wserver blits for minimised windows (src -> staging image).
+HRGUIICONS := $(patsubst src/userland/hr/icons/%,$(ROOT)/usr/hr/icons/%,\
+	$(wildcard src/userland/hr/icons/*.icn))
+$(ROOT)/usr/hr/icons/%: src/userland/hr/icons/%
+	@mkdir -p $(dir $@)
+	cp $< $@
+
+HRGUI_TARGETS := $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/wserver $(HRGUIBIN)/wclock \
+	$(HRGUIBIN)/ptytest $(HRGUIBIN)/wterm $(HRGUIFONTS) $(ROOT)/usr/hr/etc/apps \
+	$(HRGUIICONS)
+
+# ===========================================================================
 # Prebuilt / script artifacts  (src/dist -> build/root)
 # ===========================================================================
 # Files installed verbatim into the staging image because they have no
@@ -786,25 +1010,19 @@ man: $(MAN_TARGETS)
 # permissions and the /dev device nodes from the manifests.  A Windows staging
 # tree cannot carry uid/gid, setuid bits, or device special files, so these are
 # applied at pack time (see CLAUDE.md).  The four partitions are formatted with
-# the master's exact per-partition geometry; hd0 is populated from build/root,
-# hd1-hd3 are left as empty filesystems.
+# the C900 per-partition geometry hardcoded in build_disk.py; hd0 is populated
+# from build/root, hd1-hd3 are left as empty filesystems.
 #
-# All manifests are checked-in, reviewed build inputs in src/image/ -- NOT
-# re-extracted from the master on every build.  Regenerate the HD pair with
-# `make diskmanifest` when the reference master changes, then review/commit.
+# The manifests are checked-in, hand-maintained build inputs in src/image/: a
+# new file has to be added there as well as to build/root.
 PYTHON ?= python
-MASTER ?= ../Emulator/disk/hdd.bin
 DISKIMG      := $(DISTDIR)/hdd.bin
 HDD_MANIFEST := $(SRC)/image/hdd_manifest.txt
 HDD_DEVICES  := $(SRC)/image/hdd_devices.txt
 
-image: headers libs cmds kernel dist man
-	$(PYTHON) tools/build_disk.py build --root "$(ROOT)" \
+image: headers libs cmds kernel dist man hr $(HRGUI_TARGETS)
+	$(PYTHON) tools/build_disk.py --root "$(ROOT)" \
 	    --perms "$(HDD_MANIFEST)" --devices "$(HDD_DEVICES)" --out "$(DISKIMG)"
-
-diskmanifest:
-	$(PYTHON) tools/build_disk.py extract --master "$(MASTER)" \
-	    --perms "$(HDD_MANIFEST)" --devices "$(HDD_DEVICES)"
 
 # ===========================================================================
 # Floppy image  (minimal bootable system -> build/dist/floppy.img)
@@ -845,10 +1063,10 @@ floppy: $(FLOPPYDIR)/coherent $(FLOPPY_SRCS)
 	    s=$(SRC)/floppy/$$r; [ -f "$$s" ] || s=$(ROOT)/$$r; \
 	    d=$(FLOPPYDIR)/$$r; mkdir -p "$${d%/*}"; cp "$$s" "$$d"; \
 	done
-	$(PYTHON) tools/build_disk.py build --floppy --root "$(FLOPPYDIR)" \
+	$(PYTHON) tools/build_disk.py --floppy --root "$(FLOPPYDIR)" \
 	    --perms "$(FLOPPY_MANIFEST)" --devices "$(FLOPPY_DEVICES)" --out "$(FLOPPYIMG)"
 
 clean:
-	rm -rf $(OBJ) $(LIBS) $(CMD_TARGETS) $(KERNEL_TARGETS) $(DIST_TARGETS) \
+	rm -rf $(OBJ) $(LIBS) $(CMD_TARGETS) $(KERNEL_TARGETS) $(HR_TARGETS) $(HRGUI_TARGETS) $(DIST_TARGETS) \
 	       $(ROOT)/usr/man \
 	       $(DISKIMG) $(FLOPPYIMG) $(FLOPPYDIR)
