@@ -26,6 +26,7 @@ extern int	cl_mapped();	/* 1 if the window is live & has a clip descriptor */
 extern int	cl_cw();	/* content width  in px (from descriptor)         */
 extern int	cl_ch();	/* content height in px                           */
 extern int	cl_fullyvis();	/* 1 if content is a single unclipped rect        */
+extern int	cl_frozen();	/* 1 while a server menu/overlay is up: skip drawing */
 
 extern int	cl_text();	/* cl_text(fslot, col,row, s, cellw,cellh)        */
 extern int	cl_erase();	/* cl_erase(col,row, ncol,nrow, cellw,cellh) white */

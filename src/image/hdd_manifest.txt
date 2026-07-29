@@ -471,6 +471,7 @@ f	/usr/hr/bin/wclock	755	0	1
 f	/usr/hr/bin/wserver	755	0	1
 f	/usr/hr/bin/ptytest	755	0	1
 f	/usr/hr/bin/wterm	755	0	1
+f	/usr/hr/bin/hrpump	755	0	1
 f	/usr/hr/fonts/apl.10	644	0	1
 f	/usr/hr/fonts/basker.b.12	644	0	1
 f	/usr/hr/fonts/basker.i.12	644	0	1

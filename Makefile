@@ -872,14 +872,18 @@ $(HRGUIOBJ)/wserver/wserver.o $(HRGUIOBJ)/clock/wclock.o \
 # clgfx.o: the client-side direct-render draw library (GUI.md Model A).  Clients
 # link it + globals.o + libhrgfx.a, which pulls ONLY bitblt + its asm inner loops
 # + rmath + masks + gfxhooks (not the server-only layer/daemon code).
-CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o
+# hrlock.o: the TSET global drawing lock (hrlock.s), linked into every client AND
+# the server so a client draw primitive, a server layout op, and the driver's
+# cursor never race on VRAM / the clip descriptors.
+HRLOCK := $(HRGUIOBJ)/clgfx/hrlock.o
+CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRLOCK)
 
 # wserver owns the screen: links the engine (libhrgfx) + globals.o directly.
 # Fonts are loaded at runtime from /usr/hr/fonts/*.hf into the shared VRAM tail
 # (inc/shmem.h) and blitted with the engine's bitblt -- no embedded/kernel font.
-$(HRGUIBIN)/wserver: $(HRGUIOBJ)/wserver/wserver.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/wserver: $(HRGUIOBJ)/wserver/wserver.o $(HRLOCK) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/wserver/wserver.o $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/wserver/wserver.o $(HRLOCK) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
 
 # wclock: direct-render graphics client -- links clgfx + globals + libhrgfx so it
 # blits its own face/hands straight to VRAM; needs libm (sin/cos).
@@ -898,6 +902,14 @@ $(HRGUIOBJ)/wterm/wterm.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
 $(HRGUIBIN)/wterm: $(HRGUIOBJ)/wterm/wterm.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/wterm/wterm.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# hrpump: the terminal's I/O pumps, a tiny libc-only helper wterm execs instead
+# of forking copies of itself (memory: keeps a few open terminals from exhausting
+# RAM).  NO libhrgfx/clgfx -- it only shuffles bytes between fds.
+$(HRGUIOBJ)/wterm/hrpump.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+$(HRGUIBIN)/hrpump: $(HRGUIOBJ)/wterm/hrpump.o $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/wterm/hrpump.o $(LIBC)
 
 # The hrgui system fonts: generated into the shared-VRAM .hf format the server
 # loads into the tail (tools/mkfont.py); every client blits from that single
@@ -923,7 +935,7 @@ $(ROOT)/usr/hr/icons/%: src/userland/hr/icons/%
 	cp $< $@
 
 HRGUI_TARGETS := $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/wserver $(HRGUIBIN)/wclock \
-	$(HRGUIBIN)/ptytest $(HRGUIBIN)/wterm $(HRGUIFONTS) $(ROOT)/usr/hr/etc/apps \
+	$(HRGUIBIN)/ptytest $(HRGUIBIN)/wterm $(HRGUIBIN)/hrpump $(HRGUIFONTS) $(ROOT)/usr/hr/etc/apps \
 	$(HRGUIICONS)
 
 # ===========================================================================

@@ -24,8 +24,15 @@
 #include "shmem.h"
 #include "clgfx.h"
 
-#define	MAXROWS	60
-#define	MAXCOLS	132
+/* Grid size ceiling.  The framebuffer is 1024x800 and the terminal cell is the
+ * gallant 12x25 font, so a full-screen terminal is at most 85x32 cells; 88x34
+ * covers that with margin.  (It was 132x60 -- ~16 KB of grid+disp per process,
+ * and wterm forks two I/O pumps that each inherit a full copy, so the oversize
+ * was ~20 KB of dead memory per terminal.  On the 914 KB machine that was enough
+ * to make the SECOND terminal's pump fork fail -> a shell whose output is never
+ * read, i.e. the "second terminal can't type / no prompt" bug.) */
+#define	MAXROWS	34
+#define	MAXCOLS	88
 
 int	mywid;
 int	cols, rows;		/* grid size in cells */
@@ -392,75 +399,10 @@ spawnsh()
 	return pid;
 }
 
-/* ------------------------------------------------------------------ */
-/* mux pumps                                                          */
-/* ------------------------------------------------------------------ */
-
-/* Copy server events (HR_EVFD) into the mux, one WMSG per record. */
-static
-evpump()
-{
-	struct mux mx;
-	WMSG e;
-	int n, i;
-
-	close(muxr);
-	close(mfd);
-	for (;;)
-	{
-		n = read(HR_EVFD, &e, sizeof(e));
-		if ( n <= 0 )
-			_exit(0);
-		if ( n != sizeof(e) )
-			continue;
-		mx.tag = MX_EVT;
-		mx.n = sizeof(e);
-		for ( i = 0; i < sizeof(e); i++ )
-			mx.d[i] = ((char *)&e)[i];
-		write(muxw, &mx, sizeof(mx));
-	}
-}
-
-/* Copy master output into the mux, up to 16 bytes per record. */
-static
-mpump()
-{
-	struct mux mx;
-	int n;
-
-	close(muxr);
-	close(HR_EVFD);
-	for (;;)
-	{
-		n = read(mfd, mx.d, sizeof(mx.d));
-		if ( n <= 0 )
-			break;
-		mx.tag = MX_DATA;
-		mx.n = n;
-		write(muxw, &mx, sizeof(mx));
-	}
-	mx.tag = MX_EOF;
-	mx.n = 0;
-	write(muxw, &mx, sizeof(mx));
-	_exit(0);
-}
-
-/* read exactly len bytes (mux records are written atomically) */
-static
-readn(fd, buf, len)
-char *buf;
-{
-	int got, n;
-	got = 0;
-	while ( got < len )
-	{
-		n = read(fd, buf + got, len - got);
-		if ( n <= 0 )
-			return got ? got : n;
-		got += n;
-	}
-	return got;
-}
+/* The two mux pumps run as a separate tiny program (hrpump.c) exec'd from main,
+ * not as forked copies of this process -- see the comment at the fork/execl in
+ * main() for why (memory).  The mux record format (struct mux, MX_*) is shared
+ * with hrpump by duplication; keep the two in sync. */
 
 /* ------------------------------------------------------------------ */
 /* main                                                               */
@@ -468,10 +410,11 @@ char *buf;
 main(argc, argv)
 char **argv;
 {
-	struct mux mx;
+	struct mux rbuf[40];		/* batch buffer: drain many records per draw */
+	char *rb;
+	struct mux *m;
 	WMSG e;
-	int mp[2], i, n;
-	char ch;
+	int mp[2], i, got, off, rlen, need, pending, fz, wasfrozen;
 
 	if ( argc < 6 )
 		exit(1);
@@ -500,79 +443,138 @@ char **argv;
 	muxr = mp[0];
 	muxw = mp[1];
 
-	if ( fork() == 0 ) { evpump(); _exit(0); }
-	if ( fork() == 0 ) { mpump();  _exit(0); }
+	/* Spawn the two I/O pumps as a TINY separate program (hrpump) rather than
+	 * forking copies of ourselves: a fork clones this process's whole data/BSS
+	 * (the grid + engine globals, ~12 KB), so three-processes-per-terminal
+	 * exhausted memory after a few terminals (dead 3rd/4th terminal; menus whose
+	 * save-buffer malloc then failed).  hrpump links libc only (~2 KB).  It takes
+	 * the fd NUMBERS on its command line and closes everything else. */
+	{
+		char ms[8], mw[8], ev[8];
+		sprintf(ms, "%d", mfd);
+		sprintf(mw, "%d", muxw);
+		sprintf(ev, "%d", HR_EVFD);
+		if ( fork() == 0 )		/* event pump (keys straight to master) */
+		{
+			execl("/usr/hr/bin/hrpump", "hrpump", "e", ms, mw, ev, (char *)0);
+			_exit(1);
+		}
+		if ( fork() == 0 )		/* master-output pump */
+		{
+			execl("/usr/hr/bin/hrpump", "hrpump", "m", ms, mw, (char *)0);
+			_exit(1);
+		}
+	}
 	close(muxw);
 	close(HR_EVFD);				/* main reads events via the mux */
 
+	/* Decouple ingestion from drawing.  One read() drains every mux record that
+	 * is currently available; we parse them ALL into the grid (cheap, and NOT
+	 * gated by the draw lock) and then flush() ONCE.  Under a flood this turns a
+	 * screenful of output into a single repaint instead of one per 16-byte chunk,
+	 * so drawing can never throttle the loop that drains the pty.  Records are
+	 * written atomically (<= PIPE_BUF), so a read returns whole records; any
+	 * split tail is carried to the next read. */
+	rb = (char *)rbuf;
+	rlen = 0;
+	pending = 0;
+	wasfrozen = 0;
 	for (;;)
 	{
-		n = readn(muxr, &mx, sizeof(mx));
-		if ( n != sizeof(mx) )
+		got = read(muxr, rb + rlen, sizeof(rbuf) - rlen);
+		if ( got <= 0 )
 			break;			/* pumps gone */
-		if ( mx.tag == MX_DATA )
+		rlen += got;
+		need = 0;
+		for ( off = 0; rlen - off >= sizeof(struct mux); off += sizeof(struct mux) )
 		{
-			for ( i = 0; i < mx.n; i++ )
-				vt(mx.d[i]);
-			flush();
-		}
-		else if ( mx.tag == MX_EOF )
-		{
-			cmd6(C_BYE, 0, 0, 0, 0, 0, 0);
-			break;
-		}
-		else if ( mx.tag == MX_EVT )
-		{
-			for ( i = 0; i < sizeof(e); i++ )
-				((char *)&e)[i] = mx.d[i];
-			if ( e.wm_type == E_KEY )
+			m = (struct mux *)(rb + off);
+			if ( m->tag == MX_DATA )
 			{
-				ch = e.wm_arg[0] & 0xff;
-				write(mfd, &ch, 1);	/* keystroke to the shell */
+				for ( i = 0; i < m->n; i++ )
+					vt(m->d[i]);
+				need = 1;		/* redraw once, after this batch */
 			}
-			else if ( e.wm_type == E_EXPOSE )
+			else if ( m->tag == MX_EOF )
 			{
-				invalidate();		/* damaged -> full repaint */
-				flush();
+				if ( need ) flush();
+				cmd6(C_BYE, 0, 0, 0, 0, 0, 0);
+				exit(0);
 			}
-			else if ( e.wm_type == E_RESIZE )
+			else if ( m->tag == MX_EVT )
 			{
-				int oldrows, oldcols, r, c, shift;
-
-				oldrows = rows;  oldcols = cols;
-				cols = e.wm_arg[0] / (cellw ? cellw : 8);
-				rows = e.wm_arg[1] / (cellh ? cellh : 12);
-				if ( cols > MAXCOLS ) cols = MAXCOLS;
-				if ( rows > MAXROWS ) rows = MAXROWS;
-				if ( cols < 1 ) cols = 1;
-				if ( rows < 1 ) rows = 1;
-				/* Shrinking below the cursor row: scroll the kept content up so
-				 * the cursor line stays on-screen -- drop the oldest top rows and
-				 * keep the cursor row with the recent output above it, so the
-				 * cursor never falls outside the new window. */
-				if ( cy >= rows )
+				for ( i = 0; i < sizeof(e); i++ )
+					((char *)&e)[i] = m->d[i];
+				/* E_KEY never arrives here: evpump writes keystrokes straight
+				 * to the master so a ^C is never starved behind shell output. */
+				if ( e.wm_type == E_EXPOSE )
 				{
-					shift = cy - (rows - 1);
-					for ( r = 0; r < rows; r++ )
-						for ( c = 0; c < MAXCOLS; c++ )
-							grid[r][c] = grid[r + shift][c];
-					cy = rows - 1;
+					invalidate();		/* damaged -> full repaint */
+					need = 1;
 				}
-				/* Blank cells newly revealed by a grow (whole new rows, and new
-				 * columns of existing rows) so no stale content shows. */
-				for ( r = 0; r < rows; r++ )
-					for ( c = (r < oldrows) ? oldcols : 0; c < cols; c++ )
-						grid[r][c] = ' ';
-				if ( cx >= cols ) cx = cols - 1;
-				invalidate();		/* full repaint at the new size */
-				flush();
-			}
-			else if ( e.wm_type == E_QUIT )
-			{
-				close(mfd);		/* SIGHUP the shell */
-				break;
+				else if ( e.wm_type == E_RESIZE )
+				{
+					int oldrows, oldcols, r, c, shift;
+
+					oldrows = rows;  oldcols = cols;
+					cols = e.wm_arg[0] / (cellw ? cellw : 8);
+					rows = e.wm_arg[1] / (cellh ? cellh : 12);
+					if ( cols > MAXCOLS ) cols = MAXCOLS;
+					if ( rows > MAXROWS ) rows = MAXROWS;
+					if ( cols < 1 ) cols = 1;
+					if ( rows < 1 ) rows = 1;
+					/* Shrinking below the cursor row: scroll the kept content up
+					 * so the cursor line stays on-screen. */
+					if ( cy >= rows )
+					{
+						shift = cy - (rows - 1);
+						for ( r = 0; r < rows; r++ )
+							for ( c = 0; c < MAXCOLS; c++ )
+								grid[r][c] = grid[r + shift][c];
+						cy = rows - 1;
+					}
+					/* Blank cells newly revealed by a grow. */
+					for ( r = 0; r < rows; r++ )
+						for ( c = (r < oldrows) ? oldcols : 0; c < cols; c++ )
+							grid[r][c] = ' ';
+					if ( cx >= cols ) cx = cols - 1;
+					invalidate();		/* full repaint at the new size */
+					need = 1;
+				}
+				else if ( e.wm_type == E_QUIT )
+				{
+					if ( need ) flush();
+					close(mfd);		/* SIGHUP the shell */
+					exit(0);
+				}
 			}
 		}
+		/* carry any partial trailing record to the front of the buffer */
+		rlen -= off;
+		for ( i = 0; i < rlen; i++ )
+			rb[i] = rb[off + i];
+		if ( need )
+			pending = 1;		/* content changed; needs a repaint */
+		/* Draw only when no server overlay (pop-up menu / ghost drag) is up --
+		 * otherwise we would paint over it (it is not a layer we can clip to).
+		 * We keep ingesting above regardless, so nothing is lost.  When the
+		 * overlay clears, force a full repaint (invalidate) so anything deferred
+		 * during it -- or restored under it by the server -- comes out clean. */
+		fz = cl_frozen();
+		if ( !fz )
+		{
+			if ( wasfrozen )
+			{
+				invalidate();
+				pending = 1;
+			}
+			if ( pending )
+			{
+				flush();	/* ONE repaint for the whole drained batch */
+				pending = 0;
+			}
+		}
+		wasfrozen = fz;
 	}
 	exit(0);
 }

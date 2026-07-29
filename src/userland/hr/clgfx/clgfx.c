@@ -29,6 +29,12 @@ static HRSURF	S;			/* cached clip descriptor for my window */
 static int	mywid;
 static int	hrfd = -1;		/* /dev/hr fd for cursor on/off         */
 static int	curhid;			/* 1 while we have the cursor hidden    */
+static int	lastseq = -1;		/* seqlock value of the last sync'd S   */
+
+/* Cursor sprite box (framebuffer coords), captured once per batch in cl_begin;
+ * a blit hides the driver's XOR cursor only when it overlaps this. */
+static int	curbx0, curby0, curbx1, curby1;
+static int	cureligible;		/* 1 = we may hide the driver cursor    */
 
 /* VRAM word address of pixel (x,y), spanning the 512-line SEG0/SEG1 split --
  * a local copy of the engine's screen_addr so clgfx needs no layer.o. */
@@ -71,7 +77,11 @@ cl_init(wid)
 }
 
 /* Refresh the cached clip descriptor with a seqlock read: retry while the
- * server is mid-write (seq odd) or seq changed under us. */
+ * server is mid-write (seq odd) or seq changed under us.  Cheap fast-path: if
+ * seq is even and unchanged since our last sync, S already holds that snapshot,
+ * so callers can re-sync before EVERY primitive (not just once per batch) to
+ * pick up a z-order/geometry change the instant the server publishes it -- which
+ * is what stops a busy client painting into a window newly stacked on top. */
 static
 cl_sync()
 {
@@ -79,6 +89,9 @@ cl_sync()
 	int s1, s2, i;
 
 	sp = hr_surf(mywid);
+	s1 = sp->seq;
+	if ( !(s1 & 1) && s1 == lastseq )
+		return;
 	do {
 		s1 = sp->seq;
 		S.mapped = sp->mapped;
@@ -90,11 +103,17 @@ cl_sync()
 			S.vis[i] = sp->vis[i];
 		s2 = sp->seq;
 	} while ( (s1 & 1) || s1 != s2 );
+	lastseq = s1;
 }
 
 cl_mapped()	{ return S.mapped; }
 cl_cw()		{ return S.cw; }
 cl_ch()		{ return S.ch; }
+
+/* 1 while a server transient overlay (pop-up menu / ghost drag) is on screen:
+ * clients must skip drawing so they do not paint over it (it is not a layer, so
+ * the clip descriptor cannot exclude it).  Read straight from the tail. */
+cl_frozen()	{ return hr_glob()->overlay; }
 
 cl_fullyvis()
 {
@@ -103,35 +122,62 @@ cl_fullyvis()
 	       S.vis[0].x1 == S.ox + S.cw && S.vis[0].y1 == S.oy + S.ch;
 }
 
-/* Start a repaint batch: refresh the descriptor, and if the driver's XOR cursor
- * is at/near our window, hide it for the whole batch (cooperative: the driver
- * now lets any client toggle it).  The margin (24px) generously covers the ~16px
- * sprite reaching just outside the content rect, so a blit never clips a shown
- * cursor and burns a stray arrow; a cursor far away is left alone (no flicker). */
-cl_begin()
+/* cl_begin/cl_end used to hide the cursor and sync the clip once for a whole
+ * repaint batch.  That is now done PER PRIMITIVE (cl_pbegin/cl_pend below) under
+ * the global drawing lock, so these are just batch markers kept for the client
+ * API (wterm/wclock bracket their repaints with them). */
+cl_begin()	{ }
+cl_end()	{ }
+
+/* Enter a drawing primitive: take the global lock so no other client, the
+ * server, or the driver's cursor touches VRAM or the clip state meanwhile; then
+ * refresh the clip (now guaranteed stable for this primitive) and snapshot the
+ * driver's XOR cursor box.  The driver publishes its live cursor position into
+ * the tail and freezes the cursor while the lock is held, so the box is exact
+ * and cannot move under us -- a blit hides the cursor (cl_hidecur) only when it
+ * actually overlaps, and cl_pend restores it.  Holding the lock only for the one
+ * primitive (not the whole batch) keeps the cursor and other windows responsive
+ * during a flood. */
+static
+cl_pbegin()
 {
 	HRGLOB *g;
 
+	hr_lock(hr_lockw());
 	cl_sync();
 	curhid = 0;
-	if ( hrfd < 0 || !S.mapped )
-		return;
+	cureligible = ( hrfd >= 0 );
 	g = hr_glob();
-	if ( S.ox - 24 < g->curx && g->curx < S.ox + S.cw + 24 &&
-	     S.oy - 24 < g->cury && g->cury < S.oy + S.ch + 24 )
+	/* 16x16 sprite from the hotspot, padded 1px so a blit that just grazes it
+	 * still hides it (a shown cursor XOR-clipped by a blit leaves a stray arrow). */
+	curbx0 = g->curx - 1;   curby0 = g->cury - 1;
+	curbx1 = g->curx + 17;  curby1 = g->cury + 17;
+}
+
+/* Hide the driver's XOR cursor if this framebuffer-coord blit rect overlaps the
+ * cursor sprite -- lazily and at most once per primitive; cl_pend restores it. */
+static
+cl_hidecur(x0, y0, x1, y1)
+{
+	if ( !cureligible || curhid )
+		return;
+	if ( x0 < curbx1 && x1 > curbx0 && y0 < curby1 && y1 > curby0 )
 	{
 		ioctl(hrfd, CIOMSEOFF, (char *)0);
 		curhid = 1;
 	}
 }
 
-cl_end()
+/* Leave a drawing primitive: restore the cursor if we hid it, then release. */
+static
+cl_pend()
 {
 	if ( curhid )
 	{
 		ioctl(hrfd, CIOMSEON, (char *)0);
 		curhid = 0;
 	}
+	hr_unlock(hr_lockw());
 }
 
 /* Blit one glyph of font `fslot' with cell top-left at framebuffer (gx,gy),
@@ -163,6 +209,7 @@ clglyph1(fslot, gx, gy, c, x0, y0, x1, y1)
 	blt.dr.origin.x = x0;  blt.dr.origin.y = y0;
 	blt.dr.corner.x = x1;  blt.dr.corner.y = y1;
 	blt.sp.x = x0 - gx;  blt.sp.y = y0 - gy;
+	cl_hidecur(x0, y0, x1, y1);
 	bitblt(&blt, 1, 0);
 }
 
@@ -174,8 +221,12 @@ char *s;
 	HRFONT *f;
 	int px, py, fw, fh, c, i, cx0, cy0, cx1, cy1;
 
-	if ( !S.mapped )
+	cl_pbegin();			/* lock + fresh clip: no window can stack */
+	if ( !S.mapped || cl_frozen() )	/* over us mid-primitive now; and a server */
+	{				/* menu/overlay must not be painted over   */
+		cl_pend();
 		return;
+	}
 	f = hr_font(fslot);
 	fw = f->cellw;  fh = f->cellh;
 	px = S.ox + col * cellw;
@@ -195,6 +246,7 @@ char *s;
 			clglyph1(fslot, px, py, c, cx0, cy0, cx1, cy1);
 		}
 	}
+	cl_pend();
 }
 
 /* Fill framebuffer rect (already in fb coords) clipped to rect r with val
@@ -212,6 +264,7 @@ HRRECT r;
 	if ( y1 > r.y1 ) y1 = r.y1;
 	if ( x1 <= x0 || y1 <= y0 )
 		return;
+	cl_hidecur(x0, y0, x1, y1);
 	src.rect.origin.x = x0;  src.rect.origin.y = y0;
 	src.rect.corner.x = x1;  src.rect.corner.y = y1;
 	src.width = 16 * cl_words(x0, x1);
@@ -231,11 +284,16 @@ cl_fillrect(cx0, cy0, cx1, cy1, val)
 {
 	int i;
 
-	if ( !S.mapped )
+	cl_pbegin();			/* lock + fresh clip */
+	if ( !S.mapped || cl_frozen() )
+	{
+		cl_pend();
 		return;
+	}
 	for ( i = 0; i < S.nvis; i++ )
 		clfill_fb(S.ox + cx0, S.oy + cy0, S.ox + cx1, S.oy + cy1,
 			  S.vis[i], val);
+	cl_pend();
 }
 
 /* Erase a block of content cells to white. */
@@ -263,6 +321,7 @@ cl_point(cx, cy, mode)
 		if ( fx >= S.vis[i].x0 && fx < S.vis[i].x1 &&
 		     fy >= S.vis[i].y0 && fy < S.vis[i].y1 )
 		{
+			cl_hidecur(fx, fy, fx + 1, fy + 1);
 			p = cl_scraddr(fx, fy);
 			m = 0x8000 >> (fx & 15);
 			if ( mode == 2 )      *p ^= m;	/* invert (XOR hands) */
@@ -278,6 +337,12 @@ cl_line(x0, y0, x1, y1, mode)
 {
 	int dx, dy, sx, sy, err, e2;
 
+	cl_pbegin();			/* lock + fresh clip (cl_point runs under it) */
+	if ( cl_frozen() )		/* a server menu/overlay is up */
+	{
+		cl_pend();
+		return;
+	}
 	dx = x1 - x0;  if ( dx < 0 ) dx = -dx;
 	dy = y1 - y0;  if ( dy < 0 ) dy = -dy;
 	sx = x0 < x1 ? 1 : -1;
@@ -292,4 +357,5 @@ cl_line(x0, y0, x1, y1, mode)
 		if ( e2 > -dy ) { err -= dy;  x0 += sx; }
 		if ( e2 <  dx ) { err += dx;  y0 += sy; }
 	}
+	cl_pend();
 }

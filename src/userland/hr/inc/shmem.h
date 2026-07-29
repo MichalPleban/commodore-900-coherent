@@ -50,6 +50,12 @@ typedef struct {
 	short	magic;			/* HR_MAGIC once the tail is initialised */
 	short	curx, cury;		/* cursor hotspot, framebuffer coords   */
 	short	curon;			/* 1 = cursor currently drawn           */
+	short	overlay;		/* 1 = server transient overlay (menu /  */
+					/* ghost drag) is up: clients must NOT   */
+					/* draw, or they paint over it (it is not */
+					/* a layer, so their clip can't exclude  */
+					/* it).  They keep ingesting; only the   */
+					/* blit is skipped until it clears.      */
 } HRGLOB;
 #define hr_glob()	((HRGLOB *)(HRTAIL + SHM_GLOB))
 
@@ -69,5 +75,17 @@ typedef struct {
 	HRRECT	vis[SHM_MAXVIS];	/* visible content sub-rects, fb coords */
 } HRSURF;
 #define hr_surf(wid)	((HRSURF *)(HRTAIL + SHM_SURF) + (wid))
+
+/* ---- global drawing lock (GUI.md race fix) -------------------------------- *
+ * One TSET mutex (hrlock.s) serialising every writer of the framebuffer and of
+ * the clip/z-order state: a client draw primitive, a server layout/redraw op.
+ * 0 = free, 0xFFFF = held.  Past the SHM_SURF clip table (14 windows * ~110 B =
+ * ~0x604, ending ~0x3704), so 0x3800 is clear.  The kernel hr driver mirrors
+ * this address (it cannot include this header) to defer its async XOR cursor
+ * while the lock is held -- keep the two in sync. */
+#define SHM_LOCK	0x3800
+#define hr_lockw()	((short *)(HRTAIL + SHM_LOCK))
+extern int	hr_lock();		/* spin-acquire the lock word          */
+extern int	hr_unlock();		/* release it                          */
 
 #endif /* HRSHMEM_H */

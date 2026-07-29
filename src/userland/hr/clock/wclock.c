@@ -198,6 +198,8 @@ drawhands()
 
 repaint()
 {
+	if ( cl_frozen() )	/* a server menu/overlay is up: don't paint over it */
+		return;
 	cl_begin();		/* sync clip descriptor + bracket cursor */
 	drawface();
 	drawhands();
@@ -262,9 +264,12 @@ char **argv;
 		if ( tickflag )
 		{
 			tickflag = 0;
-			cl_begin();
-			drawhands();
-			cl_end();
+			if ( !cl_frozen() )	/* skip while a menu/overlay is up */
+			{
+				cl_begin();
+				drawhands();
+				cl_end();
+			}
 			alarm(1);
 		}
 	}

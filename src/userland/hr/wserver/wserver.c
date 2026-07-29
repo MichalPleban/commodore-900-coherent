@@ -119,6 +119,67 @@ srv_curshow()
 		ioctl(curfd, CIOMSEON, (char *)0);
 }
 
+/* The global GUI drawing lock (hrlock.s / shmem.h), held while the server
+ * changes the layer stack / clip descriptors / framebuffer so no direct-render
+ * client (or the driver's XOR cursor) can interleave -- this is what stops a
+ * busy client painting into a window the server is mid-way through stacking on
+ * top (the persistent "root bleeds into the new terminal" race), and the stray
+ * cursor.  RECURSIVE (a per-process depth count): the engine's reply hook
+ * (onreply) draws from DEEP inside layer ops (upfront/dellayer/new_dimensions ->
+ * perform_update -> sendmsg), so a top-level op and the hook both bracket; only
+ * the outermost pair actually takes/drops the single TSET lock. */
+int	locklevel;
+srvlock()
+{
+	if ( locklevel++ == 0 )
+		hr_lock(hr_lockw());
+}
+
+/* Exposes must NOT be sent while the lock is held.  The engine's reply hook
+ * fires E_EXPOSE from inside layer ops, and sending it can BLOCK on a client
+ * whose event pipe is full -- and that client may be spinning on this very lock
+ * (its mux backed up behind a flood).  That deadlock is exactly what let one
+ * stale-clip primitive slip through (the spin-breaker firing).  So queue the
+ * exposes and flush them the instant the lock is dropped, never while held. */
+int	pendexp;			/* bitmask of wids awaiting E_EXPOSE */
+flushexp()
+{
+	int w;
+
+	for ( w = 0; w < MAX_WINDOWS; w++ )
+		if ( pendexp & (1 << w) )
+		{
+			pendexp &= ~(1 << w);
+			if ( wins[w].used && wtbl[w] )
+				sendev(w, E_EXPOSE, 0, 0,
+					wtbl[w]->wn_Psize.x, wtbl[w]->wn_Psize.y);
+		}
+}
+srvunlock()
+{
+	if ( locklevel > 0 && --locklevel == 0 )
+	{
+		hr_unlock(hr_lockw());
+		flushexp();		/* safe to block on pipe writes now */
+	}
+}
+
+/* Request a full-content E_EXPOSE for wid.  While the lock is held it is queued
+ * (flushed by srvunlock); otherwise it is sent immediately. */
+qexpose(wid)
+{
+	if ( wid < 0 || wid >= MAX_WINDOWS )
+		return;
+	if ( locklevel == 0 )
+	{
+		if ( wins[wid].used && wtbl[wid] )
+			sendev(wid, E_EXPOSE, 0, 0,
+				wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
+	}
+	else
+		pendexp |= 1 << wid;
+}
+
 /* the driver's default arrow cursor sprite (from the old smgr) */
 int DEF_MOUSE[] = { 0xfffc, 0xfff8, 0xfff0, 0xffe0,
 		    0xffc0, 0xffc0, 0xffe0, 0xfff0,
@@ -233,9 +294,10 @@ MESSAGE *m;
 		gk = *wtbl[wid];
 		srvtitle(wid);
 		gk = save;
-		/* full-content expose; a dumb client repaints everything */
-		sendev(wid, E_EXPOSE, 0, 0,
-			wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
+		/* full-content expose; a dumb client repaints everything.  QUEUED, not
+		 * sent: this hook runs deep inside a locked layer op, and sending here
+		 * could block on a client that is spinning on the lock (deadlock). */
+		qexpose(wid);
 	}
 	return 0;
 }
@@ -323,6 +385,7 @@ RECT r;
 {
 	WSTRUCT *wp;
 
+	srvlock();			/* layer change + publish + decorate = atomic */
 	gkWid = wid;
 	/* Logical (0,0) must map to the CONTENT origin (below the title bar), not
 	 * the layer corner: gkToGlobal() adds the layer rect origin, so bias the
@@ -347,7 +410,7 @@ RECT r;
 	gkLayer->width = 1024;
 
 	wp = (WSTRUCT *)malloc(sizeof(WSTRUCT));
-	if ( wp == (WSTRUCT *)NULL ) { dbg("  mk: malloc NULL\n"); return; }
+	if ( wp == (WSTRUCT *)NULL ) { dbg("  mk: malloc NULL\n"); srvunlock(); return; }
 	wtbl[wid] = wp;
 	*wtbl[wid] = gk;
 	outline(wid);				/* frame + shadow + title bar */
@@ -359,6 +422,7 @@ RECT r;
 	gkCrect.corner.y = r.corner.y - WD_SHADOW - WD_BORDER;
 	*wtbl[wid] = gk;
 	publish_all();				/* clip descriptors for direct-render */
+	srvunlock();
 	dbg("  mk: done\n");
 }
 
@@ -376,12 +440,13 @@ killwin(wid)
 
 	if ( !wins[wid].used )
 		return;
+	sendev(wid, E_QUIT, 0, 0, 0, 0);	/* outside the lock: may block */
+	srvlock();
 	srvlogn("killwin ", wid);
 	strcpy(base, wins[wid].base);
 	gfx_cursor_hide();
 	if ( wins[wid].min )
 		drawicon(wid, 0);		/* erase its desktop icon */
-	sendev(wid, E_QUIT, 0, 0, 0, 0);
 	if ( wtbl[wid] )
 	{
 		LOADW(wid);
@@ -396,6 +461,8 @@ killwin(wid)
 	relabel(base);				/* drop #N from a surviving sibling */
 	gfx_cursor_show();
 	publish_all();
+	srvunlock();
+	redraw_icons();				/* closing a window may uncover icons */
 }
 
 /* Raise a window to the front (click-to-raise / demo cycling). */
@@ -403,6 +470,7 @@ raisewin(wid)
 {
 	if ( !wins[wid].used || !wtbl[wid] )
 		return;
+	srvlock();
 	focuswid = wid;				/* raised window takes the keyboard */
 	LOADW(wid);
 	gfx_cursor_hide();
@@ -413,8 +481,8 @@ raisewin(wid)
 	 * windows via the reply hook; the raised window itself is fully drawn
 	 * over, so ask its client to repaint too. */
 	publish_all();				/* z-order changed: refresh all clips */
-	sendev(wid, E_EXPOSE, 0, 0,
-		wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
+	qexpose(wid);				/* deferred: flushed by srvunlock */
+	srvunlock();
 }
 
 /* Expose every mapped window (except exclwid) whose layer rect intersects the
@@ -441,6 +509,7 @@ backwin(wid)
 
 	if ( !wins[wid].used || !wtbl[wid] || !wtbl[wid]->wn_Layer )
 		return;
+	srvlock();
 	r = wtbl[wid]->wn_Layer->rect;
 	LOADW(wid);
 	gfx_cursor_hide();
@@ -448,9 +517,11 @@ backwin(wid)
 	SAVEW(wid);
 	gfx_cursor_show();
 	publish_all();
+	srvunlock();
 	/* windows that were under this one are now on top of it -> repaint the
 	 * area it used to cover. */
 	expose_covered(wid, r.origin.x, r.origin.y, r.corner.x, r.corner.y);
+	redraw_icons();			/* this window may now cover/uncover icons */
 }
 
 /* ------------------------------------------------------------------ */
@@ -885,8 +956,9 @@ srverase(col, row, ncol, nrow)
  * a stack buffer -- no persistent memory, and the artwork lives on disk so new
  * apps ship their own icon (GUI.md).  Blitted L_NSRC so the file's white-on-black
  * strokes render as black-on-white (a clean button), matching the font path. */
-srvicon(px, ptop, name)
+srvicon(px, ptop, name, clip)
 char *name;
+RECT clip;
 {
 	int buf[48 * 3 + 4];		/* header + up to 48x48 (3 words/row) */
 	char path[64];
@@ -911,10 +983,18 @@ char *name;
 	src.rect.origin.x = 0;   src.rect.origin.y = 0;
 	src.rect.corner.x = w;   src.rect.corner.y = h;
 	blt.src = &src;
-	blt.sp.x = 0;  blt.sp.y = 0;
 	blt.dst = &display;
 	blt.dr.origin.x = px;      blt.dr.origin.y = ptop;
 	blt.dr.corner.x = px + w;  blt.dr.corner.y = ptop + h;
+	/* clip the blit to the caller's rect (the icon's visible desktop piece) */
+	if ( blt.dr.origin.x < clip.origin.x ) blt.dr.origin.x = clip.origin.x;
+	if ( blt.dr.origin.y < clip.origin.y ) blt.dr.origin.y = clip.origin.y;
+	if ( blt.dr.corner.x > clip.corner.x ) blt.dr.corner.x = clip.corner.x;
+	if ( blt.dr.corner.y > clip.corner.y ) blt.dr.corner.y = clip.corner.y;
+	if ( blt.dr.corner.x <= blt.dr.origin.x || blt.dr.corner.y <= blt.dr.origin.y )
+		return;
+	blt.sp.x = blt.dr.origin.x - px;	/* matching source offset */
+	blt.sp.y = blt.dr.origin.y - ptop;
 	blt.op = L_NSRC;
 	blt.pat = texture[0];
 	bitblt(&blt, 1, 0);
@@ -940,25 +1020,121 @@ iconslot()
 	return 0;
 }
 
-/* Draw (on) or erase (off) a minimised window's desktop icon + label. */
+/* The parts of A not covered by B (A minus B): 0..4 sub-rects into out[].
+ * If they do not overlap, out[0]=A (one rect). */
+static int
+rect_minus(A, B, out)
+RECT A, B, out[];
+{
+	int n;
+	RECT ix;
+
+	ix.origin.x = A.origin.x > B.origin.x ? A.origin.x : B.origin.x;
+	ix.origin.y = A.origin.y > B.origin.y ? A.origin.y : B.origin.y;
+	ix.corner.x = A.corner.x < B.corner.x ? A.corner.x : B.corner.x;
+	ix.corner.y = A.corner.y < B.corner.y ? A.corner.y : B.corner.y;
+	if ( ix.corner.x <= ix.origin.x || ix.corner.y <= ix.origin.y ) {
+		out[0] = A;			/* no overlap: A is whole */
+		return 1;
+	}
+	n = 0;
+	if ( A.origin.y < ix.origin.y ) {	/* strip above B */
+		out[n].origin.x = A.origin.x;   out[n].origin.y = A.origin.y;
+		out[n].corner.x = A.corner.x;   out[n].corner.y = ix.origin.y;  n++;
+	}
+	if ( A.corner.y > ix.corner.y ) {	/* strip below B */
+		out[n].origin.x = A.origin.x;   out[n].origin.y = ix.corner.y;
+		out[n].corner.x = A.corner.x;   out[n].corner.y = A.corner.y;   n++;
+	}
+	if ( A.origin.x < ix.origin.x ) {	/* strip left of B (middle band) */
+		out[n].origin.x = A.origin.x;   out[n].origin.y = ix.origin.y;
+		out[n].corner.x = ix.origin.x;  out[n].corner.y = ix.corner.y;  n++;
+	}
+	if ( A.corner.x > ix.corner.x ) {	/* strip right of B */
+		out[n].origin.x = ix.corner.x;  out[n].origin.y = ix.origin.y;
+		out[n].corner.x = A.corner.x;   out[n].corner.y = ix.corner.y;  n++;
+	}
+	return n;
+}
+
+/* Visible sub-rects of `cell' -- the parts not covered by any live window --
+ * into out[] (up to max).  This is how an icon (which is NOT a layer) gets
+ * clipped to the bare desktop, so a partially-covered icon shows its visible
+ * part and a fully-covered one shows nothing. */
+#define ICONRB	24
+static int
+desktop_rects(cell, out, max)
+RECT cell, out[];
+{
+	RECT work[ICONRB], next[ICONRB], pieces[4];
+	LAYER *lp;
+	int nw, nn, w, i, k, np;
+
+	nw = 0;
+	work[nw++] = cell;
+	for ( w = 0; w < MAX_WINDOWS && nw; w++ ) {
+		if ( !(wins[w].used && !wins[w].min && wtbl[w] &&
+		       (lp = wtbl[w]->wn_Layer)) )
+			continue;
+		nn = 0;
+		for ( i = 0; i < nw; i++ ) {
+			np = rect_minus(work[i], lp->rect, pieces);
+			for ( k = 0; k < np && nn < ICONRB; k++ )
+				next[nn++] = pieces[k];
+		}
+		for ( i = 0; i < nn; i++ )
+			work[i] = next[i];
+		nw = nn;
+	}
+	for ( i = 0; i < nw && i < max; i++ )
+		out[i] = work[i];
+	return (nw < max) ? nw : max;
+}
+
+/* Draw (on) or erase (off) a minimised window's desktop icon + label, CLIPPED to
+ * the parts of its cell not covered by any window -- icons are not layers, so we
+ * clip them to the bare desktop ourselves (a partially covered icon shows its
+ * visible piece; a fully covered one shows nothing, and moving a window off it
+ * makes it reappear via redraw_icons). */
 drawicon(wid, on)
 {
-	RECT cell, clip;
-	int x, y;
+	RECT cell, label, vr[ICONRB], lc;
+	int x, y, nvr, i;
 
 	x = iconx(wins[wid].islot);
 	y = ICONROWY;
 	cell.origin.x = x - 4;             cell.origin.y = y - 2;
 	cell.corner.x = x + ICONCW - 12;   cell.corner.y = y + ICONW + ICONLH + 2;
-	srvfill(cell, 10, L_TRUE);		/* clear cell to desktop dither */
-	if ( !on )
-		return;
+	label.origin.x = cell.origin.x;    label.origin.y = y + ICONW;
+	label.corner.x = cell.corner.x;    label.corner.y = y + ICONW + ICONLH;
+	nvr = desktop_rects(cell, vr, ICONRB);
 	gfx_cursor_hide();
-	srvicon(x, y, wins[wid].icon);		/* the app icon */
-	clip.origin.x = cell.origin.x;   clip.origin.y = y + ICONW;
-	clip.corner.x = cell.corner.x;   clip.corner.y = y + ICONW + ICONLH;
-	srvmenuglyphs(SHM_FICON, x, y + ICONW, wins[wid].title, clip);
+	for ( i = 0; i < nvr; i++ ) {
+		srvfill(vr[i], 10, L_TRUE);		/* clear this visible piece */
+		if ( !on )
+			continue;
+		srvicon(x, y, wins[wid].icon, vr[i]);	/* app icon, clipped */
+		lc = R_Intersection(label, vr[i]);
+		if ( !R_null(lc) )
+			srvmenuglyphs(SHM_FICON, x, y + ICONW, wins[wid].title, lc);
+	}
 	gfx_cursor_show();
+}
+
+/* Repaint every minimised window's icon.  The engine never repaints icons (they
+ * are not layers), so a window moving off one would leave the desktop bare
+ * there; call this after any op that can change bottom-of-screen coverage.  Each
+ * icon is clipped to the bare desktop by drawicon, so covered parts are left to
+ * the window on top. */
+redraw_icons()
+{
+	int w;
+
+	srvlock();
+	for ( w = 0; w < MAX_WINDOWS; w++ )
+		if ( wins[w].used && wins[w].min )
+			drawicon(w, 1);
+	srvunlock();
 }
 
 /* Rebuild window `wid's layer at rectangle r (used to restore a minimised
@@ -1000,6 +1176,7 @@ minwin(wid)
 {
 	if ( !wins[wid].used || wins[wid].min || !wtbl[wid] )
 		return;
+	srvlock();
 	srvlogn("minwin ", wid);
 	LOADW(wid);
 	wins[wid].sx = gkLayer->rect.origin.x;
@@ -1019,9 +1196,10 @@ minwin(wid)
 	wtbl[wid] = (WSTRUCT *)NULL;
 	wins[wid].islot = iconslot();
 	wins[wid].min = 1;
-	drawicon(wid, 1);
+	drawicon(wid, 1);			/* clips itself to the bare desktop */
 	gfx_cursor_show();
 	publish_all();				/* this window unmapped; others uncovered */
+	srvunlock();
 
 	/* Explicitly repaint every window the hidden one was covering.  minwin is
 	 * the one op that otherwise relies purely on perform_update's reply hook to
@@ -1029,6 +1207,8 @@ minwin(wid)
 	 * the E_EXPOSE (a covered clock came back with only its hands, no face). */
 	expose_covered(wid, wins[wid].sx, wins[wid].sy,
 		       wins[wid].sx + wins[wid].sw, wins[wid].sy + wins[wid].sh);
+	/* Minimising this window may have uncovered OTHER windows' icons. */
+	redraw_icons();
 }
 
 restorewin(wid)
@@ -1037,6 +1217,7 @@ restorewin(wid)
 
 	if ( !wins[wid].used || !wins[wid].min )
 		return;
+	srvlock();
 	gfx_cursor_hide();
 	drawicon(wid, 0);
 	wtbl[wid] = wins[wid].wp;	/* put the WSTRUCT back into the table */
@@ -1047,7 +1228,9 @@ restorewin(wid)
 	wins[wid].min = 0;
 	gfx_cursor_show();
 	publish_all();
+	srvunlock();
 	sendev(wid, E_EXPOSE, 0, 0, wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
+	redraw_icons();			/* the freed icon slot / new window coverage */
 }
 
 /* Redraw a window's decoration (frame + stepped shadow + title bar).  Needed
@@ -1059,11 +1242,13 @@ redecorate(wid)
 {
 	if ( !wtbl[wid] || !wtbl[wid]->wn_Layer )
 		return;
+	srvlock();
 	LOADW(wid);
 	gfx_cursor_hide();
 	outline(wid);
 	srvtitle(wid);
 	gfx_cursor_show();
+	srvunlock();
 }
 
 /* Move window wid so its outer rect origin is (nx,ny), same size. */
@@ -1074,6 +1259,7 @@ movewin(wid, nx, ny)
 
 	if ( !wtbl[wid] )
 		return;
+	srvlock();
 	w = wtbl[wid]->wn_Layer->rect.corner.x - wtbl[wid]->wn_Layer->rect.origin.x;
 	h = wtbl[wid]->wn_Layer->rect.corner.y - wtbl[wid]->wn_Layer->rect.origin.y;
 	if ( nx < 0 ) nx = 0;
@@ -1088,7 +1274,9 @@ movewin(wid, nx, ny)
 	redecorate(wid);		/* ensure frame+shadow+title at new spot */
 	gfx_cursor_show();
 	publish_all();
+	srvunlock();
 	sendev(wid, E_EXPOSE, 0, 0, wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
+	redraw_icons();			/* moving off an icon must repaint it */
 }
 
 /* Resize window wid so its outer corner is (cx,cy). */
@@ -1099,6 +1287,7 @@ resizewin(wid, cx, cy)
 
 	if ( !wtbl[wid] )
 		return;
+	srvlock();
 	r.origin = wtbl[wid]->wn_Layer->rect.origin;
 	if ( cx < r.origin.x + 48 ) cx = r.origin.x + 48;
 	if ( cy < r.origin.y + 48 ) cy = r.origin.y + 48;
@@ -1114,7 +1303,9 @@ resizewin(wid, cx, cy)
 	nw = wtbl[wid]->wn_Psize.x - WD_SHADOW - 2 * WD_BORDER;	/* content size */
 	nh = wtbl[wid]->wn_Psize.y - WD_TITLEH - WD_SHADOW - WD_BORDER;
 	publish_all();
+	srvunlock();
 	sendev(wid, E_RESIZE, nw, nh, 0, 0);
+	redraw_icons();			/* resizing off an icon must repaint it */
 }
 
 /* ------------------------------------------------------------------ */
@@ -1206,6 +1397,7 @@ char *base;
 {
 	int w;
 
+	srvlock();
 	for ( w = 0; w < MAX_WINDOWS; w++ )
 		if ( wins[w].used && !strcmp(wins[w].base, base) )
 		{
@@ -1221,6 +1413,7 @@ char *base;
 				gfx_cursor_show();
 			}
 		}
+	srvunlock();
 }
 
 /* Launch apps[ai] in a new window at (x,y).  Standardized argv (GUI.md):
@@ -1419,6 +1612,14 @@ char *items[];
 	rows = box.corner.y - box.origin.y;
 	wpl = words_between(box.origin.x, box.corner.x);
 	buf = (int *)malloc(wpl * rows * 2);
+	/* Freeze direct-render clients for the menu's whole lifetime: the menu is a
+	 * transient overlay, NOT a layer, so a client's clip can't exclude it and it
+	 * would otherwise paint over it (the flood-covers-the-menu bug).  Set the flag
+	 * BEFORE taking the lock so a client that checks it while holding the lock sees
+	 * it; take the lock around the save+draw so any in-flight client primitive
+	 * finishes first and the menu lands on top of it. */
+	hr_glob()->overlay = 1;
+	srvlock();
 	/* Hide the cursor BEFORE saving the pixels under the menu: otherwise the XOR
 	 * cursor (if it overlaps the box) is captured into the save buffer and
 	 * painted back on restore, leaving a stray arrow where the menu was. */
@@ -1450,6 +1651,7 @@ char *items[];
 			srvmenuglyphs(SHM_FUI, box.origin.x + 8,
 				      box.origin.y + MNU_TOP + i * itemh, items[i], box);
 	gfx_cursor_show();
+	srvunlock();			/* menu is painted; clients stay frozen via overlay */
 
 	/* menu cursor (right-pointing arrow) while the menu is up, like the
 	 * original desktop (which sets MNU_MOUSE around MU_Start/MU_End). */
@@ -1494,6 +1696,7 @@ char *items[];
 		}
 	}
 
+	srvlock();
 	gfx_cursor_hide();
 	if ( buf )
 	{
@@ -1502,7 +1705,19 @@ char *items[];
 				 screen_addr(box.origin.x, box.origin.y + yy), wpl);
 		free((char *)buf);
 	}
+	else
+		background(box);	/* malloc failed: no saved pixels, so repaint the */
+					/* desktop where the menu was, then re-expose windows */
 	gfx_cursor_show();
+	srvunlock();
+	hr_glob()->overlay = 0;		/* clients may draw again (they full-repaint) */
+	/* If we couldn't save/restore (low memory), the menu box was left on screen
+	 * -- exactly the "menu never goes away" bug.  Having painted the desktop back
+	 * over it above, now ask any windows it overlapped to repaint (outside the
+	 * lock: sendev may block).  This guarantees the menu is dismissed. */
+	if ( !buf )
+		expose_covered(-1, box.origin.x, box.origin.y,
+			       box.corner.x, box.corner.y);
 	if ( curfd >= 0 ) ioctl(curfd, CIOMOUSE, DEF_MOUSE);	/* restore arrow */
 	return sel;
 }
