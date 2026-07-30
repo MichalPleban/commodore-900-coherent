@@ -5,10 +5,21 @@
 /*
  *	Pseudo-terminal driver (GUI.md sec 4).
  *
- *	Two majors from the free pool provide N master/slave pairs, minor =
- *	pair index:
- *		major  9 = ptc  (master, /dev/ptyp<n>)
- *		major 10 = pts  (slave,  /dev/ttyp<n>)
+ *	LOADABLE (/drv/pty).  This driver is not linked into the resident
+ *	kernel - the Z8001 code segment is a hard 64K, so every non-essential
+ *	driver lives in its own loadable segment (see notty.c / hrtty).  It is
+ *	installed at GUI start-up with `/etc/load /drv/pty' (wserver does this,
+ *	just as it loads /drv/hr) and resolves the resident TTY line discipline
+ *	(ttin/ttout/tt...) from the kernel symbol table via `ld -k'.
+ *
+ *	`load' allocates ONE segment per configuration table it finds, and the
+ *	master and slave sides MUST share this segment's state (ptty[]), so the
+ *	whole driver is a SINGLE major (9) with the minor selecting the side:
+ *		minor & PTY_MASTER == 0 -> slave  (/dev/ttyp<n>, an ordinary tty)
+ *		minor & PTY_MASTER != 0 -> master (/dev/ptyp<n>, the emulator)
+ *	minor & PTY_UNIT is the pair index in both cases.  py{open,close,read,
+ *	write,ioctl} are thin dispatchers over the slave (pts) and master (ptc)
+ *	halves below.
  *
  *	The SLAVE is an ordinary TTY running the stock line discipline
  *	(drv/tty.c): its ttread/ttwrite/ttioctl/ttsetgrp/ttsignal give the shell
@@ -50,11 +61,19 @@
 #include <sched.h>
 #include <signal.h>
 
-#define	NPTY	4		/* number of master/slave pairs */
+#define	NPTY		4	/* number of master/slave pairs		*/
+#define	PTY_MASTER	0x08	/* minor bit: 1 = master (ptyp) side	*/
+#define	PTY_UNIT	0x07	/* minor bits: pair index (0..NPTY-1)	*/
 
 /*
  * Functions.
  */
+int	pyopen();
+int	pyclose();
+int	pyread();
+int	pywrite();
+int	pyioctl();
+int	pyload();
 int	ptcopen();
 int	ptcclose();
 int	ptcread();
@@ -70,51 +89,101 @@ int	nulldev();
 int	nonedev();
 
 /*
- * Configuration tables.
+ * Configuration table.  A SINGLE major (index 9) drives both sides; `load'
+ * scans the symbol table for `??con_' (two-char prefix), so this is named
+ * `pycon'.  c_load (pyload) wires the slave line discipline once the segment
+ * is mapped.
  */
-CON ptccon ={
+CON pycon ={
 	DFCHR,				/* Flags */
 	9,				/* Major index */
-	ptcopen,			/* Open */
-	ptcclose,			/* Close */
+	pyopen,				/* Open */
+	pyclose,			/* Close */
 	nulldev,			/* Block */
-	ptcread,			/* Read */
-	ptcwrite,			/* Write */
-	ptcioctl,			/* Ioctl */
+	pyread,				/* Read */
+	pywrite,			/* Write */
+	pyioctl,			/* Ioctl */
 	nulldev,			/* Powerfail */
 	nulldev,			/* Timeout */
-	nulldev,			/* Load */
-	nulldev				/* Unload */
-};
-
-CON ptscon ={
-	DFCHR,				/* Flags */
-	10,				/* Major index */
-	ptsopen,			/* Open */
-	ptsclose,			/* Close */
-	nulldev,			/* Block */
-	ptsread,			/* Read */
-	ptswrite,			/* Write */
-	ptsioctl,			/* Ioctl */
-	nulldev,			/* Powerfail */
-	nulldev,			/* Timeout */
-	nulldev,			/* Load */
+	pyload,				/* Load */
 	nulldev				/* Unload */
 };
 
 /*
- * Slave line-discipline state: one TTY per pair.  t_start = ptstart (wake the
- * master reader), t_param = NULL (no hardware parameters to load).
+ * Slave line-discipline state: one TTY per pair.  Initialised by pyload()
+ * (t_start = ptstart, t_param = NULL) rather than a static initialiser, so no
+ * data-segment pointer needs relocating when the loadable is mapped.
  */
-TTY	ptty[NPTY] = {
-	{ {0}, {0}, 0, ptstart, NULL },
-	{ {0}, {0}, 0, ptstart, NULL },
-	{ {0}, {0}, 0, ptstart, NULL },
-	{ {0}, {0}, 0, ptstart, NULL }
-};
+TTY	ptty[NPTY];
 
 int	ptmopen[NPTY];		/* 1 while the master side is open           */
 int	ptseof[NPTY];		/* 1 after the slave was opened then closed  */
+
+/* ------------------------------------------------------------------ */
+/* load hook: wire each pair's start routine into the resident tty     */
+/* line discipline (runs with our segment mapped, GATE held).          */
+/* ------------------------------------------------------------------ */
+
+pyload()
+{
+	register int unit;
+
+	for (unit = 0; unit < NPTY; unit++)
+		ptty[unit].t_start = ptstart;
+		/* t_param stays NULL (BSS-zeroed): pty has no hardware params */
+}
+
+/* ------------------------------------------------------------------ */
+/* dispatchers: the minor's PTY_MASTER bit selects master vs slave     */
+/* ------------------------------------------------------------------ */
+
+pyopen(dev, mode)
+dev_t dev;
+{
+	if (minor(dev) & PTY_MASTER)
+		ptcopen(dev, mode);
+	else
+		ptsopen(dev, mode);
+}
+
+pyclose(dev, mode)
+dev_t dev;
+{
+	if (minor(dev) & PTY_MASTER)
+		ptcclose(dev);
+	else
+		ptsclose(dev);
+}
+
+pyread(dev, iop)
+dev_t dev;
+IO *iop;
+{
+	if (minor(dev) & PTY_MASTER)
+		ptcread(dev, iop);
+	else
+		ptsread(dev, iop);
+}
+
+pywrite(dev, iop)
+dev_t dev;
+IO *iop;
+{
+	if (minor(dev) & PTY_MASTER)
+		ptcwrite(dev, iop);
+	else
+		ptswrite(dev, iop);
+}
+
+pyioctl(dev, com, vec)
+dev_t dev;
+struct sgttyb *vec;
+{
+	if (minor(dev) & PTY_MASTER)
+		ptcioctl(dev, com, vec);
+	else
+		ptsioctl(dev, com, vec);
+}
 
 /* ------------------------------------------------------------------ */
 /* slave side (pts) - a plain tty                                     */
@@ -126,7 +195,7 @@ dev_t dev;
 	register TTY *tp;
 	register int unit, s;
 
-	unit = minor(dev);
+	unit = minor(dev) & PTY_UNIT;
 	if (unit >= NPTY) {
 		u.u_error = ENXIO;
 		return;
@@ -155,7 +224,7 @@ dev_t dev;
 	register TTY *tp;
 	register int unit, s;
 
-	unit = minor(dev);
+	unit = minor(dev) & PTY_UNIT;
 	tp = &ptty[unit];
 	s = sphi();
 	if (tp->t_open > 0 && --tp->t_open == 0) {
@@ -172,7 +241,7 @@ IO *iop;
 {
 	register int unit;
 
-	unit = minor(dev);
+	unit = minor(dev) & PTY_UNIT;
 	if (unit >= NPTY) {
 		u.u_error = ENXIO;
 		return;
@@ -186,7 +255,7 @@ IO *iop;
 {
 	register int unit;
 
-	unit = minor(dev);
+	unit = minor(dev) & PTY_UNIT;
 	if (unit >= NPTY) {
 		u.u_error = ENXIO;
 		return;
@@ -200,7 +269,7 @@ struct sgttyb *vec;
 {
 	register int unit, s;
 
-	unit = minor(dev);
+	unit = minor(dev) & PTY_UNIT;
 	if (unit >= NPTY) {
 		u.u_error = ENXIO;
 		return;
@@ -243,7 +312,7 @@ dev_t dev;
 	register TTY *tp;
 	register int unit, s;
 
-	unit = minor(dev);
+	unit = minor(dev) & PTY_UNIT;
 	if (unit >= NPTY) {
 		u.u_error = ENXIO;
 		return;
@@ -268,7 +337,7 @@ dev_t dev;
 	register TTY *tp;
 	register int unit, s;
 
-	unit = minor(dev);
+	unit = minor(dev) & PTY_UNIT;
 	tp = &ptty[unit];
 	s = sphi();
 	ptmopen[unit] = 0;
@@ -292,7 +361,7 @@ register IO *iop;
 	register int c, o, unit;
 	int got;
 
-	unit = minor(dev);
+	unit = minor(dev) & PTY_UNIT;
 	if (unit >= NPTY) {
 		u.u_error = ENXIO;
 		return;
@@ -348,7 +417,7 @@ register IO *iop;
 	register TTY *tp;
 	register int c, s, unit;
 
-	unit = minor(dev);
+	unit = minor(dev) & PTY_UNIT;
 	if (unit >= NPTY) {
 		u.u_error = ENXIO;
 		return;
@@ -371,7 +440,7 @@ struct sgttyb *vec;
 {
 	register int unit, s;
 
-	unit = minor(dev);
+	unit = minor(dev) & PTY_UNIT;
 	if (unit >= NPTY) {
 		u.u_error = ENXIO;
 		return;

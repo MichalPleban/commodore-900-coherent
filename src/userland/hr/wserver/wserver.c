@@ -546,6 +546,25 @@ loaddriver()
 	return status;
 }
 
+/* Load the pseudo-terminal driver (/drv/pty, major 9).  It is a loadable to
+ * keep it out of the 64K resident kernel; wterm needs it to allocate its
+ * master/slave pair, so pull it in before any terminal app is launched.
+ * Harmless if it is already loaded (load reports EDBUSY and we ignore it). */
+loadpty()
+{
+	int pid, status;
+
+	pid = fork();
+	if ( pid == 0 )
+	{
+		execl("/etc/load", "load", "/drv/pty", (char *)0);
+		_exit(1);
+	}
+	while ( wait(&status) != pid )
+		;
+	return status;
+}
+
 /* ------------------------------------------------------------------ */
 /* keyboard: raw PC scancode -> ASCII                                 */
 /* ------------------------------------------------------------------ */
@@ -2128,6 +2147,7 @@ char **argv;
 	/* Take over the screen + input: load /drv/hr (keyboard + polled mouse +
 	 * hardware cursor), paint the desktop, then fork the input pump. */
 	loaddriver();
+	loadpty();				/* pty pairs for the terminal windows */
 	/* A second driver fd (any minor) for cursor on/off; wire it into the
 	 * engine so blits hide the driver's XOR cursor and leave no trails. */
 	curfd = open("/dev/dmgr", 2);

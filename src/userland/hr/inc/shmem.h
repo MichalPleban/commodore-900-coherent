@@ -84,8 +84,13 @@ typedef struct {
  * this address (it cannot include this header) to defer its async XOR cursor
  * while the lock is held -- keep the two in sync. */
 #define SHM_LOCK	0x3800
-#define hr_lockw()	((short *)(HRTAIL + SHM_LOCK))
-extern int	hr_lock();		/* spin-acquire the lock word          */
-extern int	hr_unlock();		/* release it                          */
+#define hr_lockw()	((short *)(HRTAIL + SHM_LOCK))	/* kept for the call sites; ignored */
+extern int	hr_lock();		/* acquire the drawing lock (kernel mutex) */
+extern int	hr_unlock();		/* release it                              */
+
+/* The drawing lock is a kernel mutex in the hr driver; acquire/release are
+ * these ioctls (must match the driver's hr.h). */
+#define CIOMLOCK	('c'<<8 | 20)	/* block until the drawing lock is ours */
+#define CIOMUNLOCK	('c'<<8 | 21)	/* release the lock and wake a waiter   */
 
 #endif /* HRSHMEM_H */

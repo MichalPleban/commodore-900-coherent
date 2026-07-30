@@ -18,16 +18,17 @@ extern	CON	ctcon[];		/* Console terminal */
 extern	CON	alcon[];		/* Asynchronous line */
 extern	CON	wdcon[];		/* Western Digital hard disk */
 extern	CON	lpcon[];		/* line printer */
-extern	CON	ptccon[];		/* pseudo-terminal master */
-extern	CON	ptscon[];		/* pseudo-terminal slave */
 
 /*
- * Device table.
+ * Device table.  Slot 9 (pseudo-terminals) is filled at run time by
+ * `load /drv/pty' - the pty driver is a loadable to keep it out of the
+ * 64K resident code segment; both pty sides share its one major (the minor
+ * selects master/slave), so slot 10 is free.
  */
 DRV drvl[16] ={
 	{nlcon},	{ctcon},	{wdcon},	{lpcon},
 	{NULL},		{alcon},	{NULL},		{NULL},		/* slot 6 was DTC hdcon (not in production) */
-	{NULL},		{ptccon},	{ptscon},	{NULL},
+	{NULL},		{NULL},		{NULL},		{NULL},		/* slot 9 = /drv/pty (loadable) */
 	{NULL},		{NULL},		{NULL},		{NULL},
 };
 

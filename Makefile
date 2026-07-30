@@ -556,9 +556,10 @@ COH_OBJS := $(addprefix $(OBJ)/kernel/coh/,\
 	misc.o null.o pipe.o printf.o proc.o seg.o sig.o sys1.o sys2.o sys3.o \
 	tab.o timeout.o var.o) \
 	$(OBJ)/kernel/drv/tty.o $(OBJ)/kernel/drv/ct.o
-# libcmdr.a: Commodore machine-dependent glue + al/lp/pty drivers.
+# libcmdr.a: Commodore machine-dependent glue + al/lp drivers.  (pty is a
+# loadable /drv module - see PTY_OBJS below - not resident.)
 CMDR_OBJS := $(addprefix $(OBJ)/kernel/z8001/,\
-	drv/al.o drv/lp.o drv/pty.o src/commodore.o src/console.o src/ddt.o src/trap.o)
+	drv/al.o drv/lp.o src/commodore.o src/console.o src/ddt.o src/trap.o)
 
 LIBCOH  := $(OBJ)/kernel/libcoh.a
 LIBCMDR := $(OBJ)/kernel/libcmdr.a
@@ -575,9 +576,11 @@ HRTTY_OBJS := $(addprefix $(OBJ)/kernel/z8001/drv/hrtty/,\
 	hrterm1.o hrterm2.o gall.o scrollu.o subr.o tty.o kb.o kv.o kbtab.o scroll.o)
 # Serial console: no display; forwards the console to the first serial line.
 NOTTY_OBJS := $(OBJ)/kernel/z8001/drv/notty.o
+# Pseudo-terminal driver: loadable /drv module (kept out of resident kernel).
+PTY_OBJS := $(OBJ)/kernel/z8001/drv/pty.o
 
 # Kernel C objects use the kernel flags (replacing the userland CFLAGS).
-$(COH_OBJS) $(CMDR_OBJS) $(KWD) $(KSWAP) $(WDCON) $(FDCON) $(NOTTY_OBJS): CFLAGS = $(KCFLAGS)
+$(COH_OBJS) $(CMDR_OBJS) $(KWD) $(KSWAP) $(WDCON) $(FDCON) $(NOTTY_OBJS) $(PTY_OBJS): CFLAGS = $(KCFLAGS)
 # lrtty/ and hrtty/ sources also need their own directory on the include path.
 $(LRTTY_OBJS): CFLAGS = $(KCFLAGS) -I$(KSRC)/z8001/drv/lrtty
 $(HRTTY_OBJS): CFLAGS = $(KCFLAGS) -I$(KSRC)/z8001/drv/hrtty
@@ -697,9 +700,13 @@ $(DRVDIR)/notty: $(NOTTY_OBJS) $(KSYM)
 	@mkdir -p $(dir $@)
 	$(LD) -X -o $@ $(NOTTY_OBJS) -k$(KSYM)
 	chmod +x $@
+$(DRVDIR)/pty: $(PTY_OBJS) $(KSYM)
+	@mkdir -p $(dir $@)
+	$(LD) -X -o $@ $(PTY_OBJS) -k$(KSYM)
+	chmod +x $@
 
 KERNEL_TARGETS := $(ROOT)/coherent $(FLOPPYDIR)/coherent $(ROOT)/etc/swap \
-	$(DRVDIR)/lrtty $(DRVDIR)/hrtty $(DRVDIR)/notty
+	$(DRVDIR)/lrtty $(DRVDIR)/hrtty $(DRVDIR)/notty $(DRVDIR)/pty
 kernel: $(KERNEL_TARGETS)
 
 # ===========================================================================
@@ -867,14 +874,13 @@ $(HRGUIBIN)/gfxtest: $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) 
 # --- Phase 1: window server + clock client ---
 # Both need the shared wire protocol header in addition to the engine headers.
 $(HRGUIOBJ)/wserver/wserver.o $(HRGUIOBJ)/clock/wclock.o \
-	$(HRGUIOBJ)/clgfx/clgfx.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
 
 # clgfx.o: the client-side direct-render draw library (GUI.md Model A).  Clients
 # link it + globals.o + libhrgfx.a, which pulls ONLY bitblt + its asm inner loops
 # + rmath + masks + gfxhooks (not the server-only layer/daemon code).
-# hrlock.o: the TSET global drawing lock (hrlock.s), linked into every client AND
-# the server so a client draw primitive, a server layout op, and the driver's
-# cursor never race on VRAM / the clip descriptors.
+# hrlock.o: the global drawing lock -- thin ioctl wrappers over the hr driver's
+# kernel mutex (CIOMLOCK/CIOMUNLOCK).  Linked into every client AND the server.
 HRLOCK := $(HRGUIOBJ)/clgfx/hrlock.o
 CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRLOCK)
 

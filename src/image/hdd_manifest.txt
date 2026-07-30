@@ -135,6 +135,7 @@ d	/drv	755	0	1
 f	/drv/hrtty	700	0	0
 f	/drv/lrtty	700	0	0
 f	/drv/notty	700	0	0
+f	/drv/pty	700	0	0
 d	/etc	755	0	1
 f	/etc/accton	755	3	0
 f	/etc/boottime	644	3	1
