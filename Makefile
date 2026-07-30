@@ -879,9 +879,10 @@ $(HRGUIOBJ)/wserver/wserver.o $(HRGUIOBJ)/clock/wclock.o \
 # clgfx.o: the client-side direct-render draw library (GUI.md Model A).  Clients
 # link it + globals.o + libhrgfx.a, which pulls ONLY bitblt + its asm inner loops
 # + rmath + masks + gfxhooks (not the server-only layer/daemon code).
-# hrlock.o: the global drawing lock -- thin ioctl wrappers over the hr driver's
-# kernel mutex (CIOMLOCK/CIOMUNLOCK).  Linked into every client AND the server.
-HRLOCK := $(HRGUIOBJ)/clgfx/hrlock.o
+# hrlock.o + hrtas.o: the global drawing lock -- a userland TSET futex fast path
+# (hrtas.s) with a kernel slow path (CIOMLOCK/CIOMUNLOCK) taken only on
+# contention.  Linked into every client AND the server.
+HRLOCK := $(HRGUIOBJ)/clgfx/hrlock.o $(HRGUIOBJ)/clgfx/hrtas.o
 CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRLOCK)
 
 # wserver owns the screen: links the engine (libhrgfx) + globals.o directly.

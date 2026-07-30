@@ -76,20 +76,28 @@ typedef struct {
 } HRSURF;
 #define hr_surf(wid)	((HRSURF *)(HRTAIL + SHM_SURF) + (wid))
 
-/* ---- global drawing lock (GUI.md race fix) -------------------------------- *
- * One TSET mutex (hrlock.s) serialising every writer of the framebuffer and of
- * the clip/z-order state: a client draw primitive, a server layout/redraw op.
- * 0 = free, 0xFFFF = held.  Past the SHM_SURF clip table (14 windows * ~110 B =
- * ~0x604, ending ~0x3704), so 0x3800 is clear.  The kernel hr driver mirrors
- * this address (it cannot include this header) to defer its async XOR cursor
- * while the lock is held -- keep the two in sync. */
-#define SHM_LOCK	0x3800
-#define hr_lockw()	((short *)(HRTAIL + SHM_LOCK))	/* kept for the call sites; ignored */
-extern int	hr_lock();		/* acquire the drawing lock (kernel mutex) */
+/* ---- global drawing lock (GUI.md race fix), futex-style ------------------- *
+ * A binary lock word at SHM_LOCK (0 = free, 0xFFFF = held) taken with the Z8001
+ * TSET (hrtas.s hr_tas) serialising every framebuffer / clip / z-order writer:
+ * a client draw primitive, a server layout/redraw op.  The uncontended case is
+ * pure userland -- NO system call; only on real contention does a waiter trap
+ * into the hr driver to block (CIOMLOCK) and a releaser to wake it (CIOMUNLOCK).
+ * SHM_WAIT is the kernel-maintained count of blocked waiters: hr_unlock reads it
+ * and skips the wake syscall when it is 0.  SHM_OWNER is the holder's pid,
+ * stamped so the driver's watchdog can reclaim the lock if a client dies holding
+ * it.  The kernel hr driver mirrors these three addresses (it cannot include
+ * this header) -- keep in sync.  Past the SHM_SURF clip table (14 windows *
+ * ~110 B = ~0x604, ending ~0x3704), so 0x3800.. is clear. */
+#define SHM_LOCK	0x3800		/* futex word: 0 free / 0xFFFF held    */
+#define SHM_WAIT	0x3802		/* blocked-waiter count (kernel-owned) */
+#define SHM_OWNER	0x3804		/* pid of current holder (0 if none)   */
+#define hr_lockw()	((short *)(HRTAIL + SHM_LOCK))	/* kept for the call sites */
+extern int	hr_tas();		/* atomic test-and-set (hrtas.s)           */
+extern int	hr_lock();		/* acquire the drawing lock                */
 extern int	hr_unlock();		/* release it                              */
 
-/* The drawing lock is a kernel mutex in the hr driver; acquire/release are
- * these ioctls (must match the driver's hr.h). */
+/* Slow-path ioctls into the hr driver (must match the driver's hr.h).  Taken
+ * only on contention -- see hrlock.c. */
 #define CIOMLOCK	('c'<<8 | 20)	/* block until the drawing lock is ours */
 #define CIOMUNLOCK	('c'<<8 | 21)	/* release the lock and wake a waiter   */
 
