@@ -1,0 +1,26 @@
+
+
+ffaallssee                                                       ffaallssee
+
+
+
+NNAAMMEE
+     false - unconditional failure
+
+SSYYNNOOPPSSIISS
+     ffaallssee
+
+DDEESSCCRRIIPPTTIIOONN
+     ffaallssee does nothing and exits with a nonzero (failure)
+     status.  It is useful in shell scripts to force a command to
+     fail, and as the never-satisfied condition of a loop, as in
+
+                  wwhhiillee ffaallssee; ddoo ... ddoonnee
+
+     which never executes its body.
+
+DDIIAAGGNNOOSSTTIICCSS
+     ffaallssee always exits with status 1.
+
+SSEEEE AALLSSOO
+     sshh, ttrruuee

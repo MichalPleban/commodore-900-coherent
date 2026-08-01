@@ -246,6 +246,7 @@ char	*argv[];
 	register int	mflag;
 	char		bname[NBUFN];
 
+	setterm();				/* Pick terminal driver	*/
 	strcpy(bname, "main");			/* Work out the name of	*/
 	if (argc > 1)				/* the default buffer.	*/
 		makename(bname, argv[1]);

@@ -394,9 +394,16 @@ perform_update()
 	if ( legalwindow(j) && wtbl[j] != (WSTRUCT *)NULL)
 		gk = *wtbl[j];
 
-	/* first clear out all the regions to be updated */
-	for ( i = 0; i < MAX_UPBUF && update[i].wmgr != -1 ; i++ )
-		rectf(update[i].r, FILL_CLR);
+	/* The engine used to clear every update region here (rectf FILL_CLR) before
+	 * firing WM_UPDATE, back when the server drew window contents.  Under Model A
+	 * (GUI.md 2.9) every window is a direct-render client that owns its content
+	 * pixels and repaints them on the E_EXPOSE this WM_UPDATE turns into, so that
+	 * clear only blanked the region for the client to immediately clear+repaint --
+	 * the visible "paints twice" on every uncover.  Dropped: the client's own
+	 * repaint is the single clear, and desktop background where a window was
+	 * removed/moved is filled separately (dellayer / new_dimensions call
+	 * background()), so no region is left unpainted.  outline() below still redraws
+	 * the server-owned frame/title bar into the region. */
 
 	/* and then generate the update events to the managers */
 	for ( i = 0; i < MAX_WINDOWS; i++ )

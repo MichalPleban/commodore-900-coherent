@@ -313,6 +313,7 @@ f	/usr/man/1cmdman/bc	644	0	1
 f	/usr/man/1cmdman/c	644	0	1
 f	/usr/man/1cmdman/cal	644	0	1
 f	/usr/man/1cmdman/cat	644	0	1
+f	/usr/man/1cmdman/cc	644	0	1
 f	/usr/man/1cmdman/chgrp	644	0	1
 f	/usr/man/1cmdman/chmod	644	0	1
 f	/usr/man/1cmdman/chown	644	0	1
@@ -338,6 +339,7 @@ f	/usr/man/1cmdman/ed	644	0	1
 f	/usr/man/1cmdman/egrep	644	0	1
 f	/usr/man/1cmdman/expr	644	0	1
 f	/usr/man/1cmdman/factor	644	0	1
+f	/usr/man/1cmdman/false	644	0	1
 f	/usr/man/1cmdman/file	644	0	1
 f	/usr/man/1cmdman/find	644	0	1
 f	/usr/man/1cmdman/from	644	0	1
@@ -359,6 +361,7 @@ f	/usr/man/1cmdman/lpr	644	0	1
 f	/usr/man/1cmdman/ls	644	0	1
 f	/usr/man/1cmdman/m4	644	0	1
 f	/usr/man/1cmdman/make	644	0	1
+f	/usr/man/1cmdman/man	644	0	1
 f	/usr/man/1cmdman/me	644	0	1
 f	/usr/man/1cmdman/mesg	644	0	1
 f	/usr/man/1cmdman/mkdir	644	0	1
@@ -398,6 +401,7 @@ f	/usr/man/1cmdman/test	644	0	1
 f	/usr/man/1cmdman/time	644	0	1
 f	/usr/man/1cmdman/touch	644	0	1
 f	/usr/man/1cmdman/tr	644	0	1
+f	/usr/man/1cmdman/true	644	0	1
 f	/usr/man/1cmdman/tsort	644	0	1
 f	/usr/man/1cmdman/tty	644	0	1
 f	/usr/man/1cmdman/typo	644	0	1

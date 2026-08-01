@@ -1,0 +1,50 @@
+
+
+mmaann                                                           mmaann
+
+
+
+NNAAMMEE
+     man - print online manual sections
+
+SSYYNNOOPPSSIISS
+     mmaann [-ccssnnww] _t_i_t_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     mmaann locates and prints the manual page for each _t_i_t_l_e named
+     on the command line.  Pages live below /uussrr/mmaann. By default
+     mmaann searches both the command and the system sections and
+     displays the pre-formatted copy of the page through ssccaatt.
+
+     The section flags may be combined; when both are given (the
+     default), each _t_i_t_l_e is looked for in the command section
+     first and then the system section.
+
+     -cc   Look only in the command section.
+
+     -ss   Look only in the system section.
+
+     -nn   Re-format the page: run its unformatted source through
+          nnrrooffff -mmaann and pipe the result through ssccaatt. Any option
+          beginning with - other than those listed here is passed
+          on to nnrrooffff unchanged.
+
+     -ww   Do not display the page; print only the path of the
+          file in which the document resides.
+
+     If a _t_i_t_l_e is not found, mmaann reports whether it was missing
+     from the command section, the system section, or the manual
+     as a whole.
+
+FFIILLEESS
+          /uussrr/mmaann                root of the manual
+          /uussrr/mmaann/ccmmdd            command section, unformatted
+          /uussrr/mmaann/ssyyss            system section, unformatted
+
+SSEEEE AALLSSOO
+     hheellpp, nnrrooffff, ssccaatt
+
+DDIIAAGGNNOOSSTTIICCSS
+     With no _t_i_t_l_e argument, mmaann prints ttrryy mmaann mmaann and exits
+     with a nonzero status.  For each _t_i_t_l_e not found it prints a
+     message naming the section that was searched.

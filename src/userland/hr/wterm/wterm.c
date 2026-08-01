@@ -414,7 +414,7 @@ char **argv;
 	char *rb;
 	struct mux *m;
 	WMSG e;
-	int mp[2], i, got, off, rlen, need, pending, fz, wasfrozen;
+	int mp[2], i, got, off, rlen, need, pending, fz, wasidle, paintgen;
 
 	if ( argc < 6 )
 		exit(1);
@@ -478,7 +478,8 @@ char **argv;
 	rb = (char *)rbuf;
 	rlen = 0;
 	pending = 0;
-	wasfrozen = 0;
+	wasidle = 0;
+	paintgen = -2;			/* force a full repaint on the first pass */
 	for (;;)
 	{
 		got = read(muxr, rb + rlen, sizeof(rbuf) - rlen);
@@ -555,17 +556,29 @@ char **argv;
 			rb[i] = rb[off + i];
 		if ( need )
 			pending = 1;		/* content changed; needs a repaint */
-		/* Draw only when no server overlay (pop-up menu / ghost drag) is up --
-		 * otherwise we would paint over it (it is not a layer we can clip to).
-		 * We keep ingesting above regardless, so nothing is lost.  When the
-		 * overlay clears, force a full repaint (invalidate) so anything deferred
-		 * during it -- or restored under it by the server -- comes out clean. */
+
+		/* Decide draw vs. defer.  DO NOT draw while (a) a server overlay (pop-up
+		 * menu / ghost drag) is up -- we would paint over it, it is not a layer we
+		 * can clip to; (b) the window is unmapped (minimised); or (c) our clip
+		 * descriptor changed since our last full repaint -- the server just hid /
+		 * showed / raised / resized us and an E_EXPOSE is on its way, so the whole
+		 * screen must be repainted from grid[], NOT patched incrementally over a
+		 * stale-or-blank surface (that is the "flood scribbles random characters
+		 * onto a just-unhidden window before the repaint" bug: the diff would see
+		 * disp[] still matching and touch only the few just-changed cells).  We
+		 * keep ingesting into grid[] regardless, so nothing is lost; the moment we
+		 * are drawable again we force ONE full repaint (invalidate) and resume. */
+		cl_refresh();			/* re-read the clip (cheap when unchanged) */
 		fz = cl_frozen();
-		if ( !fz )
+		if ( fz || !cl_mapped() )
 		{
-			if ( wasfrozen )
+			wasidle = 1;		/* deferring -> full repaint when we resume */
+		}
+		else
+		{
+			if ( wasidle || cl_gen() != paintgen )
 			{
-				invalidate();
+				invalidate();	/* damaged / first pass after a change */
 				pending = 1;
 			}
 			if ( pending )
@@ -573,8 +586,9 @@ char **argv;
 				flush();	/* ONE repaint for the whole drained batch */
 				pending = 0;
 			}
+			paintgen = cl_gen();	/* record the generation we painted against */
+			wasidle = 0;
 		}
-		wasfrozen = fz;
 	}
 	exit(0);
 }

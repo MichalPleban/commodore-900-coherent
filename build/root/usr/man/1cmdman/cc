@@ -1,0 +1,79 @@
+
+
+cccc                                                             cccc
+
+
+
+NNAAMMEE
+     cc - C compiler
+
+SSYYNNOOPPSSIISS
+     cccc [_o_p_t_i_o_n_s] _f_i_l_e ...
+
+DDEESSCCRRIIPPTTIIOONN
+     cccc is the C compiler driver.  It compiles each _f_i_l_e that
+     ends in .cc, assembles each _f_i_l_e that ends in .ss, and passes
+     all other options and files on to the linker lldd.
+
+     cccc is itself a short shell script: it invokes the compiler
+     controller ccccxx with a standard set of variants already
+     enabled and hands it every argument. Options are therefore
+     interpreted by ccccxx.
+
+     -BB[_s_t_r]
+          Use backup versions of the compiler passes.
+
+     -cc   Compile only; do not load. Each source produces an ob-
+          ject file and no executable is linked.
+
+     -DD_n_a_m_e[=_v_a_l_u_e]
+          Tell ccpppp to define _n_a_m_e with the given _v_a_l_u_e.
+
+     -EE   Run ccpppp only and send its output to the standard out-
+          put.
+
+     -ff   Include the floating-point output routines in the load.
+
+     -II_n_a_m_e
+          Tell ccpppp to look for include files in directory _n_a_m_e.
+
+     -KK   Keep the intermediate files.
+
+     -ll_n_a_m_e
+          Pass /lliibb/lliibb_n_a_m_e to the linker.
+
+     -MM_s_t_r
+          Use alternative machine versions.
+
+     -OO   Run the peephole optimizer of the C compiler.
+
+     -pp   Compile and/or load for profiling.
+
+     -qq[_p_0_1_a_b_2_s]
+          Quit after the specified pass.
+
+     -SS   Place the C compiler assembler output in a .ss file.
+
+     -tt[_p_0_1_a_b_2_s_d_l_r_t]
+          Take the specified compiler phases.
+
+     -UU_n_a_m_e
+          Tell ccpppp to remove any initial definition of _n_a_m_e.
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+cccc                                                             cccc
+
+
+
+     -VV   Run verbosely.
+
+     -VV_n_a_m_e
+          Toggle the variant _n_a_m_e.
+
+SSEEEE AALLSSOO
+     aass, ccpppp, lldd

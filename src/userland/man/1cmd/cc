@@ -1,0 +1,106 @@
+.TH cc "" "Command"
+.SH NAME
+cc \- C compiler
+.SH SYNOPSIS
+\fBcc [\fIoptions\fB] \fIfile ...\fR
+.SH DESCRIPTION
+.HS
+cc -- C compiler
+Usage:	cc [ options ] file ...
+Options:
+	-B[str]		Use backup compiler versions
+	-c		Compile only--no load
+	-Dname[=value]	Tell cpp to define 'name' with 'value'
+	-E		Run cpp only and send its output to stdout
+	-f		Include floating point output routines in load
+	-Iname		Tell cpp to look for include files in directory 'name'
+	-K		Keep intermediate files
+	-lname		Pass /lib/libname.a to linker
+	-Mstr		Use alternative machine versions
+	-O		Run peephole optimizer of C compiler
+	-p		Compile and/or load for profiling
+	-q[p01ab2s]	Quit after specified pass
+	-S		Place C compiler assembler output in a '.s' file
+	-t[p01ab2sdlrt]	Take specified compiler phases
+	-Uname		Tell cpp to remove any initial definition of 'name'
+	-V		Run verbosely, cf. -VSTAT
+	-Vname		Toggle variant 'Vname'
+Compiles files ending '.c'; assembles files ending in '.s';
+passes other options and files to the linker 'ld'.
+.HE
+.B cc
+is the C compiler driver.
+It compiles each
+.I file
+that ends in
+.BR .c ,
+assembles each
+.I file
+that ends in
+.BR .s ,
+and passes all other options and files on to the linker
+.BR ld .
+.PP
+.B cc
+is itself a short shell script: it invokes the compiler controller
+.B ccx
+with a standard set of variants already enabled and hands it every
+argument. Options are therefore interpreted by
+.BR ccx .
+.IP \fB\-B[\fIstr\fB]\fR
+Use backup versions of the compiler passes.
+.IP \fB\-c\fR
+Compile only; do not load. Each source produces an object file and no
+executable is linked.
+.IP \fB\-D\fIname\fB[=\fIvalue\fB]\fR
+Tell
+.B cpp
+to define
+.I name
+with the given
+.IR value .
+.IP \fB\-E\fR
+Run
+.B cpp
+only and send its output to the standard output.
+.IP \fB\-f\fR
+Include the floating-point output routines in the load.
+.IP \fB\-I\fIname\fR
+Tell
+.B cpp
+to look for include files in directory
+.IR name .
+.IP \fB\-K\fR
+Keep the intermediate files.
+.IP \fB\-l\fIname\fR
+Pass
+.BI /lib/lib name .a
+to the linker.
+.IP \fB\-M\fIstr\fR
+Use alternative machine versions.
+.IP \fB\-O\fR
+Run the peephole optimizer of the C compiler.
+.IP \fB\-p\fR
+Compile and/or load for profiling.
+.IP \fB\-q[\fIp01ab2s\fB]\fR
+Quit after the specified pass.
+.IP \fB\-S\fR
+Place the C compiler assembler output in a
+.B .s
+file.
+.IP \fB\-t[\fIp01ab2sdlrt\fB]\fR
+Take the specified compiler phases.
+.IP \fB\-U\fIname\fR
+Tell
+.B cpp
+to remove any initial definition of
+.IR name .
+.IP \fB\-V\fR
+Run verbosely.
+.IP \fB\-V\fIname\fR
+Toggle the variant
+.IR name .
+.SH "SEE ALSO"
+.BR as ,
+.BR cpp ,
+.B ld

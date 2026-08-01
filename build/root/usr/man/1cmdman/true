@@ -1,0 +1,26 @@
+
+
+ttrruuee                                                         ttrruuee
+
+
+
+NNAAMMEE
+     true - unconditional success
+
+SSYYNNOOPPSSIISS
+     ttrruuee
+
+DDEESSCCRRIIPPTTIIOONN
+     ttrruuee does nothing and exits with a zero (success) status.
+     It is useful in shell scripts as the always-satisfied con-
+     dition of a loop, as in
+
+                  wwhhiillee ttrruuee; ddoo ... ddoonnee
+
+     which repeats its body until broken out of explicitly.
+
+DDIIAAGGNNOOSSTTIICCSS
+     ttrruuee always exits with status 0.
+
+SSEEEE AALLSSOO
+     sshh, ffaallssee

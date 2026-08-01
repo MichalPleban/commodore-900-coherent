@@ -1,0 +1,25 @@
+.TH true "" "Command"
+.SH NAME
+true \- unconditional success
+.SH SYNOPSIS
+\fBtrue\fR
+.SH DESCRIPTION
+.HS
+true -- unconditional success
+Usage:	true
+Does nothing and returns exit status 0.
+.HE
+.B true
+does nothing and exits with a zero (success) status.
+It is useful in shell scripts as the always-satisfied condition of a loop, as in
+.DS
+.ta 8n
+	\fBwhile true; do ... done\fR
+.DE
+which repeats its body until broken out of explicitly.
+.SH DIAGNOSTICS
+.B true
+always exits with status 0.
+.SH "SEE ALSO"
+.BR sh ,
+.B false

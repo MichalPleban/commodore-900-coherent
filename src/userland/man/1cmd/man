@@ -1,0 +1,76 @@
+.TH man "" "Command"
+.SH NAME
+man \- print online manual sections
+.SH SYNOPSIS
+\fBman [\-csnw] \fItitle ...\fR
+.SH DESCRIPTION
+.HS
+man -- print online manual sections
+Usage:	man [ -csnw ] title ...
+Options:
+	-c	Look in command section
+	-s	Look in system section
+	-n	Re-nroff the output
+	-w	Print only file name where document resides
+.HE
+.B man
+locates and prints the manual page for each
+.I title
+named on the command line.
+Pages live below
+.BR /usr/man .
+By default
+.B man
+searches both the command and the system sections and displays the
+pre-formatted copy of the page through
+.BR scat .
+.PP
+The section flags may be combined; when both are given (the default), each
+.I title
+is looked for in the command section first and then the system section.
+.IP \fB\-c\fR
+Look only in the command section.
+.IP \fB\-s\fR
+Look only in the system section.
+.IP \fB\-n\fR
+Re-format the page: run its unformatted source through
+.B nroff \-man
+and pipe the result through
+.BR scat .
+Any option beginning with
+.B \-
+other than those listed here is passed on to
+.B nroff
+unchanged.
+.IP \fB\-w\fR
+Do not display the page; print only the path of the file in which the
+document resides.
+.PP
+If a
+.I title
+is not found,
+.B man
+reports whether it was missing from the command section, the system
+section, or the manual as a whole.
+.SH FILES
+.DS
+.ta 24n
+\fB/usr/man\fR	root of the manual
+\fB/usr/man/cmd\fR	command section, unformatted
+\fB/usr/man/sys\fR	system section, unformatted
+.DE
+.SH "SEE ALSO"
+.BR help ,
+.BR nroff ,
+.B scat
+.SH DIAGNOSTICS
+With no
+.I title
+argument,
+.B man
+prints
+.B "try man man"
+and exits with a nonzero status.
+For each
+.I title
+not found it prints a message naming the section that was searched.

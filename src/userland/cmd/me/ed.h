@@ -14,8 +14,8 @@
 #define	CPM	0			/* CP/M-86			*/
 #define	MSDOS	0			/* MS-DOS			*/
 
-#define	ANSI	1			/* ANSI terminal.		*/
-#define	VT52	0			/* VT52 terminal (Zenith).	*/
+#define	ANSI	1			/* Build ANSI/VT100 driver.	*/
+#define	VT52	1			/* Build VT52/H-19 driver too.	*/
 #define	VT100	0			/* Handle VT100 style keypad.	*/
 #define	LK201	0			/* Handle LK201 style keypad.	*/
 #define	RAINBOW	0			/* Use Rainbow fast video.	*/
@@ -188,7 +188,9 @@ extern	short	kbdm[];			/* Holds kayboard macro data	*/
 extern	short	*kbdmip;		/* Input pointer for above	*/
 extern	short	*kbdmop;		/* Output pointer for above	*/
 extern	char	pat[];			/* Search pattern		*/
-extern	TERM	term;			/* Terminal information.	*/
+extern	TERM	term;			/* Active terminal dispatch.	*/
+extern	TERM	ansiterm;		/* ANSI/VT100 dispatch table.	*/
+extern	TERM	vt52term;		/* VT52/H-19 dispatch table.	*/
 
 extern	BUFFER	*bfind();		/* Lookup a buffer by name	*/
 extern	WINDOW	*wpopup();		/* Pop up window creation	*/

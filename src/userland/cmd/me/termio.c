@@ -244,3 +244,41 @@ ttgetc()
 	return(fgetc(stdin));
 #endif
 }
+
+/*
+ * The active terminal dispatch table.  It is filled in at run time by
+ * "setterm" from one of the compiled-in drivers, so a single binary
+ * drives every console: the hi-res console reports "vt100" (ANSI/CSI),
+ * while the lo-res H-19 console ("h19") and serial lines ("vt52"/"z19")
+ * speak VT52.  This is why both "ansi.o" and "vt52.o" are linked.
+ */
+TERM	term;
+
+/*
+ * Choose the terminal driver from the TERM environment variable. Must
+ * be called before any use of "term" (see "main"). On systems without
+ * a shell environment just take the ANSI driver.
+ */
+setterm()
+{
+#if	V7
+	register char	*cp;
+	char		*getenv();
+
+	if ((cp = getenv("TERM")) == NULL) {
+		puts("Shell variable TERM not defined!");
+		exit(1);
+	}
+	if (strcmp(cp, "vt52")==0 || strcmp(cp, "z19")==0
+	 || strcmp(cp, "h19")==0)
+		term = vt52term;
+	else if (strcmp(cp, "vt100")==0 || strcmp(cp, "ansi")==0)
+		term = ansiterm;
+	else {
+		puts("Terminal type not 'vt100', 'vt52', 'z19' or 'h19'!");
+		exit(1);
+	}
+#else
+	term = ansiterm;
+#endif
+}

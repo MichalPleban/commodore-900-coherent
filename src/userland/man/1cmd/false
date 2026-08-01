@@ -1,0 +1,26 @@
+.TH false "" "Command"
+.SH NAME
+false \- unconditional failure
+.SH SYNOPSIS
+\fBfalse\fR
+.SH DESCRIPTION
+.HS
+false -- unconditional failure
+Usage:	false
+Does nothing and returns exit status 1.
+.HE
+.B false
+does nothing and exits with a nonzero (failure) status.
+It is useful in shell scripts to force a command to fail, and as the
+never-satisfied condition of a loop, as in
+.DS
+.ta 8n
+	\fBwhile false; do ... done\fR
+.DE
+which never executes its body.
+.SH DIAGNOSTICS
+.B false
+always exits with status 1.
+.SH "SEE ALSO"
+.BR sh ,
+.B true

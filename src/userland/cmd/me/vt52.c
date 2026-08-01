@@ -38,7 +38,7 @@ extern	int	vt52open();
  * hard fields just point into the
  * terminal I/O code.
  */
-TERM	term	= {
+TERM	vt52term	= {
 	NROW-1,
 	NCOL,
 	&vt52open,
@@ -84,18 +84,5 @@ vt52beep()
 
 vt52open()
 {
-#if	V7
-	register char *cp;
-	char *getenv();
-
-	if ((cp = getenv("TERM")) == NULL) {
-		puts("Shell variable TERM not defined!");
-		exit(1);
-	}
-	if (strcmp(cp, "vt52") != 0 && strcmp(cp, "z19") != 0) {
-		puts("Terminal type not 'vt52'or 'z19' !");
-		exit(1);
-	}
-#endif
 	ttopen();
 }

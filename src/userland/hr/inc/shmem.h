@@ -56,6 +56,15 @@ typedef struct {
 					/* a layer, so their clip can't exclude  */
 					/* it).  They keep ingesting; only the   */
 					/* blit is skipped until it clears.      */
+	short	stacking;		/* 1 = the server holds the drawing lock */
+					/* for a layer/redraw op (its clip changes */
+					/* + restacking blits are in flight): a  */
+					/* fully-visible client must SUPPRESS its */
+					/* lock-free fast path and draw under the */
+					/* global lock instead, so it serialises  */
+					/* with the server rather than racing it. */
+					/* (Unlike overlay it does not skip the   */
+					/* draw -- it only forces the locked path.) */
 } HRGLOB;
 #define hr_glob()	((HRGLOB *)(HRTAIL + SHM_GLOB))
 
@@ -95,6 +104,23 @@ typedef struct {
 extern int	hr_tas();		/* atomic test-and-set (hrtas.s)           */
 extern int	hr_lock();		/* acquire the drawing lock                */
 extern int	hr_unlock();		/* release it                              */
+
+/* ---- topmost fast-path drain flags (SHM_INDRAW) -------------------------- *
+ * One byte per window, written ONLY by that window's client and read by the
+ * server.  The lock-free topmost fast path (clgfx cl_pbegin) sets its own byte
+ * BEFORE it tests `stacking' and clears it in cl_pend; the server, after it
+ * raises `stacking' inside srvlock, DRAINS these to 0 before it restacks.  That
+ * is a two-flag (Dekker) handshake on `stacking' plus a drain: given ordered
+ * stores (this in-order CPU is sequentially consistent), a fast-path blit and a
+ * restacking op can never overlap, so a stale-clip client can never scribble a
+ * window the server is covering -- WITHOUT the fast path ever taking the lock.
+ * Single writer per byte, so no atomic is needed (this V7 CPU has only TSET).
+ * Reached through hr_setdraw/hr_getdraw (hrlock.c) so the store doubles as the
+ * ordering barrier before the client reads `stacking' and the server's repeated
+ * load in the drain loop cannot be hoisted -- this K&R compiler has no volatile. */
+#define SHM_INDRAW	0x3820		/* MAX_WINDOWS bytes: per-window "drawing now" */
+extern int	hr_setdraw();		/* client: set/clear its fast-path flag  */
+extern int	hr_getdraw();		/* server: read a window's flag (drain)  */
 
 /* Slow-path ioctls into the hr driver (must match the driver's hr.h).  Taken
  * only on contention -- see hrlock.c. */

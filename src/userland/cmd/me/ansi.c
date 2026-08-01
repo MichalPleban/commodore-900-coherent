@@ -35,7 +35,7 @@ extern	int	ansiopen();
  * dispatch table. Most of the fields
  * point into "termio" code.
  */
-TERM	term	= {
+TERM	ansiterm	= {
 	NROW-1,
 	NCOL,
 	&ansiopen,
@@ -94,18 +94,5 @@ register int	n;
 
 ansiopen()
 {
-#if	V7
-	register char *cp;
-	char *getenv();
-
-	if ((cp = getenv("TERM")) == NULL) {
-		puts("Shell variable TERM not defined!");
-		exit(1);
-	}
-	if (strcmp(cp, "vt100") != 0) {
-		puts("Terminal type not 'vt100'!");
-		exit(1);
-	}
-#endif
 	ttopen();
 }

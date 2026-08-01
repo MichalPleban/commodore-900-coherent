@@ -131,8 +131,31 @@ srv_curshow()
 int	locklevel;
 srvlock()
 {
+	int w;
+	long spin;
+
 	if ( locklevel++ == 0 )
+	{
 		hr_lock(hr_lockw());
+		/* Freeze the clients' lock-free fast path (clgfx cl_pbegin) for as long
+		 * as we hold the lock: while the server is restacking / redrawing, a
+		 * fully-visible window's clip may be about to change and our blits target
+		 * its pixels, so it must draw under the lock (serialised with us), not
+		 * lock-free.  Steady state (server idle in read()) leaves this 0, so the
+		 * fast path is available whenever it matters. */
+		hr_glob()->stacking = 1;
+		/* Drain any client already mid lock-free blit.  It set SHM_INDRAW[w]
+		 * before it tested `stacking' (clgfx cl_pbegin), so now that we have
+		 * raised `stacking' we are guaranteed to see it (Dekker: ordered stores),
+		 * and stacking=1 stops it starting another once this one ends -- so
+		 * waiting the flag out makes a restack and a fast blit mutually exclusive.
+		 * The client needs no lock to finish, so it drains under preemption; the
+		 * spin cap is only a backstop for a client that died mid-primitive (then
+		 * we proceed -- the flag is cleared when its window is torn down). */
+		for ( w = 0; w < MAX_WINDOWS; w++ )
+			for ( spin = 0; hr_getdraw(w) && spin < 1000000L; spin++ )
+				;
+	}
 }
 
 /* Exposes must NOT be sent while the lock is held.  The engine's reply hook
@@ -159,6 +182,7 @@ srvunlock()
 {
 	if ( locklevel > 0 && --locklevel == 0 )
 	{
+		hr_glob()->stacking = 0;	/* clients may fast-path again */
 		hr_unlock(hr_lockw());
 		flushexp();		/* safe to block on pipe writes now */
 	}
@@ -344,6 +368,7 @@ publish_surf(wid)
 		sp->mapped = 0;
 		sp->nvis = 0;
 		sp->seq++;				/* even */
+		hr_setdraw(wid, 0);		/* unmapped: not drawing -> clear drain flag */
 		return;
 	}
 	cr = wp->wn_Crect;
@@ -441,6 +466,8 @@ killwin(wid)
 	if ( !wins[wid].used )
 		return;
 	sendev(wid, E_QUIT, 0, 0, 0, 0);	/* outside the lock: may block */
+	hr_setdraw(wid, 0);		/* client is gone: drop its drain flag so the */
+					/* srvlock() below (and later ops) don't spin */
 	srvlock();
 	srvlogn("killwin ", wid);
 	strcpy(base, wins[wid].base);
@@ -2162,6 +2189,9 @@ char **argv;
 	loadfont(SHM_FUI,   "/usr/hr/fonts/gacha.hf");
 	loadfont(SHM_FICON, "/usr/hr/fonts/sail.hf");
 	hr_glob()->curon = 1;			/* driver draws its cursor by default */
+	hr_glob()->overlay = 0;			/* no menu/overlay up yet */
+	hr_glob()->stacking = 0;		/* no layer op in flight yet */
+	{ int w; for ( w = 0; w < MAX_WINDOWS; w++ ) hr_setdraw(w, 0); }
 	hr_glob()->magic = HR_MAGIC;
 
 	pumppid = startpump();

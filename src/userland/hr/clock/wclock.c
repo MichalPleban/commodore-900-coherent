@@ -196,6 +196,8 @@ drawhands()
 	handfl = 1;
 }
 
+int	paintgen = -2;		/* clip generation of our last full repaint */
+
 repaint()
 {
 	if ( cl_frozen() )	/* a server menu/overlay is up: don't paint over it */
@@ -204,6 +206,7 @@ repaint()
 	drawface();
 	drawhands();
 	cl_end();
+	paintgen = cl_gen();	/* record what we painted against */
 }
 
 tick()
@@ -264,11 +267,21 @@ char **argv;
 		if ( tickflag )
 		{
 			tickflag = 0;
-			if ( !cl_frozen() )	/* skip while a menu/overlay is up */
+			/* Skip while a menu/overlay is up or we are unmapped (minimised); and
+			 * if the server has hidden/shown/raised/resized us since our last full
+			 * repaint (clip generation changed), do a FULL repaint rather than an
+			 * incremental drawhands over a stale-or-blank face. */
+			cl_refresh();
+			if ( cl_mapped() && !cl_frozen() )
 			{
-				cl_begin();
-				drawhands();
-				cl_end();
+				if ( cl_gen() != paintgen )
+					repaint();
+				else
+				{
+					cl_begin();
+					drawhands();
+					cl_end();
+				}
 			}
 			alarm(1);
 		}

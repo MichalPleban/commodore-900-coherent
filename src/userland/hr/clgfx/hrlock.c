@@ -75,3 +75,22 @@ short *lock;
 	else
 		*FUTEX = 0;			/* uncontended: release directly, no syscall */
 }
+
+/* Per-window fast-path "drawing lock-free now" flag (shmem.h SHM_INDRAW), one
+ * byte per window written only by that window's client.  Defined HERE -- a
+ * separate translation unit from the client's blit and the server's drain loop
+ * -- on purpose: the store in hr_setdraw is an optimiser barrier before the
+ * client reads `stacking' (so the Dekker order holds), and the server's repeated
+ * hr_getdraw in the drain loop is an un-hoistable call (this K&R compiler has no
+ * `volatile').  See wserver srvlock (drain) and clgfx cl_pbegin (handshake). */
+#define INDRAW	((char *)(HRTAIL + SHM_INDRAW))
+
+hr_setdraw(wid, v)
+{
+	INDRAW[wid] = v;
+}
+
+hr_getdraw(wid)
+{
+	return INDRAW[wid] & 0xff;
+}
