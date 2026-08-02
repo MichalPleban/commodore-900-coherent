@@ -1,5 +1,12 @@
+Version 0.8.1 (2 August 2026):
+- Added hires card GUI modeled after original Commodore "hrconsole"
+- Added man page for the "man" command.
+- Added VT52 support to MicroEMACS.
+
 Version 0.8.0 (24 July 2026):
 - Added graphics card detection at boot and automatic console driver loading. Separate hires/lores versions are no longer necessary.
 - Added filesystem dirty flag. If the root filesystem is not properly sync'ed before reboot, it is mounted readonly until it is repaired.
+- Ported "compress" command from Coherent 3.2.
+- Added -w flag to "mount".
 - Ported filesystem code fixes from Coherent 3.2.
 - Created man pages for userland commands.

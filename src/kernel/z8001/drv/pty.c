@@ -8,7 +8,7 @@
  *	LOADABLE (/drv/pty).  This driver is not linked into the resident
  *	kernel - the Z8001 code segment is a hard 64K, so every non-essential
  *	driver lives in its own loadable segment (see notty.c / hrtty).  It is
- *	installed at GUI start-up with `/etc/load /drv/pty' (wserver does this,
+ *	installed at GUI start-up with `/etc/load /drv/pty' (zview does this,
  *	just as it loads /drv/hr) and resolves the resident TTY line discipline
  *	(ttin/ttout/tt...) from the kernel symbol table via `ld -k'.
  *

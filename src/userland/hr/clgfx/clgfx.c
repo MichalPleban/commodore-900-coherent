@@ -135,7 +135,7 @@ cl_fullyvis()
 /* cl_begin/cl_end used to hide the cursor and sync the clip once for a whole
  * repaint batch.  That is now done PER PRIMITIVE (cl_pbegin/cl_pend below) under
  * the global drawing lock, so these are just batch markers kept for the client
- * API (wterm/wclock bracket their repaints with them). */
+ * API (zterm/zclock bracket their repaints with them). */
 cl_begin()	{ }
 cl_end()	{ }
 

@@ -82,7 +82,7 @@ short *lock;
  * -- on purpose: the store in hr_setdraw is an optimiser barrier before the
  * client reads `stacking' (so the Dekker order holds), and the server's repeated
  * hr_getdraw in the drain loop is an un-hoistable call (this K&R compiler has no
- * `volatile').  See wserver srvlock (drain) and clgfx cl_pbegin (handshake). */
+ * `volatile').  See zview srvlock (drain) and clgfx cl_pbegin (handshake). */
 #define INDRAW	((char *)(HRTAIL + SHM_INDRAW))
 
 hr_setdraw(wid, v)

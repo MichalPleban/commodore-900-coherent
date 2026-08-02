@@ -38,7 +38,7 @@ typedef struct Sm_Region
 
 /* Visible-region list capacity per layer.  Each SM_REGION is ~20 bytes and a
  * LAYER embeds MAX_LRBUF of them, so this dominates sizeof(LAYER) and the heap
- * cost of every window.  wserver's data segment is near the Z8001 64K limit
+ * cost of every window.  zview's data segment is near the Z8001 64K limit
  * (~2.8K heap), so 100 (which made a LAYER 2022 bytes -> only one window fit)
  * is far too many: a handful of overlapping windows split a layer into only a
  * few rectangles.  32 keeps a LAYER ~662 bytes so several windows coexist. */

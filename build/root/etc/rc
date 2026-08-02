@@ -17,8 +17,8 @@ date >/dev/console
 # console.  Off by default so serial-console and (video-less) emulator boots are
 # unaffected.  See SMGR.md for the full startup/teardown sequence.
 if [ -f /etc/hrgui ]; then /usr/hr/bin/hrconsole & fi
-# hrgui rebuild (GUI.md): the new single-server window system + clock windows.
-# Enable with:  touch /etc/wgui .  wserver loads /drv/hr itself, so it also
+# ZView (GUI.md): the new single-server window system + clock/terminal windows.
+# Enable with:  touch /etc/wgui .  zview loads /drv/hr itself, so it also
 # replaces the text console; off by default.  Root is already read-write here
 # (mounted -u above), which the server's pipe(2) IPC needs.
-if [ -f /etc/wgui ]; then /usr/hr/bin/wserver & fi
+if [ -f /etc/wgui ]; then /usr/hr/bin/zview & fi

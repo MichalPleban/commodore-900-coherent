@@ -817,7 +817,7 @@ HR_TARGETS := $(DRVDIR)/hr \
 	$(HRFONTS)
 hr: $(HR_TARGETS)
 
-# hrgui - the rebuilt windowing system  (src/userland/hr -> build/root).
+# ZView - the rebuilt windowing system  (src/userland/hr -> build/root).
 # Built as part of the normal `all'/`image' build (its outputs are in
 # HRGUI_TARGETS, folded into `image' below) -- there is no separate target.
 # GUI.md's green-field rebuild: the rendering engine is salvaged from the old
@@ -842,7 +842,7 @@ HRGUIBIN = $(ROOT)/usr/hr/bin
 # The engine's sources #include <smgr.h> etc. from their own directory.
 HRGFXCFLAGS = -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRGFXDIR)
 
-# hrgui object pattern rules (own CFLAGS; the .s use cpp directives like the
+# ZView object pattern rules (own CFLAGS; the .s use cpp directives like the
 # historical hr blitters, so preprocess with cpp -P before as).
 $(HRGUIOBJ)/%.o: $(HRGUISRC)/%.c
 	@mkdir -p $(dir $@)
@@ -873,7 +873,7 @@ $(HRGUIBIN)/gfxtest: $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) 
 
 # --- Phase 1: window server + clock client ---
 # Both need the shared wire protocol header in addition to the engine headers.
-$(HRGUIOBJ)/wserver/wserver.o $(HRGUIOBJ)/clock/wclock.o \
+$(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zclock/zclock.o \
 	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
 
 # clgfx.o: the client-side direct-render draw library (GUI.md Model A).  Clients
@@ -885,40 +885,40 @@ $(HRGUIOBJ)/wserver/wserver.o $(HRGUIOBJ)/clock/wclock.o \
 HRLOCK := $(HRGUIOBJ)/clgfx/hrlock.o $(HRGUIOBJ)/clgfx/hrtas.o
 CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRLOCK)
 
-# wserver owns the screen: links the engine (libhrgfx) + globals.o directly.
+# zview owns the screen: links the engine (libhrgfx) + globals.o directly.
 # Fonts are loaded at runtime from /usr/hr/fonts/*.hf into the shared VRAM tail
 # (inc/shmem.h) and blitted with the engine's bitblt -- no embedded/kernel font.
-$(HRGUIBIN)/wserver: $(HRGUIOBJ)/wserver/wserver.o $(HRLOCK) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zview: $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/wserver/wserver.o $(HRLOCK) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
 
-# wclock: direct-render graphics client -- links clgfx + globals + libhrgfx so it
+# zclock: direct-render graphics client -- links clgfx + globals + libhrgfx so it
 # blits its own face/hands straight to VRAM; needs libm (sin/cos).
-$(HRGUIBIN)/wclock: $(HRGUIOBJ)/clock/wclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBM) $(LIBC)
+$(HRGUIBIN)/zclock: $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBM) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/clock/wclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBM) $(LIBC)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBM) $(LIBC)
 
 # ptytest is a plain client: no gfx, just exercises the kernel pty driver.
 $(HRGUIBIN)/ptytest: $(HRGUIOBJ)/ptytest/ptytest.o $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/ptytest/ptytest.o $(LIBC)
 
-# wterm: direct-render terminal -- pty + VT parser + clgfx (blits its own text
+# zterm: direct-render terminal -- pty + VT parser + clgfx (blits its own text
 # straight to VRAM, hardware-scrolls when fully visible).
-$(HRGUIOBJ)/wterm/wterm.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
-$(HRGUIBIN)/wterm: $(HRGUIOBJ)/wterm/wterm.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIOBJ)/zterm/zterm.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+$(HRGUIBIN)/zterm: $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/wterm/wterm.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
 
-# hrpump: the terminal's I/O pumps, a tiny libc-only helper wterm execs instead
+# hrpump: the terminal's I/O pumps, a tiny libc-only helper zterm execs instead
 # of forking copies of itself (memory: keeps a few open terminals from exhausting
 # RAM).  NO libhrgfx/clgfx -- it only shuffles bytes between fds.
-$(HRGUIOBJ)/wterm/hrpump.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
-$(HRGUIBIN)/hrpump: $(HRGUIOBJ)/wterm/hrpump.o $(CRT) $(LIBC)
+$(HRGUIOBJ)/zterm/hrpump.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+$(HRGUIBIN)/hrpump: $(HRGUIOBJ)/zterm/hrpump.o $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/wterm/hrpump.o $(LIBC)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zterm/hrpump.o $(LIBC)
 
-# The hrgui system fonts: generated into the shared-VRAM .hf format the server
+# The ZView system fonts: generated into the shared-VRAM .hf format the server
 # loads into the tail (tools/mkfont.py); every client blits from that single
 # copy -- no relink, no per-glyph trap.  gallant.hf (terminal) from the kernel
 # gall.c table; gacha.hf (UI chrome) + sail.hf (icon labels) from the FM fonts.
@@ -929,20 +929,20 @@ $(HRGUIFONTS): tools/mkfont.py src/kernel/z8001/drv/hrtty/gall.c \
 	@mkdir -p $(dir $@)
 	$(PYTHON) tools/mkfont.py
 
-# the launchable-app catalog wserver reads at startup (src -> staging image).
+# the launchable-app catalog zview reads at startup (src -> staging image).
 $(ROOT)/usr/hr/etc/apps: src/userland/hr/etc/apps
 	@mkdir -p $(dir $@)
 	cp $< $@
 
-# desktop icons (.icn) wserver blits for minimised windows (src -> staging image).
+# desktop icons (.icn) zview blits for minimised windows (src -> staging image).
 HRGUIICONS := $(patsubst src/userland/hr/icons/%,$(ROOT)/usr/hr/icons/%,\
 	$(wildcard src/userland/hr/icons/*.icn))
 $(ROOT)/usr/hr/icons/%: src/userland/hr/icons/%
 	@mkdir -p $(dir $@)
 	cp $< $@
 
-HRGUI_TARGETS := $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/wserver $(HRGUIBIN)/wclock \
-	$(HRGUIBIN)/ptytest $(HRGUIBIN)/wterm $(HRGUIBIN)/hrpump $(HRGUIFONTS) $(ROOT)/usr/hr/etc/apps \
+HRGUI_TARGETS := $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/zview $(HRGUIBIN)/zclock \
+	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIFONTS) $(ROOT)/usr/hr/etc/apps \
 	$(HRGUIICONS)
 
 # ===========================================================================

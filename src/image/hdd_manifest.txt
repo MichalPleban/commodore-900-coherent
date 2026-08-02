@@ -472,10 +472,10 @@ f	/usr/hr/bin/gsh	755	0	1
 f	/usr/hr/bin/hrconsole	755	0	1
 f	/usr/hr/bin/smgr	755	0	1
 f	/usr/hr/bin/gfxtest	755	0	1
-f	/usr/hr/bin/wclock	755	0	1
-f	/usr/hr/bin/wserver	755	0	1
+f	/usr/hr/bin/zclock	755	0	1
+f	/usr/hr/bin/zview	755	0	1
 f	/usr/hr/bin/ptytest	755	0	1
-f	/usr/hr/bin/wterm	755	0	1
+f	/usr/hr/bin/zterm	755	0	1
 f	/usr/hr/bin/hrpump	755	0	1
 f	/usr/hr/fonts/apl.10	644	0	1
 f	/usr/hr/fonts/basker.b.12	644	0	1

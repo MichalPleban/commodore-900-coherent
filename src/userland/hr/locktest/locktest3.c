@@ -1,7 +1,7 @@
 /*
  * locktest3.c - the SAME contention test as locktest2, but exercising the
  * BLOCKING drawing lock (hr_lock/hr_unlock -> hr driver CIOMLOCK/CIOMUNLOCK).
- * Loads /drv/hr first (like wserver) so the slow-path ioctls exist, and dumps
+ * Loads /drv/hr first (like zview) so the slow-path ioctls exist, and dumps
  * the driver's debug counters so we see the wake path.  Correct => viol==0.
  */
 #include <stdio.h>

@@ -1,4 +1,4 @@
 export TIMEZONE=EST:300:EDT
-export PATH=:/bin:/usr/bin
+export PATH=:/bin:/usr/bin:/usr/hr/bin
 : ${TERM=vt52}
 export TERM

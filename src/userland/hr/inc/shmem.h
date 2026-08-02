@@ -25,7 +25,7 @@
  * A .hf file IS this struct: header words first/nch/cellw/cellh, then
  * nch*cellh glyph words (bit15 = leftmost pixel, set = ink; raw gall.c bits,
  * white-on-black -> blit L_NSRC for black-on-white). */
-#define SHM_FONT0	0x0000		/* gallant.hf 12x25 terminal   (4758 B) */
+#define SHM_FONT0	0x0000		/* gallant.hf 12x22 terminal   (4188 B) */
 #define SHM_FONT1	0x1800		/* gacha.hf    9x16 UI chrome   (3048 B) */
 #define SHM_FONT2	0x2800		/* sail.hf     6x8  icon labels (1528 B) */
 /* fonts occupy 0x0000..0x3000; globals + descriptors follow.  Symbolic uses: */

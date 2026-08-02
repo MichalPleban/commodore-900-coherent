@@ -1,3 +1,1 @@
-MicroEMACS not working on lores card ("Terminal type not vt100").
-man has no manpage on its own.
 Check dirty flag on non-root filesystems.
