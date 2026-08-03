@@ -141,62 +141,83 @@ ugetuid()
 }
 
 /*
- * Set the process group.
- * When process group is 0 and a terminal is
- * opened, this process is made the base of
- * processes associated with that terminal.
- */
-usetpgrp(group)
-int group;
-{
-	SELF->p_group = group;
-}
-
-/*
  * Send the signal `sig' to the process with id `pid'.
+ *
+ * `pid' > 0	the process with that id.
+ * `pid' == 0	every process in the sender's process group.
+ * `pid' < -1	every process in process group -`pid'.
+ * `pid' == -1	every process the sender may signal, except the scheduler,
+ *		init, and kernel processes.
+ *
+ * A `sig' of 0 sends nothing: it only tests whether the target exists and
+ * whether we would be allowed to signal it.
  */
 ukill(pid, sig)
-register int pid;
+int pid;
 register unsigned sig;
 {
 	register PROC *pp;
 	register int sigflag;
 
-	if (sig==0 || sig>NSIG) {
+	if (sig > NSIG) {
 		u.u_error = EINVAL;
 		return;
 	}
 	sigflag = 0;
 	lock(pnxgate);
-	for (pp=procq.p_nforw; pp!=&procq; pp=pp->p_nforw) {
-		if (pp->p_state == PSDEAD)
-			continue;
-		switch (pid) {
-		case -1:
+	if (pid > 0) {
+		for (pp=procq.p_nforw; pp!=&procq; pp=pp->p_nforw) {
+			if (pp->p_state == PSDEAD)
+				continue;
+			if (pp->p_pid == pid) {
+				sigflag = 1;
+				if (sig != 0) {
+					if (sigperm(sig, pp))
+						sendsig(sig, pp);
+					else
+						u.u_error = EPERM;
+				}
+				break;
+			}
+		}
+	} else if (pid < -1) {
+		pid = -pid;
+		for (pp=procq.p_nforw; pp!=&procq; pp=pp->p_nforw) {
+			if (pp->p_state == PSDEAD)
+				continue;
+			if (pp->p_group == pid) {
+				sigflag = 1;
+				if (sig != 0) {
+					if (sigperm(sig, pp))
+						sendsig(sig, pp);
+					else
+						u.u_error = EPERM;
+				}
+			}
+		}
+	} else if (pid == 0) {
+		for (pp=procq.p_nforw; pp!=&procq; pp=pp->p_nforw) {
+			if (pp->p_state == PSDEAD)
+				continue;
+			if (pp->p_group == SELF->p_group) {
+				sigflag = 1;
+				if (sig!=0 && sigperm(sig, pp))
+					sendsig(sig, pp);
+			}
+		}
+	} else {
+		for (pp=procq.p_nforw; pp!=&procq; pp=pp->p_nforw) {
+			if (pp->p_state == PSDEAD)
+				continue;
 			if (pp->p_pid == 0)
 				continue;
 			if (pp->p_pid == 1)
 				continue;
+			if ((pp->p_flags&PFKERN) != 0)
+				continue;
 			sigflag = 1;
-			if (super())
+			if (sig!=0 && super())
 				sendsig(sig, pp);
-			continue;
-		case 0:
-			if (pp->p_group == SELF->p_group) {
-				sigflag = 1;
-				if (sigperm(sig, pp))
-					sendsig(sig, pp);
-			}
-			continue;
-		default:
-			if (pp->p_pid == pid) {
-				sigflag = 1;
-				if (sigperm(sig, pp))
-					sendsig(sig, pp);
-				else
-					u.u_error = EPERM;
-			}
-			continue;
 		}
 	}
 	unlock(pnxgate);

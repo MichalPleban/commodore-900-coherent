@@ -2,7 +2,7 @@
  * hrpump.c - tiny I/O pump for the ZView terminal (zterm).
  *
  * zterm multiplexes two blocking input sources -- the pty master's output and
- * the window server's event pipe -- into one "mux" pipe it owns (GUI.md 4.5),
+ * its window's event ring -- into one "mux" pipe it owns (GUI.md 4.5),
  * so the main process blocks on a single read().  The V7 way to watch two fds
  * without select() is a dumb copier per source.  zterm used to fork() those
  * copiers, but fork clones its whole data/BSS (the 6 KB character grid + the
@@ -11,10 +11,10 @@
  * malloc failing so the menu never cleared).  Exec'ing this instead makes each
  * pump a ~2 KB libc-only process.
  *
- * Invoked as:  hrpump <role> <masterfd> <muxwfd> [<evfd>]
+ * Invoked as:  hrpump <role> <masterfd> <muxwfd> [<wid>]
  *   role 'm' (master pump): copy master output -> mux as MX_DATA records; on EOF
  *        emit MX_EOF.
- *   role 'e' (event pump):  read server events; a keystroke (E_KEY) is written
+ *   role 'e' (event pump):  drain the window's event ring; a keystroke (E_KEY) is written
  *        STRAIGHT to the master (so ^C is never starved behind a flood of shell
  *        output), everything else is forwarded to the mux as an MX_EVT record.
  * fd numbers are passed by value (no dup2 renumbering); we close everything else
@@ -22,6 +22,7 @@
  */
 #include <stdio.h>
 #include "wire.h"
+#include "shmem.h"
 
 /* Must match zterm.c. */
 #define	MX_DATA	0
@@ -34,6 +35,52 @@ struct mux {
 };
 
 extern int	atoi();
+extern long	hr_sellen();
+
+/* Ceiling on one paste.  Not a store limit -- the selection may be megabytes in
+ * the file store -- but a pty one: ttstash() (drv/tty.c) silently drops anything
+ * past NCIB-1 = 255 characters within a single LINE, and a huge paste would also
+ * drain the global clist pool that every other tty shares.  So bound it and say
+ * so on the console rather than quietly losing the tail. */
+#define	PASTEMAX	1024
+
+/* Insert the selection as if it had been typed.  Streams -- never holds more
+ * than one chunk -- so a file-backed selection from some future editor pastes
+ * through the same path as a terminal's own two-line one.
+ *
+ * '\n' becomes '\r' because that is what a keystroke would have delivered: the
+ * line discipline turns CR into NL itself (ISCRMOD), and it is that conversion
+ * that makes ttstash push the finished line to the shell. */
+static
+dopaste(mfd)
+{
+	char b[64];
+	long off, len, want;
+	int n, i;
+
+	want = hr_sellen();
+	if ( want <= 0 )
+		return;
+	len = want > PASTEMAX ? PASTEMAX : want;
+	for ( off = 0; off < len; off += n )
+	{
+		n = hr_selread(off, b, sizeof(b));
+		if ( n <= 0 )
+			break;			/* empty, or replaced under us */
+		if ( off + n > len )
+			n = (int)(len - off);
+		for ( i = 0; i < n; i++ )
+			if ( b[i] == '\n' )
+				b[i] = '\r';
+		if ( write(mfd, b, n) != n )
+			break;
+	}
+	/* Only visible when hrpump is run by hand: under the GUI fd 2 is closed
+	 * above, and zview points its own stderr at /dev/null anyway so that
+	 * nothing can scribble on the framebuffer it owns. */
+	if ( want > len )
+		write(2, "hrpump: paste truncated to 1024 bytes\n", 38);
+}
 
 main(argc, argv)
 char **argv;
@@ -50,8 +97,10 @@ char **argv;
 	muxw = atoi(argv[3]);
 	evfd = (argc > 4) ? atoi(argv[4]) : -1;
 
-	for ( f = 0; f < 20; f++ )		/* drop every inherited fd but ours */
-		if ( f != mfd && f != muxw && f != evfd )
+	/* Drop every inherited fd but ours.  NOTE evfd is NOT an fd any more (it is
+	 * the window id for role 'e'), so it must not be spared here. */
+	for ( f = 0; f < 20; f++ )
+		if ( f != mfd && f != muxw )
 			close(f);
 
 	if ( role == 'm' )
@@ -71,17 +120,28 @@ char **argv;
 	}
 	else					/* 'e' */
 	{
+		/* evfd is no longer a pipe fd: it is our WINDOW ID, and events come
+		 * from that window's ring in the shared tail (shmem.h SHM_EVQ).  We
+		 * still exist as a separate process for the same reason as before --
+		 * zterm must block on ONE thing, so we funnel events into its mux. */
 		for (;;)
 		{
-			n = read(evfd, &e, sizeof(e));
-			if ( n <= 0 )
-				break;
-			if ( n != sizeof(e) )
+			hr_evwait(evfd);
+			if ( !hr_evget(evfd, (short *)&e) )
 				continue;
 			if ( e.wm_type == E_KEY )
 			{
 				ch = e.wm_arg[0] & 0xff;
 				write(mfd, &ch, 1);	/* keystroke straight to the shell */
+				continue;
+			}
+			if ( e.wm_type == E_PASTE )
+			{
+				/* Handled HERE, next to the keystroke path and for the
+				 * same reason: this is a separate process, so a paste
+				 * that the shell is slow to swallow cannot stall zterm's
+				 * rendering loop.  zterm never sees the event.  */
+				dopaste(mfd);
 				continue;
 			}
 			mx.tag = MX_EVT;

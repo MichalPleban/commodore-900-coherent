@@ -1,0 +1,20 @@
+: "ZView desktop start-up.  An ordinary /bin/sh script, run by the window"
+: "server when it comes up: this file, not the server, decides what is on"
+: "screen at start-up.  (Note the : lines -- Coherent's sh has no # comment.)"
+:
+: "Start every app in the BACKGROUND with & .  A GUI app does not exit while"
+: "its window is open, so a line without & would hold this script -- and the"
+: "rest of the desktop -- until the user closed that one window."
+:
+: "Options every GUI app understands (inc/hrapp.h):"
+: "	-P <X>,<Y>	where to put the window (top-left of the frame)"
+: "	-S <W>x<H>	content size, for a resizable app only"
+: "	-T <title>	window title	-I <file.icn>	desktop icon"
+: "	-H		start minimised to a desktop icon"
+:
+: "An app left out of here is not lost: the right-click desktop menu lists"
+: "everything in /usr/hr/etc/apps, and any app can also be run by name from a"
+: "terminal window."
+
+/usr/hr/bin/zterm -P 48,40 &
+/usr/hr/bin/zclock -P 470,150 &

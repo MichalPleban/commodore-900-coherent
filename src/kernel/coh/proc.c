@@ -116,8 +116,10 @@ pfork()
 	register int s;
 	MCON mcon;
 
-	if ((cpp=process(NULL)) == NULL)
+	if ((cpp=process(NULL)) == NULL) {
+		u.u_error = EAGAIN;
 		return;
+	}
 	s = sphi();	/* Make usave a null macro if unnecessary */
 	usave();	/* Put the current copy of uarea into its segment */
 	spl(s);
@@ -218,6 +220,14 @@ pexit(s)
 				wakeup((char *)&pts.pt_req);
 		}
 	}
+
+	/*
+	 * We have just released this process' segments, so wake the swapper
+	 * if it is waiting on its timer: there may now be enough core to
+	 * swap somebody back in without waiting out the rest of the interval.
+	 */
+	if (stimer.t_func != NULL)
+		wakeup((char *)&stimer);
 
 	/*
 	 * And finally mark us as dead and give up the processor forever.

@@ -2,13 +2,14 @@
 .SH NAME
 mount \- mount a file system
 .SH SYNOPSIS
-\fB/etc/mount [\fIspecial directory \fB[\-fru]]\fR
+\fB/etc/mount [\fIspecial directory \fB[\-cfruw]]\fR
 .SH DESCRIPTION
 .HS
 mount -- mount file system
-Usage:	/etc/mount [ special directory [-fru] ]
+Usage:	/etc/mount [ special directory [-cfruw] ]
 Options:
 	-r	Mount is read only
+	-c	If not cleanly unmounted, run 'check -s' first, then mount r/w
 	-f	Force read/write even if not cleanly unmounted
 	-w	Remount an already-mounted file system read/write
 	-u	No mount, just update '/etc/mnttab' and/or '/etc/mtab'
@@ -36,17 +37,26 @@ reads the super block of
 .I special
 to check that it holds a properly formed file system and whether
 that file system was cleanly unmounted.
-If it was not, and neither
+If it was not, and none of
+.BR \-c ,
 .B \-f
-nor
+or
 .B \-w
 was given,
 .B mount
-mounts it read-only and suggests running
-.B check
-on it; with
+mounts it read-only and suggests
+.B \-c
+to repair it.
+With
+.B \-c
+it runs
+.B "check \-s"
+on
+.I special
+first and, if that leaves the file system clean, mounts it read/write;
+with
 .B \-f
-it forces a read/write mount instead.
+it forces a read/write mount without repairing anything.
 .B \-w
 leaves the clean/dirty decision to the kernel's
 .B mount()
@@ -69,6 +79,43 @@ and adding the mount time to
 Mount
 .I special
 read-only.
+.IP \fB\-c\fR
+If
+.I special
+was not cleanly unmounted, repair it before mounting: run
+.B "/bin/check \-s"
+on it, wait for it to finish, and re-read the super block.
+.B check
+clears the dirty flag once the file system is consistent again, so the
+mount that follows is read/write.
+If the repair fails, or
+.B check
+cannot be run,
+.B mount
+says so and falls back to the read-only mount described above (unless
+.B \-f
+was also given).
+A file system that was cleanly unmounted is mounted directly, without
+running
+.BR check .
+.B \-c
+is ignored with
+.BR \-r ,
+which asks for a read-only mount anyway, and with
+.BR \-u ,
+which does not mount anything.
+It may be combined with
+.BR \-w :
+the read-only file system is repaired in place and then remounted
+read/write --- the kernel re-reads the super block and the in-core
+inodes, so it picks up the repairs.
+This is what
+.B /etc/rc
+uses to bring up
+.B /u
+and
+.B /tmp
+after an unclean shutdown.
 .IP \fB\-f\fR
 Force a read/write mount even though
 .I special
@@ -91,8 +138,10 @@ kernel has already mounted.
 \fB/etc/mtab\fR	table of mounted file systems
 \fB/etc/mnttab\fR	table of mounted file systems, with mount times
 \fB/etc/boottime\fR	time of the last reboot, used to detect a stale /etc/mtab
+\fB/bin/check\fR	run by \fB\-c\fR to repair a dirty file system
 .DE
 .SH "SEE ALSO"
+.BR check ,
 .BR mkfs ,
 .BR umount ,
 .B mount()
@@ -105,6 +154,12 @@ is not a block-special device, if
 is not a directory, or if
 .I special
 does not hold a properly formed file system.
+With
+.BR \-c ,
+it reports when
+.B check
+could not be run or did not clean the file system, and then mounts
+read-only.
 It exits nonzero if the underlying
 .B mount()
 system call fails, for example because the file system or directory

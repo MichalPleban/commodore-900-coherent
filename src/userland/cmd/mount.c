@@ -10,9 +10,10 @@
 char helpmessage[] = "\
 \
 mount -- mount file system\n\
-Usage:	/etc/mount [ special directory [-fru] ]\n\
+Usage:	/etc/mount [ special directory [-cfruw] ]\n\
 Options:\n\
 	-r	Mount is read only\n\
+	-c	If not cleanly unmounted, run 'check -s' first, then mount r/w\n\
 	-f	Force read/write even if not cleanly unmounted\n\
 	-w	Remount an already-mounted file system read/write\n\
 	-u	No mount, just update '/etc/mnttab' and/or '/etc/mtab'\n\
@@ -36,12 +37,15 @@ If /etc/mnttab is present, then the dates of mounting will be reported.\n\
 
 int	uflag;			/* Update mount table only */
 int	rflag;			/* Read-only mount */
+int	cflag;			/* Repair a dirty fs with 'check -s' */
 int	fflag;			/* Force read/write even if dirty */
 int	wflag;			/* Remount read/write */
 int	dirty;			/* Set by chkspec: fs not cleanly unmounted */
 int	qmtab;			/* Mtab is out of date */
 char	mtabf[] = "/etc/mtab";
 char	mnttabf[] = "/etc/mnttab";	/* System 5 style */
+char	checkcmd[] = "/bin/check";	/* Run by -c on a dirty file system */
+char	checkopt[] = "-s";
 struct	mtab	mtab;
 struct	mnttab	mnttab;
 struct	stat	sbuf;
@@ -77,6 +81,10 @@ register char *ap;
 		switch (c) {
 		case 'r':
 			rflag = MFRON;
+			continue;
+
+		case 'c':
+			cflag++;
 			continue;
 
 		case 'f':
@@ -124,12 +132,28 @@ char *name;
 int flag;
 {
 	register FILE *fp;
-	register int openerr;
+	register int openerr = 0;
 	extern time_t time();
 
 	chkname(name);
 	if (!uflag) {
 		chkspec(special);
+		/*
+		 * With -c a file system that was not cleanly unmounted is
+		 * repaired with 'check -s' before it is mounted; if that
+		 * succeeds the super block is clean again and the mount below
+		 * proceeds read/write.  Pointless when -r asked for a read
+		 * only mount anyway, so it is skipped then.
+		 */
+		if (dirty && cflag && (flag&MFRON)==0) {
+			if (runcheck(special) == 0) {
+				chkspec(special);	/* clean now? */
+				if (dirty)
+					fprintf(stderr,
+"mount: %s: '%s %s' did not clean the file system\n",
+						special, checkcmd, checkopt);
+			}
+		}
 		/*
 		 * A file system that was not cleanly unmounted is mounted
 		 * read only unless the caller forces read/write with -f.
@@ -140,8 +164,8 @@ int flag;
 			if ((flag&(MFRON|MFFORCE)) == 0) {
 				flag |= MFRON;
 				fprintf(stderr,
-"mount: %s: not cleanly unmounted, mounting read only (run 'check -s %s')\n",
-					special, special);
+"mount: %s: not cleanly unmounted, mounting read only (use -c to repair)\n",
+					special);
 			} else if (flag&MFFORCE)
 				fprintf(stderr,
 "mount: %s: not cleanly unmounted, forcing read/write\n", special);
@@ -280,6 +304,40 @@ char *special;
 	}
 	dirty = (f.s_dirty != FSCLEAN);
 	fclose(fp);
+}
+
+/*
+ * Run 'check -s' on `special' (mount -c).  `check' clears the dirty flag in
+ * the super block when the file system is consistent again, so the caller
+ * re-reads it with chkspec() rather than trusting the exit status alone.
+ * Returns 0 if `check' ran to completion, -1 if it could not be run or died.
+ */
+runcheck(special)
+char *special;
+{
+	register int pid;
+	register int wpid;
+	int status;
+
+	fprintf(stderr, "mount: %s: not cleanly unmounted, running '%s %s'\n",
+		special, checkcmd, checkopt);
+	fflush(stderr);
+	if ((pid = fork()) < 0) {
+		fprintf(stderr, "mount: cannot fork to run %s\n", checkcmd);
+		return (-1);
+	}
+	if (pid == 0) {
+		execl(checkcmd, checkcmd, checkopt, special, NULL);
+		fprintf(stderr, "mount: cannot execute %s\n", checkcmd);
+		exit(0177);
+	}
+	while ((wpid = wait(&status)) != pid && wpid >= 0)
+		;
+	if (wpid < 0 || (status&0377) != 0) {
+		fprintf(stderr, "mount: %s did not complete\n", checkcmd);
+		return (-1);
+	}
+	return (0);
 }
 
 canf(fp)

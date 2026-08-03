@@ -12,8 +12,8 @@
  *   - the per-window clip descriptors, so a client can clip its own drawing to
  *     the visible parts of its window (direct-render, Model A).
  * Pixels go straight to the framebuffer and control/events stay on pipes;
- * neither travels through here.  Budget (of 28 KB): 2 font slots 12 KB + globals
- * + 14 descriptors ~1.6 KB = ~14 KB, leaving ~14 KB spare.
+ * neither travels through here.  Budget (of 28 KB): 3 font slots ~7.4 KB of the
+ * 12 KB reserved + globals + 16 descriptors ~1.8 KB, leaving ~14 KB spare.
  */
 #ifndef HRSHMEM_H
 #define HRSHMEM_H
@@ -23,10 +23,14 @@
 
 /* ---- system fonts (server loads a .hf file into each slot) ---------------- *
  * A .hf file IS this struct: header words first/nch/cellw/cellh, then
- * nch*cellh glyph words (bit15 = leftmost pixel, set = ink; raw gall.c bits,
- * white-on-black -> blit L_NSRC for black-on-white). */
-#define SHM_FONT0	0x0000		/* gallant.hf 12x22 terminal   (4188 B) */
-#define SHM_FONT1	0x1800		/* gacha.hf    9x16 UI chrome   (3048 B) */
+ * nch*cellh glyph words (bit15 = leftmost pixel, set = ink; ink=1,
+ * white-on-black -> blit L_NSRC for black-on-white).
+ * The terminal font is 8 px wide ON PURPOSE: one glyph row is exactly one byte
+ * and a window's content origin is 16-aligned, so every character cell lands on
+ * a byte boundary (see zterm/clgfx).  Slot offsets are unchanged from the old
+ * 12x22 gallant terminal font, so slot 0 now has 3.3 KB of slack. */
+#define SHM_FONT0	0x0000		/* gacha.r.hf  8x15 terminal   (2858 B) */
+#define SHM_FONT1	0x1800		/* gacha.b.hf  9x16 UI chrome   (3048 B) */
 #define SHM_FONT2	0x2800		/* sail.hf     6x8  icon labels (1528 B) */
 /* fonts occupy 0x0000..0x3000; globals + descriptors follow.  Symbolic uses: */
 #define SHM_FTERM	SHM_FONT0	/* terminal content */
@@ -95,8 +99,10 @@ typedef struct {
  * and skips the wake syscall when it is 0.  SHM_OWNER is the holder's pid,
  * stamped so the driver's watchdog can reclaim the lock if a client dies holding
  * it.  The kernel hr driver mirrors these three addresses (it cannot include
- * this header) -- keep in sync.  Past the SHM_SURF clip table (14 windows *
- * ~110 B = ~0x604, ending ~0x3704), so 0x3800.. is clear. */
+ * this header) -- keep in sync.  Past the SHM_SURF clip table (16 windows *
+ * ~110 B = 0x6E0, ending 0x37E0), so 0x3800.. is clear -- but only just: a
+ * MAX_WINDOWS past 16, or a bigger SHM_MAXVIS, must move these three words (and
+ * the driver's mirrored addresses) up into the ~14 KB of spare tail. */
 #define SHM_LOCK	0x3800		/* futex word: 0 free / 0xFFFF held    */
 #define SHM_WAIT	0x3802		/* blocked-waiter count (kernel-owned) */
 #define SHM_OWNER	0x3804		/* pid of current holder (0 if none)   */
@@ -126,5 +132,163 @@ extern int	hr_getdraw();		/* server: read a window's flag (drain)  */
  * only on contention -- see hrlock.c. */
 #define CIOMLOCK	('c'<<8 | 20)	/* block until the drawing lock is ours */
 #define CIOMUNLOCK	('c'<<8 | 21)	/* release the lock and wake a waiter   */
+
+/* ---- PRIMARY selection (select-to-copy, middle-click to paste) ------------ *
+ * TWO STORES, EITHER/OR, AND THE OWNER PICKS.  A selection lives WHOLLY in the
+ * tail (sq_file == 0) or WHOLLY in a file (sq_file == the writer's pid, the body
+ * in HRSEL_PFX<pid>) -- never split across both, and never migrated from one to
+ * the other behind the caller's back by some size threshold inside the library.
+ * The owner knows what it is copying and declares the store to hr_selopen():
+ *
+ *   HRSEL_MEM   the tail.  Costs no system call at all, so this is what a
+ *               terminal uses -- a full 80x25 screen is 2025 bytes, under
+ *               HRSEL_INL by construction, so a zterm copy never touches a disk.
+ *   HRSEL_FILE  a file, for an owner (an editor) that cannot bound its content.
+ *
+ * The mode is a property of the WRITE side only: hr_sellen/hr_selread resolve
+ * sq_file themselves, so a paste handles either store with one code path -- which
+ * is what lets a zterm paste a selection far larger than the tail store even
+ * though it only ever writes HRSEL_MEM.
+ *
+ * Readers take NO lock: they retry on sq_seq (odd = a writer is publishing), the
+ * same seqlock idiom as HRSURF above. */
+#define SHM_PRIM	0x3900		/* the PRIMARY selection: header + body */
+#define HRSEL_INL	2048		/* tail-store capacity (80x25 = 2025 B) */
+#define HRSEL_PFX	"/tmp/.hrsel"	/* file store is HRSEL_PFX<pid>         */
+#define HRSEL_MEM	0		/* body lives wholly in the tail        */
+#define HRSEL_FILE	1		/* body lives wholly in a file          */
+#define HRSEL_MAGIC	0x5351		/* 'SQ' -- the store has been initialised */
+typedef struct {
+	short	sq_magic;		/* HRSEL_MAGIC; the tail is garbage RAM  */
+					/* at power-on, so the first writer      */
+					/* stamps this and zeroes the rest --    */
+					/* which is what lets hrclip work on a   */
+					/* boot where zview never ran            */
+	short	sq_seq;			/* seqlock: odd while a writer publishes */
+	short	sq_gen;			/* bumped on every new selection         */
+	short	sq_owner;		/* wid that owns it, -1 = none           */
+	short	sq_file;		/* 0 = body wholly in sq_data, else the  */
+					/* writer's pid and the body is wholly   */
+					/* in HRSEL_PFX<pid> -- never both       */
+	long	sq_len;			/* TOTAL length, whichever store         */
+	char	sq_data[HRSEL_INL];	/* the body, when sq_file == 0           */
+} HRSEL;				/* 2062 B: 0x3900..0x410E                */
+#define hr_prim()	((HRSEL *)(HRTAIL + SHM_PRIM))
+
+/* The selection lock -- deliberately NOT the drawing lock above.  SHM_LOCK
+ * serialises every client's blits and the server's restacking, so taking it here
+ * would stall the whole UI for as long as a selection write ran, and a file-store
+ * write is disk I/O.  This is its own word, and the critical section it guards
+ * contains no system call and no file I/O: the FILE store writes and closes with
+ * NO lock held and takes this one only to publish the header (a few word stores),
+ * which is exactly why hr_selopen() makes the caller declare the store up front.
+ *
+ * Taken with the same TSET as the drawing lock but with NO kernel slow path --
+ * the driver's CIOMLOCK is hardwired to SHM_LOCK's address, and a second futex is
+ * not worth a driver change for a lock held microseconds.  A waiter spins,
+ * bounded, and then STEALS the word if SHM_SELTIME says the holder has had it for
+ * seconds (kill(pid,0) is not an option: this kernel rejects signal 0 with EINVAL,
+ * coh/sys1.c ukill).  A legitimate holder never holds it for a second; a dropped
+ * selection is harmless, a permanently wedged one is not. */
+#define SHM_SELLOCK	0x4110		/* TSET word: 0 free / 0xFFFF held        */
+#define SHM_SELPID	0x4112		/* holder's pid (diagnostic)              */
+#define SHM_SELTIME	0x4114		/* long: time() when taken, for the steal */
+#define SHM_SELPROBE	0x4118		/* scratch word: hr_selok's write/read-back */
+					/* ... ends 0x411A; spare tail follows    */
+
+/* ---- connect acknowledgements ------------------------------------------- *
+ * The server answers a C_CONNECT with E_CONNECTED over the client's event
+ * pipe.  For a client the server FORKED that pipe is an anonymous pipe(2) and
+ * is completely reliable.  For a client started from a shell (the desktop rc)
+ * it is a named pipe the client mknod'd, and that channel has proved NOT to be
+ * reliable: with two such clients starting together the server opens the right
+ * inode (verified by fstat on both ends) and write() returns 16, yet the second
+ * client never sees a byte -- it re-read for 30 s and got nothing.  The result
+ * was a window that exists but is never drawn.
+ *
+ * So the ACK does not travel that way any more.  The server also publishes it
+ * here, in the tail -- the one shared medium in this system that is known
+ * solid -- and the client takes whichever arrives first.  The pipe is still
+ * used for everything afterwards (expose/resize/input); this only removes the
+ * handshake's dependence on it. */
+#define SHM_ACK		0x4120		/* HRACK_N slots */
+#define HRACK_N		16		/* == MAX_WINDOWS (gfx/smgr_defs.h), which
+					 * this header deliberately does not pull in */
+typedef struct {
+	short	ak_pid;			/* client that asked (0 = slot free) */
+	short	ak_wid;			/* window it was given               */
+	short	ak_w, ak_h;		/* granted content size              */
+} HRACK;
+#define hr_ack(i)	((HRACK *)(HRTAIL + SHM_ACK) + (i))
+					/* 16 * 8 = 0x80, ends 0x41A0 */
+
+extern int	hr_ackput();	/* server: publish (pid -> wid, w, h)            */
+extern int	hr_ackget();	/* client: hr_ackget(pid, &wid, &w, &h) -> 1/0   */
+extern int	hr_ackclr();	/* server: drop a pid's slot / clear all (pid 0) */
+
+/* ---- per-window event rings (server -> client) --------------------------- *
+ * This REPLACES the per-client event pipe.  A pipe was the wrong medium here:
+ * on this kernel a pipe IS a file (coh/pipe.c pread/pwrite call fread/fwrite on
+ * the inode), so every event cost block allocation and buffer-cache traffic,
+ * launching a client cost a mknod + unlink in /tmp, and the channel needed a
+ * writable filesystem.  It was also unreliable in exactly the case that matters
+ * -- see [SHM_ACK above].  Events are small, fixed-size and control-rate: they
+ * belong in the shared tail, like everything else here.
+ *
+ * One ring per window, SINGLE producer (the server) and SINGLE consumer (that
+ * window's client), so no lock is needed -- just ordered stores, which this
+ * in-order CPU gives (the same argument SHM_INDRAW rests on).  eq_head and
+ * eq_tail free-run and are masked, so the ring holds EVQ_SLOTS events and the
+ * wrap is a mask, not a divide (GUI.md sec 3.7).
+ *
+ * A FULL ring cannot block the server -- that was the old sendev() hazard which
+ * forced the qexpose/flushexp deferral.  It sets eq_over instead and drops the
+ * event; the client treats "I overflowed" as "repaint everything", which for
+ * E_EXPOSE is exactly the right semantics anyway.
+ *
+ * Blocking is the one thing shared memory cannot do by itself: a client must
+ * SLEEP when its ring is empty (there is no select(), and busy-polling would
+ * burn the whole 6 MHz CPU).  So the driver provides a doorbell, CIOEVWAIT /
+ * CIOEVWAKE, used exactly like the drawing-lock futex: the kernel is entered
+ * only when a client actually has to block, and an event that is already queued
+ * costs NO system call at all.  eq_wait says a consumer is asleep, so the server
+ * only traps when there is really someone to wake.
+ *
+ * EVQ_CONNECT is a 17th ring used only for the handshake: a client has no window
+ * id yet, so it cannot wait on its own ring.  The server bumps this one after
+ * publishing an ack (SHM_ACK) and the client re-checks the table. */
+#define SHM_EVQ		0x4200
+#define EVQ_SLOTS	16		/* power of two: wrap is a mask */
+#define EVQ_MASK	(EVQ_SLOTS - 1)
+#define EVQ_CONNECT	HRACK_N		/* the handshake ring (index 16)  */
+#define EVQ_N		(HRACK_N + 1)	/* per window, plus that one      */
+typedef struct {
+	short	eq_head;		/* producer index, free-running   */
+	short	eq_tail;		/* consumer index, free-running   */
+	short	eq_wait;		/* 1 = consumer asleep in CIOEVWAIT */
+	short	eq_over;		/* 1 = dropped events; repaint all  */
+	short	eq_ev[EVQ_SLOTS][8];	/* one WMSG (wire.h) per slot       */
+} HREVQ;				/* 264 B; 17 rings = 0x4200..0x5388 */
+#define hr_evq(i)	((HREVQ *)(HRTAIL + SHM_EVQ) + (i))
+
+/* Driver doorbell (must match the driver's hr.h). */
+#define CIOEVWAIT	('c'<<8 | 22)	/* sleep until ring <arg> is non-empty */
+#define CIOEVWAKE	('c'<<8 | 23)	/* wake whoever sleeps on ring <arg>   */
+
+extern int	hr_evinit();	/* server: reset one ring (-1 = all)             */
+extern int	hr_evput();	/* server: hr_evput(i, wmsg) -> 0, or -1 if full */
+extern int	hr_evget();	/* client: hr_evget(i, wmsg) -> 1 if one came    */
+extern int	hr_evwait();	/* client: block until ring i has something      */
+extern int	hr_evover();	/* client: read+clear the overflow flag          */
+
+extern int	hr_selopen();	/* writer: hr_selopen(wid, HRSEL_MEM|HRSEL_FILE) */
+extern int	hr_selwrite();	/* writer: hr_selwrite(buf, len), append         */
+extern int	hr_selclose();	/* writer: publish (or discard, on error)        */
+extern long	hr_sellen();	/* reader: total length, either store            */
+extern int	hr_selread();	/* reader: hr_selread(off, buf, max) -> n        */
+extern int	hr_selgen();	/* reader: generation, to notice a change        */
+extern int	hr_selowner();	/* reader: wid that owns it, -1 = none           */
+extern int	hr_selinit();	/* server: initialise the header at start-up     */
+extern int	hr_selok();	/* 1 if the tail is real RAM (no card -> 0)      */
 
 #endif /* HRSHMEM_H */

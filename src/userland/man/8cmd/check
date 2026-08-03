@@ -34,6 +34,12 @@ repaired (no unfixed errors remain),
 .B check
 clears that filesystem's dirty flag in its superblock, so it will
 mount read/write again.
+.PP
+.B "mount \-c"
+runs
+.B "check \-s"
+this way by itself, on a file system that was not cleanly unmounted,
+just before mounting it.
 .SH FILES
 .DS
 .ta 16n
@@ -43,7 +49,8 @@ mount read/write again.
 .SH "SEE ALSO"
 .BR icheck ,
 .BR dcheck ,
-.B mkfs
+.BR mkfs ,
+.B mount
 .SH DIAGNOSTICS
 .B check
 exits \-2 (254) if an internal error occurred (for example,

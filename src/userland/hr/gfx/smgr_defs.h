@@ -71,7 +71,10 @@
 /*
  *	Constants for internal screen manager 
  */
-#define MAX_WINDOWS	(14)
+/* 16 is the ceiling the shared VRAM tail allows without relaying it out: the
+ * SHM_SURF clip table is MAX_WINDOWS * sizeof(HRSURF) (~110 B) from 0x3100 and
+ * must stay below the lock word at 0x3800 -- 16 * 110 = 0x6E0, ending 0x37E0. */
+#define MAX_WINDOWS	(16)
 #define MAX_RBUF	(100)
 #define MAX_UPBUF	(50)
 #define L_EMPTY		(0)

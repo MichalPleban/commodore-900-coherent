@@ -449,6 +449,7 @@ d	/usr/hr/etc	755	0	1
 d	/usr/hr/fonts	755	0	1
 d	/usr/hr/icons	755	0	1
 f	/usr/hr/etc/apps	644	0	1
+f	/usr/hr/etc/rc	755	0	1
 f	/usr/hr/icons/term.icn	644	0	1
 f	/usr/hr/icons/clock.icn	644	0	1
 f	/usr/hr/icons/icon0.icn	644	0	1
@@ -477,6 +478,7 @@ f	/usr/hr/bin/zview	755	0	1
 f	/usr/hr/bin/ptytest	755	0	1
 f	/usr/hr/bin/zterm	755	0	1
 f	/usr/hr/bin/hrpump	755	0	1
+f	/usr/hr/bin/hrclip	755	0	1
 f	/usr/hr/fonts/apl.10	644	0	1
 f	/usr/hr/fonts/basker.b.12	644	0	1
 f	/usr/hr/fonts/basker.i.12	644	0	1
@@ -489,8 +491,8 @@ f	/usr/hr/fonts/gacha.b.7	644	0	1
 f	/usr/hr/fonts/gacha.b.8	644	0	1
 f	/usr/hr/fonts/gacha.r.7	644	0	1
 f	/usr/hr/fonts/gallant.r.10	644	0	1
-f	/usr/hr/fonts/gallant.hf	644	0	1
-f	/usr/hr/fonts/gacha.hf	644	0	1
+f	/usr/hr/fonts/gacha.r.hf	644	0	1
+f	/usr/hr/fonts/gacha.b.hf	644	0	1
 f	/usr/hr/fonts/sail.hf	644	0	1
 f	/usr/hr/fonts/icons48	644	0	1
 f	/usr/hr/fonts/sail.r.6	644	0	1

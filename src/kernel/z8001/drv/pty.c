@@ -61,9 +61,12 @@
 #include <sched.h>
 #include <signal.h>
 
-#define	NPTY		4	/* number of master/slave pairs		*/
+#define	NPTY		8	/* number of master/slave pairs		*/
 #define	PTY_MASTER	0x08	/* minor bit: 1 = master (ptyp) side	*/
 #define	PTY_UNIT	0x07	/* minor bits: pair index (0..NPTY-1)	*/
+				/* NPTY 8 is the ceiling this minor	*/
+				/* encoding allows: unit 0..7 in the	*/
+				/* low 3 bits, bit 3 selects the master	*/
 
 /*
  * Functions.

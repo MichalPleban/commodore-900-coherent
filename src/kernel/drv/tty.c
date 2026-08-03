@@ -56,6 +56,10 @@ register TTY *tp;
  * ttsetgrp - set process group when process
  * does not have one.
  * Also set up process's controlling terminal.
+ * There is no setpgrp system call, so this is the only place a process
+ * group is ever established: the first process to open a terminal with
+ * no group of its own becomes the base of that terminal's group, and
+ * everything it forks inherits the group.
  */
 ttsetgrp(tp, ctdev)
 register TTY *tp;
@@ -91,8 +95,8 @@ register TTY *tp;
 			sleep((char *)&tp->t_oq, CVTTOUT, IVTTOUT, SVTTOUT);
 		}
 		spl(s);
-		if (SELF->p_ssig && nondsig()) 
-		   u.u_error = EINTR;
+		if (SELF->p_ssig && nondsig())
+		   break;	/* give up the drain, don't spin on the signal */
 	}
 	ttflush(tp);
 	tp->t_flags = tp->t_group = 0;
@@ -211,9 +215,10 @@ ttioctl(tp, com, vec)
 register TTY *tp;
 register struct sgttyb *vec;
 {
-	register int	flush = 0;  
+	register int	flush = 0;
 	register int	drain = 0;
 		 int    rload = 0;
+		 int	s;
 
 	switch (com) {
 	case TIOCQUERY:
@@ -255,10 +260,9 @@ register struct sgttyb *vec;
 	case TIOCGETTF:		/* get tty flag word */
 		kucopy(&tp->t_flags, (unsigned *) vec, sizeof(unsigned));
 		break;	
-	case TIOCFLUSH: 
+	case TIOCFLUSH:
 		++flush;        /* flush both input and output */
-		++drain;	
-		break;
+		break;		/* discarding output: nothing to drain for */
 	case TIOCBREAD:		/* blocking read for CBREAK/RAW mode */
 		tp->t_flags |= T_BRD;		
 		break;
@@ -269,11 +273,24 @@ register struct sgttyb *vec;
 		u.u_error = EINVAL;
 	}
 	if (drain != 0) {
+		/*
+		 * Make sure output can actually move before we wait for it.
+		 * Entering RAWIN with output suspended by an X-OFF would
+		 * otherwise wedge here forever.
+		 */
+		if (ISRIN && (tp->t_flags&T_STOP) != 0) {
+			s = sphi();
+			tp->t_flags &= ~T_STOP;
+			ttstart(tp);
+			spl(s);
+		}
 		while (tp->t_oq.cq_cc != 0) {
 			tp->t_flags |= T_DRAIN;
 			sleep((char *)&tp->t_oq, CVTTOUT, IVTTOUT, SVTTOUT);
-			if (SELF->p_ssig && nondsig()) 
-			   u.u_error = EINTR;
+			if (SELF->p_ssig && nondsig()) {
+				u.u_error = EINTR;
+				break;	/* don't spin on the pending signal */
+			}
 		}
 	}
 	if (flush != 0)

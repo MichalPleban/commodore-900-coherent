@@ -1,10 +1,16 @@
 # ZView launchable applications, read by zview at startup.
-# One line per app:  name:iconfile:execpath:contentW:contentH:multi
-#   name        menu label / window-title base
-#   iconfile    .icn under /usr/hr/icons (desktop icon when hidden)
-#   execpath    program; run as: execpath wid contentW contentH cellW cellH
-#   contentW/H  default content size in pixels (terminal: multiple of the 12x25 cell)
+# One line per app:  name:execpath:multi
+#   name        menu label
+#   execpath    program; run with a bare argv (no window arguments)
 #   multi       1 = may open many (launcher shows "New <name>...");
 #               0 = single instance (launcher shows "<name>..."; re-launch raises it)
-Shell:term.icn:/usr/hr/bin/zterm:960:600:1
-Clock:clock.icn:/usr/hr/bin/zclock:240:240:0
+#
+# The window itself -- title, size, icon, whether it may be stretched -- is NOT
+# configured here: the application declares it at start-up (hr_open, see
+# inc/hrapp.h), so a program can also be run straight from a shell.
+#
+# This is the LAUNCHER MENU only.  What comes up when the desktop starts is a
+# separate thing: the shell script /usr/hr/etc/rc, which is also where an app's
+# position/size/minimised options go (an entry here is run with a bare argv).
+Shell:/usr/hr/bin/zterm:1
+Clock:/usr/hr/bin/zclock:0

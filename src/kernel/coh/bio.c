@@ -441,7 +441,13 @@ dev_t dev;
 	spl(s);
 	if (sp != NULL)
 		--sp->s_lrefc;
-	wakeup((char *)&stimer);
+	/*
+	 * Only poke the swapper if its timer is actually armed; otherwise
+	 * every completed block transfer costs a needless walk of the
+	 * process list looking for a sleeper that cannot be there.
+	 */
+	if (stimer.t_func != NULL)
+		wakeup((char *)&stimer);
 	if ((bp->b_flag&BFERR) != 0) {
 		u.u_error = bp->b_err ? bp->b_err : EIO;
 		goto out;

@@ -315,6 +315,14 @@ unsigned mode;
 		}
 		ino = sbp->s_inode[--sbp->s_ninode];
 		--sbp->s_tinode;
+		/*
+		 * Mark the super block modified again *after* the free inode
+		 * list has been updated.  The refill above sleeps in bread(),
+		 * and a sync landing in that window clears s_fmod (and writes
+		 * FSCLEAN), which would otherwise discard everything we just
+		 * did to s_inode/s_ninode/s_tinode.  A no-op if nothing raced.
+		 */
+		smod(mp);
 		unlock(mp->m_ilock);
 		if ((ip=iattach(dev, ino)) != NULL) {
 			if (ip->i_mode != 0) {

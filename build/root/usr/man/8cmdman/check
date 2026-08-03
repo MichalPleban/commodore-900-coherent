@@ -20,12 +20,15 @@ DDEESSCCRRIIPPTTIIOONN
      unfixed errors remain), cchheecckk clears that filesystem's dirty
      flag in its superblock, so it will mount read/write again.
 
+     mmoouunntt -cc runs cchheecckk -ss this way by itself, on a file system
+     that was not cleanly unmounted, just before mounting it.
+
 FFIILLEESS
           /bbiinn/iicchheecckk     i-node consistency check
           /bbiinn/ddcchheecckk     directory consistency check
 
 SSEEEE AALLSSOO
-     iicchheecckk, ddcchheecckk, mmkkffss
+     iicchheecckk, ddcchheecckk, mmkkffss, mmoouunntt
 
 DDIIAAGGNNOOSSTTIICCSS
      cchheecckk exits -2 (254) if an internal error occurred (for ex-

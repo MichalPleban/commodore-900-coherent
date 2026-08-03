@@ -8,7 +8,7 @@ NNAAMMEE
      mount - mount a file system
 
 SSYYNNOOPPSSIISS
-     /eettcc/mmoouunntt [_s_p_e_c_i_a_l _d_i_r_e_c_t_o_r_y [-ffrruu]]
+     /eettcc/mmoouunntt [_s_p_e_c_i_a_l _d_i_r_e_c_t_o_r_y [-ccffrruuww]]
 
 DDEESSCCRRIIPPTTIIOONN
      mmoouunntt grafts the file system held on block-special device
@@ -19,11 +19,14 @@ DDEESSCCRRIIPPTTIIOONN
      Before mounting, mmoouunntt reads the super block of _s_p_e_c_i_a_l to
      check that it holds a properly formed file system and
      whether that file system was cleanly unmounted.  If it was
-     not, and neither -ff nor -ww was given, mmoouunntt mounts it read-
-     only and suggests running cchheecckk on it; with -ff it forces a
-     read/write mount instead.  -ww leaves the clean/dirty deci-
-     sion to the kernel's mmoouunntt() call, which itself refuses to
-     mount a dirty file system read/write unless forced.
+     not, and none of -cc, -ff or -ww was given, mmoouunntt mounts it
+     read-only and suggests -cc to repair it.  With -cc it runs
+     cchheecckk -ss on _s_p_e_c_i_a_l first and, if that leaves the file sys-
+     tem clean, mounts it read/write; with -ff it forces a
+     read/write mount without repairing anything.  -ww leaves the
+     clean/dirty decision to the kernel's mmoouunntt() call, which it-
+     self refuses to mount a dirty file system read/write unless
+     forced.
 
      After mounting (or, with -uu, without actually mounting any-
      thing), mmoouunntt records the mount in /eettcc/mmnnttttaabb (if it can be
@@ -32,6 +35,23 @@ DDEESSCCRRIIPPTTIIOONN
 
      -rr   Mount _s_p_e_c_i_a_l read-only.
 
+     -cc   If _s_p_e_c_i_a_l was not cleanly unmounted, repair it before
+          mounting: run /bbiinn/cchheecckk -ss on it, wait for it to
+          finish, and re-read the super block.  cchheecckk clears the
+          dirty flag once the file system is consistent again, so
+          the mount that follows is read/write.  If the repair
+          fails, or cchheecckk cannot be run, mmoouunntt says so and falls
+          back to the read-only mount described above (unless -ff
+          was also given).  A file system that was cleanly un-
+          mounted is mounted directly, without running cchheecckk. -cc
+          is ignored with -rr, which asks for a read-only mount
+          anyway, and with -uu, which does not mount anything.  It
+          may be combined with -ww: the read-only file system is
+          repaired in place and then remounted read/write --- the
+          kernel re-reads the super block and the in-core inodes,
+          so it picks up the repairs.  This is what /eettcc/rrcc uses
+          to bring up /uu and /ttmmpp after an unclean shutdown.
+
      -ff   Force a read/write mount even though _s_p_e_c_i_a_l was not
           cleanly unmounted.
 
@@ -39,29 +59,9 @@ DDEESSCCRRIIPPTTIIOONN
           access, leaving the clean/dirty decision to the kernel.
 
      -uu   Do not mount anything; only add or update the entry for
-          _s_p_e_c_i_a_l in /eettcc/mmnnttttaabb and /eettcc/mmttaabb. This is used at
-          boot time to record the root file system, which the
-          kernel has already mounted.
-
-FFIILLEESS
-          /eettcc/mmttaabb       table of mounted file systems
-          /eettcc/mmnnttttaabb     table of mounted file systems, with mount times
-          /eettcc/bboooottttiimmee   time of the last reboot, used to detect a stale /etc/mtab
-
-SSEEEE AALLSSOO
-     mmkkffss, uummoouunntt, mmoouunntt()
-
-DDIIAAGGNNOOSSTTIICCSS
-     mmoouunntt complains if _s_p_e_c_i_a_l is not a block-special device, if
-     _d_i_r_e_c_t_o_r_y is not a directory, or if _s_p_e_c_i_a_l does not hold a
-     properly formed file system.  It exits nonzero if the under-
-     lying mmoouunntt() system call fails, for example because the
-     file system or directory is already busy.
-
-NNOOTTEESS
 
 
-CCOOHHEERREENNTT AAddmmiinniissttrraattiioonn MMaannuuaall                             PPaaggee 11
+COHERENT Administration Manual                             Page 1
 
 
 
@@ -70,6 +70,29 @@ mmoouunntt                                                       mmoouun
 
 
 
+          _s_p_e_c_i_a_l in /eettcc/mmnnttttaabb and /eettcc/mmttaabb. This is used at
+          boot time to record the root file system, which the
+          kernel has already mounted.
+
+FFIILLEESS
+          /eettcc/mmttaabb       table of mounted file systems
+          /eettcc/mmnnttttaabb     table of mounted file systems, with mount times
+          /eettcc/bboooottttiimmee   time of the last reboot, used to detect a stale /etc/mtab
+          /bbiinn/cchheecckk      run by -cc to repair a dirty file system
+
+SSEEEE AALLSSOO
+     cchheecckk, mmkkffss, uummoouunntt, mmoouunntt()
+
+DDIIAAGGNNOOSSTTIICCSS
+     mmoouunntt complains if _s_p_e_c_i_a_l is not a block-special device, if
+     _d_i_r_e_c_t_o_r_y is not a directory, or if _s_p_e_c_i_a_l does not hold a
+     properly formed file system.  With -cc, it reports when cchheecckk
+     could not be run or did not clean the file system, and then
+     mounts read-only.  It exits nonzero if the underlying
+     mmoouunntt() system call fails, for example because the file sys-
+     tem or directory is already busy.
+
+NNOOTTEESS
      Mounting requires read and write access to _s_p_e_c_i_a_l itself,
      which in practice restricts mmoouunntt to the superuser, since
      block special files are normally not writable by other

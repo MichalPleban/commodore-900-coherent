@@ -73,6 +73,22 @@ HDRS       := $(wildcard $(INCSRC)/*.h $(INCSRC)/sys/*.h)
 INC_TARGET := $(patsubst $(INCSRC)/%,$(INCDIR)/%,$(HDRS))
 
 # ---------------------------------------------------------------------------
+# Header dependencies
+# ---------------------------------------------------------------------------
+# The compile rules see one .c at a time and the compiler emits no dependency
+# information, so nothing here can know which headers a source pulled in.  Each
+# subsystem therefore declares its header set ($(HDRS) here, $(KHDRS), $(HRHDRS),
+# $(HRGUIHDRS) below) and EVERY object of that subsystem depends on ALL of it.
+#
+# Deliberately coarse: editing a header rebuilds more than it strictly must,
+# which costs a minute of compiling.  The alternative failure -- an object left
+# behind, compiled against a struct layout or a manifest constant that no longer
+# exists -- is silent, and produces a system that builds cleanly and then
+# misbehaves at run time.  That has cost hours more than once (a stale kernel
+# object after a param.h change; a GUI client holding an HRAPP one field short of
+# the hr_open() that writes it), so the trade is not close.
+
+# ---------------------------------------------------------------------------
 # libc - compile every .c; assemble a .s only when there is no matching .c
 # (the paired .s files are stale output of the original compiler; the .s-only
 # files are the hand-written primitives: syscall stubs, strcmp, setjmp, ...).
@@ -122,7 +138,7 @@ $(INCDIR)/%.h: $(INCSRC)/%.h
 	@mkdir -p $(dir $@)
 	cp $< $@
 
-$(OBJ)/%.o: $(SRC)/%.c
+$(OBJ)/%.o: $(SRC)/%.c $(HDRS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -131,7 +147,7 @@ $(OBJ)/%.o: $(SRC)/%.s
 	$(AS) $(ASFLAGS) -o $@ $<
 
 # Generated sources (e.g. a yacc y.tab.c) live in the obj tree, not src/.
-$(OBJ)/%.o: $(OBJ)/%.c
+$(OBJ)/%.o: $(OBJ)/%.c $(HDRS)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -226,9 +242,8 @@ $(BIN_TARGETS): $(BINDIR)/%: $(OBJ)/userland/cmd/%.o $(CRT) $(LIBC)
 $(ETC_TARGETS): $(ETCDIR)/%: $(OBJ)/userland/cmd/%.o $(CRT) $(LIBC)
 	$(call link,$<)
 
-# init embeds VERSION from <machine.h>, so rebuild it when that header changes
-# (the generic %.o rule has no header prerequisites).
-$(OBJ)/userland/cmd/init.o: $(INCSRC)/machine.h
+# (init embeds VERSION from <machine.h>; that -- like every other header in
+# src/include -- is covered by the $(HDRS) prerequisite on the compile rules.)
 
 $(addprefix $(OBJ)/userland/cmd/,$(addsuffix .o,$(KERN_ETC_CMDS))): CFLAGS += -I$(SRC)/kernel/h
 $(KERN_ETC_TARGETS): $(ETCDIR)/%: $(OBJ)/userland/cmd/%.o $(CRT) $(LIBC)
@@ -531,6 +546,10 @@ cmds: $(CMD_TARGETS)
 
 KSRC    = $(SRC)/kernel
 KINC    = -I$(KSRC)/z8001/h -I$(KSRC)/h
+# Every kernel header, for the dependency line below the object lists.  The
+# driver subdirectories carry their own (lrtty/hrtty device headers).
+KHDRS  := $(wildcard $(KSRC)/h/*.h $(KSRC)/z8001/h/*.h $(KSRC)/drv/*.h \
+	$(KSRC)/z8001/drv/*.h $(KSRC)/z8001/drv/*/*.h)
 KDEF    = -DK1 -DNLD -DFIVEINCH -UDDT
 # Kernel headers precede $(INCSRC) so they are not shadowed by src/include.
 KCFLAGS = -O -ftraditional -Dreadonly=const $(KINC) -I$(INCSRC) $(KDEF)
@@ -578,6 +597,14 @@ HRTTY_OBJS := $(addprefix $(OBJ)/kernel/z8001/drv/hrtty/,\
 NOTTY_OBJS := $(OBJ)/kernel/z8001/drv/notty.o
 # Pseudo-terminal driver: loadable /drv module (kept out of resident kernel).
 PTY_OBJS := $(OBJ)/kernel/z8001/drv/pty.o
+
+# Every kernel object -- C and the cpp-preprocessed assembly -- is rebuilt when
+# any kernel header changes.  Without this a `make kernel` after editing (say)
+# param.h relinks objects compiled against the OLD layout: it builds, boots, and
+# then misbehaves, which reads as a code bug and is not one.
+KERNEL_OBJS := $(COH_OBJS) $(CMDR_OBJS) $(KWD) $(KSWAP) $(WDCON) $(FDCON) \
+	$(NOTTY_OBJS) $(PTY_OBJS) $(LRTTY_OBJS) $(HRTTY_OBJS) $(KMD)
+$(KERNEL_OBJS): $(KHDRS)
 
 # Kernel C objects use the kernel flags (replacing the userland CFLAGS).
 $(COH_OBJS) $(CMDR_OBJS) $(KWD) $(KSWAP) $(WDCON) $(FDCON) $(NOTTY_OBJS) $(PTY_OBJS): CFLAGS = $(KCFLAGS)
@@ -735,14 +762,16 @@ HRBIN  = $(ROOT)/usr/hr/bin
 HRCFLAGS  = -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRHDR)
 # driver: kernel flags, with the hr headers LAST so the kernel headers win.
 HRKCFLAGS = $(KCFLAGS) -I$(HRHDR)
+# hr headers: hdr/ plus the system ones (and the kernel's, for the driver TU).
+HRHDRS   := $(wildcard $(HRHDR)/*.h) $(HDRS) $(KHDRS)
 
 # hr object pattern rules (the generic src/ rules don't match _graphics/).
-$(HROBJ)/%.o: $(HRSRC)/%.c
+$(HROBJ)/%.o: $(HRSRC)/%.c $(HRHDRS)
 	@mkdir -p $(dir $@)
 	$(CC) $(HRCFLAGS) -c $< -o $@
 # hr assembly: block1/2 and small1/2 use cpp directives; cpp -P is a harmless
 # pass-through for the rest.  (Mirrors the historical smgr .s.o rule.)
-$(HROBJ)/%.o: $(HRSRC)/%.s
+$(HROBJ)/%.o: $(HRSRC)/%.s $(HRHDRS)
 	@mkdir -p $(dir $@)
 	$(CPP) -P -I$(HRHDR) $< $@.i
 	$(AS) $(ASFLAGS) -o $@ $@.i
@@ -807,10 +836,10 @@ $(ROOT)/usr/hr/fonts/%: $(HRFONTSRC)/%
 # the hrcon_ config symbol; bind -k against the symboled kernel; must be +x.
 # The driver carries NO font: hrgui loads the font file into the shared VRAM tail
 # (src/userland/hr/inc/shmem.h) and every client blits from that single copy.
-$(DRVDIR)/hr: $(HROBJ)/driver/hr.o $(HROBJ)/driver/hrasm.o $(KSYM)
-	@mkdir -p $(dir $@)
-	$(LD) -X -o $@ $(HROBJ)/driver/hr.o $(HROBJ)/driver/hrasm.o -k$(KSYM)
-	chmod +x $@
+# NOTE: the rule that builds /drv/hr now lives in the ZView section below.  The
+# driver source moved out of the untracked _graphics/ salvage into the tracked
+# tree at $(HRGUISRC)/drv/; the legacy `hr' target still uses it, because there
+# is only one hr driver and now only one rule for it.
 
 HR_TARGETS := $(DRVDIR)/hr \
 	$(addprefix $(HRBIN)/,smgr dmgr gmgr gsh clock clocksh hrconsole) \
@@ -842,12 +871,18 @@ HRGUIBIN = $(ROOT)/usr/hr/bin
 # The engine's sources #include <smgr.h> etc. from their own directory.
 HRGFXCFLAGS = -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRGFXDIR)
 
+# ZView headers: the engine's (gfx/) and the client/server contract (inc/), plus
+# the system ones.  inc/ matters most -- wire.h and hrapp.h define records and
+# structs that the server and EVERY client must agree on byte for byte, so a
+# client object left unrebuilt against a changed wire.h is a live memory bug.
+HRGUIHDRS := $(wildcard $(HRGUISRC)/gfx/*.h $(HRGUISRC)/inc/*.h) $(HDRS)
+
 # ZView object pattern rules (own CFLAGS; the .s use cpp directives like the
 # historical hr blitters, so preprocess with cpp -P before as).
-$(HRGUIOBJ)/%.o: $(HRGUISRC)/%.c
+$(HRGUIOBJ)/%.o: $(HRGUISRC)/%.c $(HRGUIHDRS)
 	@mkdir -p $(dir $@)
 	$(CC) $(HRGFXCFLAGS) -c $< -o $@
-$(HRGUIOBJ)/%.o: $(HRGUISRC)/%.s
+$(HRGUIOBJ)/%.o: $(HRGUISRC)/%.s $(HRGUIHDRS)
 	@mkdir -p $(dir $@)
 	$(CPP) -P -I$(HRGFXDIR) $< $@.i
 	$(AS) $(ASFLAGS) -o $@ $@.i
@@ -874,7 +909,9 @@ $(HRGUIBIN)/gfxtest: $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) 
 # --- Phase 1: window server + clock client ---
 # Both need the shared wire protocol header in addition to the engine headers.
 $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zclock/zclock.o \
-	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o \
+	$(HRGUIOBJ)/clgfx/hrsel.o $(HRGUIOBJ)/cmd/hrclip.o \
+	$(HRGUIOBJ)/clgfx/hrapp.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
 
 # clgfx.o: the client-side direct-render draw library (GUI.md Model A).  Clients
 # link it + globals.o + libhrgfx.a, which pulls ONLY bitblt + its asm inner loops
@@ -882,15 +919,26 @@ $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zclock/zclock.o \
 # hrlock.o + hrtas.o: the global drawing lock -- a userland TSET futex fast path
 # (hrtas.s) with a kernel slow path (CIOMLOCK/CIOMUNLOCK) taken only on
 # contention.  Linked into every client AND the server.
-HRLOCK := $(HRGUIOBJ)/clgfx/hrlock.o $(HRGUIOBJ)/clgfx/hrtas.o
-CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRLOCK)
+# hrapp.o: client start-up (hr_open) -- an app declares its own window (title,
+# size, icon, flags) to the server instead of taking them on the command line.
+HRTAS  := $(HRGUIOBJ)/clgfx/hrtas.o
+HRLOCK := $(HRGUIOBJ)/clgfx/hrlock.o $(HRTAS)
+# hrsel.o: the PRIMARY selection store (inc/shmem.h).  It needs the TSET but NOT
+# hrlock.o -- the selection has its own lock word (SHM_SELLOCK) precisely so that
+# a copy never takes the global drawing lock and stalls the UI.  Kept apart from
+# HRLOCK so a consumer that only wants the selection (hrpump, hrclip) links
+# $(HRSEL) $(HRTAS) and no drawing-lock code at all.
+HRSEL := $(HRGUIOBJ)/clgfx/hrsel.o
+# NOT in CLGFX: a client that never touches the selection (zclock) should not
+# carry the store.  Consumers name $(HRSEL) explicitly.
+CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrapp.o $(HRLOCK)
 
 # zview owns the screen: links the engine (libhrgfx) + globals.o directly.
 # Fonts are loaded at runtime from /usr/hr/fonts/*.hf into the shared VRAM tail
 # (inc/shmem.h) and blitted with the engine's bitblt -- no embedded/kernel font.
-$(HRGUIBIN)/zview: $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zview: $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
 
 # zclock: direct-render graphics client -- links clgfx + globals + libhrgfx so it
 # blits its own face/hands straight to VRAM; needs libm (sin/cos).
@@ -906,31 +954,47 @@ $(HRGUIBIN)/ptytest: $(HRGUIOBJ)/ptytest/ptytest.o $(CRT) $(LIBC)
 # zterm: direct-render terminal -- pty + VT parser + clgfx (blits its own text
 # straight to VRAM, hardware-scrolls when fully visible).
 $(HRGUIOBJ)/zterm/zterm.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
-$(HRGUIBIN)/zterm: $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zterm: $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
 
 # hrpump: the terminal's I/O pumps, a tiny libc-only helper zterm execs instead
 # of forking copies of itself (memory: keeps a few open terminals from exhausting
 # RAM).  NO libhrgfx/clgfx -- it only shuffles bytes between fds.
 $(HRGUIOBJ)/zterm/hrpump.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
-$(HRGUIBIN)/hrpump: $(HRGUIOBJ)/zterm/hrpump.o $(CRT) $(LIBC)
+$(HRGUIBIN)/hrpump: $(HRGUIOBJ)/zterm/hrpump.o $(HRSEL) $(HRLOCK) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zterm/hrpump.o $(LIBC)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zterm/hrpump.o $(HRSEL) $(HRLOCK) $(LIBC)
+
+# hrclip: read/set the PRIMARY selection from a shell.  Not a GUI client -- no
+# window, no clgfx, no engine; just the selection store, whose writer side needs
+# hrtas.o for the TSET.  It is also how the store is tested on the plain serial
+# emulator, before any mouse plumbing exists.
+$(HRGUIBIN)/hrclip: $(HRGUIOBJ)/cmd/hrclip.o $(HRSEL) $(HRLOCK) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/cmd/hrclip.o $(HRSEL) $(HRLOCK) $(LIBC)
 
 # The ZView system fonts: generated into the shared-VRAM .hf format the server
 # loads into the tail (tools/mkfont.py); every client blits from that single
-# copy -- no relink, no per-glyph trap.  gallant.hf (terminal) from the kernel
-# gall.c table; gacha.hf (UI chrome) + sail.hf (icon labels) from the FM fonts.
-HRGUIFONTS = $(ROOT)/usr/hr/fonts/gallant.hf $(ROOT)/usr/hr/fonts/gacha.hf \
+# copy -- no relink, no per-glyph trap.  All three come from the FM fonts:
+# gacha.r.hf 8x15 (terminal -- 8px cell = byte-aligned glyph output),
+# gacha.b.hf 9x16 (UI chrome) and sail.hf 6x8 (icon labels).
+HRGUIFONTS = $(ROOT)/usr/hr/fonts/gacha.r.hf $(ROOT)/usr/hr/fonts/gacha.b.hf \
 	$(ROOT)/usr/hr/fonts/sail.hf
-$(HRGUIFONTS): tools/mkfont.py src/kernel/z8001/drv/hrtty/gall.c \
+$(HRGUIFONTS): tools/mkfont.py $(ROOT)/usr/hr/fonts/gacha.r.7 \
 		$(ROOT)/usr/hr/fonts/gacha.b.8 $(ROOT)/usr/hr/fonts/sail.r.6
 	@mkdir -p $(dir $@)
 	$(PYTHON) tools/mkfont.py
 
 # the launchable-app catalog zview reads at startup (src -> staging image).
 $(ROOT)/usr/hr/etc/apps: src/userland/hr/etc/apps
+	@mkdir -p $(dir $@)
+	cp $< $@
+
+# the desktop start-up script: a /bin/sh script zview runs when it comes up,
+# naming the apps to open (with their -P/-S/-H options) -- so the first screen
+# is configuration, not server code (src -> staging image).
+$(ROOT)/usr/hr/etc/rc: src/userland/hr/etc/rc
 	@mkdir -p $(dir $@)
 	cp $< $@
 
@@ -941,9 +1005,29 @@ $(ROOT)/usr/hr/icons/%: src/userland/hr/icons/%
 	@mkdir -p $(dir $@)
 	cp $< $@
 
-HRGUI_TARGETS := $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/zview $(HRGUIBIN)/zclock \
-	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIFONTS) $(ROOT)/usr/hr/etc/apps \
-	$(HRGUIICONS)
+# --- the hi-res driver (/drv/hr) ---
+# Keyboard ISR, polled mouse, hardware cursor, and the drawing-lock futex slow
+# path (CIOMLOCK/CIOMUNLOCK).  Loadable l.out: keep globals (-X) so `load' finds
+# the hrcon_ config symbol, bind -k against the symboled kernel, and it must be +x.
+#
+# It is a KERNEL translation unit but it lives under the ZView tree because it
+# belongs to this subsystem rather than to the generic kernel -- it is versioned
+# and changed together with the server and clients that depend on it, and it was
+# the last piece still being built out of the untracked _graphics/ salvage.
+# hr.c #includes hr2.c, so the two are a single object.  Kernel CFLAGS, with the
+# engine's headers on the path for rico.h.
+$(HRGUIOBJ)/drv/hr.o: HRGFXCFLAGS = $(KCFLAGS) -I$(HRGFXDIR)
+$(HRGUIOBJ)/drv/hr.o: $(HRGUISRC)/drv/hr2.c $(HRGUISRC)/drv/hr.h $(KHDRS)
+
+$(DRVDIR)/hr: $(HRGUIOBJ)/drv/hr.o $(HRGUIOBJ)/drv/hrasm.o $(KSYM)
+	@mkdir -p $(dir $@)
+	$(LD) -X -o $@ $(HRGUIOBJ)/drv/hr.o $(HRGUIOBJ)/drv/hrasm.o -k$(KSYM)
+	chmod +x $@
+
+HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/zview $(HRGUIBIN)/zclock \
+	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIBIN)/hrclip \
+	$(HRGUIFONTS) \
+	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/rc $(HRGUIICONS)
 
 # ===========================================================================
 # Prebuilt / script artifacts  (src/dist -> build/root)

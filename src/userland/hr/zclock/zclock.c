@@ -4,8 +4,8 @@
  * Face/hand geometry is lifted from the salvaged _graphics/hr clock.c (GUI.md
  * sec 5.2 "reuse the demo content"); everything else is new.  It is a plain
  * process -- no jlib, no coroutines -- that:
- *   - learns its window id and content size from argv (the server created the
- *     window and forked us with HR_EVFD/HR_CMDFD wired up);
+ *   - declares the window it wants (title, size, icon, resizable) to the server
+ *     with hr_open() and is told its window id and granted content size back;
  *   - draws by writing window-relative command records to the server;
  *   - auto-updates once a second via SIGALRM (differential hand redraw);
  *   - repaints the whole face on an E_EXPOSE event (redraw-on-expose), which is
@@ -20,6 +20,7 @@
 #include "wire.h"
 #include "shmem.h"
 #include "clgfx.h"
+#include "hrapp.h"
 
 #ifndef PI
 #define PI	3.14159265358979323846
@@ -28,6 +29,10 @@
 #define BIG	12		/* minute hand length (in 1/16 of radius) */
 #define LITTLE	9		/* hour hand				  */
 #define SECOND	13		/* second hand				  */
+
+/* What we ask the server for: a square face, our own icon, and permission to be
+ * stretched (the face is drawn to whatever content size we end up with). */
+HRAPP	me = { "Clock", "clock.icn", 240, 240, HRF_STRETCH };
 
 int	mywid;
 int	cxmax, cymax;		/* content size			*/
@@ -221,11 +226,10 @@ char **argv;
 	WMSG e;
 	int n;
 
-	if ( argc < 4 )
-		exit(1);
-	mywid = atoi(argv[1]);
-	cxmax = atoi(argv[2]);
-	cymax = atoi(argv[3]);
+	if ( (mywid = hr_open(&me, &argc, argv)) < 0 )
+		exit(1);		/* no window server (hr_open does cl_init) */
+	cxmax = me.ha_w;		/* the size we were GRANTED */
+	cymax = me.ha_h;
 	cxcen = cxmax / 2;
 	cycen = cymax / 2;
 	cxrad = cxmax / 2 - 8;
@@ -233,7 +237,6 @@ char **argv;
 	if ( cxrad < 8 ) cxrad = 8;
 	if ( cyrad < 8 ) cyrad = 8;
 
-	cl_init(mywid);			/* direct-render: map VRAM + clip descriptor */
 	setpoints();
 	repaint();			/* initial draw */
 
@@ -242,8 +245,11 @@ char **argv;
 
 	for (;;)
 	{
-		n = read(HR_EVFD, &e, sizeof(e));
-		if ( n == sizeof(e) )
+		/* Block on our event ring (shmem.h SHM_EVQ) -- no pipe, and no system
+		 * call at all when an event is already queued.  SIGALRM breaks the
+		 * wait, which is what keeps the second hand ticking. */
+		hr_evwait(hr_wid());
+		while ( hr_evget(hr_wid(), (short *)&e) )
 		{
 			if ( e.wm_type == E_EXPOSE )
 				repaint();
@@ -261,8 +267,8 @@ char **argv;
 				repaint();
 			}
 		}
-		else if ( n == 0 )
-			exit(0);		/* server gone */
+		if ( hr_evover(hr_wid()) )	/* we fell behind: assume the worst */
+			repaint();
 
 		if ( tickflag )
 		{

@@ -94,3 +94,182 @@ hr_getdraw(wid)
 {
 	return INDRAW[wid] & 0xff;
 }
+
+/* ------------------------------------------------------------------ */
+/* connect acknowledgements in the tail (shmem.h SHM_ACK)             */
+/* ------------------------------------------------------------------ */
+/* Lives here rather than in hrapp.c because the SERVER needs the publish half
+ * and does not link hrapp.o.  A slot is one writer (the server) and one reader
+ * (the client that owns the pid), and every field is a word the CPU stores
+ * atomically, so ak_pid stamped LAST is all the handshake a reader needs. */
+
+hr_ackput(pid, wid, w, h)
+{
+	register HRACK *a;
+	register int i;
+
+	for ( i = 0; i < HRACK_N; i++ )	/* reuse this pid's slot if any */
+		if ( hr_ack(i)->ak_pid == pid )
+			break;
+	if ( i == HRACK_N )
+		for ( i = 0; i < HRACK_N; i++ )
+			if ( hr_ack(i)->ak_pid == 0 )
+				break;
+	if ( i == HRACK_N )
+		return -1;
+	a = hr_ack(i);
+	a->ak_wid = wid;
+	a->ak_w = w;
+	a->ak_h = h;
+	a->ak_pid = pid;		/* published last: makes the slot valid */
+	return 0;
+}
+
+hr_ackget(pid, pwid, pw, ph)
+int *pwid, *pw, *ph;
+{
+	register HRACK *a;
+	register int i;
+
+	for ( i = 0; i < HRACK_N; i++ )
+	{
+		a = hr_ack(i);
+		if ( a->ak_pid == pid )
+		{
+			*pwid = a->ak_wid;
+			*pw = a->ak_w;
+			*ph = a->ak_h;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/* pid 0 clears every slot (server start-up: the tail is uninitialised RAM). */
+hr_ackclr(pid)
+{
+	register int i;
+
+	for ( i = 0; i < HRACK_N; i++ )
+		if ( pid == 0 || hr_ack(i)->ak_pid == pid )
+			hr_ack(i)->ak_pid = 0;
+	return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* per-window event rings (shmem.h SHM_EVQ)                           */
+/* ------------------------------------------------------------------ */
+/* Single producer (server) / single consumer (the window's client), so the
+ * indices need no lock -- only ordered stores, which this in-order CPU gives.
+ * The kernel is touched ONLY to block or to wake, never to move an event. */
+
+static int	evfd = -1;		/* an hr-driver fd for the doorbell */
+
+static
+hr_evio(cmd, i)
+{
+	if ( evfd < 0 )
+		evfd = open("/dev/dmgr", 2);	/* non-exclusive, any client may */
+	if ( evfd >= 0 )
+		ioctl(evfd, cmd, (char *)i);
+	return 0;
+}
+
+/* Reset a ring (i < 0 = all).  The server does this at start-up, because the
+ * tail is uninitialised RAM, and again whenever a window id is reused -- a
+ * stale client must never inherit the previous occupant's queue. */
+hr_evinit(i)
+{
+	register HREVQ *q;
+	register int k;
+
+	if ( i < 0 )
+	{
+		for ( k = 0; k < EVQ_N; k++ )
+			hr_evinit(k);
+		return 0;
+	}
+	q = hr_evq(i);
+	q->eq_head = 0;
+	q->eq_tail = 0;
+	q->eq_wait = 0;
+	q->eq_over = 0;
+	return 0;
+}
+
+/* Producer.  NEVER blocks: a full ring sets eq_over and drops the event, so a
+ * client that has stopped draining can no longer wedge the server (which is
+ * what the old pipe write could do, hence qexpose/flushexp). */
+hr_evput(i, ev)
+short *ev;
+{
+	register HREVQ *q;
+	register short *d;
+	register int k;
+
+	q = hr_evq(i);
+	if ( (short)(q->eq_head - q->eq_tail) >= EVQ_SLOTS )
+	{
+		q->eq_over = 1;
+		return -1;
+	}
+	d = q->eq_ev[q->eq_head & EVQ_MASK];
+	for ( k = 0; k < 8; k++ )
+		d[k] = ev[k];
+	q->eq_head++;			/* published AFTER the payload */
+	if ( q->eq_wait )
+		hr_evio(CIOEVWAKE, i);	/* only trap if someone is asleep */
+	return 0;
+}
+
+/* Consumer.  Returns 1 and fills ev, or 0 when the ring is empty. */
+hr_evget(i, ev)
+short *ev;
+{
+	register HREVQ *q;
+	register short *s;
+	register int k;
+
+	q = hr_evq(i);
+	if ( q->eq_head == q->eq_tail )
+		return 0;
+	s = q->eq_ev[q->eq_tail & EVQ_MASK];
+	for ( k = 0; k < 8; k++ )
+		ev[k] = s[k];
+	q->eq_tail++;
+	return 1;
+}
+
+/* Read and clear "the server had to drop events for me". */
+hr_evover(i)
+{
+	register HREVQ *q;
+	register int was;
+
+	q = hr_evq(i);
+	was = q->eq_over;
+	q->eq_over = 0;
+	return was;
+}
+
+/* Block until ring i has something.  Announces eq_wait BEFORE the final
+ * emptiness test so a producer between the two cannot lose the wake -- the
+ * driver re-checks under sphi() as well, closing it on the kernel side too.
+ * Returns immediately (no system call) when an event is already queued. */
+hr_evwait(i)
+{
+	register HREVQ *q;
+
+	q = hr_evq(i);
+	if ( q->eq_head != q->eq_tail )
+		return 0;
+	q->eq_wait = 1;
+	if ( q->eq_head != q->eq_tail )	/* raced with a producer: no sleep */
+	{
+		q->eq_wait = 0;
+		return 0;
+	}
+	hr_evio(CIOEVWAIT, i);
+	q->eq_wait = 0;
+	return 0;
+}

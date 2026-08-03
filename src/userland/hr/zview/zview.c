@@ -17,10 +17,11 @@
  * gfx_reply_hook and turned into E_EXPOSE events to the affected client, which
  * repaints (redraw-on-expose, GUI.md sec 2.10).
  *
- * Phase 1a is self-driven: it launches a few overlapping clocks and, on its own
- * timer, raises them in turn -- exercising cover/uncover so the expose path can
- * be seen ticking correctly under partial cover without any mouse yet.  Phase 1b
- * adds the input pump + mouse-driven menu/move/resize/raise/minimise.
+ * Nothing about the desktop's contents is compiled in: what comes up at start-up
+ * is the shell script /usr/hr/etc/rc (runrc), and what the right-click desktop
+ * menu offers is the catalog /usr/hr/etc/apps (loadapps).  An app declares its
+ * own window when it connects (wire.h HRCONN), and may be started either by us
+ * or straight from a shell.
  */
 #include <stdio.h>
 #include <signal.h>
@@ -46,7 +47,6 @@ extern int	(*gfx_reply_hook)();
 struct win {
 	int	used;
 	int	pid;		/* client process               */
-	int	evfd;		/* server -> client event pipe  */
 	int	min;		/* 1 if minimised to a desktop icon */
 	int	islot;		/* desktop-icon slot while minimised */
 	int	sx, sy, sw, sh;	/* saved geometry while minimised */
@@ -55,6 +55,8 @@ struct win {
 	char	base[16];	/* app name, before any #N suffix */
 	int	inst;		/* stable instance number among same-base windows */
 	char	icon[40];	/* .icn file for the desktop icon */
+	int	appi;		/* catalog entry it was launched from (-1 unknown) */
+	int	stretch;	/* 1 = the client allows the user to resize it */
 } wins[MAX_WINDOWS];
 
 int	cmdfd;			/* server end (read) of the shared command pipe */
@@ -62,18 +64,33 @@ int	cmdwr;			/* write end kept so children can inherit it    */
 
 /* Launchable applications, read from /usr/hr/etc/apps at startup (GUI.md: a
  * data-driven launcher menu so new software installs without recompiling the
- * server).  One line per app: name:iconpath:execpath:contentW:contentH .  The
- * table is fixed-size bss (no heap) and the strings are filled at runtime, so
- * nothing here bloats the near-full data segment. */
+ * server).  One line per app: name:execpath:multi .  The catalog says only what
+ * the SERVER has to decide -- what the launcher menu reads and whether a second
+ * copy may be started; the window's title, size, icon and flags belong to the
+ * application and reach us in its C_CONNECT (wire.h), so an app can also be run
+ * with a bare argv from a shell.  The table is fixed-size bss (no heap) and the
+ * strings are filled at runtime, so nothing here bloats the near-full data
+ * segment. */
 #define MAX_APPS	12
 struct app {
-	char	name[16];	/* menu label / window title base */
-	char	icon[40];	/* .icn file (used by the desktop icons, Phase 4) */
+	char	name[16];	/* menu label                                     */
 	char	path[40];	/* executable                                     */
-	int	w, h;		/* default content size in pixels                 */
 	int	multi;		/* 1 = allow many instances; 0 = single (re-raise) */
 } apps[MAX_APPS];
 int	napps;
+
+/* Launches that have been forked but have not yet sent their C_CONNECT.  The
+ * window does not exist yet -- all we hold is where the click asked for it, which
+ * catalog entry it is, and the event pipe the child already inherited; the client
+ * supplies the rest.  Matched to the incoming record by pid. */
+struct pend {
+	int	used;
+	int	pid;
+	int	ai;		/* catalog index */
+	int	x, y;		/* requested window origin */
+	int	seq;		/* launch order, for reclaiming the oldest slot */
+} pends[MAX_WINDOWS];
+int	pendseq;
 
 int	nwins;			/* count of live windows          */
 int	focuswid = -1;		/* window that receives keystrokes (Phase 2) */
@@ -82,11 +99,13 @@ int	focuswid = -1;		/* window that receives keystrokes (Phase 2) */
  * into it once at startup, then the server AND every direct-render client blit
  * glyphs straight from that single copy with the asm bitblt (a whole glyph ROW
  * per masked word op -- never the per-pixel path the old kernel CIOGLYPH used).
- * SHM_FTERM = gallant 12x22 (terminal), SHM_FUI = gacha 9x16 (title bars/menus),
- * SHM_FICON = sail 6x8 (minimized-icon labels).  Terminal cell metrics drive
- * C_TEXT/C_ERASE and the cols/rows handed to terminal clients. */
-#define HRFW	12		/* gallant (terminal) glyph cell width  (px) */
-#define HRFH	22		/* gallant (terminal) glyph cell height (px) */
+ * SHM_FTERM = gacha regular 8x15 (terminal), SHM_FUI = gacha bold 9x16 (title
+ * bars/menus), SHM_FICON = sail 6x8 (minimized-icon labels).  Terminal cell
+ * metrics drive the (retired) C_TEXT/C_ERASE only: a terminal client reads the
+ * font's own cellw/cellh out of the tail and sizes itself, so no cell metric is
+ * handed out any more. */
+#define HRFW	8		/* gacha.r (terminal) glyph cell width  (px) */
+#define HRFH	15		/* gacha.r (terminal) glyph cell height (px) */
 
 int	termcw = HRFW;		/* terminal cell width  (px) */
 int	termch = HRFH;		/* terminal cell height (px) */
@@ -94,9 +113,17 @@ RECT	srvhrclip;		/* extra clip for glyphs (title bar); off if empty */
 
 /* mouse / interaction state (Phase 1b) */
 int	mx, my;			/* current pointer position (global coords) */
-int	dragwid = -1;		/* window being dragged/resized, or -1      */
-int	dragmode;		/* 0 none, 1 move, 2 resize                 */
-int	grabx, graby;		/* pointer offset into the window at grab   */
+
+/* Pointer grab, for the selection gesture (wire.h E_BUTTON/E_MOTION).  A left
+ * press inside a window's CONTENT grabs the pointer for that window and the
+ * matching release lets it go; motion is forwarded to the client only in
+ * between.  A client that is not dragging therefore never sees a motion stream
+ * at all -- which matters because sendev() writes to a pipe, so a client that
+ * fell behind could otherwise block the whole server.  lastgx/lastgy suppress a
+ * motion record identical to the one before it. */
+int	grabwid = -1;		/* window holding the pointer grab, or -1   */
+int	lastgx = -1, lastgy = -1;	/* last motion forwarded (dedupe)   */
+int	selwid = -1;		/* window that owns the selection, or -1    */
 extern int who_top_at();
 int	curfd = -1;		/* a driver fd for cursor on/off (CIOMSE*) */
 int	pumppid = -1;		/* the input-pump child (killed on WM quit) */
@@ -165,6 +192,8 @@ srvlock()
  * stale-clip primitive slip through (the spin-breaker firing).  So queue the
  * exposes and flush them the instant the lock is dropped, never while held. */
 int	pendexp;			/* bitmask of wids awaiting E_EXPOSE */
+int	pex0[MAX_WINDOWS], pey0[MAX_WINDOWS];	/* and the damaged content rect, */
+int	pex1[MAX_WINDOWS], pey1[MAX_WINDOWS];	/* accumulated as a union        */
 flushexp()
 {
 	int w;
@@ -174,8 +203,8 @@ flushexp()
 		{
 			pendexp &= ~(1 << w);
 			if ( wins[w].used && wtbl[w] )
-				sendev(w, E_EXPOSE, 0, 0,
-					wtbl[w]->wn_Psize.x, wtbl[w]->wn_Psize.y);
+				sendev(w, E_EXPOSE, pex0[w], pey0[w],
+					pex1[w] - pex0[w], pey1[w] - pey0[w]);
 		}
 }
 srvunlock()
@@ -188,20 +217,50 @@ srvunlock()
 	}
 }
 
-/* Request a full-content E_EXPOSE for wid.  While the lock is held it is queued
- * (flushed by srvunlock); otherwise it is sent immediately. */
-qexpose(wid)
+/* Request an E_EXPOSE for the CONTENT-relative, half-open rect (x0,y0)-(x1,y1).
+ * While the lock is held it is queued (flushed by srvunlock); otherwise it goes
+ * out at once.
+ *
+ * Damage for one window accumulates as a BOUNDING UNION rather than a list of
+ * rects.  A client repaints one rectangle per event, so N rects would cost N
+ * events and N repaint passes; the union costs one, and the slack it adds is
+ * cells the client would usually have to walk anyway.  What matters is that the
+ * common cases stay small -- uncovering a strip of a terminal repaints that
+ * strip, not the 80x25 grid behind it. */
+qexposer(wid, x0, y0, x1, y1)
 {
-	if ( wid < 0 || wid >= MAX_WINDOWS )
+	if ( wid < 0 || wid >= MAX_WINDOWS || !wins[wid].used || !wtbl[wid] )
 		return;
-	if ( locklevel == 0 )
+	if ( x0 < 0 ) x0 = 0;
+	if ( y0 < 0 ) y0 = 0;
+	if ( x1 > wtbl[wid]->wn_Psize.x ) x1 = wtbl[wid]->wn_Psize.x;
+	if ( y1 > wtbl[wid]->wn_Psize.y ) y1 = wtbl[wid]->wn_Psize.y;
+	if ( x0 >= x1 || y0 >= y1 )
+		return;				/* nothing of the content was hit */
+	if ( pendexp & (1 << wid) )
 	{
-		if ( wins[wid].used && wtbl[wid] )
-			sendev(wid, E_EXPOSE, 0, 0,
-				wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
+		if ( x0 < pex0[wid] ) pex0[wid] = x0;
+		if ( y0 < pey0[wid] ) pey0[wid] = y0;
+		if ( x1 > pex1[wid] ) pex1[wid] = x1;
+		if ( y1 > pey1[wid] ) pey1[wid] = y1;
 	}
 	else
+	{
+		pex0[wid] = x0;  pey0[wid] = y0;
+		pex1[wid] = x1;  pey1[wid] = y1;
 		pendexp |= 1 << wid;
+	}
+	if ( locklevel == 0 )
+		flushexp();
+}
+
+/* Request a FULL-content E_EXPOSE for wid: everything this window has is gone
+ * (it was just mapped, resized, or restacked from underneath). */
+qexpose(wid)
+{
+	if ( wid < 0 || wid >= MAX_WINDOWS || !wins[wid].used || !wtbl[wid] )
+		return;
+	qexposer(wid, 0, 0, wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
 }
 
 /* the driver's default arrow cursor sprite (from the old smgr) */
@@ -217,12 +276,41 @@ int MOV_MOUSE[] = { 0x0000, 0x01b0, 0x19b0, 0x19b6,
 		    0x07fe, 0x67fe, 0x7ffe, 0x3ffe,
 		    0x1ffc, 0x07fc, 0x07f8, 0x03f8 };
 
+/* ...and ITS hotspot: the middle of the hand.  Unlike the arrows this shape has
+ * no tip -- it is a fist -- so what it grabs with is its centre, which is the
+ * centre of its ink (x 1..14, y 1..15) and so of its cell.
+ *
+ * Only RESIZE needs this.  Move is immune by construction: ghostdrag() records
+ * gx = mx - origin at the grab and then tracks nx = mx - gx, so any constant
+ * offset cancels and the window keeps whatever relationship to the hand it had
+ * when it was grabbed.  Resize instead puts the frame's corner AT the pointer,
+ * which without this correction is the sprite's top-left -- the corner ends up
+ * outside the hand, above and left of it, instead of in its grip. */
+#define MOV_HOTX	8
+#define MOV_HOTY	8
+
 /* the menu cursor (original desktop dmouse.c MNU_MOUSE): a right-pointing arrow
  * shown while a pop-up menu is open, then DEF_MOUSE is restored. */
 int MNU_MOUSE[] = { 0x0000, 0x0180, 0x01c0, 0x01e0,
 		    0x01f0, 0xfff8, 0xfffc, 0xfffe,
 		    0xffff, 0xfffe, 0xfffc, 0xfff8,
 		    0x01f0, 0x01e0, 0x01c0, 0x0180 };
+
+/* ...and its HOTSPOT.  The driver has no notion of one: hrdraw() (drv/hr2.c)
+ * puts the sprite's top-left corner at the pointer position.  That is right for
+ * the shapes whose point IS that corner -- DEF_MOUSE is a wedge aimed up-left
+ * out of (0,0) -- but MNU_MOUSE points RIGHT, so the pixel it aims with is the
+ * middle of its right edge, 15 across and 8 down.  Left uncorrected the menu
+ * highlights the item under the sprite's top-left corner while the arrow
+ * visibly points at a different one, and near the bottom of the box the arrow
+ * points at an item that cannot be selected at all.
+ *
+ * So while this cursor is up the menu works in TIP coordinates throughout: the
+ * box is placed at the tip and mnu_item() hit-tests the tip.  Doing both keeps
+ * the top-margin rule intact (the menu still opens with the tip ABOVE item 0,
+ * so a press-and-release with no drag selects nothing, as in the original). */
+#define MNU_HOTX	15
+#define MNU_HOTY	8
 
 /* checkpoint tracing to the console (fd 2), for bring-up; off by default */
 int	trace = 0;
@@ -281,18 +369,49 @@ char *label;
 #define SAVEW(w)	(*wtbl[w] = gk)
 
 /* Send one event record to a client. */
+/* Global pointer position -> a window's CONTENT-relative coordinates.  Reads the
+ * origin and size straight out of the clip descriptor the server already
+ * publishes for every window (shmem.h HRSURF), so there is no second source of
+ * truth for where a window's content is.  Returns 0 when the point is outside
+ * the content rect -- a hit on the title bar or the shadow is the window
+ * manager's, not the client's. */
+static
+toclient(wid, gx, gy, cx, cy)
+int *cx, *cy;
+{
+	register HRSURF *sp;
+	register int x, y;
+
+	if ( wid < 0 || wid >= MAX_WINDOWS || !wins[wid].used || wins[wid].min )
+		return 0;
+	sp = hr_surf(wid);
+	if ( !sp->mapped )
+		return 0;
+	x = gx - sp->ox;
+	y = gy - sp->oy;
+	if ( x < 0 || y < 0 || x >= sp->cw || y >= sp->ch )
+		return 0;
+	*cx = x;
+	*cy = y;
+	return 1;
+}
+
 sendev(wid, type, a0, a1, a2, a3)
 {
 	WMSG e;
 
-	if ( !wins[wid].used )
+	if ( wid < 0 || wid >= MAX_WINDOWS || !wins[wid].used )
 		return;
 	e.wm_type = type;
 	e.wm_wid = wid;
 	e.wm_arg[0] = a0; e.wm_arg[1] = a1;
 	e.wm_arg[2] = a2; e.wm_arg[3] = a3;
 	e.wm_arg[4] = e.wm_arg[5] = 0;
-	write(wins[wid].evfd, &e, sizeof(e));
+	/* Into the window's ring in the shared tail (shmem.h SHM_EVQ), not a pipe.
+	 * This CANNOT block: a client that stopped draining gets its ring marked
+	 * overflowed and the event dropped, where a pipe write would have stalled
+	 * the whole server -- the hazard qexpose/flushexp exists to dodge. */
+	hr_evput(wid, (short *)&e);
 }
 
 /*
@@ -465,6 +584,14 @@ killwin(wid)
 
 	if ( !wins[wid].used )
 		return;
+	if ( grabwid == wid )			/* died mid-drag: drop the pointer grab */
+	{
+		grabwid = -1;
+		lastgx = lastgy = -1;
+	}
+	if ( selwid == wid )			/* its highlight goes with the window */
+		selwid = -1;
+	hr_ackclr(wins[wid].pid);	/* release its connect-ack slot */
 	sendev(wid, E_QUIT, 0, 0, 0, 0);	/* outside the lock: may block */
 	hr_setdraw(wid, 0);		/* client is gone: drop its drain flag so the */
 					/* srvlock() below (and later ops) don't spin */
@@ -482,7 +609,6 @@ killwin(wid)
 		free((char *)wtbl[wid]);
 		wtbl[wid] = (WSTRUCT *)NULL;
 	}
-	close(wins[wid].evfd);
 	wins[wid].used = 0;
 	nwins--;
 	relabel(base);				/* drop #N from a surviving sibling */
@@ -497,8 +623,19 @@ raisewin(wid)
 {
 	if ( !wins[wid].used || !wtbl[wid] )
 		return;
-	srvlock();
+	/* Already frontmost?  Then nothing is restacked and nothing is uncovered,
+	 * so there is nothing to expose.  upfront() itself returns early in that
+	 * case, but the rest of this function did not -- so every click-to-raise on
+	 * a window that was already in front still sent its client a full-content
+	 * E_EXPOSE and made it repaint everything for nothing.  That is once per
+	 * click, and it is also the press that STARTS a text selection, which is
+	 * why a drag began with the whole terminal flashing through a repaint.
+	 * publish_all() is skipped for the same reason: a clip descriptor cannot
+	 * have changed if the z-order did not. */
 	focuswid = wid;				/* raised window takes the keyboard */
+	if ( wtbl[wid]->wn_Layer == DM_frontmost )
+		return;
+	srvlock();
 	LOADW(wid);
 	gfx_cursor_hide();
 	upfront(gkLayer);			/* exposes whatever it now covers... */
@@ -519,14 +656,22 @@ expose_covered(exclwid, rx0, ry0, rx1, ry1)
 {
 	int w;
 	LAYER *lp;
+	HRSURF *sp;
 
 	for ( w = 0; w < MAX_WINDOWS; w++ )
 		if ( w != exclwid && wins[w].used && !wins[w].min && wtbl[w] &&
 		     (lp = wtbl[w]->wn_Layer) &&
 		     lp->rect.origin.x < rx1 && lp->rect.corner.x > rx0 &&
 		     lp->rect.origin.y < ry1 && lp->rect.corner.y > ry0 )
-			sendev(w, E_EXPOSE, 0, 0,
-				wtbl[w]->wn_Psize.x, wtbl[w]->wn_Psize.y);
+		{
+			/* Only the part this window had COVERED is damaged, so send
+			 * that and not the whole content: sp->ox/oy is where the
+			 * content sits on screen (shmem.h HRSURF), and qexposer
+			 * clips the result back to the content rect. */
+			sp = hr_surf(w);
+			qexposer(w, rx0 - sp->ox, ry0 - sp->oy,
+				    rx1 - sp->ox, ry1 - sp->oy);
+		}
 }
 
 /* Send a window to the back (window-menu "Back", the opposite of "Front"). */
@@ -802,13 +947,22 @@ startpump()
 /* ------------------------------------------------------------------ */
 
 /* Hidden windows iconify to icons on the desktop (period-authentic: no dock).
- * Icons sit in a row across the lower desktop; each is a 48x48 .icn glyph with
- * the window title beneath.  Slots pack left-to-right (lowest free slot). */
+ * Icons start at the TOP-LEFT of the desktop and pack left-to-right (lowest free
+ * slot); each is a 48x48 .icn glyph with the window title beneath.  A row holds
+ * ICONPR of them and further slots wrap onto the next row down, so the desktop
+ * takes as many rows as the minimised windows need. */
 #define ICONW	48			/* icon glyph size */
-#define ICONLH	10			/* label height (one sail 6x8 row + pad) */
-#define ICONCW	104			/* per-icon cell width */
-#define ICONROWY (YMAX - (ICONW + ICONLH + 8))
-#define iconx(slot) (12 + (slot) * ICONCW)
+#define ICONLH	11			/* label height: 1px gap under the icon + a
+					 * white plate of 1px pad + sail 6x8 + 1px pad */
+#define ICONPAD	8			/* cell margin around the 48px glyph */
+#define ICONCW	(ICONW + 2 * ICONPAD)	/* per-icon cell width == column pitch */
+#define ICONCH	(ICONW + ICONLH + 8)	/* per-icon cell height == row pitch */
+#define ICONLMAX ((ICONCW - 2) / 6)	/* label chars that fit (sail is 6 wide) */
+#define ICONX0	12			/* left margin of the icon field */
+#define ICONY0	12			/* top margin of the icon field */
+#define ICONPR	((XMAX - 2 * ICONX0) / ICONCW)	/* icons per row */
+#define iconx(slot) (ICONX0 + ((slot) % ICONPR) * ICONCW)
+#define icony(slot) (ICONY0 + ((slot) / ICONPR) * ICONCH)
 
 extern int	*texture[];
 extern int	words_between();
@@ -1144,15 +1298,32 @@ RECT cell, out[];
  * makes it reappear via redraw_icons). */
 drawicon(wid, on)
 {
-	RECT cell, label, vr[ICONRB], lc;
-	int x, y, nvr, i;
+	RECT cell, plate, vr[ICONRB], lc;
+	HRFONT *f;
+	char lab[ICONLMAX + 1];
+	int x, y, nvr, i, lx, ly, nc;
 
 	x = iconx(wins[wid].islot);
-	y = ICONROWY;
-	cell.origin.x = x - 4;             cell.origin.y = y - 2;
-	cell.corner.x = x + ICONCW - 12;   cell.corner.y = y + ICONW + ICONLH + 2;
-	label.origin.x = cell.origin.x;    label.origin.y = y + ICONW;
-	label.corner.x = cell.corner.x;    label.corner.y = y + ICONW + ICONLH;
+	y = icony(wins[wid].islot);
+	cell.origin.x = x - ICONPAD;             cell.origin.y = y - 2;
+	cell.corner.x = x + ICONW + ICONPAD;     cell.corner.y = y + ICONW + ICONLH + 2;
+	/* The label is black-on-white; the glyph cells alone would butt straight
+	 * against the (also white) icon artwork and read as one blob.  So sit the
+	 * text 2px below the icon and paint a white plate one pixel bigger than the
+	 * text on every side: 1px of bare desktop separates plate from icon, and
+	 * 1px of white pads the glyphs inside the plate.  The label is centred under
+	 * the glyph and truncated to what the cell holds. */
+	f = hr_font(SHM_FICON);
+	nc = strlen(wins[wid].title);
+	if ( nc > ICONLMAX )
+		nc = ICONLMAX;
+	strncpy(lab, wins[wid].title, nc);
+	lab[nc] = '\0';
+	lx = x + (ICONW - nc * f->cellw) / 2;
+	ly = y + ICONW + 2;
+	plate.origin.x = lx - 1;           plate.origin.y = ly - 1;
+	plate.corner.x = lx + nc * f->cellw + 1;
+	plate.corner.y = ly + f->cellh + 1;
 	nvr = desktop_rects(cell, vr, ICONRB);
 	gfx_cursor_hide();
 	for ( i = 0; i < nvr; i++ ) {
@@ -1160,9 +1331,13 @@ drawicon(wid, on)
 		if ( !on )
 			continue;
 		srvicon(x, y, wins[wid].icon, vr[i]);	/* app icon, clipped */
-		lc = R_Intersection(label, vr[i]);
-		if ( !R_null(lc) )
-			srvmenuglyphs(SHM_FICON, x, y + ICONW, wins[wid].title, lc);
+		if ( nc <= 0 )
+			continue;
+		lc = R_Intersection(plate, vr[i]);
+		if ( !R_null(lc) ) {
+			srvfill(lc, 0, L_TRUE);		/* white plate under the text */
+			srvmenuglyphs(SHM_FICON, lx, ly, lab, lc);
+		}
 	}
 	gfx_cursor_show();
 }
@@ -1325,13 +1500,15 @@ movewin(wid, nx, ny)
 	redraw_icons();			/* moving off an icon must repaint it */
 }
 
-/* Resize window wid so its outer corner is (cx,cy). */
+/* Resize window wid so its outer corner is (cx,cy).  Only for a client that
+ * allowed it (HRF_STRETCH); the window menu already hides "Stretch" otherwise,
+ * this is the belt-and-braces check. */
 resizewin(wid, cx, cy)
 {
 	RECT r;
 	int nw, nh;
 
-	if ( !wtbl[wid] )
+	if ( !wtbl[wid] || !wins[wid].stretch )
 		return;
 	srvlock();
 	r.origin = wtbl[wid]->wn_Layer->rect.origin;
@@ -1359,7 +1536,7 @@ resizewin(wid, cx, cy)
 /* ------------------------------------------------------------------ */
 
 /* Read /usr/hr/etc/apps into apps[].  One line per app:
- * name:iconpath:execpath:contentW:contentH  ('#'/blank lines skipped). */
+ * name:execpath:multi  ('#'/blank lines skipped). */
 loadapps()
 {
 	int fd, nb;
@@ -1378,7 +1555,7 @@ loadapps()
 	p = buf;
 	while ( *p && napps < MAX_APPS )
 	{
-		char *fld[6];
+		char *fld[3];
 		int nf;
 
 		e = p;
@@ -1393,7 +1570,7 @@ loadapps()
 			nf = 0;
 			fld[nf++] = p;
 			f = p;
-			while ( nf < 6 )
+			while ( nf < 3 )
 			{
 				while ( *f && *f != ':' )
 					f++;
@@ -1402,17 +1579,14 @@ loadapps()
 				*f++ = 0;
 				fld[nf++] = f;
 			}
-			if ( nf >= 3 )
+			if ( nf >= 2 )
 			{
 				struct app *a;
 
 				a = &apps[napps++];
 				strncpy(a->name, fld[0], sizeof(a->name) - 1);
-				strncpy(a->icon, fld[1], sizeof(a->icon) - 1);
-				strncpy(a->path, fld[2], sizeof(a->path) - 1);
-				a->w = (nf > 3) ? atoi(fld[3]) : 300;
-				a->h = (nf > 4) ? atoi(fld[4]) : 200;
-				a->multi = (nf > 5) ? atoi(fld[5]) : 0;
+				strncpy(a->path, fld[1], sizeof(a->path) - 1);
+				a->multi = (nf > 2) ? atoi(fld[2]) : 0;
 			}
 		}
 		p = e;
@@ -1462,67 +1636,216 @@ char *base;
 	srvunlock();
 }
 
-/* Launch apps[ai] in a new window at (x,y).  Standardized argv (GUI.md):
- * <path> wid contentW contentH cellW cellH.  Returns wid or -1. */
+/* Start apps[ai], asking for its window at (x,y).  The child is exec'd with a
+ * BARE argv -- it takes no window id, size or cell metrics from us -- and the
+ * window itself is not created here: it appears when the child answers with its
+ * C_CONNECT (doconnect below), which is what carries the title/size/icon/flags.
+ * All we keep meanwhile is a pending slot.  Returns 0, or -1 if it could not be
+ * started. */
 launchapp(ai, x, y)
 {
-	int wid, ev[2], pid;
-	RECT r;
+	int i, p, ev[2], pid;
 	struct app *a;
-	char idbuf[8], wbuf[8], hbuf[8], cwbuf[8], chbuf[8];
 
 	if ( ai < 0 || ai >= napps )
 		return -1;
 	a = &apps[ai];
-	for ( wid = 0; wid < MAX_WINDOWS; wid++ )
-		if ( !wins[wid].used && wtbl[wid] == (WSTRUCT *)NULL )
+
+	p = -1;
+	for ( i = 0; i < MAX_WINDOWS; i++ )
+		if ( !pends[i].used )
+		{
+			p = i;
 			break;
-	if ( wid == MAX_WINDOWS )
-		return -1;
-
-	{				/* clamp the whole window on-screen */
-		int ww, hh;
-		ww = a->w + 2 * WD_BORDER + WD_SHADOW;
-		hh = a->h + WD_TITLEH + WD_BORDER + WD_SHADOW;
-		if ( x + ww > XMAX ) x = XMAX - ww;
-		if ( y + hh > YMAX ) y = YMAX - hh;
-		if ( x < 0 ) x = 0;
-		if ( y < 0 ) y = 0;
-		r.origin.x = x;       r.origin.y = y;
-		r.corner.x = x + ww;  r.corner.y = y + hh;
+		}
+	if ( p < 0 )
+	{
+		/* Every slot is held by a launch that never connected (an app that
+		 * died in its own start-up).  Rather than refuse for ever, drop the
+		 * oldest: its event pipe closes, so if it is somehow still alive its
+		 * connect write fails and it exits. */
+		p = 0;
+		for ( i = 1; i < MAX_WINDOWS; i++ )
+			if ( pends[i].seq < pends[p].seq )
+				p = i;
+		srvlogn("launch: reclaiming pending slot ", p);
+		pends[p].used = 0;
 	}
-	strcpy(wins[wid].title, a->name);
-	strncpy(wins[wid].base, a->name, sizeof(wins[wid].base) - 1);
-	strncpy(wins[wid].icon, a->icon, sizeof(wins[wid].icon) - 1);
-	wins[wid].used = 1;		/* mark used BEFORE mkwin so its publish_all
-					 * marks the descriptor mapped=1 before we fork
-					 * the client (else the client races a mapped=0
-					 * descriptor and its first paint is dropped). */
-	mkwin(wid, r);
-
-	if ( pipe(ev) < 0 )
-		return -1;
-	sprintf(idbuf, "%d", wid);
-	sprintf(wbuf, "%d", gkCrect.corner.x - gkCrect.origin.x);
-	sprintf(hbuf, "%d", gkCrect.corner.y - gkCrect.origin.y);
-	sprintf(cwbuf, "%d", termcw);
-	sprintf(chbuf, "%d", termch);
 
 	pid = fork();
 	if ( pid == 0 )
 	{
-		dup2(ev[0], HR_EVFD);
 		dup2(cmdwr, HR_CMDFD);
 		{ int f; for ( f = 5; f < 20; f++ ) close(f); }
-		execl(a->path, a->name, idbuf, wbuf, hbuf, cwbuf, chbuf, (char *)0);
+		execl(a->path, a->name, (char *)0);
 		_exit(1);
 	}
-	close(ev[0]);
-	wins[wid].used = 1;
-	wins[wid].pid = pid;
-	wins[wid].evfd = ev[1];
+	if ( pid < 0 )
+		return -1;
+	pends[p].used = 1;
+	pends[p].pid = pid;
+	pends[p].ai = ai;
+	pends[p].x = x;
+	pends[p].y = y;
+	pends[p].seq = ++pendseq;
+	return 0;
+}
+
+/* Run the desktop start-up script: an ordinary /bin/sh script naming the apps
+ * the user wants on screen, with their -P/-S/-H options (hrapp.h), so what the
+ * desktop comes up with is configuration rather than server code.
+ *
+ * Its apps are grandchildren, not children, which no longer matters: all they
+ * need to inherit is the shared command pipe, and that passes down the whole
+ * process tree.  Their events come from their window's ring in the shared tail
+ * (shmem.h SHM_EVQ), which needs nothing inherited.  Every app in the script
+ * must therefore be started in the BACKGROUND (&): they do not exit, and sh runs
+ * the lines one at a time.
+ *
+ * We do not wait for the script -- the desktop has to come up whatever it does,
+ * and the connects it provokes are answered from the main loop. */
+#define HRRCFILE	"/usr/hr/etc/rc"
+runrc()
+{
+	int pid, f;
+
+	pid = fork();
+	if ( pid == 0 )
+	{
+		close(cmdfd);			/* our read end of the command pipe */
+		dup2(cmdwr, HR_CMDFD);
+		for ( f = 5; f < 20; f++ )
+			close(f);
+		execl("/bin/sh", "sh", HRRCFILE, (char *)0);
+		_exit(1);
+	}
+	return pid;
+}
+
+/* Is `name' an installed icon?  A client may ask for artwork that was never
+ * shipped (or ask for none at all); rather than leave a minimised window with a
+ * bare label, fall back to the generic application icon -- and if even that is
+ * missing, to nothing, which drawicon already tolerates. */
+#define HR_DEFICON	"icon0.icn"
+iconok(name)
+char *name;
+{
+	char path[64];
+	int fd;
+
+	if ( !name || !*name )
+		return 0;
+	if ( strlen(name) > sizeof(path) - 16 )
+		return 0;
+	strcpy(path, "/usr/hr/icons/");
+	strcat(path, name);
+	if ( (fd = open(path, 0)) < 0 )
+		return 0;
+	close(fd);
+	return 1;
+}
+
+/* Where to put a window nobody placed: an app started from a shell names no
+ * position unless it was given -P, so step them down the desktop the way every
+ * window manager has since. */
+#define CASC_X0		64
+#define CASC_Y0		48
+#define CASC_STEP	28
+#define CASC_MAX	8
+int	cascade;
+
+/* A client has declared its window (C_CONNECT).  Create it now -- at the size
+ * the client asked for, and at the position the client asked for (-P), else the
+ * one the launcher click asked for, else the next cascade step -- and answer
+ * with E_CONNECTED carrying the window id and the GRANTED content size.
+ *
+ * The client is not necessarily one we forked: an unknown pid is an app started
+ * from a shell, which is a normal way in.  All a pending slot
+ * adds is where the click was and which catalog entry it came from. */
+doconnect(hc)
+HRCONN *hc;
+{
+	int i, p, wid, cw, ch, ww, hh, x, y, ai;
+	RECT r;
+
+	p = -1;
+	for ( i = 0; i < MAX_WINDOWS; i++ )
+		if ( pends[i].used && pends[i].pid == hc->hc_pid )
+		{
+			p = i;
+			break;
+		}
+	if ( p >= 0 )
+	{
+		ai = pends[p].ai;
+		x = pends[p].x;
+		y = pends[p].y;
+		pends[p].used = 0;
+	}
+	else
+	{
+		ai = -1;		/* not one of ours: the rc script started it */
+		x = CASC_X0 + cascade * CASC_STEP;
+		y = CASC_Y0 + cascade * CASC_STEP;
+		cascade = (cascade + 1) % CASC_MAX;
+	}
+	if ( hc->hc_flags & HRF_POS )		/* -P: the client places itself */
+	{
+		x = hc->hc_x;
+		y = hc->hc_y;
+	}
+	hc->hc_title[HRC_TITLE-1] = 0;		/* never trust the wire */
+	hc->hc_icon[HRC_ICON-1] = 0;
+
+	for ( wid = 0; wid < MAX_WINDOWS; wid++ )
+		if ( !wins[wid].used && wtbl[wid] == (WSTRUCT *)NULL )
+			break;
+	if ( wid == MAX_WINDOWS )		/* desktop full */
+	{
+		/* Nothing to answer on: the client has no window, so it has no ring
+		 * either.  It gives up by itself when no ack appears (hrapp.c). */
+		srvlogn("desktop full, refusing pid ", hc->hc_pid);
+		return;
+	}
+
+	/* Fit the requested content size, then the whole window, on the screen. */
+	cw = hc->hc_w;  ch = hc->hc_h;
+	if ( cw < 16 ) cw = 16;
+	if ( ch < 16 ) ch = 16;
+	ww = cw + 2 * WD_BORDER + WD_SHADOW;
+	hh = ch + WD_TITLEH + WD_BORDER + WD_SHADOW;
+	if ( ww > XMAX ) { ww = XMAX; cw = ww - 2 * WD_BORDER - WD_SHADOW; }
+	if ( hh > YMAX ) { hh = YMAX; ch = hh - WD_TITLEH - WD_BORDER - WD_SHADOW; }
+	if ( x + ww > XMAX ) x = XMAX - ww;
+	if ( y + hh > YMAX ) y = YMAX - hh;
+	if ( x < 0 ) x = 0;
+	if ( y < 0 ) y = 0;
+	r.origin.x = x;       r.origin.y = y;
+	r.corner.x = x + ww;  r.corner.y = y + hh;
+
+	strncpy(wins[wid].base, hc->hc_title, sizeof(wins[wid].base) - 1);
+	wins[wid].base[sizeof(wins[wid].base) - 1] = 0;
+	strcpy(wins[wid].title, wins[wid].base);
+	strcpy(wins[wid].icon,
+	       iconok(hc->hc_icon) ? hc->hc_icon : HR_DEFICON);
+	wins[wid].appi = ai;
+	wins[wid].stretch = (hc->hc_flags & HRF_STRETCH) != 0;
+	wins[wid].pid = hc->hc_pid;
+	wins[wid].min = 0;
+	hr_evinit(wid);			/* a reused wid must not inherit the old
+					 * occupant's queued events */
+	wins[wid].used = 1;		/* mark used BEFORE mkwin so its publish_all
+					 * marks the descriptor mapped=1 before the
+					 * client is told its id (else the client
+					 * races a mapped=0 descriptor and its first
+					 * paint is dropped). */
+	mkwin(wid, r);
+	if ( wtbl[wid] == (WSTRUCT *)NULL )	/* out of memory: no window */
+	{
+		wins[wid].used = 0;
+		return;
+	}
 	nwins++;
-	focuswid = wid;
 	/* instance number = 1 + highest among the live windows of this app, then
 	 * relabel so #N appears on all of them once there are two or more. */
 	{
@@ -1530,12 +1853,40 @@ launchapp(ai, x, y)
 		hi = 0;
 		for ( w = 0; w < MAX_WINDOWS; w++ )
 			if ( w != wid && wins[w].used &&
-			     !strcmp(wins[w].base, a->name) && wins[w].inst > hi )
+			     !strcmp(wins[w].base, wins[wid].base) && wins[w].inst > hi )
 				hi = wins[w].inst;
 		wins[wid].inst = hi + 1;
 	}
-	relabel(a->name);
-	return wid;
+	relabel(wins[wid].base);
+
+	/* The granted content size, read out BEFORE anything else can happen to the
+	 * window: -H takes wtbl[wid] away (minwin stashes the WSTRUCT). */
+	cw = wtbl[wid]->wn_Crect.corner.x - wtbl[wid]->wn_Crect.origin.x;
+	ch = wtbl[wid]->wn_Crect.corner.y - wtbl[wid]->wn_Crect.origin.y;
+	if ( hc->hc_flags & HRF_MIN )
+		minwin(wid);		/* -H: straight to a desktop icon, and it */
+					/* does not take the keyboard either      */
+	else
+		focuswid = wid;
+	/* The window exists and its clip descriptor is published: hand the client
+	 * its id and the content size it really got.  A minimised window is
+	 * unmapped, so the client's first paint is simply dropped and it draws for
+	 * real on the E_EXPOSE it gets when the user restores it. */
+	/* Publish the answer in the tail BEFORE writing it to the pipe: the pipe is
+	 * not trustworthy for a client that made its own named one (shmem.h SHM_ACK),
+	 * and the client takes whichever reaches it first. */
+	hr_ackput(hc->hc_pid, wid, cw, ch);
+	sendev(wid, E_CONNECTED, wid, cw, ch, 0);
+	{				/* wake anyone waiting to be connected */
+		WMSG k;
+		int i;
+
+		k.wm_type = E_CONNECTED;
+		k.wm_wid = wid;
+		for ( i = 0; i < WM_NARG; i++ )
+			k.wm_arg[i] = 0;
+		hr_evput(EVQ_CONNECT, (short *)&k);
+	}
 }
 
 /* ------------------------------------------------------------------ */
@@ -1577,20 +1928,23 @@ RECT clip;
  * instead of text (e.g. between the app list and Quit in the desktop menu). */
 #define MNU_DIV ((char *)0)
 
-/* Which item (0..n-1) the pointer (mx,my) is over, or -1 if outside the box or
- * still in the top margin (nothing selected yet). */
+/* Which item (0..n-1) the menu arrow POINTS AT, or -1 if outside the box or
+ * still in the top margin (nothing selected yet).  The pointer is (mx,my), the
+ * sprite's top-left; what the user aims with is its tip (see MNU_HOTX). */
 static
 mnu_item(box, itemh, n)
 RECT box;
 {
-	int it;
+	int it, tx, ty;
 
-	if ( mx < box.origin.x || mx >= box.corner.x ||
-	     my < box.origin.y || my >= box.corner.y )
+	tx = mx + MNU_HOTX;			/* where the arrow actually points */
+	ty = my + MNU_HOTY;
+	if ( tx < box.origin.x || tx >= box.corner.x ||
+	     ty < box.origin.y || ty >= box.corner.y )
 		return -1;
-	if ( my < box.origin.y + MNU_TOP )
+	if ( ty < box.origin.y + MNU_TOP )
 		return -1;			/* in the top margin: no item */
-	it = (my - box.origin.y - MNU_TOP) / itemh;
+	it = (ty - box.origin.y - MNU_TOP) / itemh;
 	if ( it >= n )
 		return -1;			/* in the bottom margin: no item */
 	return it;
@@ -1630,7 +1984,7 @@ srvmenu(items, n, mx0, my0)
 char *items[];
 {
 	RECT box;
-	int i, w, itemh, boxw, boxh, sel, last, it, nb, yy, wpl, rows;
+	int i, w, itemh, boxw, boxh, sel, last, it, yy, wpl, rows;
 	int *buf;
 	WMSG c;
 
@@ -1646,8 +2000,11 @@ char *items[];
 	}
 	boxw = w + 16;
 	boxh = MNU_TOP + n * itemh + MNU_TOP;	/* equal top + bottom margins */
-	box.origin.x = mx0 & ~0x0f;			/* word-align for row copy */
-	box.origin.y = my0;
+	/* Place the box at the MENU CURSOR'S TIP, not at the raw pointer position:
+	 * the sprite is about to become MNU_MOUSE, whose point is (MNU_HOTX,
+	 * MNU_HOTY) into its cell, and mnu_item() hit-tests that same tip. */
+	box.origin.x = (mx0 + MNU_HOTX) & ~0x0f;	/* word-align for row copy */
+	box.origin.y = my0 + MNU_HOTY;
 	if ( box.origin.x + boxw > XMAX ) box.origin.x = (XMAX - boxw) & ~0x0f;
 	if ( box.origin.y + boxh > YMAX ) box.origin.y = YMAX - boxh;
 	if ( box.origin.x < 0 ) box.origin.x = 0;
@@ -1713,8 +2070,7 @@ char *items[];
 	sel = -1;  last = -1;
 	for (;;)
 	{
-		nb = read(cmdfd, &c, sizeof(c));
-		if ( nb != sizeof(c) )
+		if ( !getcmd(&c) )
 			continue;
 		if ( c.wm_type != C_INPUT || c.wm_arg[0] == IN_KEY )
 			continue;			/* freeze clients + ignore keys */
@@ -1797,7 +2153,7 @@ RECT g;
 ghostdrag(wid, mode)
 {
 	RECT r, g;
-	int w, h, gx, gy, nb;
+	int w, h, gx, gy;
 	WMSG c;
 
 	if ( !wtbl[wid] || !wtbl[wid]->wn_Layer )
@@ -1815,8 +2171,7 @@ ghostdrag(wid, mode)
 	/* Wait for the grab: LEFT down grabs, RIGHT/MIDDLE down cancels (dnLwait). */
 	for (;;)
 	{
-		nb = read(cmdfd, &c, sizeof(c));
-		if ( nb != sizeof(c) || c.wm_type != C_INPUT || c.wm_arg[0] == IN_KEY )
+		if ( !getcmd(&c) || c.wm_type != C_INPUT || c.wm_arg[0] == IN_KEY )
 			continue;
 		mx = c.wm_arg[1];  my = c.wm_arg[2];
 		SM_Mouse_Pos.x = mx;  SM_Mouse_Pos.y = my;
@@ -1842,8 +2197,7 @@ ghostdrag(wid, mode)
 	/* Drag while the button is held; release (mouse up) commits (upLwait). */
 	for (;;)
 	{
-		nb = read(cmdfd, &c, sizeof(c));
-		if ( nb != sizeof(c) || c.wm_type != C_INPUT || c.wm_arg[0] == IN_KEY )
+		if ( !getcmd(&c) || c.wm_type != C_INPUT || c.wm_arg[0] == IN_KEY )
 			continue;
 		mx = c.wm_arg[1];  my = c.wm_arg[2];
 		SM_Mouse_Pos.x = mx;  SM_Mouse_Pos.y = my;
@@ -1869,7 +2223,8 @@ ghostdrag(wid, mode)
 		else						/* resize: bottom-right corner */
 		{
 			int cx, cy;
-			cx = mx;  cy = my;
+			cx = mx + MOV_HOTX;		/* the hand's grip, not its corner */
+			cy = my + MOV_HOTY;
 			if ( cx < r.origin.x + 48 ) cx = r.origin.x + 48;
 			if ( cy < r.origin.y + 48 ) cy = r.origin.y + 48;
 			if ( cx > XMAX ) cx = XMAX;
@@ -1899,7 +2254,6 @@ quitwm()
 			sendev(w, E_QUIT, 0, 0, 0, 0);
 			if ( wins[w].pid > 0 )
 				kill(wins[w].pid, SIGKILL);
-			close(wins[w].evfd);
 			wins[w].used = 0;
 		}
 	if ( curfd >= 0 )
@@ -1933,15 +2287,28 @@ quitwm()
 	exit(0);
 }
 
-/* Find a live window belonging to app `ai' (matched by base name), or -1. */
+/* Find a live window launched from catalog entry `ai', or -1.  Matched by the
+ * entry it came from, not by title: the title is the application's to choose
+ * and need not be the launcher label. */
 appwindow(ai)
 {
 	int w;
 
 	for ( w = 0; w < MAX_WINDOWS; w++ )
-		if ( wins[w].used && !strcmp(wins[w].base, apps[ai].name) )
+		if ( wins[w].used && wins[w].appi == ai )
 			return w;
 	return -1;
+}
+
+/* Has catalog entry `ai' been started but not yet shown its window? */
+apppending(ai)
+{
+	int i;
+
+	for ( i = 0; i < MAX_WINDOWS; i++ )
+		if ( pends[i].used && pends[i].ai == ai )
+			return 1;
+	return 0;
 }
 
 /* Right-click on the empty desktop: menu of launchable apps, a divider, then
@@ -1973,7 +2340,8 @@ deskmenu(x, y)
 	else if ( sel < napps )
 	{
 		/* single-instance app already open? bring it forward instead of
-		 * launching a duplicate. */
+		 * launching a duplicate -- including one that has been started but
+		 * has not put its window up yet (it is on its way; do nothing). */
 		int w;
 		if ( !apps[sel].multi && (w = appwindow(sel)) >= 0 )
 		{
@@ -1982,7 +2350,7 @@ deskmenu(x, y)
 			else
 				raisewin(w);
 		}
-		else
+		else if ( apps[sel].multi || !apppending(sel) )
 			launchapp(sel, x, y);
 	}
 }
@@ -1990,11 +2358,28 @@ deskmenu(x, y)
 /* Right-click on a window: per-window operations.  "Front"/"Back" raise/lower;
  * "Quit" closes that window (vs. the desktop menu's Quit = quit the WM). */
 char	*g_winitems[] = { "Move", "Stretch", "Front", "Back", "Hide", "Quit" };
+#define NWINITEMS	6
 winmenu(w, x, y)
 {
-	int sel;
+	char *items[NWINITEMS];
+	int act[NWINITEMS];
+	int i, n, sel;
 
-	sel = srvmenu(g_winitems, 6, x, y);
+	/* "Stretch" only for a client that said it can be resized (HRF_STRETCH in
+	 * its connect record): offering it for a fixed-size window would just send
+	 * an E_RESIZE the app cannot honour. */
+	n = 0;
+	for ( i = 0; i < NWINITEMS; i++ )
+	{
+		if ( i == 1 && !wins[w].stretch )
+			continue;
+		act[n] = i;
+		items[n++] = g_winitems[i];
+	}
+	sel = srvmenu(items, n, x, y);
+	if ( sel < 0 || sel >= n )
+		return;
+	sel = act[sel];
 	if ( sel == 0 )      ghostdrag(w, 1);
 	else if ( sel == 1 ) ghostdrag(w, 2);
 	else if ( sel == 2 ) raisewin(w);
@@ -2003,13 +2388,20 @@ winmenu(w, x, y)
 	else if ( sel == 5 ) killwin(w);
 }
 
-/* A pointer button was pressed.  Right = pop up the desktop (launcher) or window
- * menu; left = click-to-raise.  A click on a dock icon restores that window
- * (temporary until the desktop-icon phase). */
+/* A pointer button changed.  Right = pop up the desktop (launcher) or window
+ * menu; left = click-to-raise, and inside a window's content it also starts the
+ * pointer grab that carries the selection gesture to the client; middle = paste
+ * into the window under the pointer.  A click on a dock icon restores that
+ * window (temporary until the desktop-icon phase).
+ *
+ * Unlike before, RELEASES are seen here too -- a grab has to end somewhere, and
+ * the client needs the release to know the drag finished.  Everything that acted
+ * on a press still tests (changed & down) explicitly, so the window-management
+ * behaviour is unchanged. */
 handlebtn(c)
 WMSG *c;
 {
-	int down, changed, w;
+	int down, changed, w, cx, cy;
 	POINT p;
 
 	changed = c->wm_arg[4];
@@ -2022,24 +2414,53 @@ WMSG *c;
 	hr_glob()->cury = my;
 	p.x = mx;  p.y = my;
 
-	if ( !(changed & down) )		/* act only on a fresh press */
+	/* LEFT RELEASE: end the grab, and hand the client the release that closes
+	 * its gesture.  Done before anything else and regardless of where the
+	 * pointer now is -- a drag legitimately ends outside the window. */
+	if ( (changed & SM_LFT) && !(down & SM_LFT) )
+	{
+		if ( grabwid >= 0 )
+		{
+			if ( toclient(grabwid, mx, my, &cx, &cy) )
+				sendev(grabwid, E_BUTTON, cx, cy, down, changed);
+			else
+				sendev(grabwid, E_BUTTON, lastgx, lastgy, down, changed);
+			grabwid = -1;
+			lastgx = lastgy = -1;
+		}
+		return;
+	}
+
+	if ( !(changed & down) )		/* otherwise act only on a fresh press */
 		return;
 
-	/* a minimised-window desktop icon? restore it. */
-	if ( my >= ICONROWY - 2 && my < ICONROWY + ICONW + ICONLH )
+	/* a minimised-window desktop icon? restore it.  Icons may occupy several
+	 * rows, so test each one's own cell rather than a single row band. */
 	{
 		for ( w = 0; w < MAX_WINDOWS; w++ )
 			if ( wins[w].used && wins[w].min &&
-			     mx >= iconx(wins[w].islot) - 4 &&
-			     mx < iconx(wins[w].islot) + ICONW + 8 )
+			     mx >= iconx(wins[w].islot) - ICONPAD &&
+			     mx < iconx(wins[w].islot) + ICONW + ICONPAD &&
+			     my >= icony(wins[w].islot) - 2 &&
+			     my < icony(wins[w].islot) + ICONW + ICONLH + 2 )
 			{
 				restorewin(w);
 				return;
 			}
 	}
 
-	if ( changed & down & 0x2000 )		/* RIGHT: menus */
+	if ( changed & down & SM_RGHT )		/* RIGHT: menus */
 	{
+		/* A menu runs its own nested getcmd() loop and swallows everything,
+		 * including the left release that would have ended a grab -- so end it
+		 * here, with a synthetic release, or the client would keep extending a
+		 * selection for every mouse move after the menu closed. */
+		if ( grabwid >= 0 )
+		{
+			sendev(grabwid, E_BUTTON, lastgx, lastgy, 0, SM_LFT);
+			grabwid = -1;
+			lastgx = lastgy = -1;
+		}
 		w = who_top_at(p);
 		if ( w >= 0 && w < MAX_WINDOWS && wins[w].used )
 			winmenu(w, mx, my);
@@ -2047,17 +2468,110 @@ WMSG *c;
 			deskmenu(mx, my);
 		return;
 	}
-	if ( changed & down & 0x8000 )		/* LEFT: click-to-raise */
+	if ( changed & down & SM_MID )		/* MIDDLE: paste */
+	{
+		/* Into the window under the pointer, and deliberately WITHOUT
+		 * raising it: select in one window, paste into another without
+		 * restacking either.  The event carries only the position; the
+		 * client reads the bytes from the shared store itself. */
+		w = who_top_at(p);
+		if ( toclient(w, mx, my, &cx, &cy) )
+		{
+			sendev(w, E_PASTE, cx, cy, 0, 0);
+			/* The gesture is finished, so the highlight has done its job:
+			 * drop it in whichever window was showing it.  Only the
+			 * HIGHLIGHT goes -- the bytes stay in the shared store and the
+			 * same selection can be pasted again -- but leaving a window
+			 * lit up after the text has been delivered reads as "this is
+			 * still pending", and it makes the next selection's highlight
+			 * ambiguous when it lands in the same window. */
+			if ( selwid >= 0 )
+			{
+				sendev(selwid, E_SELCLEAR, 0, 0, 0, 0);
+				selwid = -1;
+			}
+		}
+		return;
+	}
+	if ( changed & down & SM_LFT )		/* LEFT: click-to-raise + grab */
 	{
 		w = who_top_at(p);
 		if ( w >= 0 && w < MAX_WINDOWS && wins[w].used )
+		{
 			raisewin(w);
+			/* A press on the CONTENT belongs to the client (it starts a
+			 * selection); a press on the title bar or the shadow is the
+			 * window manager's and grabs nothing. */
+			if ( toclient(w, mx, my, &cx, &cy) )
+			{
+				grabwid = w;
+				lastgx = cx;  lastgy = cy;
+				sendev(w, E_BUTTON, cx, cy, down, changed);
+			}
+		}
 	}
 }
 
 /* ------------------------------------------------------------------ */
 /* command dispatch                                                   */
 /* ------------------------------------------------------------------ */
+
+/* Every read of the shared command pipe goes through getcmd().  Records are one
+ * WMSG except C_CONNECT, which is three (HRCONN, wire.h) written atomically:
+ * getcmd pulls the two continuation records in -- so no reader can mistake them
+ * for commands -- and QUEUES the connect instead of acting on it, because the
+ * pointer trackers (menu, ghost drag) also read this pipe and must not have a
+ * window created under them mid-drag.  The queue is drained by the main loop.
+ * Returns 1 when *c holds a plain command, 0 when the caller should read again. */
+#define NCONNQ	4
+union crec {
+	WMSG	c;
+	HRCONN	hc;
+};
+static union crec cbuf;
+static HRCONN	connq[NCONNQ];
+static int	nconnq;
+
+getcmd(c)
+WMSG *c;
+{
+	int n, got;
+
+	n = read(cmdfd, (char *)&cbuf, sizeof(WMSG));
+	if ( n != sizeof(WMSG) )
+		return 0;
+	if ( cbuf.hc.hc_type != C_CONNECT )
+	{
+		*c = cbuf.c;
+		return 1;
+	}
+	for ( got = sizeof(WMSG); got < sizeof(HRCONN); got += n )
+	{
+		n = read(cmdfd, (char *)&cbuf + got, sizeof(HRCONN) - got);
+		if ( n <= 0 )
+			return 0;
+	}
+	if ( nconnq < NCONNQ )
+		connq[nconnq++] = cbuf.hc;
+	else
+		srvlogs("connect queue full\n");
+	return 0;
+}
+
+/* Create the windows for any connects taken while a menu/drag owned the pipe. */
+drainconn()
+{
+	HRCONN q[NCONNQ];
+	int i, n;
+
+	if ( (n = nconnq) == 0 )
+		return;
+	for ( i = 0; i < n; i++ )		/* copy out first: doconnect draws, */
+		q[i] = connq[i];		/* and could queue another connect  */
+	nconnq = 0;
+	for ( i = 0; i < n; i++ )
+		doconnect(&q[i]);
+}
 
 docmd(c)
 WMSG *c;
@@ -2069,12 +2583,23 @@ WMSG *c;
 	{
 		if ( c->wm_arg[0] == IN_MOVE )
 		{
+			int cx, cy;
+
 			mx = c->wm_arg[1];
 			my = c->wm_arg[2];
 			hr_glob()->curx = mx;	/* clients read this for overlap */
 			hr_glob()->cury = my;
 			SM_Mouse_Pos.x = mx;	/* bitblt cursor-hide gating (bug #1) */
 			SM_Mouse_Pos.y = my;
+			/* Forward to the grab holder only -- see grabwid.  Clamped to the
+			 * content and de-duplicated, so dragging off the window or jittering
+			 * in place costs no pipe traffic. */
+			if ( grabwid >= 0 && toclient(grabwid, mx, my, &cx, &cy) &&
+			     (cx != lastgx || cy != lastgy) )
+			{
+				lastgx = cx;  lastgy = cy;
+				sendev(grabwid, E_MOTION, cx, cy, SM_LFT, 0);
+			}
 		}
 		else if ( c->wm_arg[0] == IN_BUTTON )
 			handlebtn(c);
@@ -2091,6 +2616,17 @@ WMSG *c;
 	 * draw ops (C_MOVE/LINE/POINT/TEXT/ERASE/CLRCLIP/SETLOGOP) are RETIRED:
 	 * clients direct-render their content straight to VRAM via clgfx (GUI.md
 	 * Model A), so no pixels cross IPC.  C_FLUSH and anything else are no-ops. */
+	/* A client published a new selection.  Only one window may show a highlight
+	 * for it, so tell the previous owner to drop its own (wire.h E_SELCLEAR).
+	 * The server keeps no selection data -- that is in the shared store; all it
+	 * arbitrates is which window is entitled to say it holds it. */
+	if ( c->wm_type == C_SELOWN )
+	{
+		if ( selwid >= 0 && selwid != wid )
+			sendev(selwid, E_SELCLEAR, 0, 0, 0, 0);
+		selwid = wid;
+		return;
+	}
 	if ( c->wm_type == C_BYE )
 	{
 		srvlogn("C_BYE wid ", wid);
@@ -2155,7 +2691,7 @@ onpipe()
 main(argc, argv)
 char **argv;
 {
-	int cp[2], n;
+	int cp[2];
 	WMSG c;
 
 	gfx_reply_hook = onreply;
@@ -2171,6 +2707,32 @@ char **argv;
 	cmdfd = cp[0];
 	cmdwr = cp[1];
 
+	/* From here on WE own the framebuffer, and the console (hrtty) is drawing
+	 * on the very same pixels -- there is no graphics-mode handshake yet
+	 * (GUI.md sec 2.6), so ANY write to the console scribbles over the desktop.
+	 * Several things would otherwise do exactly that, none of them ours:
+	 *   - /bin/sh prints the pid of every `&' job (exec1.c NBACK), so the two
+	 *     background lines in /usr/hr/etc/rc land on the screen as bare
+	 *     numbers -- the visible symptom that led here;
+	 *   - /etc/load reports driver errors on stderr;
+	 *   - the salvaged engine still has debug printf()s (gfx/bitblt.c, f2.c).
+	 * Started from /etc/rc these all go to /dev/null already and the problem is
+	 * invisible; started BY HAND from the console they corrupt the display.  So
+	 * point our own stdout/stderr at /dev/null and let every child inherit it.
+	 * Anything genuinely diagnostic belongs in the trace log (a file), not here.
+	 * Done after the pipe() check above so a failure to start is still seen. */
+	{
+		int nfd;
+
+		if ( (nfd = open("/dev/null", 2)) >= 0 )
+		{
+			dup2(nfd, 1);
+			dup2(nfd, 2);
+			if ( nfd > 2 )
+				close(nfd);
+		}
+	}
+
 	/* Take over the screen + input: load /drv/hr (keyboard + polled mouse +
 	 * hardware cursor), paint the desktop, then fork the input pump. */
 	loaddriver();
@@ -2180,33 +2742,57 @@ char **argv;
 	curfd = open("/dev/dmgr", 2);
 	gfx_curhide_hook = srv_curhide;
 	gfx_curshow_hook = srv_curshow;
+
+	/* Initialise the global drawing lock BEFORE anything can take it.  It
+	 * lives in the VRAM tail, which is uninitialised RAM at power-on and keeps
+	 * whatever a previous zview (or a client that died holding it) left there
+	 * -- and nothing else zeroes it.  Both words matter:
+	 *   SHM_LOCK  garbage reads as "held" (hr_tas tests the top bit), so every
+	 *             client's first primitive traps into the driver and blocks;
+	 *   SHM_WAIT  garbage is worse -- it is the blocked-waiter count, so our
+	 *             own first hr_unlock takes the CIOMUNLOCK hand-off path, which
+	 *             deliberately leaves the word HELD for a waiter that does not
+	 *             exist (hrlock.c: fairness), wedging every later acquirer
+	 *             including us.  That is a desktop whose chrome paints once and
+	 *             where no client ever draws again.
+	 * We own the screen and no client exists yet, so this is ours to reset. */
+	*(short *)(HRTAIL + SHM_LOCK)  = 0;
+	*(short *)(HRTAIL + SHM_WAIT)  = 0;
+	*(short *)(HRTAIL + SHM_OWNER) = 0;
+
 	reset_screen();
 
 	/* Load the system fonts into the shared VRAM tail before any glyph is
 	 * drawn (chrome in launchapp->mkwin->srvtitle needs them).  One copy each;
 	 * the server and every direct-render client blit from here. */
-	loadfont(SHM_FTERM, "/usr/hr/fonts/gallant.hf");
-	loadfont(SHM_FUI,   "/usr/hr/fonts/gacha.hf");
+	loadfont(SHM_FTERM, "/usr/hr/fonts/gacha.r.hf");
+	loadfont(SHM_FUI,   "/usr/hr/fonts/gacha.b.hf");
 	loadfont(SHM_FICON, "/usr/hr/fonts/sail.hf");
 	hr_glob()->curon = 1;			/* driver draws its cursor by default */
 	hr_glob()->overlay = 0;			/* no menu/overlay up yet */
 	hr_glob()->stacking = 0;		/* no layer op in flight yet */
 	{ int w; for ( w = 0; w < MAX_WINDOWS; w++ ) hr_setdraw(w, 0); }
 	hr_glob()->magic = HR_MAGIC;
+	/* The selection store lives in the same uninitialised tail RAM, so stamp it
+	 * before any client can read it -- and drop the file a previous session's
+	 * owner left behind (shmem.h).  All those clients are gone with the server
+	 * that launched them, so nothing outlives this. */
+	hr_selinit();
+	hr_ackclr(0);			/* connect-ack slots: same garbage RAM */
+	hr_evinit(-1);			/* ... and every event ring */
 
 	pumppid = startpump();
 
-	/* Load the launchable-app catalog (/usr/hr/etc/apps), then auto-open a
-	 * couple for a usable first screen; further apps start from the right-click
-	 * desktop menu.  App 0 = terminal, app 1 = clock, per the config order. */
+	/* Load the launchable-app catalog (/usr/hr/etc/apps) -- what the right-click
+	 * desktop menu offers -- and then hand the first screen over to the user's
+	 * own start-up script, which is what decides what is actually open. */
 	loadapps();
-	if ( napps > 0 ) launchapp(0, 48, 40);
-	if ( napps > 1 ) launchapp(1, 470, 150);
+	runrc();
 
 	for (;;)
 	{
-		n = read(cmdfd, &c, sizeof(c));
-		if ( n == sizeof(c) )
+		if ( getcmd(&c) )
 			docmd(&c);
+		drainconn();		/* windows for clients that just connected */
 	}
 }

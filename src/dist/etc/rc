@@ -4,21 +4,25 @@ rm -f /tmp/*
 >/etc/utmp
 /etc/swap&
 /etc/mount /dev/hd0 / -u
-/etc/mount /dev/hd1 /u
+: '-c: repair a file system that was not cleanly unmounted with check -s'
+: 'here, then mount it read/write, instead of coming up read only.  Not'
+: 'for the root -u above -- the kernel mounted it and marks it dirty on'
+: 'disk while it is in use -- nor for the read only /v.'
+/etc/mount /dev/hd1 /u -c
 /etc/mount /dev/hd2 /v -r
-/etc/mount /dev/hd3 /tmp
+/etc/mount /dev/hd3 /tmp -c
 chmod 777 /tmp
 /etc/update&
 /etc/cron&
 date >/dev/console
-# hr windowing system: start the GUI desktop only when explicitly enabled
-# (create the flag with:  touch /etc/hrgui).  hrconsole loads /drv/hr, which
-# seizes the keyboard IRQ and the bitmap framebuffer - so it REPLACES the text
-# console.  Off by default so serial-console and (video-less) emulator boots are
-# unaffected.  See SMGR.md for the full startup/teardown sequence.
+: "hr windowing system: start the GUI desktop only when explicitly enabled"
+: "-- create the flag with:  touch /etc/hrgui .  hrconsole loads /drv/hr,"
+: "which seizes the keyboard IRQ and the bitmap framebuffer, so it REPLACES"
+: "the text console.  Off by default so serial-console and video-less"
+: "emulator boots are unaffected.  See SMGR.md for the startup sequence."
 if [ -f /etc/hrgui ]; then /usr/hr/bin/hrconsole & fi
-# ZView (GUI.md): the new single-server window system + clock/terminal windows.
-# Enable with:  touch /etc/wgui .  zview loads /drv/hr itself, so it also
-# replaces the text console; off by default.  Root is already read-write here
-# (mounted -u above), which the server's pipe(2) IPC needs.
+: "ZView, see GUI.md: the single-server window system + clock/terminal"
+: "windows.  Enable with:  touch /etc/wgui .  zview loads /drv/hr itself,"
+: "so it also replaces the text console; off by default.  Root is already"
+: "read-write here, mounted -u above, which the server pipe IPC needs."
 if [ -f /etc/wgui ]; then /usr/hr/bin/zview & fi
