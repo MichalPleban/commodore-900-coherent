@@ -251,6 +251,8 @@ int c;
 		break;
 
 	case '\t':
+		if (mmcol == NCOL)	     /* stuck at end of line? */
+		   break;		     /* ignore tab (wrap wasn't on) */
 		if (mmcol >= TABLIM)	     /* at tab limit? */
 		   n = 1;		     /* only move one space */
 		else
@@ -414,7 +416,8 @@ register int c;
 
 	case 'J':		/* Erase rest of screen */
 		if (!checkspec())	/* if not on line 25 */
-		{  n = (NROW-1-mmrow)*NCOL + NCOL-mmcol;
+		{  n = (mmcol >= NCOL) ? 0 : NCOL-mmcol;  /* never negative */
+		   n += (NROW-1-mmrow)*NCOL;
 		   mmstuff(mmoffset, ' '|ATT, n, mmbase);	/* JFF */
 		   break;
  		}
@@ -422,7 +425,8 @@ register int c;
 	
 	case 'K':		/* Erase to end of line */
 		off = position(mmrow, mmcol);
-		mmstuff(off, ' '|ATT, NCOL-mmcol, mmbase);	/* JFF */
+		n = (mmcol >= NCOL) ? 0 : NCOL-mmcol;	/* never negative */
+		mmstuff(off, ' '|ATT, n, mmbase);		/* JFF */
 		break;
 
 	case 'L':		/* Insert line */
@@ -776,23 +780,22 @@ mmioctl(com, vec)
 int com;
 int vec;
 {
-	paddr_t pos;
+	unsigned pos;
 	int count;
 	char *buffer;
 
 	pos = getuwd(vec);
 	count = getuwd(vec += 2);
 	buffer = getupd(vec += 2);
-	if (pos < 0 || pos + count > mmmask)
+	if (count < 0 || pos > mmmask || (unsigned)count > mmmask - pos)
 		u.u_error = EINVAL;
 	if (u.u_error)
 		return;
-	pos += ((paddr_t)mmbase) << 4;
 	if (com == TIOVGETB)
-		pucopy(pos, buffer, count);
+		kucopy(mmbase + pos, buffer, count);
 	else {
 		if (mmblank) mmvoff();
-		upcopy(buffer, pos, count);
+		ukcopy(buffer, mmbase + pos, count);
 		if (mmblank) mmvonn();
 	}
 }

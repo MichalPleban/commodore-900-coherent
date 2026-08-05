@@ -1,5 +1,11 @@
 umask 022
-rm -f /tmp/*
+: 'Clear the /tmp MOUNT POINT, before hd3 is mounted over it.  Anything'
+: 'written to /tmp in single user -- before this script runs at all -- landed'
+: 'in the root file system here, where the mount below then hides it for the'
+: 'rest of the session.  Nothing else ever looks in this directory, so it is'
+: 'swept now or never.  The real /tmp is cleared further down, AFTER the'
+: 'mount that makes it real.'
+rm -f /tmp/* /tmp/.??*
 >/etc/mnttab
 >/etc/utmp
 /etc/swap&
@@ -12,6 +18,14 @@ rm -f /tmp/*
 /etc/mount /dev/hd2 /v -r
 /etc/mount /dev/hd3 /tmp -c
 chmod 777 /tmp
+: 'NOW clear /tmp: hd3 is what /tmp actually IS, so a sweep before the mount'
+: 'reached only the empty directory underneath it and every real temporary'
+: 'survived the boot.  The second pattern matters as much as the timing --'
+: 'a bare * never matched a dot file, and the GUI text stores are all dot'
+: 'files (selection bodies /tmp/.hrsel<pid>, the clipboard /tmp/.hrclip and'
+: 'any /tmp/.hrclipn<pid> a Copy died holding), so they accumulated for ever.'
+: '.??* needs three characters, which is how . and .. are kept out of it.'
+rm -f /tmp/* /tmp/.??*
 /etc/update&
 /etc/cron&
 date >/dev/console

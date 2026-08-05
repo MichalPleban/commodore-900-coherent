@@ -168,7 +168,7 @@ char **argv;
 	c.hc_flags = ap->ha_flags;
 	c.hc_x = ap->ha_x;
 	c.hc_y = ap->ha_y;
-	c.hc_pad = 0;
+	c.hc_menu = ap->ha_menu;	/* our own window-menu entries, HRM_* */
 	setstr(c.hc_title, ap->ha_title, HRC_TITLE);
 	setstr(c.hc_icon, ap->ha_icon, HRC_ICON);
 	if ( write(HR_CMDFD, &c, sizeof(c)) != sizeof(c) )

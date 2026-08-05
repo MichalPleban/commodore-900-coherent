@@ -94,7 +94,7 @@ typedef struct {
 	short	hc_w, hc_h;		/* desired content size, px             */
 	short	hc_flags;		/* HRF_*                                */
 	short	hc_x, hc_y;		/* wanted window origin, if HRF_POS     */
-	short	hc_pad;
+	short	hc_menu;		/* HRM_*: our own window-menu entries   */
 	char	hc_title[HRC_TITLE];	/* window title / instance base name    */
 	char	hc_icon[HRC_ICON];	/* .icn under /usr/hr/icons ("" = default) */
 } HRCONN;
@@ -108,6 +108,31 @@ typedef struct {
 #define HRF_POS		0x0002		/* hc_x/hc_y are a wanted window origin  */
 					/* (else the server places the window)   */
 #define HRF_MIN		0x0004		/* open minimised to a desktop icon      */
+
+/* ---- application entries in the window menu (hc_menu, HRAPP ha_menu) ------ *
+ * There is no menu bar in this GUI: a window's only menu is the right-button
+ * pop-up the server puts up over it, and the server owns it (it is drawn as an
+ * overlay while every client is frozen, so a client could not draw one itself).
+ * So an application that wants commands of its own DECLARES them here, as bits,
+ * and the server puts the corresponding standard entries at the TOP of that
+ * window's menu, then a divider, then the usual window operations.
+ *
+ * The labels and their order are fixed -- that is the point: "Save" sits in the
+ * same place with the same wording in every application, which no per-app string
+ * list would give.  An application that needs something outside this vocabulary
+ * puts it in its own content, not in the window menu.
+ *
+ * Picking one sends E_MENU with the bit in arg0, and nothing else: the server
+ * does not know what "Save" means to the client, it only routes the click.  The
+ * bits are what a client declared, so it can dispatch on them directly. */
+#define HRM_NEW		0x0001		/* "New"        */
+#define HRM_OPEN	0x0002		/* "Open..."    */
+#define HRM_SAVE	0x0004		/* "Save"       */
+#define HRM_CUT		0x0008		/* "Cut"        */
+#define HRM_COPY	0x0010		/* "Copy"       */
+#define HRM_PASTE	0x0020		/* "Paste"      */
+#define HRM_SETTINGS	0x0040		/* "Settings..." */
+#define HRM_ALL		0x007f		/* every bit above: what the server knows */
 
 /* ---- server -> client event codes ---- */
 #define E_CONNECTED	1		/* arg0=wid arg1=width arg2=height      */
@@ -150,6 +175,12 @@ typedef struct {
  * store, so clearing costs nothing and the same selection can be pasted again;
  * what goes away is only the claim that some window is still holding it. */
 #define E_SELCLEAR	9		/* another window took the selection     */
+
+/* The user picked one of the entries this client declared in hc_menu: arg0 is
+ * the single HRM_* bit that was chosen.  It arrives only for bits the client
+ * actually asked for, so a client may switch on arg0 with no default case --
+ * though an unknown bit must of course be ignored rather than acted on. */
+#define E_MENU		10		/* arg0 = HRM_* the user selected        */
 
 /* Button bits in E_BUTTON/E_MOTION's masks.  Same values as SM_LFT/SM_MID/
  * SM_RGHT (gfx/smgr_defs.h) -- repeated here so a client needs only this header

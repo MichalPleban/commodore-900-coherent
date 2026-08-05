@@ -17,6 +17,7 @@
 #include	<io.h>
 #include	<proc.h>
 #include	<uproc.h>
+#include	<sched.h>
 #include	<stat.h>
 
 int	lpload();
@@ -152,7 +153,9 @@ dev_t	dev;
 	s = sphi();
 	while (lp.lpnbuf > 0) {
 		lp.lpflag |= LPSLEEP;
-		sleep((char *)&lp, 0, 0, 0);
+		sleep((char *)&lp, CVTTOUT, IVTTOUT, SVTTOUT);
+		if (SELF->p_ssig && nondsig())
+			break;	/* give up the drain, don't spin on the signal */
 	}
 	spl(s);
 	lp.lpflag = 0;
@@ -222,7 +225,12 @@ lpchar(c)
 	while (lp.lpnbuf >= MAXBUF) {
 		lpstart();
 		lp.lpflag |= LPSLEEP;
-		sleep((char *)&lp, 0, 0, 0);
+		sleep((char *)&lp, CVTTOUT, IVTTOUT, SVTTOUT);
+		if (SELF->p_ssig && nondsig()) {
+			u.u_error = EINTR;
+			spl(s);	/* the printer is wedged: give up */
+			return;
+		}
 	}
 	++lp.lpnbuf;
 	if (lp.lpin == &lp.lpbuf[MAXBUF])

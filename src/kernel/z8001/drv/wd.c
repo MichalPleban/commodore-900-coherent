@@ -80,6 +80,7 @@ CON	wdcon	= {
 #define	NDRIVES	4			/* max drives 2 floppy + 2 hard */
 #define	NHDISKS	2			/* first 2 drives are hard */
 #define	NFBLK	2392			/* number of blocks per floppy */
+#define	MAXBLKCNT 255			/* c_blockcnt is a single byte */
 
 typedef	struct	wdcmd {			/* command block layout */
  	union {
@@ -273,6 +274,8 @@ register BUF	*bp;
 	register unsigned int	pd;		/* partition # */
 	register daddr_t  bno;			/* block # */
 	register int	s;			/* saved machine status */
+	daddr_t	bsize;				/* size of the medium in blocks */
+	daddr_t	nblk;				/* # blocks we can really do */
 	bool	wdstart();
 
 	d = drive(minor(bp->b_dev));
@@ -283,11 +286,52 @@ register BUF	*bp;
 	wdbufdump(bp);
 #endif
 	if (d >= NDRIVES
-	    || (d < NHDISKS && (pd >= NPSEUDO || bno >= wdbtab[pd].bcount))
-	    || (d >= NHDISKS && (pd != 0 || bno >= NFBLK))) {
+	    || (d < NHDISKS && pd >= NPSEUDO)
+	    || (d >= NHDISKS && pd != 0)) {
 		bp->b_flag |= BFERR;
 		bdone(bp);
 		return;
+	}
+	if (d < NHDISKS)
+		bsize = wdbtab[pd].bcount;
+	else
+		bsize = NFBLK;
+	/*
+	 * Clip the transfer to the end of the medium and to what a single
+	 * controller command can express.  RAW I/O arrives here as ONE BUF
+	 * covering the whole user request, so this is the only place where a
+	 * transfer running off the end of the partition can be caught: the
+	 * controller would happily DMA over the start of the next one.
+	 * Whatever we do not transfer must be reported in b_resid, since
+	 * ioreq() credits the user with b_count - b_resid bytes and nothing
+	 * else in this driver ever touches it.
+	 */
+	nblk = bp->b_count >> 9;
+	if (nblk > (daddr_t)MAXBLKCNT)
+		nblk = MAXBLKCNT;
+	if (bno < 0 || bno >= bsize)
+		nblk = 0;
+	else if (bno + nblk > bsize)
+		nblk = bsize - bno;
+	if ((bp->b_flag&BFRAW) == 0) {
+		/*
+		 * Buffered I/O is always exactly one block: anything that
+		 * would have to be clipped is a real error here, and a short
+		 * transfer would leave the cache holding garbage.
+		 */
+		if (nblk != (daddr_t)(bp->b_count >> 9)) {
+			bp->b_flag |= BFERR;
+			bdone(bp);
+			return;
+		}
+		bp->b_resid = 0;
+	} else {
+		bp->b_resid = bp->b_count - ((vaddr_t)nblk << 9);
+		bp->b_count = (vaddr_t)nblk << 9;
+		if (nblk == 0) {		/* nothing of it is on the disk */
+			bdone(bp);
+			return;
+		}
 	}
 	if (d < NHDISKS)			/* only for hard disks */
 		bno += wdbtab[pd].bstart;
@@ -453,8 +497,6 @@ register WDCMD	*cbp;
 	pd = pseudo(minor(bp->b_dev));
 	bno = bp->b_bno;
 	pd = cbp->c_errorbits & 0x7F;
-	if (pd == FCMERROR)		/* media changed? */
-		return;			/* ignore */
 	if ((d = drive(minor(bp->b_dev))) >= NHDISKS)
 		printf("fd: floppy disk #%d: ", d-NHDISKS);
 	else
@@ -465,6 +507,13 @@ register WDCMD	*cbp;
 		printf("no floppy in drive. ");
 	else if (pd == FMERROR && d >= NHDISKS)
 		printf("irrecoverable media error. ");
+	else if (pd == FCMERROR && d >= NHDISKS)
+		/*
+		 * The diskette was swapped under us.  The queued transfer
+		 * belongs to the OLD diskette, so it must NOT be re-issued:
+		 * fall through and fail it like any other hard error.
+		 */
+		printf("diskette changed. ");
 	else {
 		printf(" error=%x [ ", pd);
 		for (d = 0, ucp = (unsigned char *)cbp; d < sizeof(WDCMD); ++d)

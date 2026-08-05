@@ -81,9 +81,14 @@ next:
 		if (pp1->p_pid == pp->p_pid)
 			goto next;
 	}
+	/*
+	 * Link `pp' up completely before anybody else points at it: the
+	 * chain is walked at interrupt level, where a half spliced entry
+	 * would be followed through a null `p_nforw'.
+	 */
+	pp->p_nforw = pp1;
 	pp->p_nback = pp1->p_nback;
 	pp1->p_nback->p_nforw = pp;
-	pp->p_nforw = pp1;
 	pp1->p_nback = pp;
 	unlock(pnxgate);
 	return (pp);

@@ -196,6 +196,37 @@ typedef struct {
 #define SHM_SELPROBE	0x4118		/* scratch word: hr_selok's write/read-back */
 					/* ... ends 0x411A; spare tail follows    */
 
+/* ---- CLIPBOARD (window-menu Copy / Paste) -------------------------------- *
+ * The SECOND clipboard, and deliberately nothing like the first.  PRIMARY above
+ * is a gesture: you select, you middle-click, and it is over -- the server takes
+ * the highlight away on the paste (wire.h E_SELCLEAR) and the next drag anywhere
+ * on the desktop replaces the contents.  That is exactly right for "put this
+ * there, now", and exactly wrong for carrying a piece of text around while you
+ * keep working, which is what the window menu's Copy and Paste are for.
+ *
+ * So the clipboard is a plain FILE and that is the whole of it: no header in the
+ * tail, no lock, no owner, no generation, no expiry.  Copy puts bytes in it and
+ * they stay -- through any number of Pastes, through every selection made in the
+ * meantime, through the owning application exiting.  Nothing whatsoever is
+ * shared with the PRIMARY store: a different file, a different code path and no
+ * common lock, so neither mechanism can disturb the other.  (The bodies cannot
+ * collide either: PRIMARY's is HRSEL_PFX<pid>, this one is a fixed name.)
+ *
+ * Publishing is made atomic by link/unlink rather than by a lock.  The writer
+ * streams into HRCLIP_NEW<pid> and swaps that into place only once it is
+ * complete, so a reader holding the file open goes on reading the bytes it
+ * started with -- the old inode outlives the unlink -- and a paste can never
+ * splice the tail of one Copy onto the head of the next.  The one gap is a
+ * reader that opens in the instant between the unlink and the link: it finds
+ * nothing and pastes nothing.  At human speed that is a theoretical loss, and
+ * unlike a torn paste it is a harmless one.
+ *
+ * A paste therefore always calls hr_cliplen() first and then hr_clipread() from
+ * offset 0 -- the same shape as the PRIMARY reader's loop -- because it is
+ * hr_cliplen() that opens and PINS the snapshot the reads then stream. */
+#define HRCLIP_PATH	"/tmp/.hrclip"	/* the clipboard itself                  */
+#define HRCLIP_NEW	"/tmp/.hrclipn"	/* + pid: a Copy in progress, not yet it */
+
 /* ---- connect acknowledgements ------------------------------------------- *
  * The server answers a C_CONNECT with E_CONNECTED over the client's event
  * pipe.  For a client the server FORKED that pipe is an anonymous pipe(2) and
@@ -290,5 +321,12 @@ extern int	hr_selgen();	/* reader: generation, to notice a change        */
 extern int	hr_selowner();	/* reader: wid that owns it, -1 = none           */
 extern int	hr_selinit();	/* server: initialise the header at start-up     */
 extern int	hr_selok();	/* 1 if the tail is real RAM (no card -> 0)      */
+
+extern int	hr_clipopen();	/* writer: begin a Copy (no argument: one store) */
+extern int	hr_clipwrite();	/* writer: hr_clipwrite(buf, len), append        */
+extern int	hr_clipclose();	/* writer: publish atomically (or discard)       */
+extern long	hr_cliplen();	/* reader: length, and PINS this snapshot        */
+extern int	hr_clipread();	/* reader: hr_clipread(off, buf, max) -> n       */
+extern int	hr_clipfromsel();/* Copy: the PRIMARY selection -> the clipboard  */
 
 #endif /* HRSHMEM_H */

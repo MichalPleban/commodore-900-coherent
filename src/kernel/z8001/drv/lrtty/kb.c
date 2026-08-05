@@ -170,6 +170,15 @@ dev_t dev;
 #if 0
 	printf("ss=%d, Key %d, %s\n", kbsstate, c, u ? "up" : "down");
 #endif
+	/*
+	 * KD0-KD6 give a scan code up to 0x7F, but ktab[] stops well short
+	 * of that.  Codes past the end of the table would pick up whatever
+	 * driver data follows it as key flags, so drop them here.
+	 */
+	if (c >= nktab) {
+		kbintend();
+		return;
+	}
 	kp = &ktab[c];
 	/*
 	 * Shift keys are the only ones that

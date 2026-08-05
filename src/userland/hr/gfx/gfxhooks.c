@@ -15,6 +15,10 @@ void (*gfx_curshow_hook)() = 0;
 int  (*gfx_reply_hook)() = 0;
 int  (*gfx_getdata_hook)() = 0;
 
+/* The damage rect published with each WM_UPDATE is a global in globals.c
+ * (gfx_uprect), not here: a tentative definition inside libhrgfx.a would not be
+ * pulled by Coherent's one-pass ld. */
+
 /*
  * Cursor arbitration - replaces ioctl(myfd,CIOMSEOFF/CIOMSEON) in bitblt.c and
  * gline.c.  The server owns a save-under sprite (GUI.md sec 2.5.4); it installs

@@ -175,14 +175,17 @@ char	*envp[];
 		return;
 	ssp = NULL;
 	if ((lflag&LF_KER) != 0) {
-		pp->p_flags |= PFKERN;
+		/*
+		 * Validate before setting any persistent flag, so that a
+		 * failed exec leaves `p_flags' as it was.
+		 */
 		if (super() == 0) {
 			idetach(ip);
 			return;
 		}
+		pp->p_flags |= PFKERN;
 #if Z8001
 	} else if ((lflag&LF_SLIB) != 0) {
-		pp->p_flags |= PFSLIB|PFLOCK;
 		if (super() == 0) {
 			idetach(ip);
 			return;
@@ -192,6 +195,7 @@ char	*envp[];
 			idetach(ip);
 			return;
 		}
+		pp->p_flags |= PFSLIB|PFLOCK;
 	} else if ((lflag&LF_SLREF)!=0 && slprocp==NULL) {
 			/*
 			 * Perhaps should be made its own errno.
@@ -445,8 +449,8 @@ char *envp[];		/* Environments for new process */
 	SEG *sp;		/* Stack segment pointer */
 	struct adata {		/* Storage for arg and env data */
 		char	**up;		/* User vector pointer */
-		int	np;		/* Number of pointers in vector */
-		int	nc;		/* Number of characters in strings */
+		long	np;		/* Number of pointers in vector */
+		long	nc;		/* Number of characters in strings */
 	} arg, env;
 	struct sdata {		/* To keep segment pointers */
 		vaddr_t	base;		/* Top of segment virtual */
@@ -458,10 +462,10 @@ char *envp[];		/* Environments for new process */
 	register char **usrvp;		/* Vector pointer into user seg */
 	register char *usrcp;		/* Character pointer into user seg */
 	register int c;			/* Character fetched from user */
-	register int chrsz;		/* Size of strings */
+	register long chrsz;		/* Size of strings */
 	register struct adata *adp;	/* Arg and env scanner */
-	register int vecsz;		/* Size of vectors */
-	register int stksz;		/* Size of stack argument region */
+	register long vecsz;		/* Size of vectors */
+	register long stksz;		/* Size of stack argument region */
 
 	/* Validate and evaluate size of args and envs */
 	arg.up = argp;
@@ -473,8 +477,8 @@ char *envp[];		/* Environments for new process */
 		adp->nc = 0;
 		if (excount(adp->up, &adp->np, &adp->nc) == 0)
 			return (NULL);
-		chrsz += adp->nc * sizeof(char);
-		vecsz += adp->np * sizeof(char *);
+		chrsz += (long)adp->nc * sizeof(char);
+		vecsz += (long)adp->np * sizeof(char *);
 		if (adp == &env)
 			break;
 	}
@@ -516,7 +520,7 @@ char *envp[];		/* Environments for new process */
 	/*
 	 * Write argc.
 	 */
-	aputi((int *)aux.ap, arg.np-1);
+	aputi((int *)aux.ap, (int)(arg.np-1));
 	aux.ap += sizeof(int);
 
 	/*
@@ -569,7 +573,7 @@ char *envp[];		/* Environments for new process */
 	 * Patch some values and return.
 	 */
 	*iusp = (char *)stk.ap;	/* Patch initial usp */
-	u.u_argc = arg.np-1;
+	u.u_argc = (int)(arg.np-1);
 	u.u_argp = stk.vp;	/* Points after NULL of envs */
 	return (sp);
 }
@@ -581,13 +585,13 @@ char *envp[];		/* Environments for new process */
  */
 excount(usrvp, nap, nbp)
 register char **usrvp;
-int *nap;
-int *nbp;
+long *nap;
+long *nbp;
 {
 	register char *usrcp;
 	register int c;
-	register unsigned nb;
-	register unsigned na;
+	register long nb;
+	register long na;
 
 	na = 1;
 	nb = 0;
@@ -604,6 +608,15 @@ int *nbp;
 				if (u.u_error)
 					return (0);
 				nb++;
+				/*
+				 * Bound the count so that neither the
+				 * arithmetic here nor the size computed by
+				 * "exstack" can wrap.
+				 */
+				if (nb > MADSIZE) {
+					u.u_error = E2BIG;
+					return (0);
+				}
 				if (c == '\0')
 					break;
 			}

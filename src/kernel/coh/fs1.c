@@ -21,10 +21,28 @@
 #include <uproc.h>
 
 /*
- * Get character for `ftoi' depending on what space the characters are
- * coming from.
+ * Upper bound on the number of characters `ftoi' will scan in a path
+ * name.  A bound is needed because a user pointer into a fully mapped
+ * 64K data segment that holds no '\0' never faults:  incrementing `np'
+ * past offset 0xFFFF wraps back to offset 0 in the same segment (the
+ * Z8001 does not carry an offset overflow into the segment number), so
+ * the scan would circle that segment forever, unkillably.  1024 is far
+ * beyond any path name the system can produce -- the longest fixed path
+ * buffer in the kernel and the commands is a few hundred bytes -- and
+ * far below the 64K wrap.
  */
-#define ftoic(p)	(u.u_io.io_seg==IOSYS ? *p : getubd(p))
+#define	PATHMAX	1024
+
+/*
+ * Get character for `ftoi' depending on what space the characters are
+ * coming from.  The scan bound above is enforced here so that every
+ * fetch is counted;  `nleft' is a local of `ftoi', which is the only
+ * user of this macro.  A bound violation is reported the same way a
+ * faulting fetch is:  `u.u_error' is set and -1 (neither '/' nor '\0')
+ * is returned, which every scanning loop tests for.
+ */
+#define ftoic(p)	(--nleft<0 ? (u.u_error=ENOENT, -1)		\
+			 : u.u_io.io_seg==IOSYS ? *p : getubd(p))
 
 /*
  * Map the given filename to an inode.  If an error is encountered,
@@ -51,6 +69,7 @@ char *np;
 	register BUF *bp;
 	size_t cseek, fseek, s;
 	int fflag, mflag;
+	int nleft;
 	dev_t dev;
 	ino_t ino;
 	daddr_t b;
@@ -58,6 +77,7 @@ char *np;
 	u.u_cdirn = 0;
 	u.u_cdiri = NULL;
 	u.u_pdiri = NULL;
+	nleft = PATHMAX;
 	c = ftoic(np++);
 	if (u.u_error != 0)
 		return (u.u_error);
@@ -69,6 +89,8 @@ char *np;
 	}
 	while (c == '/')
 		c = ftoic(np++);
+	if (u.u_error != 0)		/* faulted or over-long path */
+		return (u.u_error);
 	ilock(cip);
 	cip->i_refc++;
 	if (c == '\0') {
@@ -86,9 +108,15 @@ char *np;
 			if (cp < &u.u_direct.d_name[DIRSIZ])
 				*cp++ = c;
 			c = ftoic(np++);
+			if (u.u_error != 0)	/* else -1 spins here */
+				break;
 		}
 		while (c == '/')
 			c = ftoic(np++);
+		if (u.u_error != 0) {		/* faulted or over-long path */
+			idetach(cip);
+			return (u.u_error);
+		}
 		while (cp < &u.u_direct.d_name[DIRSIZ])
 			*cp++ = '\0';
 		if ((cip->i_mode&IFMT) != IFDIR)
@@ -100,9 +128,21 @@ char *np;
 			return (u.u_error);
 		}
 		cp = u.u_direct.d_name;
-		if (cip->i_ino==ROOTIN && cip->i_dev!=rootdev)
-			if (*cp++=='.' && *cp++=='.' && *cp++=='\0')
+		if (*cp++=='.' && *cp++=='.' && *cp++=='\0') {
+			/*
+			 * `..' in the process' own root directory names
+			 * that directory, so that `chroot' cannot be
+			 * escaped.  This is tested first:  a root which
+			 * is also the root of a mounted file system must
+			 * not be climbed out of either.  Rewriting the
+			 * name to `.' leaves the search below to find
+			 * the directory itself.
+			 */
+			if (cip == u.u_rdir)
+				u.u_direct.d_name[1] = '\0';
+			else if (cip->i_ino==ROOTIN && cip->i_dev!=rootdev)
 				cip = ftoim(cip);
+		}
 		b = 0;
 		fflag = 0;
 		mflag = 0;
@@ -110,6 +150,8 @@ char *np;
 		s = cip->i_size;
 		while (s > 0) {
 			if ((bp=vread(cip, b++)) == NULL) {
+				if (u.u_error == 0)	/* short read */
+					u.u_error = EIO;
 				idetach(cip);
 				return (u.u_error);
 			}
@@ -281,8 +323,28 @@ iattach(dev, ino)
 				u.u_error = ENFILE;
 				return (NULL);
 			}
+			/*
+			 * `ilock' is a sleeping gate, and a victim with
+			 * `i_refc' zero may well be gated (`icopymd' sets
+			 * `i_lrt' to zero, which makes a just freed inode
+			 * the preferred victim, and then sleeps in `ifree'
+			 * and `bread' while holding the gate).  Anything
+			 * may therefore have happened while we slept, so
+			 * the whole search has to be run again unless the
+			 * slot is still free and (dev, ino) is still in no
+			 * slot at all.  Without the rescan two in core
+			 * inodes could be installed for the same file.
+			 */
 			ilock(ip);
 			if (ip->i_refc != 0) {
+				iunlock(ip);
+				continue;
+			}
+			for (fip=inodep; fip<&inodep[NINODE]; fip++) {
+				if (fip->i_ino==ino && fip->i_dev==dev)
+					break;
+			}
+			if (fip != &inodep[NINODE]) {
 				iunlock(ip);
 				continue;
 			}

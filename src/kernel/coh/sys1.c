@@ -371,6 +371,7 @@ int (*f)();
 	register PROC *pp;
 	register sig_t s;
 	register int (*o)();
+	int ps;
 
 	pp = SELF;
 	if (sig<=0 || sig>NSIG || sig==SIGKILL) {
@@ -379,6 +380,12 @@ int (*f)();
 	}
 	s = (sig_t)1 << --sig;
 	o = u.u_sfunc[sig];
+	/*
+	 * sendsig() ORs bits into p_ssig at interrupt level, so the
+	 * read-modify-write below must run at high priority: otherwise a
+	 * signal posted between the load and the store is lost.
+	 */
+	ps = sphi();
 	/* This order is critical to isig's use */
 	if (f == SIG_IGN) {
 		pp->p_isig |= s;
@@ -388,6 +395,7 @@ int (*f)();
 		pp->p_isig &= ~s;
 	}
 	pp->p_ssig &= ~s;
+	spl(ps);
 	return (o);
 }
 

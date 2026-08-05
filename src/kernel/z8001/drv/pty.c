@@ -208,6 +208,21 @@ dev_t dev;
 	if (tp->t_open == 0) {
 		ttopen(tp);
 		/*
+		 * A live slave again (t_open goes 0 -> 1 below).  Retract the
+		 * EOF the last slave close raised, or a master that stayed
+		 * open across the respawn would keep reading end-of-file
+		 * every time the output queue happens to run dry.
+		 */
+		ptseof[unit] = 0;
+		/*
+		 * ttclose() in the last slave close zeroed t_flags, carrier
+		 * and all.  With the master still attached the line never
+		 * really hung up, so re-assert it: otherwise the shell that
+		 * just opened us fails its very first read with EIO.
+		 */
+		if (ptmopen[unit])
+			tp->t_flags |= T_CARR;
+		/*
 		 * First opener of a fresh pair: force this pty to become the
 		 * opener's controlling terminal even if it inherited one
 		 * (GUI.md sec 4.4) - clear the stale group/ctty so ttsetgrp

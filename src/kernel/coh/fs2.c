@@ -190,9 +190,13 @@ register struct filsys *fsp;
 }
 
 /*
- * Given a pointer to a mount entry, write out all inodes on that device.
+ * Given a pointer to a mount entry, write out its super block and mark it
+ * clean.  The caller must already have flushed this device's inodes *and*
+ * pushed its dirty buffers to disk:  this write is synchronous, so a clean
+ * super block reaching the platter ahead of the inodes and free list it
+ * describes would leave a file system that only claims to be consistent.
  */
-msync(mp)
+mssync(mp)
 register MOUNT *mp;
 {
 	register struct filsys *sbp;
@@ -200,14 +204,13 @@ register MOUNT *mp;
 
 	if ((mp->m_flag&MFRON) != 0)
 		return;
-	isync(mp->m_dev);
 	sbp = &mp->m_super;
 	if (sbp->s_fmod==0 && mp->m_dev!=rootdev)
 		return;
 	bp = bclaim(mp->m_dev, (daddr_t)SUPERI);
 	sbp->s_time = timer.t_time;
 	sbp->s_fmod = 0;
-	sbp->s_dirty = FSCLEAN;		/* everything is now flushed: consistent */
+	sbp->s_dirty = FSCLEAN;
 	kkcopy(sbp, bp->b_vaddr, sizeof(*sbp));
 	cansuper(bp->b_vaddr);
 	bwrite(bp, 1);
@@ -271,19 +274,38 @@ unsigned mode;
 	register ino_t *inope;
 	register MOUNT *mp;
 	register INODE *ip;
+	register int badb;
 
 	if ((mp=getment(dev, 1)) == NULL)
 		return (NULL);
 	sbp = &mp->m_super;
 	for (;;) {
 		lock(mp->m_ilock);
+haveilock:
 		smod(mp);
 		if (sbp->s_ninode == 0) {
 			ino = 1;
 			inop = sbp->s_inode;
 			inope = &sbp->s_inode[NICINOD];
 			for (b=INODEI; b<sbp->s_isize; b++) {
-				if (bad(dev, b)) {
+				/*
+				 * bad() attaches the bad block inode, and
+				 * iattach() sleeps on an inode gate; but
+				 * icopymd()->ifree() takes m_ilock while
+				 * *holding* an inode gate.  Keeping m_ilock
+				 * across bad() inverts that order and hangs
+				 * both processes for good (gate sleeps are
+				 * uninterruptible).  So drop the gate around
+				 * the call, and if the free list was refilled
+				 * while it was down, throw this scan away and
+				 * use that list rather than overwrite it.
+				 */
+				unlock(mp->m_ilock);
+				badb = bad(dev, b);
+				lock(mp->m_ilock);
+				if (sbp->s_ninode != 0)
+					goto haveilock;
+				if (badb) {
 					ino += INOPB;
 					continue;
 				}
@@ -335,6 +357,16 @@ unsigned mode;
 			ip->i_nlink = 0;
 			ip->i_uid = u.u_uid;
 			ip->i_gid = u.u_gid;
+		} else {
+			/*
+			 * The inode number is ours but unusable (typically
+			 * the in core inode table is full): hand it back to
+			 * the free list, or it is lost until `check' runs.
+			 * The `busy' case above deliberately does *not* do
+			 * this -- that inode is in use, so dropping it from
+			 * the free list, s_tinode included, is the repair.
+			 */
+			ifree(dev, ino);
 		}
 		return (ip);
 	}
@@ -430,15 +462,28 @@ ebadflist:
 			fbp = bp->b_vaddr;
 			sbp->s_nfree = fbp->df_nfree;
 			canshort(sbp->s_nfree);
-			if ((unsigned)sbp->s_nfree > NICFREE)
+			if ((unsigned)sbp->s_nfree > NICFREE) {
+				brelease(bp);	/* or the buffer stays locked */
 				goto ebadflist;
+			}
 			kkcopy(fbp->df_free, sbp->s_free, sizeof(sbp->s_free));
 			canndaddr(sbp->s_free, sbp->s_nfree);
 			brelease(bp);
 		}
 		--sbp->s_tfree;
-		if (b >= sbp->s_fsize || b < sbp->s_isize)
+		if (b >= sbp->s_fsize || b < sbp->s_isize) {
+			++sbp->s_tfree;		/* `b' is not handed out */
 			goto ebadflist;
+		}
+		/*
+		 * Mark the super block modified again *after* the free block
+		 * list has been updated.  The refill above sleeps in bread(),
+		 * and a sync landing in that window clears s_fmod (and writes
+		 * FSCLEAN), which would otherwise discard the refill: the disk
+		 * would keep a free list headed by `b', the very block we are
+		 * about to hand out.  A no-op if nothing raced.
+		 */
+		smod(mp);
 	}
 	unlock(mp->m_flock);
 	return (b);
@@ -495,9 +540,21 @@ daddr_t b;
 	register int m;
 	register int n;
 	daddr_t l;
+	int oerror;
 
-	if ((ip=iattach(dev, 1)) == NULL)
-		panic("bad()");
+	/*
+	 * iattach() also fails for the ordinary `Inode table overflow'
+	 * (ENFILE), which must not halt the machine.  Answer `bad': the
+	 * caller then skips the block, which costs at worst a few free
+	 * inodes, where answering `good' could allocate inodes out of a
+	 * block that really is bad.  Our failure is not the caller's, so
+	 * leave u.u_error as it was.
+	 */
+	oerror = u.u_error;
+	if ((ip=iattach(dev, 1)) == NULL) {
+		u.u_error = oerror;
+		return (1);
+	}
 	n = blockn(ip->i_size);
 	if ((m=n) > ND)
 		m = ND;
@@ -517,7 +574,7 @@ daddr_t b;
 	if ((m=n) > NBN)
 		m = NBN;
 	for (i=0; i<m; i++) {
-		l = ((daddr_t *)bp)[i];
+		l = ((daddr_t *)bp->b_vaddr)[i];
 		candaddr(l);
 		if (b == l) {
 			brelease(bp);

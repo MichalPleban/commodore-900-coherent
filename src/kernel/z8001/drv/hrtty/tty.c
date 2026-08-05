@@ -91,8 +91,8 @@ register TTY *tp;
 			sleep((char *)&tp->t_oq, CVTTOUT, IVTTOUT, SVTTOUT);
 		}
 		spl(s);
-		if (SELF->p_ssig && nondsig()) 
-		   u.u_error = EINTR;
+		if (SELF->p_ssig && nondsig())
+		   break;	/* give up the drain, don't spin on the signal */
 	}
 	ttflush(tp);
 	tp->t_flags = tp->t_group = 0;
@@ -112,10 +112,24 @@ register IO *iop;
 {
 	register c;
 	int o;
+	int sioc = iop->io_ioc;  /* number of bytes to read */
 
 	while (iop->io_ioc) {
 		o = spl(s);
 		while ((c = getq(&tp->t_iq)) < 0) {
+
+			/* If we're in CBREAK or RAW mode, and we don't */
+			/* have the special "blocking read" bit set for */
+			/* these modes, and we read at least one byte   */
+		        /* of input, return immediately, since we have  */
+			/* run out of characters from the clist.	*/
+
+			if (ISBBYB && ((tp->t_flags & T_BRD) == 0)
+			   && iop->io_ioc < sioc)
+			{  spl(o);
+			   return;
+			}
+
 			tp->t_flags |= T_INPUT;  /* wait for more data */
 			sleep((char *)&tp->t_iq, CVTTIN, IVTTIN, SVTTIN);
 		}
@@ -188,9 +202,10 @@ ttioctl(tp, com, vec)
 register TTY *tp;
 register struct sgttyb *vec;
 {
-	register int	flush = 0;  
+	register int	flush = 0;
 	register int	drain = 0;
 		 int    rload = 0;
+		 int	s;
 
 	switch (com) {
 	case TIOCQUERY:
@@ -232,10 +247,9 @@ register struct sgttyb *vec;
 	case TIOCGETTF:		/* get tty flag word */
 		kucopy(&tp->t_flags, (unsigned *) vec, sizeof(unsigned));
 		break;	
-	case TIOCFLUSH: 
+	case TIOCFLUSH:
 		++flush;        /* flush both input and output */
-		++drain;	
-		break;
+		break;		/* discarding output: nothing to drain for */
 	case TIOCBREAD:		/* blocking read for CBREAK/RAW mode */
 		tp->t_flags |= T_BRD;		
 		break;
@@ -246,11 +260,24 @@ register struct sgttyb *vec;
 		u.u_error = EINVAL;
 	}
 	if (drain != 0) {
+		/*
+		 * Make sure output can actually move before we wait for it.
+		 * Entering RAWIN with output suspended by an X-OFF would
+		 * otherwise wedge here forever.
+		 */
+		if (ISRIN && (tp->t_flags&T_STOP) != 0) {
+			s = sphi();
+			tp->t_flags &= ~T_STOP;
+			ttstart(tp);
+			spl(s);
+		}
 		while (tp->t_oq.cq_cc != 0) {
 			tp->t_flags |= T_DRAIN;
 			sleep((char *)&tp->t_oq, CVTTOUT, IVTTOUT, SVTTOUT);
-			if (SELF->p_ssig && nondsig()) 
-			   u.u_error = EINTR;
+			if (SELF->p_ssig && nondsig()) {
+				u.u_error = EINTR;
+				break;	/* don't spin on the pending signal */
+			}
 		}
 	}
 	if (flush != 0)

@@ -61,7 +61,8 @@ uint self;
 	s = sphi();
 	cp = &client[self];
 	p = cp->head;
-	cp->head = p->mb_next;
+	if ( not (cp->head = p->mb_next) )
+		cp->tail = 0;		/* queue drained: never leave `tail' stale */
 	if ( p == mstail )
 		mstail = 0;
 	p->mb_next = mbufp;
@@ -78,6 +79,11 @@ uint self;
 /*
  * flush an entire message queue.
  * All clients waiting for a message buffer are notified.
+ * The queue invariant is `head == 0' means empty, and `tail' is meaningful
+ * only while `head' is not 0; an empty queue must therefore be left alone.
+ * Splicing through `tail' here with nothing queued wrote through a stale or
+ * null pointer and then set the free list head to 0, after which hralloc( )
+ * blocked for ever at CVNOSIG - any client could do it with one CIOFLUSH.
  */
 hrflush(self)
 uint self;
@@ -88,9 +94,14 @@ uint self;
 
 	s = sphi();
 	cp = &client[self];
-	p = cp->head;
+	if ( not (p = cp->head) )
+	{
+		spl(s);
+		return;
+	}
 	cp->head = 0;
 	cp->tail->mb_next = mbufp;
+	cp->tail = 0;
 	mbufp = p;
 	if ( self == hrsmgr )
 		mstail = 0;
@@ -231,17 +242,40 @@ register struct mbuf *p;
  * send signal to process group
  * The signal `sig' is sent to all processes grouped under client `d'.
  * High priority is needed when scanning the proc table.
+ *
+ * `perm' is TRUE only on the userland path (CIOSIG).  /dev/dmgr is mode 666
+ * and non-exclusive, so any user reaches that path with any `d' and any `sig';
+ * it therefore gets exactly the kill(2) rules - a legal signal number and
+ * sigperm( ) against each target process, EPERM if it fails.  The driver's own
+ * signals (the SMGR hold handshake, the teardown SIGSEGV out of hrkey) pass
+ * FALSE: their destination is a constant, they must not be refused, and one of
+ * them runs at interrupt level where `u' is not the target's user at all.
  */
 static
-hrsignal( d, sig)
+hrsignal( d, sig, perm)
 uint	d;
+uint	sig;
+uint	perm;
 {
 	register PROC	*pp;
 	uint		g,
 			s;
 
 	if (d >= DESTMAX)
+	{
+		/* Internal callers pass a constant, so a bad `d' from one of
+		 * them really is a driver bug and stays worth a panic; from
+		 * userland it is just a bad argument. */
+		if ( not perm )
+			panic( "bad dest");
 		baddest( );
+		return (0);
+	}
+	if ( perm && (sig == 0 || sig > NSIG) )
+	{
+		u.u_error = EINVAL;	/* same test ukill( ) applies */
+		return (0);
+	}
 	pp = &procq;
 	if ( d < WINDOW )
 	{
@@ -251,7 +285,12 @@ uint	d;
 			while ( (pp=pp->p_nforw) != &procq )
 				if ( pp->p_pid == g )
 				{
-					sendsig( sig, pp);
+					if ( not perm )
+						sendsig( sig, pp);
+					else if ( sigperm( sig, pp) )
+						sendsig( sig, pp);
+					else
+						u.u_error = EPERM;
 					break;
 				}
 			spl( s);
@@ -264,18 +303,33 @@ uint	d;
 			s = sphi( );
 			while ( (pp=pp->p_nforw) != &procq )
 				if ( pp->p_group == g )
-					sendsig( sig, pp);
+				{
+					if ( not perm )
+						sendsig( sig, pp);
+					else if ( sigperm( sig, pp) )
+						sendsig( sig, pp);
+					else
+						u.u_error = EPERM;
+				}
 			spl( s);
 		}
 	}
 }
 
 
+/*
+ * A destination index that arrived from userland was out of range.
+ * This is bad user input, not a kernel inconsistency, so it is reported to
+ * the caller instead of halting the machine: /dev/dmgr is mode 666, and the
+ * old panic( ) here let any user stop the system with a single ioctl.
+ * Each call site does its own cleanup (an allocated mbuf, a held state) and
+ * returns; this only fixes the error that is reported.
+ */
 static
 baddest( )
 {
 
-	panic( "bad dest");
+	u.u_error = EINVAL;
 }
 
 
@@ -703,10 +757,18 @@ hrkey()
 		hrshift |= CTS;
 	else if ( key == 0x38 )
 		hrshift |= ALS;
-	else if ( key == 0x54 && hrshift == ALS|CTS )
+	/* Alt+Ctrl+HELP is the emergency escape hatch that unloads the driver.
+	 * The parentheses are load bearing: `==' binds tighter than `|', so
+	 * `hrshift == ALS|CTS' parsed as `(hrshift == ALS) | CTS', which is
+	 * always non-zero - the modifier test was dead and HELP alone tore the
+	 * GUI down.  Equality, not a mask test: hrshift holds these two bits
+	 * and nothing else (see the four cases above), so the two are equivalent
+	 * today, and for something this destructive the exact-modifier form is
+	 * the safer one to leave behind if another modifier bit is ever added. */
+	else if ( key == 0x54 && hrshift == (ALS|CTS) )
 	{
 		hruload();
-		hrsignal( DMGR, SIGSEGV );
+		hrsignal( DMGR, SIGSEGV, FALSE );
 	}
 }
 

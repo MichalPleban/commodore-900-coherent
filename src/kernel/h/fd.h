@@ -15,10 +15,16 @@
  */
 typedef struct fd {
 	char	 f_flag;		/* Flags */
-	char	 f_refc;		/* Reference count */
+	short	 f_refc;		/* Reference count */
 	size_t	 f_seek;		/* Seek pointer */
 	struct	 inode *f_ip;		/* Pointer to inode */
 } FD;
+
+/*
+ * Flags (f_flag).  The low bits hold the IPR/IPW permission bits
+ * from <inode.h>, so private flags start above them.
+ */
+#define	FFOPNP	0010			/* Open has not completed yet */
 
 #ifdef	KERNEL
 /*

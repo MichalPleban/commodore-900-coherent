@@ -6,6 +6,7 @@ extern int memfail();
 extern char *malloc();
 extern BITMAP display;
 extern UPDATE update[];
+extern RECT gfx_uprect;		/* damage rect published with each WM_UPDATE */
 extern RECT R_addp(), R_subp(), R_Intersection();
 extern int *screen_addr();
 extern int ALL_ON[];
@@ -415,14 +416,32 @@ perform_update()
 	      if (not ( wtbl[i]->wn_Type & WT_SMARTUPDATE ))
 	      {
 		msgCmd = WM_UPDATE;
-	        /* 
+	        /*
 	         * eliminate all other update events
-	         * for this window 
+	         * for this window -- but UNION their rects into this one first.
+	         * One window can be damaged in several disjoint regions (a raise
+	         * uncovers every region it was L_OBSCURED in); the receiver gets a
+	         * single message, so the rect it carries must cover all of them or
+	         * the parts we drop are never repainted.  A bounding union costs a
+	         * little slack and keeps the common case (one strip) exact.
 	         */
 	        for ( k = j+1; k < MAX_UPBUF; k++ )
 	          if ( update[k].wid == i )
+	          {
+	            if ( update[k].r.origin.x < update[j].r.origin.x )
+	              update[j].r.origin.x = update[k].r.origin.x;
+	            if ( update[k].r.origin.y < update[j].r.origin.y )
+	              update[j].r.origin.y = update[k].r.origin.y;
+	            if ( update[k].r.corner.x > update[j].r.corner.x )
+	              update[j].r.corner.x = update[k].r.corner.x;
+	            if ( update[k].r.corner.y > update[j].r.corner.y )
+	              update[j].r.corner.y = update[k].r.corner.y;
 	            update[k].wid = -1;
+	          }
 
+		/* hand the damage to the reply hook (gfxhooks.c): the MESSAGE has no
+		 * room for it, and without it a client can only repaint everything. */
+		gfx_uprect = update[j].r;
 		outline(i);
 		if ( wtbl[i]->wn_Wmgr == 3 )	/* text window */
 			redraw_map(i);
@@ -432,6 +451,7 @@ perform_update()
 	      else
 	      {
 	        msgCmd = WM_RGNUPDATE;
+	        gfx_uprect = update[i].r;	/* absolute, before the local remap */
 	        update[i].r=R_subp(update[i].r,wtbl[i]->wn_Layer->rect.origin);
 	        update[i].r=R_addp(update[i].r,wtbl[i]->wn_Lorigin);
 	        msgPtr = &update[i].r;

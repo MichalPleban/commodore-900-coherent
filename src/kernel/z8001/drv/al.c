@@ -285,7 +285,7 @@ int mode;
 		u.u_error = ENODEV;
 		return;
 	}
-	if ((minor(dev) & MODEM_CTL) == 1)
+	if ((minor(dev) & MODEM_CTL) != 0)
 		tp->t_flags |= T_MODC;
 	if (tp->t_open == 0) {
 		s = sphi();
@@ -455,10 +455,14 @@ alESintr(id)
 		ttsignal(tp, SIGINT);
 		ttflush(tp);
 	} else {
-		if ((tp->t_flags & T_MODC) == 1)
-			if ((what & (DCD|CTS)) != 0) 
+		if ((tp->t_flags & T_MODC) != 0) {
+			if ((what & (DCD|CTS)) != 0) {
 				if (tp->t_open == 0)
 					wakeup((char *)(&tp->t_open));
+			} else if (tp->t_open != 0
+			   && (tp->t_flags & T_CARR) != 0)
+				tthup(tp);	/* carrier lost: hang up */
+		}
 	}
 	spl(s);
 	outb(b+WR0, RESIUS);		/* reset interrupt */

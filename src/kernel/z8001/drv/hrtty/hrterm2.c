@@ -147,8 +147,11 @@ rico( c)
 		case 'B':		/* Cursor Down */
 			if (not args[0])
 				++args[0];
-			if (args[0] < MAXLINE-1)
+			if ((args[0] < MAXLINE)
+			and (line + args[0] < MAXLINE))
 				line += args[0];
+			else
+				line = MAXLINE-1;
 			state = 0;
 			break;
 		case 'D':

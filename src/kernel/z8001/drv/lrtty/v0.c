@@ -50,7 +50,6 @@ dev_t dev;
 	   ttopen(&kvtty);
 	}
 	spl(s);
-	kbopen();
 }
 
 v0close(dev)
@@ -61,7 +60,6 @@ v0close(dev)
 	if (--kvtty.t_open == 0)
 		ttclose(&kvtty);
 	spl(s);
-	kbclose();
 }
 
 v0read(dev, iop)

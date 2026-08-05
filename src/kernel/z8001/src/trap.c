@@ -142,7 +142,7 @@ ureboot()
 	/*
 	 * Sync everything and remount all file systems read only.  Syncing
 	 * flushes pending changes -- which makes each file system consistent,
-	 * so msync() marks it clean -- and the read-only remount stops anything
+	 * so mssync() marks it clean -- and the read-only remount stops anything
 	 * from dirtying it again before the restart.  A file system that was
 	 * consistent thus comes back read/write next boot; a crash (no clean
 	 * reboot) leaves it dirty -> read only + check.
@@ -156,7 +156,11 @@ ureboot()
  * Check to see if the segmentation violation was a red or
  * yellow stack limit violation.  If it was, then, if
  * necessary, back up the PC with a grown stack.
- * Returns non-zero if a stack growth attempt is made.
+ * Returns non-zero if the violation was handled (the stack is big
+ * enough now).  Returns zero if it was not, either because it was
+ * no stack violation at all or because the stack could not be grown;
+ * our caller then sends the SIGSEGV, which kills the process rather
+ * than retrying the faulting instruction forever.
  */
 stviol(id, pc, usp)
 register int id;
@@ -186,6 +190,15 @@ register vaddr_t pc, usp;
 		return (1);
 	else if (nb == sp->s_size)
 		nb++;
-	segsize(sp, (vaddr_t)ctob(nb));
+	/*
+	 * The stack is a single downward growing hardware segment, which
+	 * `uproto' refuses to map beyond MSSIZE-2 clicks.  Anything larger
+	 * would also wrap `ctob' (MSSIZE clicks is exactly 64K), so stop
+	 * here and let the process take the SIGSEGV.
+	 */
+	if (nb >= MSSIZE-1)
+		return (0);
+	if (segsize(sp, ctob((vaddr_t)nb)) == 0)
+		return (0);
 	return (1);
 }

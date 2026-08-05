@@ -40,7 +40,7 @@ typedef struct seg {
 #define	SFNSWP	0040000			/* Don't swap */
 #define SFNCLR	0100000			/* Don't clear segment */
 
-#ifdef p:Ì%L
+#ifdef KERNEL
 /*
  * Functions.
  */

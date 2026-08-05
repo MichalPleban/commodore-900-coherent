@@ -83,16 +83,32 @@ register INODE *ip;
 			continue;
 		if ((fdp=kalloc(sizeof(FD))) == NULL)
 			return (-1);
-		iopen(ip, mode);
-		if (u.u_error) {
-			kfree(fdp);
-			return (-1);
-		}
-		fdp->f_flag = mode;
+		/*
+		 * Fill the descriptor in and hang it on the slot before
+		 * calling `iopen'.  A device open may sleep interruptibly
+		 * inside the driver, and a signal taken there does not
+		 * unwind through here: `sleep' restores `u.u_sigenv' and
+		 * lands back in `trap', so nothing below would ever run
+		 * and both this structure and the inode reference held by
+		 * our caller would be lost for good.  Anchored in the slot,
+		 * they are released by `fdclose' when the process closes
+		 * the file or exits.  `FFOPNP' records that the open never
+		 * completed, so that `fdclose' drops the inode without
+		 * calling the driver's close entry for an open which the
+		 * driver never finished.
+		 */
+		fdp->f_flag = mode|FFOPNP;
 		fdp->f_refc = 1;
 		fdp->f_seek = 0;
 		fdp->f_ip = ip;
 		*fdpp = fdp;
+		iopen(ip, mode);
+		if (u.u_error) {
+			*fdpp = NULL;
+			kfree(fdp);
+			return (-1);
+		}
+		fdp->f_flag = mode;
 		return (fdpp-u.u_filep);
 	}
 	u.u_error = EMFILE;
@@ -115,7 +131,16 @@ register unsigned fd;
 	if (fdp->f_refc == 0)
 		panic("fdclose()");
 	if (--fdp->f_refc == 0) {
-		iclose(fdp->f_ip);
+		/*
+		 * An open which was interrupted before it completed never
+		 * reached the driver's open entry successfully, so close it
+		 * the way `fdopen' would have on an error return: give the
+		 * inode reference back without a matching device close.
+		 */
+		if ((fdp->f_flag&FFOPNP) != 0)
+			ldetach(fdp->f_ip);
+		else
+			iclose(fdp->f_ip);
 		kfree(fdp);
 	}
 }

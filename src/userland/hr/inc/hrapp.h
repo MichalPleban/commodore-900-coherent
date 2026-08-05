@@ -27,6 +27,20 @@
  * asked for to fit the screen, so a client must always use what it gets back
  * rather than what it asked for.  Everything else (events, drawing) is as before.
  *
+ * Menu entries.  A window's only menu is the server's right-button pop-up, so an
+ * application that wants commands of its own asks for them in ha_menu, as a set
+ * of HRM_* bits (wire.h):
+ *
+ *	HRAPP me = { "Edit", "edit.icn", 480, 300, HRF_STRETCH, 0, 0,
+ *		     HRM_OPEN | HRM_SAVE | HRM_CUT | HRM_COPY | HRM_PASTE };
+ *
+ * The entries appear at the TOP of that window's menu, in the fixed HRM_ order,
+ * followed by a divider and then the usual window operations (Move, Stretch,
+ * Front, Back, Hide, Quit).  Choosing one delivers an E_MENU event whose arg0 is
+ * the chosen bit, so the client's event loop dispatches on it like any other
+ * event -- nothing else changes, and an app that sets ha_menu to 0 (i.e. does
+ * not mention it at all) gets exactly the menu it had before.
+ *
  * Fonts are NOT passed in either: cell metrics come from the shared VRAM tail,
  * e.g. hr_font(SHM_FTERM)->cellw / ->cellh (shmem.h), which a client may read
  * before hr_open() -- handy for asking for a size in whole character cells.
@@ -68,6 +82,8 @@ typedef struct {
 	int	ha_w, ha_h;	/* desired -> granted content size, px          */
 	int	ha_flags;	/* HRF_* (wire.h); HRF_STRETCH = resizable      */
 	int	ha_x, ha_y;	/* wanted frame origin, px, if HRF_POS          */
+	int	ha_menu;	/* HRM_* (wire.h): our window-menu entries, 0 = */
+				/* none.  See "Menu entries" below.             */
 } HRAPP;
 
 extern int	hr_open();	/* hr_open(&app, &argc, argv) -> wid, or -1    */

@@ -1,5 +1,11 @@
 /*
- * hrsel.c - the hrgui PRIMARY selection store (select-to-copy / middle-paste).
+ * hrsel.c - the hrgui text stores: the PRIMARY selection (select-to-copy /
+ * middle-paste) and the CLIPBOARD (window-menu Copy / Paste).
+ *
+ * Most of this file is the first; the clipboard is a short section at the end,
+ * built out of the same file plumbing but sharing no state with it (shmem.h
+ * HRCLIP_PATH says why the two are deliberately unalike).  Everything below
+ * until that section is about the selection.
  *
  * The layout and the reasoning behind the two stores are in inc/shmem.h; this is
  * the implementation.  The two invariants worth restating here, because every
@@ -66,17 +72,20 @@ static int	rfd = -1;
 static int	rpid;
 static int	rgen;
 
-/* HRSEL_PFX<pid> without stdio (hrapp.c setevpath does the same). */
+/* <pfx><pid> without stdio (hrapp.c setevpath does the same).  Used for both
+ * stores: HRSEL_PFX<pid> is a selection body, HRCLIP_NEW<pid> a Copy that has
+ * not been swapped into place yet. */
 static
-selpath(buf, pid)
+pidpath(buf, pfx, pid)
 register char *buf;
+register char *pfx;
 register int pid;
 {
 	register char *p;
 	char digits[8];
 	register int n;
 
-	for ( p = HRSEL_PFX; *p; p++ )
+	for ( p = pfx; *p; p++ )
 		*buf++ = *p;
 	n = 0;
 	if ( pid <= 0 )
@@ -98,7 +107,7 @@ unlinkpid(pid)
 
 	if ( pid > 0 )
 	{
-		selpath(path, pid);
+		pidpath(path, HRSEL_PFX, pid);
 		unlink(path);
 	}
 	return 0;
@@ -167,7 +176,7 @@ hr_selopen(wid, mode)
 	werr = 0;
 	if ( mode == HRSEL_FILE )
 	{
-		selpath(wpath, mypid);
+		pidpath(wpath, HRSEL_PFX, mypid);
 		if ( (wfd = creat(wpath, 0600)) < 0 )
 			return -1;
 		wopen = 1;
@@ -393,7 +402,7 @@ char *buf;
 	}
 	if ( rfd < 0 )
 	{
-		selpath(path, file);
+		pidpath(path, HRSEL_PFX, file);
 		if ( (rfd = open(path, 0)) < 0 )
 			return -1;
 		rpid = file;
@@ -411,6 +420,170 @@ char *buf;
 }
 
 /* ------------------------------------------------------------------ */
+/* the CLIPBOARD -- the other store (shmem.h HRCLIP_PATH)             */
+/* ------------------------------------------------------------------ */
+/*
+ * Same file plumbing as HRSEL_FILE above, pointed at a different name and with
+ * everything the PRIMARY store needs and this one does not stripped out: no
+ * header in the tail, so no lock, no seqlock, no generation, and nothing to
+ * unlink when the next Copy lands.  Which is the whole point -- the two
+ * mechanisms share code, not state, so a Copy cannot disturb a selection and a
+ * selection cannot disturb the clipboard.
+ *
+ * A Copy streams into HRCLIP_NEW<pid> and is swapped into place by link/unlink
+ * in hr_clipclose (see shmem.h for why that, and not a lock, is what makes a
+ * paste safe against a simultaneous Copy).
+ */
+
+static int	copen;			/* 1 = a Copy is in progress           */
+static int	cerr;			/* a write failed: publish nothing     */
+static int	cwfd = -1;		/* the HRCLIP_NEW<pid> being written   */
+static char	cwpath[24];
+
+/* Reader fd, held across the chunks of one paste.  Unlike the selection reader
+ * there is no generation to key it on -- and none is needed: this fd IS the
+ * snapshot (the inode survives being unlinked from under us), so it is opened by
+ * hr_cliplen and simply reused until the next hr_cliplen. */
+static int	crfd = -1;
+
+static
+clipdrop()				/* forget the pinned snapshot */
+{
+	if ( crfd >= 0 )
+		close(crfd);
+	crfd = -1;
+	return 0;
+}
+
+/* Begin a Copy.  Nothing is visible to a reader until hr_clipclose. */
+hr_clipopen()
+{
+	if ( copen )
+		return -1;
+	if ( mypid == 0 )
+		mypid = getpid();
+	pidpath(cwpath, HRCLIP_NEW, mypid);
+	if ( (cwfd = creat(cwpath, 0600)) < 0 )
+		return -1;
+	copen = 1;
+	cerr = 0;
+	return 0;
+}
+
+hr_clipwrite(buf, len)
+char *buf;
+{
+	if ( !copen || len < 0 || cerr )
+		return -1;
+	if ( len && write(cwfd, buf, len) != len )
+	{
+		cerr = 1;
+		return -1;
+	}
+	return 0;
+}
+
+/* Publish -- or, on a latched error, throw the whole Copy away and leave the
+ * PREVIOUS clipboard in place.  That is the useful failure: a Copy that ran out
+ * of disk should cost you the new text, not the text you already had. */
+hr_clipclose()
+{
+	int bad;
+
+	if ( !copen )
+		return -1;
+	bad = cerr;
+	copen = 0;
+	cerr = 0;
+	close(cwfd);
+	cwfd = -1;
+	if ( bad )
+	{
+		unlink(cwpath);
+		return -1;
+	}
+	clipdrop();			/* our own next paste must see the new one */
+	unlink(HRCLIP_PATH);
+	if ( link(cwpath, HRCLIP_PATH) < 0 )
+	{
+		unlink(cwpath);		/* the clipboard is now empty, not stale */
+		return -1;
+	}
+	unlink(cwpath);			/* the link above is the file now */
+	return 0;
+}
+
+/* Length of the clipboard, and the start of a paste: this is what OPENS the
+ * snapshot that the following hr_clipread calls stream (see shmem.h).  0 for an
+ * empty or absent clipboard -- never having copied anything is not an error. */
+long
+hr_cliplen()
+{
+	long n;
+
+	clipdrop();
+	if ( (crfd = open(HRCLIP_PATH, 0)) < 0 )
+		return 0L;
+	n = lseek(crfd, 0L, 2);
+	if ( n < 0 )
+	{
+		clipdrop();
+		return 0L;
+	}
+	return n;
+}
+
+/* Read a chunk of the pinned snapshot.  Returns the count (0 at end) or -1.
+ * Opens the clipboard itself if hr_cliplen was not called first, which costs
+ * only the guarantee that the whole paste came from one Copy. */
+hr_clipread(off, buf, max)
+long off;
+char *buf;
+{
+	int n;
+
+	if ( max <= 0 )
+		return 0;
+	if ( crfd < 0 && (crfd = open(HRCLIP_PATH, 0)) < 0 )
+		return -1;
+	if ( lseek(crfd, off, 0) < 0 )
+		return -1;
+	n = read(crfd, buf, max);
+	return n < 0 ? -1 : n;
+}
+
+/* What the window menu's "Copy" does: take whatever the PRIMARY selection holds
+ * right now and put it in the clipboard.  It reads through hr_selread, so the
+ * selection may be in either of ITS two stores, and it touches no selection
+ * state at all -- no lock, no ownership, no E_SELCLEAR -- so the highlight the
+ * user is looking at is still there afterwards, which is the difference between
+ * this and a middle-click.  Returns 0, or -1 if there was nothing to copy or the
+ * selection was replaced mid-copy (in which case the old clipboard stands). */
+hr_clipfromsel()
+{
+	char b[128];
+	long off, len;
+	int n;
+
+	len = hr_sellen();
+	if ( len <= 0 )
+		return -1;
+	if ( hr_clipopen() < 0 )
+		return -1;
+	for ( off = 0; off < len; off += n )
+	{
+		n = hr_selread(off, b, sizeof(b));
+		if ( n < 0 )
+			cerr = 1;		/* changed under us: discard the lot */
+		if ( n <= 0 )
+			break;
+		if ( hr_clipwrite(b, n) < 0 )
+			break;
+	}
+	return hr_clipclose();
+}
+
+/* ------------------------------------------------------------------ */
 /* server: initialise the store                                       */
 /* ------------------------------------------------------------------ */
 
@@ -420,8 +593,9 @@ char *buf;
  * too when it finds no magic, so the store also works on a boot where zview never
  * ran at all (which is how hrclip is testable on the plain serial emulator).
  * Any file the CURRENT header names is dropped; strays from a writer that died
- * between creat and publish are not hunted down here -- /etc/rc does
- * `rm -f /tmp/*' on every boot, which is the only way they outlive a session. */
+ * between creat and publish are not hunted down here -- /etc/rc sweeps /tmp,
+ * dot files included, once the partition is mounted, which is the only way they
+ * outlive a session. */
 hr_selinit()
 {
 	register HRSEL *s;

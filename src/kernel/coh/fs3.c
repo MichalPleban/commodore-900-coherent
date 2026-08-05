@@ -356,7 +356,7 @@ daddr_t lb;
 		if (pb==0 || lp==list)
 			return (pb);
 		if ((bp=bread(ip->i_dev, pb, 1)) == NULL)
-			return (0);
+			return (-1);		/* error, not a hole */
 		pb = ((daddr_t *)bp->b_vaddr)[*--lp];
 		brelease(bp);
 		candaddr(pb);

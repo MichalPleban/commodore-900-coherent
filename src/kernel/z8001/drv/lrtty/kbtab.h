@@ -57,3 +57,4 @@ typedef	struct	KEY		{
 }	KEY;
 
 extern	KEY	ktab[];
+extern	int	nktab;			/* # of entries in ktab[] */

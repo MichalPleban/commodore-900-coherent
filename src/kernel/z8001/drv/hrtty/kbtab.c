@@ -121,3 +121,11 @@ KEY	ktab[] =	{
 	KC,	O1,	O1,	O1,		/* SC63, K99 */
 	KC,	O2,	O2,	O2		/* SC64, K100 */
 };
+
+/*
+ * Extent of the table above.  A raw scan code from the hardware runs to
+ * 0x7F, well past the last entry, so the interrupt handler has to bound
+ * check before indexing; keeping the count here means it stays right when
+ * the table grows.
+ */
+int	nktab = sizeof ktab / sizeof ktab[0];

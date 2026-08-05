@@ -85,8 +85,10 @@ size_t ds;
 	 */
 	if ((sp=salloc(ss, ff)) == NULL)
 		return (NULL);
-	if (exsread(sp, ip, ds, dq, (size_t)0) == 0)
+	if (exsread(sp, ip, ds, dq, (size_t)0) == 0) {
+		sfree(sp);
 		return (NULL);
+	}
 	if ((ff&SFSHRX) != 0) {
 		sp->s_ip = ip;
 		ip->i_refc++;
@@ -337,23 +339,30 @@ size_t n;
 
 /*
  * Given a segment pointer, `sp' and a segment size, grow the given segment
- * to the given size.
+ * to the given size.  Returns non zero if the segment now has the requested
+ * size, zero if it could not be grown (the old size is then still in force,
+ * unless we could not even put that back, in which case we take a SIGSEGV).
  */
 segsize(sp, s2)
 register SEG *sp;
 vaddr_t s2;
 {
 	register vaddr_t s1;
+	register int r;
 
-	s1 = (vaddr_t)ctob(sp->s_size);
+	s1 = ctob((vaddr_t)sp->s_size);
 	if (seggrow(sp, (size_t)s2) == 0) {
 		u.u_error = ENOMEM;
-		return;
+		return (0);
 	}
-	if (sproto() == 0)
+	r = 1;
+	if (sproto() == 0) {
 		if (seggrow(sp, (size_t)s1)==0 || sproto()==0)
 			sendsig(SIGSEGV, SELF);
+		r = 0;
+	}
 	segload();
+	return (r);
 }
 
 /*

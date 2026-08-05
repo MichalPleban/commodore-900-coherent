@@ -314,18 +314,32 @@ register IO *iop;
 register char *v;
 register unsigned n;
 {
+	register int m;
+
+	/*
+	 * All three copy routines end in `kkfix' and so return the number
+	 * of bytes they really moved, which is short of `n' when the copy
+	 * faulted.  Charge the count for what moved rather than for what
+	 * was asked, or the bytes which never made it are lost: `pwrite'
+	 * measures its progress by the change in `io_ioc', and `sysio'
+	 * advances `f_seek' by it.
+	 */
+	m = 0;
 	switch (iop->io_seg) {
 	case IOSYS:
-		iop->io_base += kkcopy(iop->io_base, v, n);
+		m = kkcopy(iop->io_base, v, n);
+		iop->io_base += m;
 		break;
 	case IOUSR:
-		iop->io_base += ukcopy(iop->io_base, v, n);
+		m = ukcopy(iop->io_base, v, n);
+		iop->io_base += m;
 		break;
 	case IOPHY:
-		iop->io_phys += pkcopy(iop->io_phys, v, n);
+		m = pkcopy(iop->io_phys, v, n);
+		iop->io_phys += m;
 		break;
 	}
-	iop->io_ioc -= n;
+	iop->io_ioc -= m;
 }
 
 /*
@@ -336,18 +350,28 @@ register IO *iop;
 register char *v;
 register unsigned n;
 {
+	register int m;
+
+	/*
+	 * As in `ioread', the copy routines return what they really moved
+	 * and the count must follow that, not the requested `n'.
+	 */
+	m = 0;
 	switch (iop->io_seg) {
 	case IOSYS:
-		iop->io_base += kkcopy(v, iop->io_base, n);
+		m = kkcopy(v, iop->io_base, n);
+		iop->io_base += m;
 		break;
 	case IOUSR:
-		iop->io_base += kucopy(v, iop->io_base, n);
+		m = kucopy(v, iop->io_base, n);
+		iop->io_base += m;
 		break;
 	case IOPHY:
-		iop->io_phys += kpcopy(v, iop->io_phys, n);
+		m = kpcopy(v, iop->io_phys, n);
+		iop->io_phys += m;
 		break;
 	}
-	iop->io_ioc -= n;
+	iop->io_ioc -= m;
 }
 
 /*
@@ -486,7 +510,8 @@ register BUF *bp;
 */
 		if ((b=iop->io_base) < srp->sr_base)
 			continue;
-		if ((long)b+iop->io_ioc > (long)srp->sr_base+ctob(sp->s_size))
+		if ((long)b+iop->io_ioc >
+		    (long)srp->sr_base+ctob((paddr_t)sp->s_size))
 			continue;
 		bp->b_paddr = ctob((paddr_t)sp->s_mbase) +
 				vtop(b) - vtop(srp->sr_base);

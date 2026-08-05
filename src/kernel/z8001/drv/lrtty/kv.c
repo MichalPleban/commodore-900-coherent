@@ -5,6 +5,7 @@
  */
 #include <drvcon.h>
 #include <coherent.h>
+#include <uproc.h>
 
 int kvload();
 int kvuload();
@@ -45,6 +46,8 @@ dev_t dev; int mode;
 {
 	kbopen(dev, mode);
 	v0open(dev, mode);
+	if (u.u_error)		/* open failed - undo the keyboard open */
+		kbclose(dev, mode);
 }
 kvclose(dev, mode)
 dev_t dev; int mode;

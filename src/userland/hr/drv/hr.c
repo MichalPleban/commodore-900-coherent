@@ -236,6 +236,8 @@ hrload( )
 	mbufp = mbuf;
 	for (p=mbuf; p<endof( mbuf)-1; ++p)
 		p->mb_next = p + 1;
+	p->mb_next = 0;			/* terminate: BSS is zero on the FIRST load
+					   only, and this driver is loadable */
 	for (cp=client; cp< &client[WINDOW + 8]; ++cp)
 		cp->wtype = WMGR + 1;
 	for ( ; cp < &client[WINDOW + 10] ; ++cp )
@@ -244,6 +246,7 @@ hrload( )
 		cp->wtype = WMGR + 2;
 	for ( ev=evmgr ; ev<endof( evmgr)-1; ev++)
 		ev->enext = ev + 1;
+	ev->enext = 0;			/* terminate: see the mbuf list above */
 	evmfree = evmgr;
 	evmlist = NULL;
 	mouse.m_src = DRIVER;
@@ -398,6 +401,25 @@ dev_t	dev;
 	{
 		if ( self >= WINDOW )
 		{
+			/* Drop the client's identity BEFORE the first interruptible
+			 * sleep below.  hrlock( ) sleeps at cl 0, so a pending
+			 * signal longjmps back to trap( ) and this function never
+			 * returns; `ocount' is already 0, so the old code could
+			 * leave a client that still looked live - EXCL set (no one
+			 * could open the window again) and pid/group stamped (a
+			 * later hrsignal would signal whatever process group had
+			 * meanwhile inherited those ids).  The clears below are
+			 * repeated after the handshake and nothing in it reads
+			 * them: hrlock/hrwait use the NEEDDAT bit alone.
+			 * The wait deliberately stays INTERRUPTIBLE.  Making it
+			 * uninterruptible would guarantee WM_CLOSE reaches the
+			 * server, but a dead or wedged server would then hang
+			 * close( ) - and so exit( ) - for ever, unkillable.  A
+			 * missed WM_CLOSE costs a ghost window, which is
+			 * recoverable; an unkillable process is not. */
+			cp->pid = 0;
+			cp->group = 0;
+			cp->flags &= ~EXCL;
 			hrlock(self, NEEDDAT);
 			p = hralloc( self );
 			p->mb_m.m_src = self;
@@ -526,7 +548,11 @@ int	*args;
 		}
 		d = p->mb_m.m_dst;
 		if (d >= DESTMAX)
-			baddest( );
+		{
+			baddest( );		/* user input: EINVAL, never panic */
+			hrunalloc(p);		/* the mbuf is ours: give it back */
+			return;
+		}
 		p->mb_m.m_src = self;
 		hrlink(d, p);
 		return;
@@ -585,7 +611,10 @@ int	*args;
 		if (u.u_error)
 			return;
 		if (x.x_src >= DESTMAX)
-			baddest( );
+		{
+			baddest( );		/* user input: EINVAL, never panic */
+			return;			/* xstate is still XIDLE: nothing to undo */
+		}
 		cp = &client[x.x_src];
 		loop
 			switch (xstate) {
@@ -618,11 +647,27 @@ int	*args;
 				xstate = XIDLE;
 				break;
 			case XERROR:
-				panic( "CIOGETD");
+				/* xcheck( ) faulted reading the SOURCE client's
+				 * buffer.  That is a failed transfer, not a
+				 * kernel inconsistency: report it and put the
+				 * machinery back in XIDLE.  Nothing else ever
+				 * left XERROR, so the old panic was also the
+				 * only thing standing between two cooperating
+				 * unprivileged processes and a CIOGETD that
+				 * blocks for ever at CVNOSIG.  EIO (not EFAULT):
+				 * our own buffer was fine, the peer's was not. */
+				xstate = XIDLE;
+				u.u_error = EIO;
+				wakeup( &x);
+				return;
 			}
 	case CIOSIG:
+		/* User-initiated, so ask hrsignal( ) for the kill(2) rules: a
+		 * legal signal number and sigperm( ) per target process.  The
+		 * `self < WINDOW' test is no privilege check - /dev/dmgr is mode
+		 * 666 and deliberately non-exclusive, so anyone can get here. */
 		if ( self < WINDOW )
-			hrsignal( hiword( args), loword( args));
+			hrsignal( hiword( args), loword( args), TRUE);
 		return;
 	case CIOEVMGR:
 		if ( self < WINDOW && self != hrsmgr )
@@ -654,7 +699,7 @@ int	*args;
 		if ( self == hrsmgr && self != SMGR && !hrislocked )
 		{
 			hrislocked++;
-			hrsignal(SMGR, SIGALRM);
+			hrsignal(SMGR, SIGALRM, FALSE);	/* driver protocol, fixed dst */
 		}
 		return;
 	case CIOUHOLD:
@@ -699,13 +744,28 @@ int	*args;
 			hrdraw(mouse.m_msg[2], mouse.m_msg[3]);
 		return;
 	case CIODATA:
-		cp = &client[ hiword( args)];
+		/* The destination is the high word of the by-value argument, so
+		 * it is any 16-bit pattern the caller likes.  `d' is unsigned,
+		 * which catches a negative hiword as well (it becomes huge). */
+		d = hiword( args);
+		if (d >= DESTMAX)
+		{
+			baddest( );
+			return;
+		}
+		cp = &client[d];
 		cp->datc = loword( args );
 		cp->flags &= ~READING;
 		wakeup( &cp->datc );
 		return;
 	case CIOACK:
-		cp = &client[ hiword( args)];
+		d = hiword( args);		/* user-controlled: range-check it */
+		if (d >= DESTMAX)
+		{
+			baddest( );
+			return;
+		}
+		cp = &client[d];
 		cp->data.i = loword( args );
 		cp->flags &= ~NEEDDAT;
 		wakeup( &cp->data );
@@ -715,7 +775,13 @@ int	*args;
 		ukcopy( args, &tiomsg, sizeof( struct message ));
 		if ( u.u_error )
 			return;
-		cp = &client[tiomsg.m_dst];
+		d = tiomsg.m_dst;	/* straight out of user memory: check it */
+		if (d >= DESTMAX)
+		{
+			baddest( );
+			return;
+		}
+		cp = &client[d];
 		cp->data.tty = * (struct sgttyb *) &tiomsg.m_msg[1];
 		cp->flags &= ~NEEDDAT;
 		wakeup(&cp->data);
@@ -764,7 +830,17 @@ int	*args;
 		kucopy( &cp->data.tty, args, sizeof(struct sgttyb) );
 		return;
 	case TIOCEXCL:
-		client[self].flags |= EXCL;
+		/* Only windows may be made exclusive from userland, which makes
+		 * this symmetric with TIOCNXCL below.  EXCL on the low minors is
+		 * the driver's own business: hropen( ) sets it for every one of
+		 * them except DMGR - which must stay shared, since the server and
+		 * every direct-render client hold it at once - and hrclose( )
+		 * clears it.  Allowing it here let any user set EXCL on /dev/dmgr
+		 * (mode 666), never be able to clear it again, and lock every
+		 * further GUI client out with EDBUSY.  Silently ignored for the
+		 * low minors, as the other window-only ioctls are. */
+		if ( self >= WINDOW )
+			client[self].flags |= EXCL;
 		return;
 	case TIOCNXCL:
 		if ( self >= WINDOW )
@@ -838,7 +914,8 @@ register uint self;
 	{
 		cp = &client[hrsmgr];
 		p = cp->head;
-		cp->head = mstail->mb_next;
+		if ( not (cp->head = mstail->mb_next) )
+			cp->tail = 0;	/* old mgr's queue drained: see hrflush( ) */
 		cp = &client[self];
 		if ( not (mstail->mb_next = cp->head) )
 		{

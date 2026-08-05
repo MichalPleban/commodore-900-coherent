@@ -36,6 +36,7 @@ struct mux {
 
 extern int	atoi();
 extern long	hr_sellen();
+extern long	hr_cliplen();
 
 /* Ceiling on one paste.  Not a store limit -- the selection may be megabytes in
  * the file store -- but a pty one: ttstash() (drv/tty.c) silently drops anything
@@ -44,27 +45,33 @@ extern long	hr_sellen();
  * so on the console rather than quietly losing the tail. */
 #define	PASTEMAX	1024
 
-/* Insert the selection as if it had been typed.  Streams -- never holds more
- * than one chunk -- so a file-backed selection from some future editor pastes
- * through the same path as a terminal's own two-line one.
+/* Insert text as if it had been typed.  `clip' picks the store: 0 = the PRIMARY
+ * selection (a middle-click), 1 = the clipboard (the window menu's Paste).  Only
+ * those two calls differ -- the streaming, the bound and the newline conversion
+ * are one mechanism serving both, which is the point of doing it here.
+ *
+ * Streams -- never holds more than one chunk -- so a file-backed selection from
+ * some future editor pastes through the same path as a terminal's own two-line
+ * one.
  *
  * '\n' becomes '\r' because that is what a keystroke would have delivered: the
  * line discipline turns CR into NL itself (ISCRMOD), and it is that conversion
  * that makes ttstash push the finished line to the shell. */
 static
-dopaste(mfd)
+dopaste(mfd, clip)
 {
 	char b[64];
 	long off, len, want;
 	int n, i;
 
-	want = hr_sellen();
+	want = clip ? hr_cliplen() : hr_sellen();
 	if ( want <= 0 )
 		return;
 	len = want > PASTEMAX ? PASTEMAX : want;
 	for ( off = 0; off < len; off += n )
 	{
-		n = hr_selread(off, b, sizeof(b));
+		n = clip ? hr_clipread(off, b, sizeof(b))
+			 : hr_selread(off, b, sizeof(b));
 		if ( n <= 0 )
 			break;			/* empty, or replaced under us */
 		if ( off + n > len )
@@ -141,7 +148,23 @@ char **argv;
 				 * same reason: this is a separate process, so a paste
 				 * that the shell is slow to swallow cannot stall zterm's
 				 * rendering loop.  zterm never sees the event.  */
-				dopaste(mfd);
+				dopaste(mfd, 0);
+				continue;
+			}
+			if ( e.wm_type == E_MENU )
+			{
+				/* The window menu's Copy and Paste (wire.h HRM_*, asked
+				 * for by zterm's ha_menu).  Both belong here rather than
+				 * in zterm: Paste for the reason above, and Copy because
+				 * it needs no part of the grid -- the bytes are already
+				 * in the PRIMARY store, put there by copysel() when the
+				 * drag ended, so a Copy is purely one store to the other.
+				 * Neither disturbs the selection: the highlight stays up,
+				 * and can be copied again or middle-pasted afterwards. */
+				if ( e.wm_arg[0] == HRM_COPY )
+					hr_clipfromsel();
+				else if ( e.wm_arg[0] == HRM_PASTE )
+					dopaste(mfd, 1);
 				continue;
 			}
 			mx.tag = MX_EVT;

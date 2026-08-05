@@ -39,7 +39,24 @@ pmake(mode)
  * Open a pipe given the inode pointer.
  */
 popen(ip, mode)
+register INODE *ip;
 {
+	/*
+	 * A fresh opener has arrived, so an end of file left behind by an
+	 * earlier close no longer applies.  Only a named pipe can reach
+	 * here with `IFEOF' set: an anonymous pipe has no directory entry,
+	 * so `upipe' is the only thing which ever opens one and it does so
+	 * twice running on a just allocated inode, before any close.  A
+	 * writer which went back to sleep in `pwrite' purely because of the
+	 * flag must be woken so that it re-tests the ring.
+	 */
+	if ((ip->i_flag&IFEOF) != 0) {
+		ip->i_flag &= ~IFEOF;
+		if ((ip->i_flag&IFWFR) != 0) {
+			ip->i_flag &= ~IFWFR;
+			wakeup((char *)&ip->i_a.i_pwx);
+		}
+	}
 }
 
 /*

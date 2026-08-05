@@ -1,14 +1,22 @@
 /*
- * hrclip.c - read or set the hrgui PRIMARY selection from a shell.
+ * hrclip.c - read or set the hrgui text stores from a shell.
  *
- *	hrclip -o		write the current selection to stdout
+ *	hrclip -o		write the current SELECTION to stdout
  *	hrclip -i		make stdin the selection
+ *	hrclip -O		write the CLIPBOARD to stdout
+ *	hrclip -I		make stdin the clipboard
+ *	hrclip -c		copy the selection to the clipboard (menu "Copy")
  *
- * Two reasons this exists.  It makes the selection scriptable from inside a
- * terminal window (`hrclip -o | ...', `... | hrclip -i'), which is a real
- * facility on a machine whose GUI is mostly shells.  And it makes the whole
- * store testable on the plain serial emulator with --input, before any of the
- * mouse plumbing exists -- no window server, no mouse choreography.
+ * Lower case is the PRIMARY selection (mouse-select, middle-click paste), upper
+ * case the clipboard the window menu's Copy and Paste use (shmem.h HRCLIP_PATH).
+ * They are separate stores on purpose, so `hrclip -O' is unaffected by whatever
+ * the mouse has selected since, and -i does not disturb a clipboard.
+ *
+ * Two reasons this exists.  It makes both stores scriptable from inside a
+ * terminal window (`hrclip -o | ...', `... | hrclip -I'), which is a real
+ * facility on a machine whose GUI is mostly shells.  And it makes them testable
+ * on the plain serial emulator with --input, before any of the mouse plumbing
+ * exists -- no window server, no mouse choreography.
  *
  * On the way IN hrclip is the selection's owner, so per inc/shmem.h it is hrclip
  * that picks the store: it reads one byte more than the tail store holds and
@@ -50,7 +58,7 @@ static char	obuf[CHUNK];
 static
 usage()
 {
-	write(2, "usage: hrclip -i | -o\n", 22);
+	write(2, "usage: hrclip -i | -o | -I | -O | -c\n", 36);
 	exit(1);
 }
 
@@ -127,15 +135,81 @@ failed:
 	return 1;
 }
 
+/* Copy the clipboard to stdout.  No store to resolve and no generation to lose a
+ * race with: hr_cliplen pins the snapshot and the reads stream it. */
+static
+dumpclip()
+{
+	long off, len;
+	int n;
+
+	len = hr_cliplen();
+	for ( off = 0; off < len; off += n )
+	{
+		n = hr_clipread(off, obuf, sizeof(obuf));
+		if ( n < 0 )
+		{
+			write(2, "hrclip: clipboard read failed\n", 30);
+			return 1;
+		}
+		if ( n == 0 )
+			break;
+		if ( write(1, obuf, n) != n )
+			return 1;
+	}
+	return 0;
+}
+
+/* Make stdin the clipboard.  One store, so nothing to choose: it is streamed
+ * straight through, and the previous clipboard stands until the last byte is
+ * safely written (hr_clipclose swaps it in). */
+static
+setclip()
+{
+	int k, bad;
+
+	if ( hr_clipopen() < 0 )
+	{
+		write(2, "hrclip: cannot write clipboard\n", 31);
+		return 1;
+	}
+	bad = 0;
+	while ( (k = read(0, buf, sizeof(buf))) > 0 )
+		if ( hr_clipwrite(buf, k) < 0 )
+		{
+			bad = 1;		/* hr_clipclose will discard it all */
+			break;
+		}
+	if ( k < 0 )
+		bad = 1;		/* stdin died: what we did read is published */
+	if ( hr_clipclose() < 0 )
+		bad = 1;
+	if ( bad )
+	{
+		write(2, "hrclip: clipboard write failed\n", 31);
+		return 1;
+	}
+	return 0;
+}
+
 main(argc, argv)
 char **argv;
 {
 	if ( argc != 2 || argv[1][0] != '-' || argv[1][2] != '\0' )
 		usage();
-	/* The store lives in the tail of the hi-res card's VRAM, so on a machine
-	 * with no such card it is open bus: every store would vanish and every load
-	 * float to 0xFF, and hrclip would appear to work while doing nothing.  Say
-	 * so instead. */
+	/* The SELECTION's header lives in the tail of the hi-res card's VRAM, so on a
+	 * machine with no such card it is open bus: every store would vanish and every
+	 * load float to 0xFF, and hrclip would appear to work while doing nothing.  Say
+	 * so instead.  The clipboard is only a file, so -I and -O are exempt: they work
+	 * on any machine, which also makes the clipboard testable on the plain serial
+	 * emulator.  -c touches both and so needs the card. */
+	switch ( argv[1][1] )
+	{
+	case 'O':
+		exit(dumpclip());
+	case 'I':
+		exit(setclip());
+	}
 	if ( !hr_selok() )
 	{
 		write(2, "hrclip: no shared memory (no hi-res graphics card)\n", 51);
@@ -147,6 +221,8 @@ char **argv;
 		exit(dumpsel());
 	case 'i':
 		exit(setsel(-1));	/* no window: hrclip is not a GUI client */
+	case 'c':			/* what the menu's Copy does */
+		exit(hr_clipfromsel() < 0 ? 1 : 0);
 	}
 	usage();
 }

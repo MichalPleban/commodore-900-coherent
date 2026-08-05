@@ -42,6 +42,7 @@ extern int	bitblt(), R_null();
 extern POINT	SM_Mouse_Pos;		/* engine cursor pos (bitblt hide gating) */
 
 extern int	(*gfx_reply_hook)();
+extern RECT	gfx_uprect;	/* damage rect that goes with a WM_UPDATE */
 
 /* Per-window client bookkeeping, indexed by window id (0..MAX_WINDOWS-1). */
 struct win {
@@ -57,6 +58,7 @@ struct win {
 	char	icon[40];	/* .icn file for the desktop icon */
 	int	appi;		/* catalog entry it was launched from (-1 unknown) */
 	int	stretch;	/* 1 = the client allows the user to resize it */
+	int	menu;		/* HRM_* the client wants in its window menu */
 } wins[MAX_WINDOWS];
 
 int	cmdfd;			/* server end (read) of the shared command pipe */
@@ -424,6 +426,7 @@ onreply(m)
 MESSAGE *m;
 {
 	int wid, cmd;
+	POINT o;
 
 	cmd = m->msg_Cmd;
 	wid = (m->msg_Data[0] >> 8) & 0xff;
@@ -437,10 +440,16 @@ MESSAGE *m;
 		gk = *wtbl[wid];
 		srvtitle(wid);
 		gk = save;
-		/* full-content expose; a dumb client repaints everything.  QUEUED, not
-		 * sent: this hook runs deep inside a locked layer op, and sending here
-		 * could block on a client that is spinning on the lock (deadlock). */
-		qexpose(wid);
+		/* Expose only what the engine says was damaged (gfx_uprect, absolute
+		 * screen coords -- the regions this window was L_OBSCURED in), made
+		 * content-relative; qexposer clips it to the content and unions it with
+		 * any other damage still queued.  A raise therefore costs the client the
+		 * strip it was covered by, not a repaint of its whole window.  QUEUED,
+		 * not sent: this hook runs deep inside a locked layer op, and sending
+		 * here could block on a client that is spinning on the lock (deadlock). */
+		o = wtbl[wid]->wn_Crect.origin;
+		qexposer(wid, gfx_uprect.origin.x - o.x, gfx_uprect.origin.y - o.y,
+			      gfx_uprect.corner.x - o.x, gfx_uprect.corner.y - o.y);
 	}
 	return 0;
 }
@@ -471,46 +480,78 @@ rstgraph()
  * changed.  Read straight from wtbl[] so the global gk is never disturbed. */
 publish_surf(wid)
 {
-	HRSURF *sp;
+	HRSURF *sp, t;
 	WSTRUCT *wp;
 	LAYER *lp;
 	SM_REGION *rp;
 	RECT cr, dr;
-	int n;
+	int n, i;
 
 	sp = hr_surf(wid);
-	sp->seq++;					/* odd: writing */
 	wp = wtbl[wid];
-	if ( !wins[wid].used || wins[wid].min || wp == (WSTRUCT *)NULL
-	     || wp->wn_Layer == (LAYER *)NULL )
+	t.mapped = 0;
+	t.nvis = 0;
+	t.ox = t.oy = t.cw = t.ch = 0;
+	if ( wins[wid].used && !wins[wid].min && wp != (WSTRUCT *)NULL
+	     && wp->wn_Layer != (LAYER *)NULL )
 	{
-		sp->mapped = 0;
-		sp->nvis = 0;
-		sp->seq++;				/* even */
-		hr_setdraw(wid, 0);		/* unmapped: not drawing -> clear drain flag */
-		return;
+		cr = wp->wn_Crect;
+		lp = (LAYER *)wp->wn_Layer;
+		t.ox = cr.origin.x;  t.oy = cr.origin.y;
+		t.cw = cr.corner.x - cr.origin.x;
+		t.ch = cr.corner.y - cr.origin.y;
+		n = 0;
+		for ( rp = lp->reg; rp < lp->reg + MAX_LRBUF && n < SHM_MAXVIS; rp++ )
+		{
+			if ( rp->flag == L_EMPTY )
+				break;
+			if ( rp->flag != L_VISIBLE )
+				continue;
+			dr = R_Intersection(cr, rp->bm.rect);
+			if ( R_null(dr) )
+				continue;
+			t.vis[n].x0 = dr.origin.x;  t.vis[n].y0 = dr.origin.y;
+			t.vis[n].x1 = dr.corner.x;  t.vis[n].y1 = dr.corner.y;
+			n++;
+		}
+		t.nvis = n;
+		t.mapped = 1;
 	}
-	cr = wp->wn_Crect;
-	lp = (LAYER *)wp->wn_Layer;
-	sp->ox = cr.origin.x;  sp->oy = cr.origin.y;
-	sp->cw = cr.corner.x - cr.origin.x;
-	sp->ch = cr.corner.y - cr.origin.y;
-	n = 0;
-	for ( rp = lp->reg; rp < lp->reg + MAX_LRBUF && n < SHM_MAXVIS; rp++ )
+	else
+		hr_setdraw(wid, 0);	/* unmapped: not drawing -> clear drain flag */
+
+	/* Publish only a descriptor that actually CHANGED.  publish_all() runs over
+	 * every window after any op, but one window's raise/move leaves most of the
+	 * others' clips identical -- and a client watches this seqlock to decide that
+	 * the server restacked it, so an unconditional bump made every terminal on
+	 * the screen throw away its diff and repaint in full whenever any other
+	 * window was touched.  Comparing ~110 bytes is far cheaper than the repaint
+	 * it saves. */
+	if ( t.mapped == sp->mapped && t.nvis == sp->nvis && t.ox == sp->ox &&
+	     t.oy == sp->oy && t.cw == sp->cw && t.ch == sp->ch )
 	{
-		if ( rp->flag == L_EMPTY )
-			break;
-		if ( rp->flag != L_VISIBLE )
-			continue;
-		dr = R_Intersection(cr, rp->bm.rect);
-		if ( R_null(dr) )
-			continue;
-		sp->vis[n].x0 = dr.origin.x;  sp->vis[n].y0 = dr.origin.y;
-		sp->vis[n].x1 = dr.corner.x;  sp->vis[n].y1 = dr.corner.y;
-		n++;
+		for ( i = 0; i < t.nvis; i++ )
+			if ( t.vis[i].x0 != sp->vis[i].x0 || t.vis[i].y0 != sp->vis[i].y0 ||
+			     t.vis[i].x1 != sp->vis[i].x1 || t.vis[i].y1 != sp->vis[i].y1 )
+				break;
+		if ( i == t.nvis )
+			return;				/* nothing to say */
 	}
-	sp->nvis = n;
-	sp->mapped = 1;
+	sp->seq++;					/* odd: writing */
+	sp->mapped = t.mapped;
+	sp->ox = t.ox;  sp->oy = t.oy;
+	sp->cw = t.cw;  sp->ch = t.ch;
+	/* field by field, not a struct assignment: the destination is a far pointer
+	 * into the shared VRAM tail, and every other write to the tail in this file
+	 * is a plain scalar store through hr_*() -- keep it that way. */
+	for ( i = 0; i < t.nvis; i++ )
+	{
+		sp->vis[i].x0 = t.vis[i].x0;
+		sp->vis[i].y0 = t.vis[i].y0;
+		sp->vis[i].x1 = t.vis[i].x1;
+		sp->vis[i].y1 = t.vis[i].y1;
+	}
+	sp->nvis = t.nvis;
 	sp->seq++;					/* even: done */
 }
 
@@ -581,6 +622,8 @@ RECT r;
 killwin(wid)
 {
 	char base[16];
+	RECT old;
+	int hadr;
 
 	if ( !wins[wid].used )
 		return;
@@ -601,9 +644,15 @@ killwin(wid)
 	gfx_cursor_hide();
 	if ( wins[wid].min )
 		drawicon(wid, 0);		/* erase its desktop icon */
+	hadr = 0;
 	if ( wtbl[wid] )
 	{
 		LOADW(wid);
+		if ( gkLayer )
+		{
+			old = gkLayer->rect;	/* what we are about to stop covering */
+			hadr = 1;
+		}
 		dellayer(gkLayer);		/* uncovers + exposes those beneath */
 		perform_update();
 		free((char *)wtbl[wid]);
@@ -615,12 +664,23 @@ killwin(wid)
 	gfx_cursor_show();
 	publish_all();
 	srvunlock();
+	/* Repaint what this window was covering.  dellayer's own update list says the
+	 * same thing through the reply hook, but that list is the one minwin records
+	 * as not always delivered -- and now that an expose carries a RECT instead of
+	 * "repaint everything", a region it misses is a region nobody repaints. */
+	if ( hadr )
+		expose_covered(wid, old.origin.x, old.origin.y,
+				    old.corner.x, old.corner.y);
 	redraw_icons();				/* closing a window may uncover icons */
 }
 
 /* Raise a window to the front (click-to-raise / demo cycling). */
 raisewin(wid)
 {
+	LAYER *fp;
+	RECT r, ir, dam;
+	int got;
+
 	if ( !wins[wid].used || !wtbl[wid] )
 		return;
 	/* Already frontmost?  Then nothing is restacked and nothing is uncovered,
@@ -637,16 +697,51 @@ raisewin(wid)
 		return;
 	srvlock();
 	LOADW(wid);
+	/* What this raise actually damages is the part of us that the windows IN
+	 * FRONT were covering -- everything else of ours is still on screen and must
+	 * not be repainted.  Work it out from the z-order BEFORE the restack (the
+	 * layer list runs ->front towards the front), as a bounding union.  upfront()
+	 * reports the same thing from the layer's L_OBSCURED regions and it unions in
+	 * via qexposer, but that list is the one minwin's comment records as not
+	 * always delivered, so do not depend on it alone.
+	 *
+	 * This replaces the qexpose(wid) that used to follow upfront(): a full-content
+	 * expose made every click-to-raise repaint the whole terminal (~2000 cells) to
+	 * recover the strip a neighbour had been covering. */
+	r = gkLayer->rect;
+	got = 0;
+	for ( fp = gkLayer->front; fp != (LAYER *)NULL; fp = fp->front )
+	{
+		ir = R_Intersection(fp->rect, r);
+		if ( R_null(ir) )
+			continue;
+		if ( !got )
+		{
+			dam = ir;
+			got = 1;
+		}
+		else
+		{
+			if ( ir.origin.x < dam.origin.x ) dam.origin.x = ir.origin.x;
+			if ( ir.origin.y < dam.origin.y ) dam.origin.y = ir.origin.y;
+			if ( ir.corner.x > dam.corner.x ) dam.corner.x = ir.corner.x;
+			if ( ir.corner.y > dam.corner.y ) dam.corner.y = ir.corner.y;
+		}
+	}
 	gfx_cursor_hide();
 	upfront(gkLayer);			/* exposes whatever it now covers... */
 	SAVEW(wid);
 	gfx_cursor_show();
-	/* upfront already exposes the previously-obscured parts of OTHER
-	 * windows via the reply hook; the raised window itself is fully drawn
-	 * over, so ask its client to repaint too. */
+	if ( got )
+	{
+		POINT o;
+
+		o = wtbl[wid]->wn_Crect.origin;	/* damage is content-relative */
+		qexposer(wid, dam.origin.x - o.x, dam.origin.y - o.y,
+			      dam.corner.x - o.x, dam.corner.y - o.y);
+	}
 	publish_all();				/* z-order changed: refresh all clips */
-	qexpose(wid);				/* deferred: flushed by srvunlock */
-	srvunlock();
+	srvunlock();				/* flushes the queued exposes */
 }
 
 /* Expose every mapped window (except exclwid) whose layer rect intersects the
@@ -1475,12 +1570,13 @@ redecorate(wid)
 /* Move window wid so its outer rect origin is (nx,ny), same size. */
 movewin(wid, nx, ny)
 {
-	RECT r;
+	RECT r, old;
 	int w, h;
 
 	if ( !wtbl[wid] )
 		return;
 	srvlock();
+	old = wtbl[wid]->wn_Layer->rect;	/* the area we are vacating */
 	w = wtbl[wid]->wn_Layer->rect.corner.x - wtbl[wid]->wn_Layer->rect.origin.x;
 	h = wtbl[wid]->wn_Layer->rect.corner.y - wtbl[wid]->wn_Layer->rect.origin.y;
 	if ( nx < 0 ) nx = 0;
@@ -1497,6 +1593,10 @@ movewin(wid, nx, ny)
 	publish_all();
 	srvunlock();
 	sendev(wid, E_EXPOSE, 0, 0, wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
+	/* and everyone we were covering at the old spot repaints that area (see the
+	 * same call in killwin: an expose now carries a rect, so damage the engine's
+	 * update list happens to miss is damage nobody would repaint). */
+	expose_covered(wid, old.origin.x, old.origin.y, old.corner.x, old.corner.y);
 	redraw_icons();			/* moving off an icon must repaint it */
 }
 
@@ -1505,12 +1605,13 @@ movewin(wid, nx, ny)
  * this is the belt-and-braces check. */
 resizewin(wid, cx, cy)
 {
-	RECT r;
+	RECT r, old;
 	int nw, nh;
 
 	if ( !wtbl[wid] || !wins[wid].stretch )
 		return;
 	srvlock();
+	old = wtbl[wid]->wn_Layer->rect;	/* a shrink vacates part of this */
 	r.origin = wtbl[wid]->wn_Layer->rect.origin;
 	if ( cx < r.origin.x + 48 ) cx = r.origin.x + 48;
 	if ( cy < r.origin.y + 48 ) cy = r.origin.y + 48;
@@ -1528,6 +1629,8 @@ resizewin(wid, cx, cy)
 	publish_all();
 	srvunlock();
 	sendev(wid, E_RESIZE, nw, nh, 0, 0);
+	/* a shrink uncovers part of the old rect: repaint whoever was under it */
+	expose_covered(wid, old.origin.x, old.origin.y, old.corner.x, old.corner.y);
 	redraw_icons();			/* resizing off an icon must repaint it */
 }
 
@@ -1830,6 +1933,7 @@ HRCONN *hc;
 	       iconok(hc->hc_icon) ? hc->hc_icon : HR_DEFICON);
 	wins[wid].appi = ai;
 	wins[wid].stretch = (hc->hc_flags & HRF_STRETCH) != 0;
+	wins[wid].menu = hc->hc_menu & HRM_ALL;	/* its own window-menu entries */
 	wins[wid].pid = hc->hc_pid;
 	wins[wid].min = 0;
 	hr_evinit(wid);			/* a reused wid must not inherit the old
@@ -2356,23 +2460,60 @@ deskmenu(x, y)
 }
 
 /* Right-click on a window: per-window operations.  "Front"/"Back" raise/lower;
- * "Quit" closes that window (vs. the desktop menu's Quit = quit the WM). */
+ * "Quit" closes that window (vs. the desktop menu's Quit = quit the WM).
+ *
+ * Above those come whatever the client declared in its connect record (wire.h
+ * hc_menu, HRM_*), in HRM_ bit order, separated from them by a divider.  The
+ * labels live here rather than in the client because a fixed vocabulary is the
+ * whole point: "Save" reads the same and sits in the same place in every
+ * application.  The server does not act on those entries -- it sends the client
+ * an E_MENU carrying the bit and forgets about it. */
 char	*g_winitems[] = { "Move", "Stretch", "Front", "Back", "Hide", "Quit" };
 #define NWINITEMS	6
+
+/* Labels for the HRM_* bits, LSB first: entry i is bit (1 << i). */
+char	*g_appitems[] = { "New", "Open...", "Save", "Cut", "Copy", "Paste",
+			  "Settings..." };
+#define NAPPITEMS	7
+
 winmenu(w, x, y)
 {
-	char *items[NWINITEMS];
-	int act[NWINITEMS];
-	int i, n, sel;
+	char *items[NAPPITEMS + 2 + NWINITEMS];
+	int act[NAPPITEMS + 2 + NWINITEMS];
+	int i, n, sel, mbits;
+
+	/* The client's own entries first.  act[] tells the two kinds apart: >= 0
+	 * is an index into g_winitems, < 0 is -(bit index + 1). */
+	n = 0;
+	mbits = wins[w].menu;
+	for ( i = 0; i < NAPPITEMS; i++ )
+		if ( mbits & (1 << i) )
+		{
+			act[n] = -(i + 1);
+			items[n++] = g_appitems[i];
+		}
+	if ( n > 0 )
+	{
+		act[n] = 0;			/* never looked at: a divider */
+		items[n++] = MNU_DIV;		/* selects nothing (srvmenu)  */
+	}
 
 	/* "Stretch" only for a client that said it can be resized (HRF_STRETCH in
 	 * its connect record): offering it for a fixed-size window would just send
-	 * an E_RESIZE the app cannot honour. */
-	n = 0;
+	 * an E_RESIZE the app cannot honour.
+	 *
+	 * "Quit" is fenced off behind a divider of its own, like the desktop menu's
+	 * Quit: it is the one entry here that destroys something, so it should not
+	 * sit flush against Hide where a slightly long drag lands on it. */
 	for ( i = 0; i < NWINITEMS; i++ )
 	{
 		if ( i == 1 && !wins[w].stretch )
 			continue;
+		if ( i == NWINITEMS - 1 )
+		{
+			act[n] = 0;		/* never looked at: a divider */
+			items[n++] = MNU_DIV;
+		}
 		act[n] = i;
 		items[n++] = g_winitems[i];
 	}
@@ -2380,6 +2521,11 @@ winmenu(w, x, y)
 	if ( sel < 0 || sel >= n )
 		return;
 	sel = act[sel];
+	if ( sel < 0 )		/* one of the client's own: just route it there */
+	{
+		sendev(w, E_MENU, 1 << (-sel - 1), 0, 0, 0);
+		return;
+	}
 	if ( sel == 0 )      ghostdrag(w, 1);
 	else if ( sel == 1 ) ghostdrag(w, 2);
 	else if ( sel == 2 ) raisewin(w);
@@ -2680,6 +2826,71 @@ char *path;
 	return 0;
 }
 
+/* The console the watchdog below restores.  hrtty's clear-screen is ESC [ E
+ * (hrterm2.c -- it is NOT the vt100 ESC [ 2 J its TIOCGTERM answer implies),
+ * and it repaints from its own text table, so this both wipes the dead desktop
+ * off the framebuffer and proves the console is alive again. */
+wdconsole()
+{
+	static char msg[] =
+	    "\033[E\007zview: server died -- screen and keyboard restored\r\n";
+	int fd;
+
+	if ( (fd = open("/dev/console", 1)) < 0 )
+		return;
+	write(fd, msg, sizeof(msg) - 1);
+	close(fd);
+}
+
+/* Crash insurance.  /drv/hr owns the keyboard interrupt vector for as long as
+ * it is loaded -- hrload() rewires it to its own ISR, hruload() puts hrtty's
+ * back (drv/hr.c) -- and its ISR posts every scancode to a message queue only
+ * the server reads.  So a server that dies WITHOUT reaching quitwm() leaves the
+ * text console on screen but stone deaf: the driver keeps eating the keys, and
+ * nothing is left to unload it.  That is a machine you can only reset.
+ *
+ * The fix is to have something outlive the server: fork here, before the driver
+ * is loaded, and keep the ORIGINAL process as a watchdog that does nothing but
+ * wait().  Whatever kills the server -- SIGSEGV, SIGKILL, an exit(1) from a
+ * failed start-up -- the parent wakes up and unloads the driver, which is all
+ * it takes to get the console back.  A clean quitwm() has already unloaded it
+ * and exits 0, so that status is the one case we leave alone.
+ *
+ * It cannot help a server that HANGS rather than dies; the driver's own
+ * Ctrl-Alt-SysRq escape (hr2.c hrkey: hruload + SIGSEGV to the server) is the
+ * answer to that, and it is what makes this watchdog fire afterwards.
+ *
+ * Returns 0 in the server; the watchdog never returns.  A fork() failure is not
+ * fatal -- coming up without crash insurance beats not coming up. */
+srvwatch()
+{
+	int srv, w, st, pid;
+
+	if ( (srv = fork()) <= 0 )
+		return srv;
+
+	close(cmdfd);			/* the command pipe is the server's alone */
+	close(cmdwr);
+	/* Outlive a stray ^C / ^\ / hangup on the launching terminal: dying here
+	 * would silently throw away the only cleanup the system has left. */
+	signal(SIGINT, SIG_IGN);
+	signal(SIGQUIT, SIG_IGN);
+	signal(SIGHUP, SIG_IGN);
+	while ( (w = wait(&st)) != srv && w >= 0 )
+		;
+	if ( w == srv && st == 0 )
+		_exit(0);			/* quitwm(): already cleaned up */
+	if ( (pid = fork()) == 0 )
+	{
+		execl("/etc/uload", "uload", "/drv/hr", (char *)0);
+		_exit(1);
+	}
+	while ( pid > 0 && (w = wait(&st)) != pid && w >= 0 )
+		;
+	wdconsole();
+	_exit(0);
+}
+
 /* A client that died leaves a broken event pipe; without this, the server's next
  * sendev() write() would raise SIGPIPE and kill the whole GUI.  Survive + log. */
 onpipe()
@@ -2733,6 +2944,10 @@ char **argv;
 		}
 	}
 
+	/* Split off the crash watchdog BEFORE the driver that it exists to undo
+	 * is loaded, so there is no window in which a death goes uncovered. */
+	srvwatch();
+
 	/* Take over the screen + input: load /drv/hr (keyboard + polled mouse +
 	 * hardware cursor), paint the desktop, then fork the input pump. */
 	loaddriver();
@@ -2771,7 +2986,17 @@ char **argv;
 	hr_glob()->curon = 1;			/* driver draws its cursor by default */
 	hr_glob()->overlay = 0;			/* no menu/overlay up yet */
 	hr_glob()->stacking = 0;		/* no layer op in flight yet */
-	{ int w; for ( w = 0; w < MAX_WINDOWS; w++ ) hr_setdraw(w, 0); }
+	{ int w;
+	  for ( w = 0; w < MAX_WINDOWS; w++ )
+	  {
+		hr_setdraw(w, 0);
+		/* Same garbage RAM: publish_surf only republishes a descriptor that
+		 * differs from what is there, so what is there must be defined. */
+		hr_surf(w)->seq = 0;
+		hr_surf(w)->mapped = 0;
+		hr_surf(w)->nvis = 0;
+	  }
+	}
 	hr_glob()->magic = HR_MAGIC;
 	/* The selection store lives in the same uninitialised tail RAM, so stamp it
 	 * before any client can read it -- and drop the file a previous session's

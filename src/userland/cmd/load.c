@@ -24,6 +24,7 @@ char *argv[];
 #endif
 	register size_t s;
 	register size_t b;
+	register size_t t;
 	register int conflag;
 	CON con;
 	struct ldsym lds;
@@ -61,11 +62,19 @@ char *argv[];
 #if I8086
 		fseek(cfp, (long)lds.ls_addr, 0);
 #else
-		b = sizeof(ldh) + lds.ls_addr - (long)dvirt();
+		/* `t', not `b': `b' is the symbol table's file offset and the
+		 * fseek below rewinds to it to resume the scan.  Overwriting it
+		 * with the configuration record's offset made that rewind land
+		 * (b_sym - b_con) bytes early -- for /drv/pty exactly two
+		 * symbol slots early, so `pycon_' was found a second time and
+		 * the driver loaded twice, the second sload() failing EDBUSY:
+		 * the stray "load: py: device busy" at zview start-up.
+		 * `uload.c' always had it right. */
+		t = sizeof(ldh) + lds.ls_addr - (long)dvirt();
 #if Z8001
-		b = (unsigned)b;
+		t = (unsigned)t;
 #endif
-		fseek(fp, b, 0);
+		fseek(fp, t, 0);
 #endif
 #if I8086
 		if (fread(&con, sizeof(con), 1, cfp) != 1)

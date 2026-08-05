@@ -160,7 +160,7 @@ int si;
 	l = sp->s_size;
 	if ((sp->s_flags & SFDOWN) != 0) {
 		if (l >= MSSIZE-1)
-			return (0);
+			return (-1);
 		f |= 0x20;		/* Downward growing segment */
 		hl = MSSIZE-l;
 		b -= hl;

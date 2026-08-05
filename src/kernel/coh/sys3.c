@@ -20,6 +20,13 @@
 #include <uproc.h>
 
 /*
+ * Gate serialising `usync' and `uumount' against each other, so that a sync
+ * never walks the mount table while an unmount is unlinking an entry from it
+ * and freeing it.
+ */
+static GATE syngate;
+
+/*
  * Open the file `np' with the mode `mode'.
  */
 uopen(np, mode)
@@ -160,12 +167,23 @@ struct stat *stp;
 usync()
 {
 	register MOUNT *mp;
-	static GATE syngate;
 
 	lock(syngate);
+	/*
+	 * Order matters.  Flush the inodes into the buffer cache first, then
+	 * push every dirty buffer out, and only then write the super blocks
+	 * marked clean.  `msync' used to write a FSCLEAN super block while
+	 * the inodes and free list blocks it describes were still cache
+	 * only, so a crash in that window left a file system that claimed
+	 * to be consistent and was not -- exactly what the flag exists to
+	 * prevent.
+	 */
 	for (mp=mountp; mp!=NULL; mp=mp->m_next)
-		msync(mp);
+		if ((mp->m_flag&MFRON) == 0)
+			isync(mp->m_dev);
 	bsync();
+	for (mp=mountp; mp!=NULL; mp=mp->m_next)
+		mssync(mp);
 	unlock(syngate);
 	return (0);
 }
@@ -194,6 +212,8 @@ char *sp;
 	register dev_t rdev;
 	register int mode;
 
+	if (super() == 0)
+		return;
 	if (ftoi(sp, 'r') != 0)
 		return;
 	ip = u.u_cdiri;
@@ -208,30 +228,56 @@ char *sp;
 		u.u_error = ENOTBLK;
 		return;
 	}
+	/*
+	 * `syngate' keeps two unmounts, and an unmount and a sync, off the
+	 * mount table at the same time.  No inode is locked here, and nothing
+	 * below waits on an inode or buffer gate held by a syncer, so this
+	 * cannot deadlock.
+	 */
+	lock(syngate);
 	for (mpp=&mountp; (mp=*mpp)!=NULL; mpp=&mp->m_next)
 		if (mp->m_dev == rdev)
 			break;
 	if (mp == NULL) {
+		unlock(syngate);
 		u.u_error = EINVAL;
 		return;
 	}
-	msync(mp);
+	/*
+	 * Only the inodes here:  the super block is written last, once
+	 * `bflush' has put the blocks it describes on the disk.  If the
+	 * unmount turns out to be busy the file system stays mounted, and
+	 * leaving it marked dirty is then the honest answer.
+	 */
+	isync(mp->m_dev);
 	for (ip=&inodep[NINODE-1]; ip>=inodep; --ip) {
 		if (ip->i_refc>0 && ip->i_dev==rdev) {
+			unlock(syngate);
 			u.u_error = EBUSY;
 			return;
 		}
 	}
+	/*
+	 * The file system is idle and the mount table is ours.  Unlink the
+	 * mount entry and uncover the mount point now, before `bflush' and
+	 * `dclose', which sleep:  once the entry is gone no path can lead on
+	 * to `rdev' and no inode there can be attached, so the state cannot
+	 * become busy again while we sleep.  Nothing below can fail, so the
+	 * file system is never left half unmounted.
+	 */
+	*mpp = mp->m_next;
+	mp->m_ip->i_flag &= ~IFMNT;
 	for (ip=&inodep[NINODE-1]; ip>=inodep; --ip) {
 		if (ip->i_dev == rdev)
 			ip->i_ino = 0;
 	}
 	bflush(rdev);
+	mssync(mp);			/* clean super block, data is down */
+	bflush(rdev);			/* and drop it from the cache again */
 	dclose(rdev);
-	*mpp = mp->m_next;
-	mp->m_ip->i_flag &= ~IFMNT;
 	ldetach(mp->m_ip);
 	kfree(mp);
+	unlock(syngate);
 	return (0);
 }
 
@@ -258,6 +304,7 @@ uunlink(np)
 char *np;
 {
 	register INODE *ip;
+	register INODE *vip;
 	register dev_t dev;
 
 	if (ftoi(np, 'u') != 0)
@@ -270,15 +317,26 @@ char *np;
 	dev = ip->i_dev;
 	if (iucheck(dev, u.u_cdirn) == 0)
 		goto err;
+	/*
+	 * Get the victim inode before the directory entry is zeroed.  If it
+	 * cannot be had (inode table full, read error), the entry is still
+	 * there and the file is not orphaned with a link count nobody can
+	 * decrement.  `.' (and `..' of the root) names the parent directory,
+	 * which we already hold locked, so attaching it again would gate
+	 * against ourselves; use it directly instead.
+	 */
+	if (u.u_cdirn == ip->i_ino)
+		vip = ip;
+	else if ((vip=iattach(dev, u.u_cdirn)) == NULL)
+		goto err;
 	idirent(0);
-	idetach(ip);
-	if ((ip=iattach(dev, u.u_cdirn)) == NULL)
-		return;
-	if (ip->i_nlink > 0)
-		--ip->i_nlink;
-	icrt(ip);	/* unlink - ctime */
-	if ((ip->i_mode&IFMT)==IFPIPE && ip->i_nlink==0 && ip->i_refc==2)
-		pevent(ip);
+	if (vip->i_nlink > 0)
+		--vip->i_nlink;
+	icrt(vip);	/* unlink - ctime */
+	if ((vip->i_mode&IFMT)==IFPIPE && vip->i_nlink==0 && vip->i_refc==2)
+		pevent(vip);
+	if (vip != ip)
+		idetach(vip);
 err:
 	idetach(ip);
 	return (0);
