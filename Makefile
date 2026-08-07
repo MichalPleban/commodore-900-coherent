@@ -20,6 +20,8 @@ YACC   = coherent-yacc
 
 # K&R leniency (-ftraditional), Coherent's readonly==const spelling, and the
 # in-tree headers.  See COHERENT.md for why each is needed.
+# (The cc DRIVER predefines Z8001 for cpp; only the standalone cpp binary does
+# not.  <l.out.h>-style #ifdef Z8001 headers resolve correctly without help.)
 CFLAGS  = -O -ftraditional -Dreadonly=const -I$(INCSRC)
 ASFLAGS = -g
 
@@ -126,7 +128,7 @@ LIBFS = $(LIBDIR)/libfs.a
 
 LIBS = $(CRT) $(DTOA) $(LIBC) $(LIBM) $(LIBMP) $(LIBY) $(LIBFS)
 
-.PHONY: all headers libs cmds kernel dist man image floppy hr clean
+.PHONY: all headers libs cmds kernel dist man image floppy hr hrgui clean
 all: headers libs cmds kernel dist man image
 headers: $(INC_TARGET)
 libs: $(LIBS)
@@ -210,9 +212,13 @@ $(LIBDIR)/libfs.a: $(LIBFS_OBJ)
 # -s strips the symbol/debug table (the .o files carry it because the libc/crt
 # and command objects are assembled with ASFLAGS=-g); the installed binaries
 # don't need it, and it dominates their size.
+# LDNFLAGS: per-target extra ld flags (target-specific, e.g. `-n` to bind a
+# binary shared-text so all instances -- and every fork -- reuse ONE in-core
+# copy of its text; the kernel keys the shared segment on the inode).  Safe
+# only for binaries whose SHRD is empty or genuinely read-only.
 define link
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(1) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(1) $(LIBC)
 endef
 
 # --- single-file commands -> /bin ------------------------------------------
@@ -255,6 +261,13 @@ $(KERN_ETC_TARGETS): $(ETCDIR)/%: $(OBJ)/userland/cmd/%.o $(CRT) $(LIBC)
 # intact, and the z8001 struct layouts are the ones this build actually uses.
 $(OBJ)/userland/cmd/ps.o: CFLAGS += -I$(SRC)/kernel/z8001/h -I$(SRC)/kernel/h
 $(BINDIR)/ps: $(OBJ)/userland/cmd/ps.o $(CRT) $(LIBC)
+	$(call link,$<)
+
+# mem: reports physical memory usage by walking the kernel's in-core segment
+# queue -- same /coherent + /dev/kmem mechanism (and the same header needs)
+# as ps.
+$(OBJ)/userland/cmd/mem.o: CFLAGS += -I$(SRC)/kernel/z8001/h -I$(SRC)/kernel/h
+$(BINDIR)/mem: $(OBJ)/userland/cmd/mem.o $(CRT) $(LIBC)
 	$(call link,$<)
 
 # --- single-file commands needing floating point / other libs / other dir --
@@ -401,8 +414,12 @@ $(BINDIR)/sed: $(sed_obj) $(CRT) $(LIBC)
 	$(call link,$(sed_obj))
 
 # sh: uses the checked-in y.tab.c; VERSION is normally `version` output.
+# Linked -n (shared text): a shell runs behind every terminal window and every
+# fork of one otherwise carries a private copy of its ~28K text -- the single
+# biggest lever on the 1 MiB machine's terminal count.
 sh_obj := $(patsubst $(SRC)/%.c,$(OBJ)/%.o,$(wildcard $(CMDS)/sh/*.c))
 $(sh_obj): CFLAGS += -I$(CMDS)/sh -DVERSION='"COHERENT"'
+$(BINDIR)/sh: LDNFLAGS := -n
 $(BINDIR)/sh: $(sh_obj) $(CRT) $(LIBC)
 	$(call link,$(sh_obj))
 
@@ -506,7 +523,7 @@ CMD_TARGETS := $(BIN_TARGETS) $(ETC_TARGETS) $(KERN_ETC_TARGETS) \
 	$(addprefix $(BINDIR)/,$(FS_CMDS)) \
 	$(BINDIR)/factor $(BINDIR)/units $(BINDIR)/mail $(USRLIBDIR)/atrun $(USRLIBDIR)/diff3 \
 	$(BINDIR)/as $(BINDIR)/awk $(BINDIR)/bc $(BINDIR)/cu $(BINDIR)/dc \
-	$(BINDIR)/expr $(BINDIR)/find $(BINDIR)/grep $(BINDIR)/ps \
+	$(BINDIR)/expr $(BINDIR)/find $(BINDIR)/grep $(BINDIR)/ps $(BINDIR)/mem \
 	$(BINDIR)/test $(BINDIR)/[ \
 	$(BINDIR)/diff $(USRLIBDIR)/diffh \
 	$(BINDIR)/dump $(BINDIR)/dumpdir $(BINDIR)/dumpdate $(BINDIR)/restor \
@@ -684,11 +701,14 @@ KSYM := $(OBJ)/kernel/coherent
 $(KSYM): $(KMD) $(WDCON) $(KWD) $(LIBCMDR) $(LIBCOH) $(LIBC)
 	$(call link-kernel,$(KSTRIP),$(WDCON))
 
-# Shipped kernels: fully stripped (-s omits the whole symbol table).  Addresses
-# match $(KSYM) exactly, so the loadables stay valid; this sheds the ~10.5K
-# global symbol table from each shipped image.
+# Shipped HD kernel: keeps the global symbol table ($(KSTRIP) = -X, same as
+# $(KSYM)) because ps and mem nlist("/coherent") at RUN time -- a stripped
+# kernel broke both with "bad namelist".  The ~10.5K of symbols cost disk
+# space only: boot loads the header-described segments, never the symbol
+# table.  The floppy kernel stays -s (floppy space is real money and no one
+# runs ps against it).
 $(ROOT)/coherent: $(KMD) $(WDCON) $(KWD) $(LIBCMDR) $(LIBCOH) $(LIBC)
-	$(call link-kernel,-s,$(WDCON))
+	$(call link-kernel,$(KSTRIP),$(WDCON))
 $(FLOPPYDIR)/coherent: $(KMD) $(FDCON) $(KWD) $(LIBCMDR) $(LIBCOH) $(LIBC)
 	$(call link-kernel,-s,$(FDCON))
 
@@ -891,7 +911,7 @@ $(HRGUIOBJ)/%.o: $(HRGUISRC)/%.s $(HRGUIHDRS)
 # (linked directly by consumers, see above).  Member order is not load-bearing
 # here, so use the plain kernel-style archive rule.
 HRGFX_ASM := $(addprefix $(HRGUIOBJ)/gfx/,ablt.o small1.o small2.o block1.o block2.o ptrmath.o fcpy.o glftn.o)
-HRGFX_C   := $(addprefix $(HRGUIOBJ)/gfx/,bitblt.o layer.o masks.o rmath.o gcoord.o gline.o gpoint.o gtext.o gtext2.o f2.o gfxhooks.o)
+HRGFX_C   := $(addprefix $(HRGUIOBJ)/gfx/,bitblt.o lblt.o layer.o masks.o rmath.o gcoord.o gline.o gpoint.o gtext.o gtext2.o f2.o gfxhooks.o)
 HRGFX_GLOB := $(HRGUIOBJ)/gfx/globals.o
 # libhrgfx.a is a build-time-only artifact (statically linked into the server
 # and test); keep it in the obj tree so it is not packed into the disk image.
@@ -908,14 +928,19 @@ $(HRGUIBIN)/gfxtest: $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) 
 
 # --- Phase 1: window server + clock client ---
 # Both need the shared wire protocol header in addition to the engine headers.
-$(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zclock/zclock.o \
+$(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zview/zvpump.o \
+	$(HRGUIOBJ)/zclock/zclock.o \
 	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o \
 	$(HRGUIOBJ)/clgfx/hrsel.o $(HRGUIOBJ)/cmd/hrclip.o \
 	$(HRGUIOBJ)/clgfx/hrapp.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
 
 # clgfx.o: the client-side direct-render draw library (GUI.md Model A).  Clients
 # link it + globals.o + libhrgfx.a, which pulls ONLY bitblt + its asm inner loops
-# + rmath + masks + gfxhooks (not the server-only layer/daemon code).
+# + rmath + masks + gfxhooks + lblt.o (the client-safe blit/addressing half of
+# the old layer.c) -- NOT layer.o, the server-only layering machinery.  That
+# split is what keeps ~7K of restack/update code out of every client binary;
+# if a client link starts pulling layer.o again, something in the client path
+# grew a reference to a server-only symbol.
 # hrlock.o + hrtas.o: the global drawing lock -- a userland TSET futex fast path
 # (hrtas.s) with a kernel slow path (CIOMLOCK/CIOMUNLOCK) taken only on
 # contention.  Linked into every client AND the server.
@@ -936,15 +961,33 @@ CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrapp.o $(HRLOCK)
 # zview owns the screen: links the engine (libhrgfx) + globals.o directly.
 # Fonts are loaded at runtime from /usr/hr/fonts/*.hf into the shared VRAM tail
 # (inc/shmem.h) and blitted with the engine's bitblt -- no embedded/kernel font.
+# Linked -n: zview fork()s for every app launch (launchapp), driver loads, the
+# rc and the watchdog -- shared text turns each ~55K transient text copy into a
+# refcount bump, flattening the RAM spike at exactly the moment apps start.
+$(HRGUIBIN)/zview: LDNFLAGS := -n
 $(HRGUIBIN)/zview: $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# zvpump / zvwatch: zview's input pump and crash watchdog as TINY libc-only
+# programs, exec'd over what would otherwise be full ~69Kb fork copies of the
+# non-shared server image held for the whole session (same cure as zterm's
+# hrpump; see zview.c startpump/srvwatch).
+$(HRGUIBIN)/zvpump: $(HRGUIOBJ)/zview/zvpump.o $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zview/zvpump.o $(LIBC)
+
+$(HRGUIBIN)/zvwatch: $(HRGUIOBJ)/zview/zvwatch.o $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zview/zvwatch.o $(LIBC)
 
 # zclock: direct-render graphics client -- links clgfx + globals + libhrgfx so it
 # blits its own face/hands straight to VRAM; needs libm (sin/cos).
+# -n costs nothing and shares text if a second clock is ever opened.
+$(HRGUIBIN)/zclock: LDNFLAGS := -n
 $(HRGUIBIN)/zclock: $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBM) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBM) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBM) $(LIBC)
 
 # ptytest is a plain client: no gfx, just exercises the kernel pty driver.
 $(HRGUIBIN)/ptytest: $(HRGUIOBJ)/ptytest/ptytest.o $(CRT) $(LIBC)
@@ -953,18 +996,25 @@ $(HRGUIBIN)/ptytest: $(HRGUIOBJ)/ptytest/ptytest.o $(CRT) $(LIBC)
 
 # zterm: direct-render terminal -- pty + VT parser + clgfx (blits its own text
 # straight to VRAM, hardware-scrolls when fully visible).
+# Linked -n (shared text, via LDNFLAGS): N open terminals share ONE in-core
+# copy of the ~26K text.  This requires every runtime-written engine buffer to
+# be in the private sections -- see block1.s code_space_/sreg_ (.prvi/.prvd);
+# the shared segment [SHRI+SHRD] is mapped read-only and reused across
+# instances.
 $(HRGUIOBJ)/zterm/zterm.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+$(HRGUIBIN)/zterm: LDNFLAGS := -n
 $(HRGUIBIN)/zterm: $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
 
 # hrpump: the terminal's I/O pumps, a tiny libc-only helper zterm execs instead
 # of forking copies of itself (memory: keeps a few open terminals from exhausting
 # RAM).  NO libhrgfx/clgfx -- it only shuffles bytes between fds.
 $(HRGUIOBJ)/zterm/hrpump.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+$(HRGUIBIN)/hrpump: LDNFLAGS := -n
 $(HRGUIBIN)/hrpump: $(HRGUIOBJ)/zterm/hrpump.o $(HRSEL) $(HRLOCK) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zterm/hrpump.o $(HRSEL) $(HRLOCK) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zterm/hrpump.o $(HRSEL) $(HRLOCK) $(LIBC)
 
 # hrclip: read/set the PRIMARY selection from a shell.  Not a GUI client -- no
 # window, no clgfx, no engine; just the selection store, whose writer side needs
@@ -1024,10 +1074,15 @@ $(DRVDIR)/hr: $(HRGUIOBJ)/drv/hr.o $(HRGUIOBJ)/drv/hrasm.o $(KSYM)
 	$(LD) -X -o $@ $(HRGUIOBJ)/drv/hr.o $(HRGUIOBJ)/drv/hrasm.o -k$(KSYM)
 	chmod +x $@
 
-HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/zview $(HRGUIBIN)/zclock \
+HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/zview \
+	$(HRGUIBIN)/zvpump $(HRGUIBIN)/zvwatch $(HRGUIBIN)/zclock \
 	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIBIN)/hrclip \
 	$(HRGUIFONTS) \
 	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/rc $(HRGUIICONS)
+
+# Build the ZView desktop and its clients standalone (they are otherwise only
+# reachable through `image`, which repacks the whole disk).
+hrgui: $(HRGUI_TARGETS)
 
 # ===========================================================================
 # Prebuilt / script artifacts  (src/dist -> build/root)

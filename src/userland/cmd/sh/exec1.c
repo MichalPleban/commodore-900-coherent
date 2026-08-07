@@ -146,7 +146,8 @@ register NODE *np;
 			NOTREACHED;
 		}
 		sback = f;
-		prints("%d\n", f);
+		if (sesp->s_flag)
+			prints("%d\n", f);
 		f = 0;
 		continue;
 	case NPIPE:

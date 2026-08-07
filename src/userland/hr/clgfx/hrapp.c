@@ -22,7 +22,7 @@
 #include "hrapp.h"
 
 #define ACKWAIT		2	/* seconds to wait for one ack attempt */
-#define ACKTRIES	15	/* ... and how many times to look again  */
+#define ACKTOTAL	120	/* wall-clock seconds before giving up entirely */
 
 static int	mywid = -1;
 
@@ -154,7 +154,9 @@ char **argv;
 {
 	HRCONN c;
 	WMSG e;
-	int pid, tries, awid, aw, ah;
+	int pid, awid, aw, ah;
+	long t0;
+	extern long time();
 
 	if ( pargc && argv )
 		guiargs(ap, pargc, argv);
@@ -179,11 +181,20 @@ char **argv;
 	 * ring of our own to listen on.  The server pokes EVQ_CONNECT after every
 	 * ack, so this normally wakes the instant we are answered; the alarm is only
 	 * a backstop so a missed poke costs a second rather than the whole start-up.
-	 */
+	 *
+	 * The give-up limit is WALL-CLOCK, not a loop count: EVQ_CONNECT is one
+	 * ring drained by EVERY connecting client at once, so under a burst of
+	 * simultaneous starts an evwait can return immediately (another client's
+	 * poke, or the shared head/tail torn by a concurrent drain) -- a counted
+	 * loop then burns all its tries in an instant and the client dies while
+	 * the server is still working through the queue in front of it. */
 	signal(SIGALRM, onackalrm);
-	for ( tries = 0; tries < ACKTRIES; tries++ )
+	t0 = time((long *)0);
+	for (;;)
 	{
 		if ( hr_ackget(pid, &awid, &aw, &ah) )
+			break;
+		if ( time((long *)0) - t0 >= (long)ACKTOTAL )
 			break;
 		ackalrm = 0;
 		alarm(ACKWAIT);

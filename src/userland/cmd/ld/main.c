@@ -67,6 +67,49 @@ char	*argv[];
 		base = userbase[machine];
 	baseall(oseg, &oldh);
 
+	/*
+	 * Assign commons their final (BSSD-relative) offsets, padding any
+	 * common that would straddle a hardware segment boundary up to the
+	 * start of the next segment.  On the Z8001 a seg:offset address
+	 * cannot reach across a 64Kb segment (the 16-bit offset wraps
+	 * within it), so a straddling common's tail aliases the bottom of
+	 * whatever else shares its segment.  Module segments get this
+	 * padding in lfixup1(); commons, allocated linearly in the fixup
+	 * loop below, did not.  Same iteration order as that loop, so a
+	 * layout with no straddling common is unchanged.  The addresses
+	 * stored here are segment-relative; the loop's defined-symbol
+	 * branch adds the BSSD base.  Done before endbind() so `end' (and
+	 * the header's BSSD size) includes the padding.
+	 */
+	if (dcomm && commons!=0) {
+		uaddr_t cur, csize, cmax, cmax1;
+
+		cmax = segmax[machine];
+		cmax1 = cmax - 1;
+		cur = oseg[L_BSSD].vbase + oseg[L_BSSD].size - commons;
+		for (i=0; i<NHASH; i++) {
+			for (sp=symtable[i]; sp!=NULL; sp=sp->next) {
+				if (sp->s.ls_type!=(L_GLOBAL|L_REF)
+				    || sp->s.ls_addr==0)
+					continue;
+				csize = (uaddr_t)sp->s.ls_addr;
+				if (cmax != 0) {
+					if (csize > cmax)
+						spmsg(sp,
+					    "common larger than a segment");
+					else if (((cur&cmax1)+csize) > cmax) {
+						oseg[L_BSSD].size +=
+							cmax - (cur&cmax1);
+						cur = (cur+cmax1) & ~cmax1;
+					}
+				}
+				sp->s.ls_addr = cur - oseg[L_BSSD].vbase;
+				sp->s.ls_type = L_GLOBAL|L_BSSD;
+				cur += csize;
+			}
+		}
+	}
+
 	ofp = setoutput();
 	/*
 	 * set disk offsets of segments
@@ -131,7 +174,9 @@ char	*argv[];
 				if (!reloc)
 					spmsg(sp, "undefined");
 			} else if (dcomm) {
-				/* define commons */
+				/* define commons -- unreachable now: the
+				 * pre-pass above already defined them all,
+				 * with segment padding */
 				addr = sp->s.ls_addr;
 				sp->s.ls_addr = oseg[L_BSSD].vbase
 						+oseg[L_BSSD].size

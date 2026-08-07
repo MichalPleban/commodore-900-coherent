@@ -54,7 +54,9 @@ int	fd;
 	if ((off=lseek(fd, 0L, 1))==-1L)
 		return (0);
 	else
-		return ((int)off%BUFSIZ);
+		/* modulo in LONG: `(int)off%BUFSIZ' went negative past 32767
+		 * and put the buffer pointers before _bp (same bug as fseek.c) */
+		return ((int)(off%BUFSIZ));
 }
 
 int

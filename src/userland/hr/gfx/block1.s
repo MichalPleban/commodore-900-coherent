@@ -18,12 +18,14 @@
 #define codelow r13
 #define op_off r10
 
-.shri
+/ Written at runtime (blit loop assembled here, register save area):
+/ private sections, or a shared-text (ld -n) binary faults on them.
+.prvi
 .globl code_space_
 code_space_:
 .blkw 500
 
-.shrd
+.prvd
 .globl sreg_
 sreg_:
 .blkw 16
@@ -407,10 +409,10 @@ pat99:
 
 
 //
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//			Code Stubs
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-.shrd
+//	Code Stubs
+// .prvd not .shrd: BLT_block_ patches these in place (sinc, dinc)
+// so with ld -n they must be in the private, writable segment.
+.prvd
 fetch_data:
 	ld	r0, @srcptr	// load left src word
 	ld	r1, @dstptr	// load left dst word

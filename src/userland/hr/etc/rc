@@ -16,5 +16,9 @@
 : "everything in /usr/hr/etc/apps, and any app can also be run by name from a"
 : "terminal window."
 
+: "zterm's frame is 650x403 (80x25 cells of the 8x15 terminal font + frame),"
+: "so at 48,40 it spans x 48..698.  The clock's 250x268 frame goes to its"
+: "right: 720..970, inside the 1024-wide screen and clear of the terminal."
+
 /usr/hr/bin/zterm -P 48,40 &
-/usr/hr/bin/zclock -P 470,150 &
+/usr/hr/bin/zclock -P 720,40 &

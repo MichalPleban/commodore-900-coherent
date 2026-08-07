@@ -589,13 +589,36 @@ RECT r;
 	rstgraph();
 	gkDp = r.origin;
 
+	/* Out of memory refusals are ALL-OR-NOTHING: either the window comes up
+	 * complete or the screen is left exactly as it was.  newlayer() returns
+	 * NULL before painting anything; the WSTRUCT failure comes after the
+	 * layer was linked and its rect filled, so that one must tear the layer
+	 * down and repaint what it briefly covered.  Either way wtbl[wid] stays
+	 * NULL, doconnect clears the slot, and the unanswered client gives up
+	 * and exits by itself (hrapp.c). */
 	gkLayer = newlayer(r);
+	if ( gkLayer == (LAYER *)NULL )
+	{
+		srvlogn("mkwin: no memory for layer, wid ", wid);
+		srvunlock();
+		return;
+	}
 	dbg("  mk: newlayer\n");
 	gkLayer->base = screen_addr(r.origin.x, r.origin.y);
 	gkLayer->width = 1024;
 
 	wp = (WSTRUCT *)malloc(sizeof(WSTRUCT));
-	if ( wp == (WSTRUCT *)NULL ) { dbg("  mk: malloc NULL\n"); srvunlock(); return; }
+	if ( wp == (WSTRUCT *)NULL )
+	{
+		srvlogn("mkwin: no memory for window, wid ", wid);
+		dellayer(gkLayer);	/* unlink + background the filled rect */
+		perform_update();	/* repaint windows it briefly covered */
+		publish_all();
+		srvunlock();
+		expose_covered(wid, r.origin.x, r.origin.y,
+				    r.corner.x, r.corner.y);
+		return;
+	}
 	wtbl[wid] = wp;
 	*wtbl[wid] = gk;
 	outline(wid);				/* frame + shadow + title bar */
@@ -833,205 +856,30 @@ loadpty()
 }
 
 /* ------------------------------------------------------------------ */
-/* keyboard: raw PC scancode -> ASCII                                 */
+/* input: the pump child                                              */
 /* ------------------------------------------------------------------ */
-/* The /drv/hr driver only delivers raw make/break scancodes via SM_KKEY; the
- * ASCII translation (shift/ctrl/caps state machine) lived in the discarded
- * message layer (kev.c SM_Keyboard, GUI.md 5.3).  Ported verbatim here so the
- * input pump can hand the server real ASCII. */
-#define KB_KEYUP	0x80
-#define KB_KEYSC	0x7f
-#define KB_LSHIFT	(0x2a-1)
-#define KB_RSHIFT	(0x36-1)
-#define KB_CTRL		(0x1d-1)
-#define KB_ALT		(0x38-1)
-#define KB_CAPLOCK	(0x3a-1)
-#define KB_SRS	0x01
-#define KB_SLS	0x02
-#define KB_CTS	0x04
-#define KB_ALS	0x08
-#define KB_CPLS	0x10
-#define KB_NMLS	0x20
-#define KB_SHFT	0x80
-#define KB_SES	(KB_SLS|KB_SRS)
-#define KB_SS1	(KB_SLS|KB_SRS|KB_CTS)
-#define KB_LET	(KB_SLS|KB_SRS|KB_CPLS|KB_CTS)
-#define XXX	0377
-#define SPC	0376
-#define DEL	0x7f
 
-static unsigned char lmaptab[] ={
-	     '\33',  '1',  '2',  '3',  '4',  '5',  '6',
-	 '7',  '8',  '9',  '0',  '-',  '=', '\b', '\t',
-	 'q',  'w',  'e',  'r',  't',  'y',  'u',  'i',
-	 'o',  'p',  '[',  ']', '\r',  XXX,  'a',  's',
-	 'd',  'f',  'g',  'h',  'j',  'k',  'l',  ';',
-	 '\'', '`',  XXX,  '\\',  'z',  'x',  'c',  'v',
-	 'b',  'n',  'm',  ',',  '.',  '/',  XXX,  SPC,
-	 XXX,  ' ',  XXX,  SPC,  SPC,  SPC,  SPC,  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  SPC,
-	 SPC,  SPC,  '-',  SPC,  SPC,  SPC,  '+',  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  DEL,  SPC,  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  '\r', SPC,
-	 SPC,  SPC,  SPC,  XXX,  XXX
-};
-static unsigned char umaptab[] ={
-	     '\33',  '!',  '@',  '#',  '$',  '%',  '^',
-	 '&',  '*',  '(',  ')',  '_',  '+', '\b', '\t',
-	 'Q',  'W',  'E',  'R',  'T',  'Y',  'U',  'I',
-	 'O',  'P',  '{',  '}', '\r',  XXX,  'A',  'S',
-	 'D',  'F',  'G',  'H',  'J',  'K',  'L',  ':',
-	 '"',  '~',  XXX,  '|',  'Z',  'X',  'C',  'V',
-	 'B',  'N',  'M',  '<',  '>',  '?',  XXX,  SPC,
-	 XXX,  ' ',  XXX,  SPC,  SPC,  SPC,  SPC,  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  SPC,
-	 SPC,  SPC,  '-',  SPC,  SPC,  SPC,  '+',  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  DEL,  SPC,  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  '\r', SPC,
-	 SPC,  SPC,  SPC,  XXX,  XXX
-};
-#define SS0	0
-#define SS1	(KB_SLS|KB_SRS|KB_CTS)
-#define SES	(KB_SLS|KB_SRS)
-#define LET	(KB_SLS|KB_SRS|KB_CPLS|KB_CTS)
-#define KEY	(KB_SLS|KB_SRS|KB_NMLS|0x40)
-#define SHFT	KB_SHFT
-static unsigned char smaptab[] ={
-	       SS0,  SES,  SS1,  SES,  SES,  SES,  SS1,
-	 SES,  SES,  SES,  SES,  SS1,  SES,  SS0,  SS0,
-	 LET,  LET,  LET,  LET,  LET,  LET,  LET,  LET,
-	 LET,  LET,  SS1,  SS1,  SS0, SHFT,  LET,  LET,
-	 LET,  LET,  LET,  LET,  LET,  LET,  LET,  SES,
-	 SES,  SS1, SHFT,  SS1,  LET,  LET,  LET,  LET,
-	 LET,  LET,  LET,  SES,  SES,  SES, SHFT,  SS0,
-	SHFT,  SS1, SHFT,  SS0,  SS0,  SS0,  SS0,  SS0,
-	 SS0,  SS0,  SS0,  SS0,  SS0,  SS0,  KEY,  KEY,
-	 KEY,  KEY,  SS0,  KEY,  KEY,  KEY,  SS0,  KEY,
-	 KEY,  KEY,  KEY,  KEY,  SS0,  SS0,  SS0,  SS0,
-	 SS0,  SS0,  SS0,  SS0,  SS0,  SS0,  SS0,  SS0,
-	 SS0,  SS0,  SS0,  LET,  LET
-};
-#undef SHFT
-
-static int kbshift = 0;
-
-/* Translate a raw scancode to ASCII; return -1 for releases, modifiers and
- * dead/special keys (which the terminal ignores). */
-keymap(r)
-int r;
-{
-	register int c, s;
-
-	r &= 0xff;
-	if ( r == 0xff )
-		return -1;
-	c = (r & KB_KEYSC) - 1;
-	if ( c < 0 || c >= sizeof(smaptab) )
-		return -1;
-	s = smaptab[c];
-	if ( s & KB_SHFT )
-	{
-		if ( r & KB_KEYUP )
-		{
-			if ( c == KB_RSHIFT ) kbshift &= ~KB_SRS;
-			else if ( c == KB_LSHIFT ) kbshift &= ~KB_SLS;
-			else if ( c == KB_CTRL ) kbshift &= ~KB_CTS;
-			else if ( c == KB_ALT ) kbshift &= ~KB_ALS;
-		}
-		else
-		{
-			if ( c == KB_LSHIFT ) kbshift |= KB_SLS;
-			else if ( c == KB_RSHIFT ) kbshift |= KB_SRS;
-			else if ( c == KB_CTRL ) kbshift |= KB_CTS;
-			else if ( c == KB_ALT ) kbshift |= KB_ALS;
-			else if ( c == KB_CAPLOCK ) kbshift ^= KB_CPLS;
-		}
-		return -1;
-	}
-	if ( r & KB_KEYUP )
-		return -1;
-	if ( kbshift & KB_CTS )
-	{
-		if ( s == KB_SS1 || s == KB_LET )
-			c = umaptab[c] & 0x1f;
-		else
-			return -1;
-	}
-	else if ( s &= kbshift )
-	{
-		if ( kbshift & KB_SES )
-			c = (s & (KB_CPLS|KB_NMLS)) ? lmaptab[c] : umaptab[c];
-		else
-			c = (s & (KB_CPLS|KB_NMLS)) ? umaptab[c] : lmaptab[c];
-	}
-	else
-		c = lmaptab[c];
-	if ( c == XXX || c == SPC )
-		return -1;
-	return c & 0xff;
-}
-
-/* Child process: register as the driver's event manager and forward every
- * keyboard/mouse event to the server as a C_INPUT record on the command pipe
- * (HR_CMDFD).  This is the V7 two-process split (GUI.md sec 4.5/7): the pump
- * blocks in CIOGETM while the server blocks in read(), and neither needs
- * select().  The driver draws the arrow cursor itself. */
-runpump()
-{
-	int fd;
-	MESSAGE m;
-	WMSG c;
-
-	fd = open("/dev/smgr", 2);
-	if ( fd < 0 )
-		_exit(1);
-	ioctl(fd, CIOEVMGR);
-	ioctl(fd, CIOMOUSE, DEF_MOUSE);
-	ioctl(fd, CIOMSEON, (char *)0);
-
-	c.wm_wid = 0;
-	c.wm_type = C_INPUT;
-	for (;;)
-	{
-		if ( ioctl(fd, CIOGETM, &m) < 0 )
-			continue;
-		if ( m.msg_Cmd == SM_MOUSE )
-		{
-			c.wm_arg[0] = IN_MOVE;
-			c.wm_arg[1] = m.msg_Data[1] & 0x1fff;
-			c.wm_arg[2] = m.msg_Data[2] & 0x1fff;
-		}
-		else if ( m.msg_Cmd == SM_MKEY )
-		{
-			c.wm_arg[0] = IN_BUTTON;
-			c.wm_arg[1] = m.msg_Data[1] & 0x1fff;	/* x            */
-			c.wm_arg[2] = m.msg_Data[2] & 0x1fff;	/* y            */
-			c.wm_arg[3] = m.msg_Data[2] & 0xe000;	/* buttons down */
-			c.wm_arg[4] = m.msg_Data[1] & 0xe000;	/* changed bits */
-		}
-		else if ( m.msg_Cmd == SM_KKEY )
-		{
-			int a = keymap(m.msg_Data[1]);
-			if ( a < 0 )
-				continue;	/* release / modifier / dead key */
-			c.wm_arg[0] = IN_KEY;
-			c.wm_arg[1] = a;
-		}
-		else
-			continue;
-		write(HR_CMDFD, &c, sizeof(c));
-	}
-}
-
+/* Fork + exec the input pump.  The pump used to be a plain fork of this
+ * process (the V7 two-process split: it blocks in CIOGETM while the server
+ * blocks in read(), neither needs select()) -- but zview is one ~69Kb
+ * non-shared software segment, so that fork parked a full contiguous copy
+ * of the server image in RAM for the whole session.  The pump, and the
+ * scancode->ASCII keymap with it, now lives in the TINY libc-only
+ * /usr/hr/bin/zvpump, exactly as zterm's pumps live in hrpump (zterm.c:
+ * "a fork clones this process's whole data/BSS").  It inherits the command
+ * pipe's write end ON HR_CMDFD and nothing else. */
 startpump()
 {
-	int pid;
+	int pid, f;
 
 	pid = fork();
 	if ( pid == 0 )
 	{
 		close(cmdfd);
-		runpump();
+		dup2(cmdwr, HR_CMDFD);	/* zvpump writes the constant HR_CMDFD */
+		for ( f = 5; f < 20; f++ )
+			close(f);
+		execl("/usr/hr/bin/zvpump", "zvpump", (char *)0);
 		_exit(1);
 	}
 	return pid;
@@ -1456,7 +1304,8 @@ redraw_icons()
 /* Rebuild window `wid's layer at rectangle r (used to restore a minimised
  * window; the WSTRUCT and its graphics state are preserved).  wtbl[wid] is
  * temporarily removed so make_vis_list() (run inside newlayer) never touches
- * this window's not-yet-existent layer. */
+ * this window's not-yet-existent layer.  Returns 1, or 0 when out of memory
+ * -- the window is then left exactly as it was (all-or-nothing). */
 relayout(wid, r)
 RECT r;
 {
@@ -1475,6 +1324,12 @@ RECT r;
 	gkFlags = WT_FULLY_VIS;
 	gkDp = r.origin;
 	gkLayer = newlayer(r);
+	if ( gkLayer == (LAYER *)NULL )
+	{
+		srvlogn("relayout: no memory, wid ", wid);
+		wtbl[wid] = wp;		/* untouched: still a valid icon */
+		return 0;
+	}
 	gkLayer->base = screen_addr(r.origin.x, r.origin.y);
 	gkLayer->width = 1024;
 	wtbl[wid] = wp;
@@ -1486,6 +1341,7 @@ RECT r;
 	gkCrect.corner.x = r.corner.x - WD_SHADOW - WD_BORDER;
 	gkCrect.corner.y = r.corner.y - WD_SHADOW - WD_BORDER;
 	*wtbl[wid] = gk;
+	return 1;
 }
 
 minwin(wid)
@@ -1540,7 +1396,16 @@ restorewin(wid)
 	r.origin.x = wins[wid].sx;  r.origin.y = wins[wid].sy;
 	r.corner.x = wins[wid].sx + wins[wid].sw;
 	r.corner.y = wins[wid].sy + wins[wid].sh;
-	relayout(wid, r);
+	if ( !relayout(wid, r) )
+	{
+		/* Out of memory: stay minimised, redraw the icon we erased.
+		 * Nothing else changed -- all-or-nothing. */
+		wtbl[wid] = (WSTRUCT *)NULL;
+		drawicon(wid, 1);
+		gfx_cursor_show();
+		srvunlock();
+		return;
+	}
 	wins[wid].min = 0;
 	gfx_cursor_show();
 	publish_all();
@@ -2248,45 +2113,22 @@ RECT g;
 	       e.origin.x = g.corner.x - 1;                       srvfill(e, 0, L_NDST);
 }
 
-/* Interactively move (mode 1) or resize (mode 2) window wid with an XOR ghost
- * frame -- faithful to the original desktop (main.c fmove/fstretch: dnLwait then
- * upLwait(ghost)).  After the menu picks Move/Stretch the pointer button is up;
- * press the LEFT button to grab, drag the ghost while HELD, and release to
- * commit.  A RIGHT/MIDDLE press instead cancels.  Resize drags the bottom-right
- * corner. */
-ghostdrag(wid, mode)
+/* The drag-tracking half of a move/resize: the LEFT button is already DOWN (the
+ * grab exists), the hand cursor is up, and (mx,my) is where the grab took hold.
+ * Drag the XOR ghost while the button is HELD; release commits -- movewin for a
+ * move (skipped when the ghost never left home, so a plain click on the title
+ * bar costs no repaint), resizewin for a stretch -- and the arrow comes back.
+ * Move translates the whole frame; resize drags the bottom-right corner. */
+dodrag(wid, mode)
 {
 	RECT r, g;
 	int w, h, gx, gy;
 	WMSG c;
 
-	if ( !wtbl[wid] || !wtbl[wid]->wn_Layer )
-		return;
 	r = wtbl[wid]->wn_Layer->rect;
 	g = r;
 	w = r.corner.x - r.origin.x;
 	h = r.corner.y - r.origin.y;
-
-	/* Switch to the move/resize "hand" cursor the moment the item is chosen
-	 * (original fmove sets MOV_MOUSE before waiting for the grab), so the shape
-	 * itself signals the mode and the pending left-button grab. */
-	if ( curfd >= 0 ) ioctl(curfd, CIOMOUSE, MOV_MOUSE);
-
-	/* Wait for the grab: LEFT down grabs, RIGHT/MIDDLE down cancels (dnLwait). */
-	for (;;)
-	{
-		if ( !getcmd(&c) || c.wm_type != C_INPUT || c.wm_arg[0] == IN_KEY )
-			continue;
-		mx = c.wm_arg[1];  my = c.wm_arg[2];
-		SM_Mouse_Pos.x = mx;  SM_Mouse_Pos.y = my;
-		if ( c.wm_arg[0] == IN_BUTTON && (c.wm_arg[4] & c.wm_arg[3]) )
-		{
-			if ( c.wm_arg[3] & 0x8000 )		/* LEFT down: grab */
-				break;
-			if ( curfd >= 0 ) ioctl(curfd, CIOMOUSE, DEF_MOUSE);
-			return;					/* RIGHT/MIDDLE: cancel */
-		}
-	}
 	gx = mx - r.origin.x;			/* grab offset within the window */
 	gy = my - r.origin.y;
 
@@ -2339,9 +2181,62 @@ ghostdrag(wid, mode)
 		gfx_cursor_show();
 	}
 
-	if ( mode == 1 ) movewin(wid, g.origin.x, g.origin.y);
-	else             resizewin(wid, g.corner.x, g.corner.y);
+	if ( mode == 1 )
+	{
+		if ( g.origin.x != r.origin.x || g.origin.y != r.origin.y )
+			movewin(wid, g.origin.x, g.origin.y);
+	}
+	else
+		resizewin(wid, g.corner.x, g.corner.y);
 	if ( curfd >= 0 ) ioctl(curfd, CIOMOUSE, DEF_MOUSE);	/* restore arrow */
+}
+
+/* Interactively move (mode 1) or resize (mode 2) window wid with an XOR ghost
+ * frame -- faithful to the original desktop (main.c fmove/fstretch: dnLwait then
+ * upLwait(ghost)).  After the menu picks Move/Stretch the pointer button is up;
+ * press the LEFT button to grab, drag the ghost while HELD, and release to
+ * commit.  A RIGHT/MIDDLE press instead cancels. */
+ghostdrag(wid, mode)
+{
+	WMSG c;
+
+	if ( !wtbl[wid] || !wtbl[wid]->wn_Layer )
+		return;
+
+	/* Switch to the move/resize "hand" cursor the moment the item is chosen
+	 * (original fmove sets MOV_MOUSE before waiting for the grab), so the shape
+	 * itself signals the mode and the pending left-button grab. */
+	if ( curfd >= 0 ) ioctl(curfd, CIOMOUSE, MOV_MOUSE);
+
+	/* Wait for the grab: LEFT down grabs, RIGHT/MIDDLE down cancels (dnLwait). */
+	for (;;)
+	{
+		if ( !getcmd(&c) || c.wm_type != C_INPUT || c.wm_arg[0] == IN_KEY )
+			continue;
+		mx = c.wm_arg[1];  my = c.wm_arg[2];
+		SM_Mouse_Pos.x = mx;  SM_Mouse_Pos.y = my;
+		if ( c.wm_arg[0] == IN_BUTTON && (c.wm_arg[4] & c.wm_arg[3]) )
+		{
+			if ( c.wm_arg[3] & 0x8000 )		/* LEFT down: grab */
+				break;
+			if ( curfd >= 0 ) ioctl(curfd, CIOMOUSE, DEF_MOUSE);
+			return;					/* RIGHT/MIDDLE: cancel */
+		}
+	}
+	dodrag(wid, mode);
+}
+
+/* A LEFT press landed on window wid's TITLE BAR: move the window by dragging it
+ * directly, no menu round-trip.  The press itself is the grab -- the button is
+ * already down when we get here -- so show the "hand" cursor at once and go
+ * straight into the ghost drag; the release drops the window (and a press with
+ * no drag is just the click-to-raise it always was, committing nothing). */
+titledrag(wid)
+{
+	if ( !wtbl[wid] || !wtbl[wid]->wn_Layer )
+		return;
+	if ( curfd >= 0 ) ioctl(curfd, CIOMOUSE, MOV_MOUSE);
+	dodrag(wid, 1);
 }
 
 /* Quit the whole window manager (desktop-menu "Quit"): tell every client to
@@ -2654,6 +2549,14 @@ WMSG *c;
 				lastgx = cx;  lastgy = cy;
 				sendev(w, E_BUTTON, cx, cy, down, changed);
 			}
+			/* ... and a press on the TITLE BAR picks the window up: drag
+			 * to move it, release to drop it (titledrag).  who_top_at()
+			 * already put (mx,my) inside the layer rect, so the bar is
+			 * just the top strip clear of the right shadow margin. */
+			else if ( !wins[w].min && wtbl[w] && wtbl[w]->wn_Layer &&
+				  my < wtbl[w]->wn_Layer->rect.origin.y + WD_TITLEH &&
+				  mx < wtbl[w]->wn_Layer->rect.corner.x - WD_SHADOW )
+				titledrag(w);
 		}
 	}
 }
@@ -2669,7 +2572,10 @@ WMSG *c;
  * pointer trackers (menu, ghost drag) also read this pipe and must not have a
  * window created under them mid-drag.  The queue is drained by the main loop.
  * Returns 1 when *c holds a plain command, 0 when the caller should read again. */
-#define NCONNQ	4
+/* One slot per possible window: a desktop-full stampede of simultaneous
+ * connects (start-up rc with many apps) must never drop one -- a dropped
+ * connect is a client that hangs unanswered until it times out and dies. */
+#define NCONNQ	MAX_WINDOWS
 union crec {
 	WMSG	c;
 	HRCONN	hc;
@@ -2854,10 +2760,13 @@ wdconsole()
  * wait().  Whatever kills the server -- SIGSEGV, SIGKILL, an exit(1) from a
  * failed start-up -- the parent wakes up and unloads the driver, which is all
  * it takes to get the console back.  A clean quitwm() has already unloaded it
- * and exits 0, so that status is the one case we leave alone.
+ * and exits 0, so that status is the one case we leave alone.  The watchdog
+ * half execs the tiny /usr/hr/bin/zvwatch so the vigil does not hold a full
+ * copy of this image in RAM (see below); the code after the exec is its
+ * in-process fallback.
  *
  * It cannot help a server that HANGS rather than dies; the driver's own
- * Ctrl-Alt-SysRq escape (hr2.c hrkey: hruload + SIGSEGV to the server) is the
+ * Ctrl-Alt-HELP escape (hr2.c hrkey: hruload + SIGSEGV to the server) is the
  * answer to that, and it is what makes this watchdog fire afterwards.
  *
  * Returns 0 in the server; the watchdog never returns.  A fork() failure is not
@@ -2872,10 +2781,23 @@ srvwatch()
 	close(cmdfd);			/* the command pipe is the server's alone */
 	close(cmdwr);
 	/* Outlive a stray ^C / ^\ / hangup on the launching terminal: dying here
-	 * would silently throw away the only cleanup the system has left. */
+	 * would silently throw away the only cleanup the system has left.
+	 * SIG_IGN survives the exec below, so zvwatch inherits the immunity. */
 	signal(SIGINT, SIG_IGN);
 	signal(SIGQUIT, SIG_IGN);
 	signal(SIGHUP, SIG_IGN);
+	/* Hand the vigil to the TINY libc-only /usr/hr/bin/zvwatch: this process
+	 * is a full fork of the ~69Kb non-shared zview image, and exec is what
+	 * gives that contiguous RAM back while keeping our pid, our one child
+	 * (the server) and the ignored signals.  Everything below this point is
+	 * both zvwatch's job and our FALLBACK if the exec fails -- coming up as
+	 * a fat watchdog beats coming up without crash insurance. */
+	{
+		int f;
+		for ( f = 5; f < 20; f++ )
+			close(f);	/* the trace log, if any */
+	}
+	execl("/usr/hr/bin/zvwatch", "zvwatch", (char *)0);
 	while ( (w = wait(&st)) != srv && w >= 0 )
 		;
 	if ( w == srv && st == 0 )
@@ -2906,9 +2828,46 @@ char **argv;
 	WMSG c;
 
 	gfx_reply_hook = onreply;
-	if ( trace )
-		srvlog = creat("/wslog", 0644);	/* debug log, extract with disk.py */
 	signal(SIGPIPE, onpipe);		/* survive a client's broken pipe */
+
+	/* REFUSE to start on a machine with no hi-res card (a serial-console or
+	 * lo-res machine).  Without the card there is no framebuffer and no
+	 * hi-res keyboard, so a server that starts anyway just wedges the
+	 * machine's keyboard vector into /drv/hr and sits idle forever.  All the
+	 * hardware behind this program is at segments 0x3A/0x3B, and with no
+	 * responder there stores are dropped and loads float -- so probe the
+	 * VRAM tail the way the boot ROM probes the framebuffer, write and read
+	 * back (hr_selok, hrsel.c), and say so instead of appearing to work. */
+	if ( !hr_selok() )
+	{
+		printf("zview: no hi-res display on this machine\n");
+		exit(1);
+	}
+
+	/* REFUSE to start inside a running session.  zview can be launched from
+	 * any shell -- including a zterm of a server that is already up -- and a
+	 * second server is pure destruction: it re-zeroes the drawing lock while
+	 * it is in use, backgrounds the whole framebuffer over the live desktop,
+	 * and wipes the session's connect-ack slots and event rings.  The probe
+	 * is /dev/dmgr: /drv/hr is loaded for exactly the life of a server
+	 * session (loaded below, unloaded by quitwm, the watchdog and the
+	 * Ctrl-Alt-HELP escape), and an unloaded loadable major fails open with ENXIO
+	 * (bio.c drvmap: d_conp NULL) -- so an openable dmgr means a server is
+	 * up.  DMGR is the shared non-exclusive minor, so the probe disturbs
+	 * nothing.  Checked BEFORE the /dev/null redirect below so the refusal
+	 * lands on the terminal it was typed into.  (Should a wreck ever leave
+	 * the driver loaded with no server behind it, /etc/uload /drv/hr clears
+	 * the way.) */
+	{
+		int pf;
+
+		if ( (pf = open("/dev/dmgr", 0)) >= 0 )
+		{
+			close(pf);
+			printf("zview: a window server is already running\n");
+			exit(1);
+		}
+	}
 
 	if ( pipe(cp) < 0 )
 	{
@@ -2917,6 +2876,14 @@ char **argv;
 	}
 	cmdfd = cp[0];
 	cmdwr = cp[1];
+	/* The trace log is opened AFTER the pipe on purpose, so cmdwr still
+	 * lands on fd 4 == HR_CMDFD (wire.h) and every child's dup2 of it is
+	 * the identity.  (An fd opened before the pipe once shifted both ends
+	 * up by one, and the pump's input went to the wrong fd -- a desktop
+	 * that painted but never saw the mouse.  The pump dup2's now, but
+	 * keep the safe order anyway.) */
+	if ( trace )
+		srvlog = creat("/wslog", 0644);	/* debug log, extract with disk.py */
 
 	/* From here on WE own the framebuffer, and the console (hrtty) is drawing
 	 * on the very same pixels -- there is no graphics-mode handshake yet

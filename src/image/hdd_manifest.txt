@@ -72,6 +72,7 @@ f	/bin/mail	4755	0	1
 f	/bin/make	755	3	0
 f	/bin/man	755	3	1
 f	/bin/me	755	3	1
+f	/bin/mem	4755	0	1
 f	/bin/mesg	755	3	0
 f	/bin/mkdir	4755	0	1
 f	/bin/msg	4755	0	0
@@ -475,6 +476,8 @@ f	/usr/hr/bin/smgr	755	0	1
 f	/usr/hr/bin/gfxtest	755	0	1
 f	/usr/hr/bin/zclock	755	0	1
 f	/usr/hr/bin/zview	755	0	1
+f	/usr/hr/bin/zvpump	755	0	1
+f	/usr/hr/bin/zvwatch	755	0	1
 f	/usr/hr/bin/ptytest	755	0	1
 f	/usr/hr/bin/zterm	755	0	1
 f	/usr/hr/bin/hrpump	755	0	1

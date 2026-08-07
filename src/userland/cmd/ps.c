@@ -61,7 +61,10 @@ struct nlist nl[] ={
 	"stimer_",	0,	0,
 	"asize_",	0,	0,
 	"end_",		0,	0,
-	""
+	/* Complete group, not a bare "": the z8001 PCC drops a trailing
+	 * partial initializer group (array one element short, nlist scans
+	 * past the end).  See mem.c. */
+	"",		0,	0
 };
 
 /*

@@ -697,16 +697,28 @@ char **argv;
 	if ( cols < 1 ) cols = 1;
 	if ( rows < 1 ) rows = 1;
 
+	/* From here on we HAVE a window: on any set-up failure say goodbye so
+	 * the server reaps it at once, rather than leaving an empty window
+	 * standing until the crash watchdog notices (all-or-nothing). */
 	if ( openpty() < 0 )
+	{
+		hr_bye();
 		exit(1);
+	}
 	if ( spawnsh() < 0 )
+	{
+		hr_bye();
 		exit(1);
+	}
 
 	clearall();
 	flush();
 
 	if ( pipe(mp) < 0 )
+	{
+		hr_bye();
 		exit(1);
+	}
 	muxr = mp[0];
 	muxw = mp[1];
 
@@ -932,5 +944,6 @@ char **argv;
 			wasidle = 0;
 		}
 	}
+	hr_bye();		/* pumps died: reap our window on the way out */
 	exit(0);
 }

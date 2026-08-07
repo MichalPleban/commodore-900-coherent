@@ -1,3 +1,11 @@
+Version 0.8.2 (7 August 2026):
+- Added clipboard selection to "zterm".
+- Fixed several filesystem and I/O bug in the kernel.
+- Restructured the gfx library to make GUI clients smaller.
+- The "zterm" and "sh" commands are now built with -n flag to put their code segments in shared memory.
+- Added the "mem" command.
+- Added the -c flag to the "mount" command.
+
 Version 0.8.1 (2 August 2026):
 - Added hires card GUI modeled after original Commodore "hrconsole"
 - Added man page for the "man" command.
@@ -6,7 +14,8 @@ Version 0.8.1 (2 August 2026):
 Version 0.8.0 (24 July 2026):
 - Added graphics card detection at boot and automatic console driver loading. Separate hires/lores versions are no longer necessary.
 - Added filesystem dirty flag. If the root filesystem is not properly sync'ed before reboot, it is mounted readonly until it is repaired.
-- Ported "compress" command from Coherent 3.2.
-- Added -w flag to "mount".
+- Ported the "compress" command from Coherent 3.2.
+- Added -w flag to the "mount" command.
+- Added -z flag to the "tar" command.
 - Ported filesystem code fixes from Coherent 3.2.
 - Created man pages for userland commands.

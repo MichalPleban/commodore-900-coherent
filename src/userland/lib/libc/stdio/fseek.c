@@ -21,7 +21,12 @@ int	origin;
 		return (EOF);
 	if ((offset=lseek(fileno(fp), offset, origin)) == -1L)
 		return (EOF);
+	/* The modulo must be computed in LONG: the old `(int)offset%BUFSIZ'
+	 * truncated first, so any offset past 32767 went negative (60882 ->
+	 * -4654 -> remainder -46) and the buffer pointers landed BEFORE _bp,
+	 * corrupting the heap around the buffer on the next read.  Seen as
+	 * nlist("/coherent") crashing ps/mem once the kernel grew past 32K. */
 	if (fp->_bp!=NULL)
-		fp->_dp = fp->_cp = fp->_bp + (int)offset%BUFSIZ;
+		fp->_dp = fp->_cp = fp->_bp + (int)(offset%BUFSIZ);
 	return (0);
 }
