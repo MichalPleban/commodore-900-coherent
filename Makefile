@@ -929,10 +929,12 @@ $(HRGUIBIN)/gfxtest: $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) 
 # --- Phase 1: window server + clock client ---
 # Both need the shared wire protocol header in addition to the engine headers.
 $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zview/zvpump.o \
-	$(HRGUIOBJ)/zclock/zclock.o \
+	$(HRGUIOBJ)/zclock/zclock.o $(HRGUIOBJ)/zdlg/zdlg.o \
+	$(HRGUIOBJ)/zedit/zedit.o \
 	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o \
 	$(HRGUIOBJ)/clgfx/hrsel.o $(HRGUIOBJ)/cmd/hrclip.o \
-	$(HRGUIOBJ)/clgfx/hrapp.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+	$(HRGUIOBJ)/clgfx/hrapp.o $(HRGUIOBJ)/clgfx/hrdlg.o \
+	$(HRGUIOBJ)/clgfx/hrsbar.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
 
 # clgfx.o: the client-side direct-render draw library (GUI.md Model A).  Clients
 # link it + globals.o + libhrgfx.a, which pulls ONLY bitblt + its asm inner loops
@@ -957,6 +959,13 @@ HRSEL := $(HRGUIOBJ)/clgfx/hrsel.o
 # NOT in CLGFX: a client that never touches the selection (zclock) should not
 # carry the store.  Consumers name $(HRSEL) explicitly.
 CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrapp.o $(HRLOCK)
+# hrdlg.o: the modal-dialog widget kit (inc/hrdlg.h).  Same rule as HRSEL --
+# NOT in CLGFX; a client with no dialogs should not carry the widget code.
+HRDLG := $(HRGUIOBJ)/clgfx/hrdlg.o
+# hrsbar.o: the vertical-scrollbar common control (inc/hrsbar.h) -- a window-
+# content sibling of the dialog widgets, shared by zterm and zedit.
+# Same rule again: named explicitly by clients that scroll a view.
+HRSBAR := $(HRGUIOBJ)/clgfx/hrsbar.o
 
 # zview owns the screen: links the engine (libhrgfx) + globals.o directly.
 # Fonts are loaded at runtime from /usr/hr/fonts/*.hf into the shared VRAM tail
@@ -985,9 +994,15 @@ $(HRGUIBIN)/zvwatch: $(HRGUIOBJ)/zview/zvwatch.o $(CRT) $(LIBC)
 # blits its own face/hands straight to VRAM; needs libm (sin/cos).
 # -n costs nothing and shares text if a second clock is ever opened.
 $(HRGUIBIN)/zclock: LDNFLAGS := -n
-$(HRGUIBIN)/zclock: $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBM) $(LIBC)
+$(HRGUIBIN)/zclock: $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBM) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBM) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBM) $(LIBC)
+
+# zdlg: the dialog demo / test client -- clgfx + the widget kit (HRDLG).
+$(HRGUIBIN)/zdlg: LDNFLAGS := -n
+$(HRGUIBIN)/zdlg: $(HRGUIOBJ)/zdlg/zdlg.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zdlg/zdlg.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
 
 # ptytest is a plain client: no gfx, just exercises the kernel pty driver.
 $(HRGUIBIN)/ptytest: $(HRGUIOBJ)/ptytest/ptytest.o $(CRT) $(LIBC)
@@ -1003,9 +1018,17 @@ $(HRGUIBIN)/ptytest: $(HRGUIOBJ)/ptytest/ptytest.o $(CRT) $(LIBC)
 # instances.
 $(HRGUIOBJ)/zterm/zterm.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
 $(HRGUIBIN)/zterm: LDNFLAGS := -n
-$(HRGUIBIN)/zterm: $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zterm: $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# zedit: direct-render text editor -- the diff renderer + scrollbar of zterm,
+# the dialog kit for its Open/Save file dialogs, and the selection store for
+# Cut/Copy/Paste.  -n: shared text across editor instances, like zterm.
+$(HRGUIBIN)/zedit: LDNFLAGS := -n
+$(HRGUIBIN)/zedit: $(HRGUIOBJ)/zedit/zedit.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zedit/zedit.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
 
 # hrpump: the terminal's I/O pumps, a tiny libc-only helper zterm execs instead
 # of forking copies of itself (memory: keeps a few open terminals from exhausting
@@ -1076,6 +1099,7 @@ $(DRVDIR)/hr: $(HRGUIOBJ)/drv/hr.o $(HRGUIOBJ)/drv/hrasm.o $(KSYM)
 
 HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/zview \
 	$(HRGUIBIN)/zvpump $(HRGUIBIN)/zvwatch $(HRGUIBIN)/zclock \
+	$(HRGUIBIN)/zdlg $(HRGUIBIN)/zedit \
 	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIBIN)/hrclip \
 	$(HRGUIFONTS) \
 	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/rc $(HRGUIICONS)

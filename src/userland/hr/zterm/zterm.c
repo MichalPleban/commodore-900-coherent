@@ -13,6 +13,9 @@
  *     shell's output, and repaints changed lines by blitting glyphs DIRECTLY to
  *     the framebuffer via clgfx (GUI.md Model A direct-render): no pixels and no
  *     per-glyph traffic cross IPC, and a full-line scroll is one VRAM block copy;
+ *   - remembers lines that scroll off the top in a malloc'd SCROLLBACK ring and
+ *     shows them through a scrollbar on the LEFT edge of the content (see the
+ *     scrollback + scrollbar sections below);
  *   - repaints on E_EXPOSE (redraw-on-expose), which is what keeps the terminal
  *     correct when uncovered after being partially covered -- only the cells
  *     the event's damage rect touches, so uncovering a strip costs the strip;
@@ -28,6 +31,9 @@
 #include "shmem.h"
 #include "clgfx.h"
 #include "hrapp.h"
+#include "hrsbar.h"
+
+extern char	*malloc();
 
 /* The window we ask the server for.  The size is filled in at run time from the
  * terminal font in the shared VRAM tail -- 80x25 character cells, the classic
@@ -49,11 +55,30 @@
 /* Copy and Paste in the window menu (hrapp.h ha_menu): the CLIPBOARD half of the
  * text plumbing, as against select-and-middle-click, which needs no menu and is
  * unaffected.  Both are answered by the event pump, not here -- see hrpump.c. */
-HRAPP	me = { "Shell", "term.icn", 0, 0, 0, 0, 0, HRM_COPY | HRM_PASTE };
+HRAPP	me = { "Shell", "term.icn", 0, 0, HRF_CONFIRM, 0, 0,
+	       HRM_COPY | HRM_PASTE };	/* CONFIRM: a live shell dies with us */
+
+/* The scrollbar sits on the LEFT edge of the content, HRSB_W (16) px wide --
+ * exactly one VRAM word, so with the 8 px terminal font the text grid just
+ * moves right by two whole byte columns and every glyph cell still lands on a
+ * byte boundary (see shmem.h on why the font is 8 px wide).  The bar itself is
+ * the COMMON control in clgfx/hrsbar.c (hrsbar.h), shared with any client that
+ * scrolls a view; only the scrollback STORE below is the terminal's own. */
+
+/* Scrollback ceiling, lines.  The ring itself is only SBMAX pointers; each
+ * remembered line is malloc'd AT THE MOMENT it scrolls off the top, trimmed to
+ * its real length -- so an idle terminal pays ~0.8 KB and only a terminal that
+ * has actually scrolled 200 mostly-full lines approaches the ~16 KB worst case
+ * (the data segment also holds the heap, so the cap keeps a flooded terminal
+ * from eating its own stack). */
+#define	SBMAX	200
 
 int	mywid;
 int	cols, rows;		/* grid size in cells */
 int	cellw, cellh;		/* pixel cell metrics (for resize conversion) */
+int	xcols, xpix;		/* text-grid offset right of the scrollbar:
+				 * cells, and the same distance in pixels */
+int	conth;			/* granted content height, px (the bar spans it) */
 
 char	grid[MAXROWS][MAXCOLS];	/* logical content              */
 char	disp[MAXROWS][MAXCOLS];	/* what is currently on screen  */
@@ -83,6 +108,23 @@ int	seldrag;		/* 1 = button down, extending the selection      */
 int	sela, selb;		/* anchor and current end, as cell numbers       */
 int	selshown;		/* 1 = a highlight is currently painted          */
 int	showa, showb;		/* the span that is painted                      */
+
+/* Scrollback (see SBMAX above).  A remembered line is one malloc'd byte string:
+ * byte 0 is its wrap flag (the wrapd[] bit travels with the text, so a logical
+ * line copied out of the scrollback is rebuilt exactly like one on the live
+ * screen), then the text, trimmed of trailing blanks, NUL-terminated.  The ring
+ * runs oldest-first from sbhead.
+ *
+ * sboff is the VIEW: how many scrollback lines are scrolled into the window.
+ * 0 = the live screen.  Display row r then shows scrollback line
+ * (sbcnt - sboff + r) while that is < sbcnt, and grid[r - sboff] after -- so
+ * the view is a window sliding over scrollback + grid as one long document. */
+char	*sbl[SBMAX];		/* the ring: malloc'd lines, oldest at sbhead */
+int	sbhead;			/* ring index of the oldest line              */
+int	sbcnt;			/* lines currently remembered                 */
+int	sboff;			/* view offset: 0 = live, max = sbcnt         */
+HRSBAR	sbar;			/* the common scrollbar control (hrsbar.h)    */
+int	sbforce	= 1;		/* 1 = repaint the whole bar (expose/first)   */
 
 int	mfd = -1;		/* pty master fd */
 char	sname[16];		/* slave device path */
@@ -127,6 +169,100 @@ clearall()
 	cx = cy = 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* scrollback                                                         */
+/* ------------------------------------------------------------------ */
+/* The store is a ring of SBMAX malloc'd lines (see the declarations above),
+ * fed by scrollup() -- the one place a line irrevocably leaves the grid.  An
+ * erased screen (ESC[2J, `clear') is NOT saved: the application asked for
+ * those cells to cease to exist, which is not the same as scrolling past them.
+ *
+ * The VIEW: everything that draws or copies reads display rows through
+ * vrow()/vwrap() instead of grid[]/wrapd[], so the whole rendering path --
+ * the flush() diff, expose repaint, even a selection -- works identically on
+ * history and on the live screen; sboff is the only moving part. */
+
+/* Push grid row 0 into the ring.  Trailing blanks are trimmed unless the row
+ * wrapped (then they are mid-line content, same rule as copysel).  Under
+ * memory pressure the HISTORY gives way, oldest first: scrollback is the one
+ * expendable thing in this process, and a shell must never lose live output
+ * because its own history is hogging the heap. */
+static
+sbpush()
+{
+	register char *p;
+	register int n, i;
+
+	n = cols;
+	if ( !wrapd[0] )
+		while ( n > 0 && grid[0][n-1] == ' ' )
+			n--;
+	for (;;)
+	{
+		if ( sbcnt < SBMAX && (p = malloc(n + 2)) != 0 )
+			break;
+		if ( sbcnt == 0 )
+			return;			/* no memory at all: let it go */
+		free(sbl[sbhead]);		/* evict the oldest line */
+		sbhead = (sbhead + 1) % SBMAX;
+		sbcnt--;
+	}
+	p[0] = wrapd[0];
+	for ( i = 0; i < n; i++ )
+		p[i+1] = grid[0][i];
+	p[n+1] = 0;
+	sbl[(sbhead + sbcnt) % SBMAX] = p;
+	sbcnt++;
+}
+
+/* The text of display row r under the current view: a grid row when r has
+ * scrolled past the history, else a scrollback line padded back out to a full
+ * row.  Returns a pointer to MAXCOLS readable cells (the pad buffer is static
+ * and valid until the next call -- one row at a time, which is how every
+ * caller works). */
+static char	vbuf[MAXCOLS];
+
+static char *
+vrow(r)
+{
+	register char *p;
+	register int i;
+
+	if ( r >= sboff )
+		return grid[r - sboff];
+	p = sbl[(sbhead + sbcnt - sboff + r) % SBMAX] + 1;
+	for ( i = 0; *p && i < MAXCOLS; i++ )
+		vbuf[i] = *p++;
+	for ( ; i < MAXCOLS; i++ )
+		vbuf[i] = ' ';
+	return vbuf;
+}
+
+/* The wrap flag of display row r, same mapping. */
+static
+vwrap(r)
+{
+	if ( r >= sboff )
+		return wrapd[r - sboff];
+	return sbl[(sbhead + sbcnt - sboff + r) % SBMAX][0];
+}
+
+/* Move the view and drop whatever depended on the old one: the selection's
+ * cell numbers meant positions in the old view, and the highlight would
+ * otherwise stick to the glass while the text slid under it. */
+static
+vseek(off)
+{
+	if ( off < 0 ) off = 0;
+	if ( off > sbcnt ) off = sbcnt;
+	if ( off == sboff )
+		return 0;
+	sboff = off;
+	if ( selon || seldrag )
+		selclear();
+	return 1;
+}
+
 /* Mark the cells covering the damaged CONTENT-pixel rect (x,y,w,h) as needing
  * repaint: make disp[] impossible there so those cells differ from grid[] and
  * the next flush() redraws exactly them.  Cell bounds are rounded OUTWARD, so a
@@ -145,9 +281,11 @@ invrect(x, y, w, h)
 
 	if ( w <= 0 || h <= 0 || cellw <= 0 || cellh <= 0 )
 		return 0;
-	c0 = x / cellw;
+	if ( x < xpix )
+		sbforce = 1;		/* the damage reaches the scrollbar */
+	c0 = (x - xpix) / cellw;
 	r0 = y / cellh;
-	c1 = (x + w + cellw - 1) / cellw;
+	c1 = (x - xpix + w + cellw - 1) / cellw;
 	r1 = (y + h + cellh - 1) / cellh;
 	if ( c0 < 0 ) c0 = 0;
 	if ( r0 < 0 ) r0 = 0;
@@ -169,6 +307,7 @@ invalidate()
 			disp[r][c] = 0;
 	curon = 0;
 	selshown = 0;			/* the highlight pixels go with the repaint */
+	sbforce = 1;			/* and so does the scrollbar's chrome */
 }
 
 /* Block text cursor at the current cell, painted by inverting the cell (draw
@@ -180,10 +319,13 @@ curdraw()
 {
 	int c, r;
 
+	if ( sboff )
+		return;		/* scrolled back: the cursor cell is off-view */
 	c = cx;  r = cy;
 	if ( c >= cols ) c = cols - 1;		/* keep it on-screen at wrap */
 	if ( r >= rows ) r = rows - 1;
-	cl_fillrect(c * cellw, r * cellh, (c + 1) * cellw, (r + 1) * cellh, 2);
+	cl_fillrect(xpix + c * cellw, r * cellh,
+		    xpix + (c + 1) * cellw, (r + 1) * cellh, 2);
 	curon = 1;  curc = c;  curr = r;
 }
 
@@ -192,8 +334,8 @@ curerase()
 {
 	if ( curon )
 	{
-		cl_fillrect(curc * cellw, curr * cellh,
-			    (curc + 1) * cellw, (curr + 1) * cellh, 2);
+		cl_fillrect(xpix + curc * cellw, curr * cellh,
+			    xpix + (curc + 1) * cellw, (curr + 1) * cellh, 2);
 		curon = 0;
 	}
 }
@@ -217,8 +359,8 @@ selpaint(a, b)
 		c1 = (r == hi / cols) ? hi % cols : cols - 1;
 		if ( c1 >= cols ) c1 = cols - 1;
 		if ( c0 > c1 ) continue;
-		cl_fillrect(c0 * cellw, r * cellh,
-			    (c1 + 1) * cellw, (r + 1) * cellh, 2);
+		cl_fillrect(xpix + c0 * cellw, r * cellh,
+			    xpix + (c1 + 1) * cellw, (r + 1) * cellh, 2);
 	}
 }
 
@@ -347,19 +489,24 @@ copysel()
 	if ( rh >= rows ) rh = rows - 1;
 	for ( r = rl; r <= rh; r++ )
 	{
+		register char *vp;
+
+		/* Rows come through the VIEW, so a selection made while scrolled
+		 * back copies the history it shows, wrap flags included. */
+		vp = vrow(r);
 		c0 = (r == rl) ? lo % cols : 0;
 		c1 = (r == rh) ? hi % cols : cols - 1;
 		if ( c1 >= cols ) c1 = cols - 1;
 		n = 0;
 		for ( i = c0; i <= c1; i++ )
-			row[n++] = grid[r][i];
+			row[n++] = vp[i];
 		/* Trim a row that really ends here.  A wrapped row runs into the next
 		 * one, so its trailing blanks are content -- unless the selection stops
 		 * on it, where the user plainly does not want the padding either. */
-		if ( !wrapd[r] || r == rh )
+		if ( !vwrap(r) || r == rh )
 			while ( n > 0 && row[n-1] == ' ' )
 				n--;
-		if ( r < rh && !wrapd[r] )
+		if ( r < rh && !vwrap(r) )
 			row[n++] = '\n';	/* a wrapped row is mid-line: no break */
 		if ( n )
 			hr_selwrite(row, n);
@@ -374,7 +521,7 @@ selcell(px, py)
 {
 	int c, r;
 
-	c = px / cellw;
+	c = (px - xpix) / cellw;
 	r = py / cellh;
 	if ( c < 0 ) c = 0;
 	if ( r < 0 ) r = 0;
@@ -384,11 +531,13 @@ selcell(px, py)
 }
 
 /* Scroll the grid up one row (content only; the pixels are redrawn by the diff
- * in flush(), never block-copied). */
+ * in flush(), never block-copied).  The departing top row goes to the
+ * scrollback ring first -- this is the ONLY producer of history. */
 static
 scrollup()
 {
 	register int r, c;
+	sbpush();
 	for ( r = 1; r < rows; r++ )
 	{
 		for ( c = 0; c < cols; c++ )
@@ -398,63 +547,84 @@ scrollup()
 	clearrow(rows-1);
 }
 
-/* Repaint one run of changed cells [c0,c1) on row r: erase it white, then blit
- * each maximal non-blank sub-span (blanks are already white after the erase). */
+/* Repaint one run of changed cells [c0,c1) on row r from the row text vp
+ * (flush's view pointer): erase it white, then blit each maximal non-blank
+ * sub-span (blanks are already white after the erase).  Cell (0,r) is at
+ * pixel x = xpix -- past the scrollbar -- which is xcols whole cells, so the
+ * cell-addressed primitives just take an offset column. */
 static
-drawrun(r, c0, c1)
+drawrun(r, c0, c1, vp)
+char *vp;
 {
 	char buf[MAXCOLS+1];
 	int s, e, i, n;
 
-	cl_erase(c0, r, c1 - c0, 1, cellw, cellh);
+	cl_erase(xcols + c0, r, c1 - c0, 1, cellw, cellh);
 	for ( s = c0; s < c1; s = e )
 	{
-		while ( s < c1 && grid[r][s] == ' ' )
+		while ( s < c1 && vp[s] == ' ' )
 			s++;
 		if ( s >= c1 )
 			break;
-		for ( e = s; e < c1 && grid[r][e] != ' '; e++ )
+		for ( e = s; e < c1 && vp[e] != ' '; e++ )
 			;
 		n = 0;
 		for ( i = s; i < e; i++ )
-			buf[n++] = grid[r][i];
+			buf[n++] = vp[i];
 		buf[n] = 0;
-		cl_text(SHM_FTERM, s, r, buf, cellw, cellh);
+		cl_text(SHM_FTERM, xcols + s, r, buf, cellw, cellh);
 	}
 }
 
 /* Repaint everything that changed since the last flush (clgfx hides the cursor
- * and syncs the clip descriptor once for the whole batch). */
+ * and syncs the clip descriptor once for the whole batch).  The diff runs
+ * against the VIEW (vrow), not the grid, so scrolling the view back is just
+ * "every cell that differs gets redrawn" -- the same one mechanism as output,
+ * exposure and resize, with no scroll-specific paint path. */
 static
 flush()
 {
 	register int r, c;
+	register char *vp;
 	int c0;
 
 	cl_begin();
 	curerase();			/* lift the cursor before repainting content */
 	for ( r = 0; r < rows; r++ )
 	{
+		vp = vrow(r);
 		c = 0;
 		while ( c < cols )
 		{
-			if ( grid[r][c] == disp[r][c] )
+			if ( vp[c] == disp[r][c] )
 			{
 				c++;
 				continue;
 			}
 			c0 = c;
-			while ( c < cols && grid[r][c] != disp[r][c] )
+			while ( c < cols && vp[c] != disp[r][c] )
 			{
-				disp[r][c] = grid[r][c];
+				disp[r][c] = vp[c];
 				c++;
 			}
-			drawrun(r, c0, c);
+			drawrun(r, c0, c, vp);
 			selpatch(r, c0, c);	/* the run wiped the highlight over it */
 		}
 	}
 	seldelta();			/* only the cells whose highlight changed */
 	curdraw();			/* repaint the cursor on top */
+	/* The scrollbar last: publish the document model (history + screen) and
+	 * let the control decide whether its thumb actually moved.  sb_pos runs
+	 * top-down -- pos 0 = oldest line at the top -- so the live view sits at
+	 * the bottom of the travel. */
+	sbar.sb_x = 0;
+	sbar.sb_y = 0;
+	sbar.sb_h = conth;
+	sbar.sb_total = sbcnt + rows;
+	sbar.sb_page = rows;
+	sbar.sb_pos = sbcnt - sboff;
+	hr_sbdraw(&sbar, sbforce);
+	sbforce = 0;
 	cl_end();
 }
 
@@ -680,18 +850,24 @@ char **argv;
 
 	/* Cell metrics come from the terminal font in the shared VRAM tail, which
 	 * is readable before we have a window; ask for a window big enough for the
-	 * classic 80x25, then derive the grid from the content size we are GRANTED
-	 * (which the server may have clamped), exactly as on E_RESIZE. */
+	 * classic 80x25 PLUS the scrollbar column, then derive the grid from the
+	 * content size we are GRANTED (which the server may have clamped), exactly
+	 * as on E_RESIZE.  The text grid starts one bar-width in, rounded up to
+	 * whole cells (with the 8 px font that is exactly 2 cells = 16 px, so the
+	 * byte alignment shmem.h promises is undisturbed). */
 	cellw = hr_font(SHM_FTERM)->cellw;
 	cellh = hr_font(SHM_FTERM)->cellh;
 	if ( cellw <= 0 ) cellw = 8;
 	if ( cellh <= 0 ) cellh = 15;
-	me.ha_w = DEFCOLS * cellw;
+	xcols = (HRSB_W + cellw - 1) / cellw;
+	xpix = xcols * cellw;
+	me.ha_w = xpix + DEFCOLS * cellw;
 	me.ha_h = DEFROWS * cellh;
 	if ( (mywid = hr_open(&me, &argc, argv)) < 0 )
 		exit(1);		/* no window server (hr_open does cl_init) */
-	cols = me.ha_w / cellw;
+	cols = (me.ha_w - xpix) / cellw;
 	rows = me.ha_h / cellh;
+	conth = me.ha_h;
 	if ( cols > MAXCOLS ) cols = MAXCOLS;
 	if ( rows > MAXROWS ) rows = MAXROWS;
 	if ( cols < 1 ) cols = 1;
@@ -769,6 +945,17 @@ char **argv;
 			m = (struct mux *)(rb + off);
 			if ( m->tag == MX_DATA )
 			{
+				/* ANY output snaps the view back to the live screen (and
+				 * abandons a thumb drag in progress).  This is also what
+				 * makes typing while scrolled back behave: a keystroke
+				 * goes straight to the master (hrpump), but its ECHO
+				 * comes back through here -- so "reset scroll on
+				 * keypress" falls out of "reset scroll on output". */
+				if ( sboff )
+				{
+					vseek(0);
+					hr_sbrelease(&sbar);
+				}
 				for ( i = 0; i < m->n; i++ )
 					vt(m->d[i]);
 				need = 1;		/* redraw once, after this batch */
@@ -806,7 +993,7 @@ char **argv;
 					 * the full case and takes the cheaper wholesale
 					 * path. */
 					if ( e.wm_arg[0] <= 0 && e.wm_arg[1] <= 0 &&
-					     e.wm_arg[2] >= cols * cellw &&
+					     e.wm_arg[2] >= xpix + cols * cellw &&
 					     e.wm_arg[3] >= rows * cellh )
 						invalidate();
 					else
@@ -816,17 +1003,38 @@ char **argv;
 				}
 				else if ( e.wm_type == E_BUTTON )
 				{
-					if ( e.wm_arg[2] & EB_LEFT )	/* press: anchor here */
+					if ( e.wm_arg[2] & EB_LEFT )	/* press */
 					{
-						sela = selb = selcell(e.wm_arg[0], e.wm_arg[1]);
-						seldrag = 1;
-						selon = 0;	/* a bare click drops the old one */
-						need = 1;
+						/* Left of the text grid = the scrollbar's.  The
+						 * control judges the press against the thumb the
+						 * user is looking at (its model was published at
+						 * the last flush) and either moves sb_pos -- an
+						 * arrow or trough jump -- or starts a drag. */
+						if ( e.wm_arg[0] < xpix )
+						{
+							if ( hr_sbpress(&sbar, e.wm_arg[1]) )
+							{
+								vseek(sbcnt - sbar.sb_pos);
+								need = 1;
+							}
+						}
+						else		/* in the text: anchor a selection */
+						{
+							sela = selb = selcell(e.wm_arg[0], e.wm_arg[1]);
+							seldrag = 1;
+							selon = 0;	/* a bare click drops the old one */
+							need = 1;
+						}
 					}
-					else				/* release: publish it */
+					else				/* release */
 					{
-						seldrag = 0;
-						copysel();
+						if ( sbar.sb_drag )
+							hr_sbrelease(&sbar);
+						else
+						{
+							seldrag = 0;
+							copysel();	/* publish the selection */
+						}
 					}
 				}
 				else if ( e.wm_type == E_SELCLEAR )
@@ -840,7 +1048,15 @@ char **argv;
 				}
 				else if ( e.wm_type == E_MOTION )
 				{
-					if ( seldrag )
+					if ( sbar.sb_drag )	/* thumb tracks the pointer */
+					{
+						if ( hr_sbmotion(&sbar, e.wm_arg[1]) )
+						{
+							vseek(sbcnt - sbar.sb_pos);
+							need = 1;
+						}
+					}
+					else if ( seldrag )
 					{
 						int b;
 
@@ -859,8 +1075,9 @@ char **argv;
 					int oldrows, oldcols, r, c, shift;
 
 					oldrows = rows;  oldcols = cols;
-					cols = e.wm_arg[0] / (cellw ? cellw : 8);
+					cols = (e.wm_arg[0] - xpix) / (cellw ? cellw : 8);
 					rows = e.wm_arg[1] / (cellh ? cellh : 15);
+					conth = e.wm_arg[1];	/* the bar spans the new height */
 					if ( cols > MAXCOLS ) cols = MAXCOLS;
 					if ( rows > MAXROWS ) rows = MAXROWS;
 					if ( cols < 1 ) cols = 1;

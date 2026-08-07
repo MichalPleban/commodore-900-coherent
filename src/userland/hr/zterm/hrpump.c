@@ -138,6 +138,9 @@ char **argv;
 				continue;
 			if ( e.wm_type == E_KEY )
 			{
+				if ( e.wm_arg[0] > 0x7f )
+					continue;	/* HRK_* function key: no byte
+							 * to write to a pty (yet)   */
 				ch = e.wm_arg[0] & 0xff;
 				write(mfd, &ch, 1);	/* keystroke straight to the shell */
 				continue;

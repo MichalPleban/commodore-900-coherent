@@ -21,6 +21,7 @@
 #include "shmem.h"
 #include "clgfx.h"
 #include "hrapp.h"
+#include "hrdlg.h"		/* the Settings dialog (root: set date/time) */
 
 #ifndef PI
 #define PI	3.14159265358979323846
@@ -201,6 +202,185 @@ drawhands()
 	handfl = 1;
 }
 
+/* ---- the Settings dialog: set the system date and time (root only) ------- *
+ * Declared (ha_menu |= HRM_SETTINGS) only when getuid() == 0, because only
+ * root's stime() succeeds -- anyone else simply has no Settings entry.
+ * Two text fields, prefilled from localtime; OK parses, validates and sets.
+ *
+ * Rejected input keeps the dialog up with what was typed still in the fields
+ * (so a single wrong digit is one keystroke to fix, not a retype) and SAYS SO
+ * on the message line -- silently doing nothing would just read as a dead OK
+ * button.  A DW_LABEL over a buffer is the whole mechanism: set the text and
+ * redraw that one widget.
+ *
+ * Field rows and the button row are laid out on the same DLG_MARG margin the
+ * chrome uses, so the fields clear the top edge and sit a normal gap above
+ * the buttons rather than drifting apart. */
+
+char	datebuf[12];		/* YYYY-MM-DD */
+char	timebuf[10];		/* HH:MM:SS   */
+char	msgbuf[32];		/* "" or why the last OK was refused */
+
+/* A DW_TEXT draws its content at dw_y + (h - cellh)/2 + 1, so a DW_LABEL
+ * beside a 22px field is aligned by sitting 4px lower than the field. */
+HRWIDGET swg[] = {
+    { DW_LABEL,   12,  16,   0,  0, "Date:" },
+    { DW_TEXT,    70,  12, 120, 22, (char *)0, 0, 0, datebuf, sizeof(datebuf) },
+    { DW_LABEL,   12,  48,   0,  0, "Time:" },
+    { DW_TEXT,    70,  44, 120, 22, (char *)0, 0, 0, timebuf, sizeof(timebuf) },
+    { DW_LABEL,   12,  72,   0,  0, msgbuf },
+    { DW_BUTTON,  60, 104,  70, DLG_BTNH, "OK",     0, 0, (char *)0, 0,
+      DWF_DEF | DWF_END },
+    { DW_BUTTON, 170, 104,  80, DLG_BTNH, "Cancel", 0, 0, (char *)0, 0,
+      DWF_CANCEL | DWF_END },
+};
+#define NSWG	(sizeof(swg) / sizeof(swg[0]))
+#define SW_MSG	4		/* the message line   */
+#define SW_OK	5		/* the OK button      */
+#define SW_W	300		/* interior size that fits the layout above */
+#define SW_H	146		/* (buttons end at 104+24+3 ring+2 shadow)  */
+/* The message line sits just under the fields (6px) and well clear of the
+ * buttons (13px to the default button's ring): it says what is wrong with
+ * what was TYPED, so it belongs with the fields, not with the buttons. */
+
+static int	mdays[12] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
+
+static
+leapy(y)
+{
+	return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+}
+
+/* Days from 1970-01-01 to civil date y-m-d (the libc has no mktime). */
+static long
+civdays(y, m, d)
+{
+	long dd;
+	int i;
+
+	dd = 0;
+	for ( i = 1970; i < y; i++ )
+		dd += leapy(i) ? 366 : 365;
+	for ( i = 1; i < m; i++ )
+	{
+		dd += mdays[i - 1];
+		if ( i == 2 && leapy(y) )
+			dd++;
+	}
+	return dd + d - 1;
+}
+
+/* Parse the two fields, validate, convert LOCAL time to a UTC time_t and set
+ * the system clock.  Returns 0 on success, or -1 having put the reason in
+ * msgbuf for the caller to show.
+ *
+ * The local->UTC conversion starts from "as if the fields were UTC" and then
+ * REFINES through localtime() itself -- a few iterations of "how far is
+ * localtime(t) from the target" -- so the TZ/DST arithmetic stays inside
+ * ctime.c where it already lives, instead of being duplicated here. */
+static
+parseset()
+{
+	int y, mo, d, hh, mi, ss, i, ml;
+	long t, ds;
+	struct tm *tp;
+
+	if ( sscanf(datebuf, "%d-%d-%d", &y, &mo, &d) != 3 ||
+	     sscanf(timebuf, "%d:%d:%d", &hh, &mi, &ss) != 3 )
+	{
+		strcpy(msgbuf, "Use YYYY-MM-DD and HH:MM:SS");
+		return -1;
+	}
+	if ( y < 1970 || y > 2037 )	/* 2038: signed 32-bit time_t */
+	{
+		strcpy(msgbuf, "Year must be 1970-2037");
+		return -1;
+	}
+	ml = 0;
+	if ( mo >= 1 && mo <= 12 )
+	{
+		ml = mdays[mo - 1];
+		if ( mo == 2 && leapy(y) )
+			ml = 29;
+	}
+	if ( mo < 1 || mo > 12 || d < 1 || d > ml )
+	{
+		strcpy(msgbuf, "No such date");
+		return -1;
+	}
+	if ( hh < 0 || hh > 23 || mi < 0 || mi > 59 || ss < 0 || ss > 59 )
+	{
+		strcpy(msgbuf, "No such time");
+		return -1;
+	}
+	t = civdays(y, mo, d) * 86400L +
+	    hh * 3600L + mi * 60L + (long)ss;
+	for ( i = 0; i < 3; i++ )
+	{
+		tp = localtime(&t);
+		ds = (civdays(y, mo, d) -
+		      civdays(tp->tm_year + 1900, tp->tm_mon + 1, tp->tm_mday))
+			 * 86400L +
+		     (hh - tp->tm_hour) * 3600L +
+		     (mi - tp->tm_min) * 60L + (long)(ss - tp->tm_sec);
+		if ( ds == 0 )
+			break;
+		t += ds;
+	}
+	if ( stime(&t) < 0 )
+	{
+		strcpy(msgbuf, "Cannot set the clock");
+		return -1;			/* not root after all */
+	}
+	return 0;
+}
+
+dosettings()
+{
+	int w, h, r;
+	long t;
+	struct tm *tp;
+
+	time(&t);
+	tp = localtime(&t);
+	sprintf(datebuf, "%04d-%02d-%02d",
+		tp->tm_year + 1900, tp->tm_mon + 1, tp->tm_mday);
+	sprintf(timebuf, "%02d:%02d:%02d",
+		tp->tm_hour, tp->tm_min, tp->tm_sec);
+	msgbuf[0] = 0;			/* nothing to complain about yet */
+	w = SW_W;
+	h = SW_H;
+	r = hr_dlgopen(&w, &h);
+	if ( r < 0 )
+	{
+		if ( r == -2 )			/* E_QUIT while waiting */
+			exit(0);
+		return;
+	}
+	hr_dlgdraw(swg, NSWG);
+	for (;;)
+	{
+		r = hr_dlgrun(swg, NSWG);
+		if ( r == -1 )			/* window died mid-dialog */
+		{
+			hr_dlgclose();
+			exit(0);
+		}
+		if ( r != SW_OK )		/* Cancel: change nothing */
+			break;
+		if ( parseset() == 0 )		/* OK: set the clock */
+			break;
+		/* Refused: parseset said why.  Keep the dialog up with the
+		 * fields as typed and show the reason -- clearing the message
+		 * line first, since a label draws no background of its own and
+		 * the previous message may have been the longer one. */
+		cl_fillrect(swg[SW_MSG].dw_x, swg[SW_MSG].dw_y, w,
+			    swg[SW_MSG].dw_y + hr_font(SHM_FUI)->cellh, 1);
+		hr_dlgdraw(swg, NSWG);
+	}
+	hr_dlgclose();
+}
+
 int	paintgen = -2;		/* clip generation of our last full repaint */
 
 repaint()
@@ -226,6 +406,8 @@ char **argv;
 	WMSG e;
 	int n;
 
+	if ( getuid() == 0 )		/* only root's stime() works, so only */
+		me.ha_menu = HRM_SETTINGS;	/* root gets the menu entry   */
 	if ( (mywid = hr_open(&me, &argc, argv)) < 0 )
 		exit(1);		/* no window server (hr_open does cl_init) */
 	cxmax = me.ha_w;		/* the size we were GRANTED */
@@ -255,6 +437,9 @@ char **argv;
 				repaint();
 			else if ( e.wm_type == E_QUIT )
 				exit(0);
+			else if ( e.wm_type == E_MENU &&
+				  e.wm_arg[0] == HRM_SETTINGS )
+				dosettings();
 			else if ( e.wm_type == E_RESIZE )
 			{
 				cxmax = e.wm_arg[0];

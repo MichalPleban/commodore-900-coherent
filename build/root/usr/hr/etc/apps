@@ -13,4 +13,5 @@
 # separate thing: the shell script /usr/hr/etc/rc, which is also where an app's
 # position/size/minimised options go (an entry here is run with a bare argv).
 Shell:/usr/hr/bin/zterm:1
+Editor:/usr/hr/bin/zedit:1
 Clock:/usr/hr/bin/zclock:0

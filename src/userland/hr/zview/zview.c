@@ -28,6 +28,7 @@
 #include "smgr.h"
 #include "wire.h"
 #include "shmem.h"
+#include "hrdlg.h"		/* DLG_* chrome metrics (srvdialog) */
 
 extern BITMAP	display;
 extern LAYER	*newlayer();
@@ -58,6 +59,7 @@ struct win {
 	char	icon[40];	/* .icn file for the desktop icon */
 	int	appi;		/* catalog entry it was launched from (-1 unknown) */
 	int	stretch;	/* 1 = the client allows the user to resize it */
+	int	confirm;	/* 1 = window-menu Quit asks first (HRF_CONFIRM) */
 	int	menu;		/* HRM_* the client wants in its window menu */
 } wins[MAX_WINDOWS];
 
@@ -126,6 +128,21 @@ int	mx, my;			/* current pointer position (global coords) */
 int	grabwid = -1;		/* window holding the pointer grab, or -1   */
 int	lastgx = -1, lastgy = -1;	/* last motion forwarded (dedupe)   */
 int	selwid = -1;		/* window that owns the selection, or -1    */
+
+/* Client dialog overlay (wire.h C_DLGOPEN): at most ONE in the system.  While
+ * dlgwid >= 0 the desktop is system-modal: every client is frozen (overlay =
+ * OV_DLG|dlgwid), ALL input is routed to the owner as E_D* events (dlginput),
+ * and window creation / kills / new dialogs are deferred until it closes. */
+int	dlgwid = -1;		/* window owning the dialog, or -1          */
+RECT	dlgbox;			/* the whole box, screen coords             */
+RECT	dlgint;			/* the interior (the published surface)     */
+int	*dlgsave;		/* saved pixels under the box (0 = malloc   */
+				/* failed: restore falls back to repaint)   */
+int	dlgwpl, dlgrows;	/* save-under geometry (words/row, rows)    */
+int	dlggrab;		/* 1 = left button went down in the interior */
+int	dlastx = -1, dlasty = -1;	/* E_DMOTION dedupe (interior coords) */
+int	dlgput;			/* consecutive full-ring sends: dead owner  */
+unsigned dlgbye;		/* wid bitmask: C_BYEs deferred to close    */
 extern int who_top_at();
 int	curfd = -1;		/* a driver fd for cursor on/off (CIOMSE*) */
 int	pumppid = -1;		/* the input-pump child (killed on WM quit) */
@@ -650,6 +667,8 @@ killwin(wid)
 
 	if ( !wins[wid].used )
 		return;
+	if ( wid == dlgwid )		/* its dialog dies with it: restore the */
+		dlgclose();		/* screen before the layer teardown     */
 	if ( grabwid == wid )			/* died mid-drag: drop the pointer grab */
 	{
 		grabwid = -1;
@@ -1798,6 +1817,7 @@ HRCONN *hc;
 	       iconok(hc->hc_icon) ? hc->hc_icon : HR_DEFICON);
 	wins[wid].appi = ai;
 	wins[wid].stretch = (hc->hc_flags & HRF_STRETCH) != 0;
+	wins[wid].confirm = (hc->hc_flags & HRF_CONFIRM) != 0;
 	wins[wid].menu = hc->hc_menu & HRM_ALL;	/* its own window-menu entries */
 	wins[wid].pid = hc->hc_pid;
 	wins[wid].min = 0;
@@ -1990,7 +2010,7 @@ char *items[];
 	 * BEFORE taking the lock so a client that checks it while holding the lock sees
 	 * it; take the lock around the save+draw so any in-flight client primitive
 	 * finishes first and the menu lands on top of it. */
-	hr_glob()->overlay = 1;
+	hr_glob()->overlay = OV_MENU;
 	srvlock();
 	/* Hide the cursor BEFORE saving the pixels under the menu: otherwise the XOR
 	 * cursor (if it overlaps the box) is captured into the save buffer and
@@ -2091,6 +2111,567 @@ char *items[];
 			       box.corner.x, box.corner.y);
 	if ( curfd >= 0 ) ioctl(curfd, CIOMOUSE, DEF_MOUSE);	/* restore arrow */
 	return sel;
+}
+
+/* ------------------------------------------------------------------ */
+/* server-internal modal dialog (message + up to 3 buttons)           */
+/* ------------------------------------------------------------------ */
+
+/* 1-px black border around rect r (four srvfill strips, srvmenu's idiom). */
+static
+dlg_border(r)
+RECT r;
+{
+	RECT e;
+
+	e = r; e.corner.y = r.origin.y + 1;   srvfill(e, 0, L_FALSE);
+	e = r; e.origin.y = r.corner.y - 1;   srvfill(e, 0, L_FALSE);
+	e = r; e.corner.x = r.origin.x + 1;   srvfill(e, 0, L_FALSE);
+	e = r; e.origin.x = r.corner.x - 1;   srvfill(e, 0, L_FALSE);
+}
+
+/* Window-style stepped drop shadow: r is the whole rect INCLUDING the d-px
+ * shadow margin (right + bottom), so the card it falls from is r minus that.
+ * The same pseudo-3D bands outline() steps in for a window (gfx/layer.c),
+ * drawn with srvfill because a dialog is an overlay, not a layer.  Depth is a
+ * parameter so the dialog card (WD_SHADOW) and its buttons (DLG_BSHAD, a
+ * mini version of the same shadow) share one routine and one look. */
+static
+dlg_shadow(r, d)
+RECT r;
+{
+	RECT card, e;
+	int k;
+
+	card = r;
+	card.corner.x -= d;
+	card.corner.y -= d;
+	e = r;  e.origin.x = card.corner.x;  srvfill(e, 0, L_TRUE);
+	e = r;  e.origin.y = card.corner.y;  srvfill(e, 0, L_TRUE);
+	for ( k = 0; k < d; k++ )
+	{
+		e = r;					/* right band */
+		e.origin.x = card.corner.x + k;   e.corner.x = e.origin.x + 1;
+		e.origin.y = r.origin.y + k;
+		e.corner.y = r.corner.y - (d - 1) + k;
+		srvfill(e, 0, L_FALSE);
+		e = r;					/* bottom band */
+		e.origin.y = card.corner.y + k;   e.corner.y = e.origin.y + 1;
+		e.origin.x = r.origin.x + k;
+		e.corner.x = r.corner.x - (d - 1) + k;
+		srvfill(e, 0, L_FALSE);
+	}
+}
+
+/* Which button rect (0..nb-1) the pointer is in, or -1.  The arrow cursor's
+ * hotspot is its top-left (0,0), so raw (mx,my) is what the user aims with --
+ * unlike the menu's tip-offset sprite. */
+static
+dlg_bhit(brc, nb)
+RECT brc[];
+{
+	int i;
+
+	for ( i = 0; i < nb; i++ )
+		if ( mx >= brc[i].origin.x && mx < brc[i].corner.x &&
+		     my >= brc[i].origin.y && my < brc[i].corner.y )
+			return i;
+	return -1;
+}
+
+/* XOR-invert button i's interior (self-erasing pressed-state highlight). */
+static
+dlg_binvert(brc, i)
+RECT brc[];
+{
+	RECT e;
+
+	e = brc[i];
+	e.origin.x += 1;  e.origin.y += 1;
+	e.corner.x -= 1;  e.corner.y -= 1;
+	gfx_cursor_hide();
+	srvfill(e, 0, L_NDST);
+	gfx_cursor_show();
+}
+
+/* The server's own modal dialog: a centred box with a message (msg; '|' breaks
+ * it into up to 4 lines) and 1..3 buttons (b1/b2 may be NULL), drawn with the
+ * same save-under / overlay-freeze bracket as srvmenu and tracked in the same
+ * nested command-pipe loop.  MOUSE ONLY (keys are ignored, like the menu);
+ * classic arm/track buttons: a left press INSIDE a button arms and inverts it,
+ * dragging out disarms, and only a release inside the armed button commits --
+ * a release anywhere else leaves the dialog up (it is modal; every caller
+ * provides a safe button, so there is no escape hatch to need).  Returns the
+ * committed button's index (0-based).  Chrome metrics come from hrdlg.h so a
+ * server confirmation looks exactly like a client dialog. */
+srvdialog(msg, b0, b1, b2)
+char *msg, *b0, *b1, *b2;
+{
+	RECT box, card, brc[3];
+	char mbuf[128];
+	char *lines[4], *bl[3];
+	int nl, nb, fw, fh, i, w, lw, bw, boxw, boxh;
+	int rows, wpl, yy, bx, by, sel, press, in, hit;
+	int *buf;
+	WMSG c;
+
+	fw = hr_font(SHM_FUI)->cellw;
+	fh = hr_font(SHM_FUI)->cellh;
+
+	/* split the message on '|' (into a local copy: we plant NULs) */
+	strncpy(mbuf, msg, sizeof(mbuf) - 1);
+	mbuf[sizeof(mbuf) - 1] = 0;
+	nl = 0;
+	lines[nl++] = mbuf;
+	for ( i = 0; mbuf[i] && nl < 4; i++ )
+		if ( mbuf[i] == '|' )
+		{
+			mbuf[i] = 0;
+			lines[nl++] = &mbuf[i + 1];
+		}
+
+	bl[0] = b0;  bl[1] = b1;  bl[2] = b2;
+	nb = 1 + (b1 != 0) + (b1 != 0 && b2 != 0);
+
+	/* box size: whichever is wider, the message block or the button row */
+	w = 0;
+	for ( i = 0; i < nl; i++ )
+	{
+		lw = strlen(lines[i]) * fw;
+		if ( lw > w ) w = lw;
+	}
+	bw = 0;
+	for ( i = 0; i < nb; i++ )
+		bw += strlen(bl[i]) * fw + 2 * DLG_BTNPAD;
+	bw += (nb - 1) * DLG_GAPX + DLG_BSHAD;	/* the row's own drop shadow */
+	if ( bw > w ) w = bw;
+	boxw = w + 2 * DLG_MARG;
+	boxh = DLG_MARG + nl * fh + DLG_GAPY + DLG_BTNH + DLG_BSHAD + DLG_MARG;
+
+	/* centred on screen, x word-aligned for the row save/restore.  The saved
+	 * box carries the WD_SHADOW drop-shadow margin (right + bottom) beyond
+	 * the card the chrome is drawn on. */
+	box.origin.x = ((XMAX - boxw - WD_SHADOW) / 2) & ~0x0f;
+	box.origin.y = (YMAX - boxh - WD_SHADOW) / 2;
+	if ( box.origin.x < 0 ) box.origin.x = 0;
+	if ( box.origin.y < 0 ) box.origin.y = 0;
+	box.corner.x = box.origin.x + boxw + WD_SHADOW;
+	box.corner.y = box.origin.y + boxh + WD_SHADOW;
+	card = box;
+	card.corner.x -= WD_SHADOW;
+	card.corner.y -= WD_SHADOW;
+
+	/* button rects: a centred row along the bottom */
+	by = box.origin.y + DLG_MARG + nl * fh + DLG_GAPY;
+	bx = box.origin.x + (boxw - bw) / 2;
+	for ( i = 0; i < nb; i++ )
+	{
+		brc[i].origin.x = bx;
+		brc[i].origin.y = by;
+		brc[i].corner.x = bx + strlen(bl[i]) * fw + 2 * DLG_BTNPAD;
+		brc[i].corner.y = by + DLG_BTNH;
+		bx = brc[i].corner.x + DLG_GAPX;
+	}
+
+	rows = box.corner.y - box.origin.y;
+	wpl = words_between(box.origin.x, box.corner.x);
+	buf = (int *)malloc(wpl * rows * 2);
+	/* The srvmenu bracket, in the same order and for the same reasons: freeze
+	 * clients BEFORE taking the lock; hide the cursor BEFORE saving the pixels
+	 * (or its XOR sprite is captured and painted back on restore). */
+	hr_glob()->overlay = OV_MENU;
+	srvlock();
+	gfx_cursor_hide();
+	if ( buf )
+		for ( yy = 0; yy < rows; yy++ )
+			mnu_wcpy(screen_addr(box.origin.x, box.origin.y + yy),
+				 buf + yy * wpl, wpl);
+
+	srvfill(card, 0, L_TRUE);			/* white body */
+	dlg_border(card);
+	dlg_shadow(box, WD_SHADOW);
+	for ( i = 0; i < nl; i++ )
+		srvmenuglyphs(SHM_FUI,
+			      card.origin.x + (boxw - strlen(lines[i]) * fw) / 2,
+			      card.origin.y + DLG_MARG + i * fh, lines[i], card);
+	for ( i = 0; i < nb; i++ )
+	{
+		RECT s;
+
+		dlg_border(brc[i]);
+		s = brc[i];			/* its own mini drop shadow */
+		s.corner.x += DLG_BSHAD;
+		s.corner.y += DLG_BSHAD;
+		dlg_shadow(s, DLG_BSHAD);
+		/* +1,+1: the FUI glyphs sit high-left in their cells, so plain
+		 * integer centring lands the label a pixel off (see memory:
+		 * recurring) */
+		srvmenuglyphs(SHM_FUI,
+			      brc[i].origin.x +
+			      (brc[i].corner.x - brc[i].origin.x -
+			       strlen(bl[i]) * fw) / 2 + 1,
+			      brc[i].origin.y + (DLG_BTNH - fh) / 2 + 1,
+			      bl[i], brc[i]);
+	}
+	gfx_cursor_show();
+	srvunlock();		/* painted; clients stay frozen via overlay */
+
+	/* Track with the plain arrow (its hotspot is already the aim point; no
+	 * sprite swap, unlike the menu).  The opening click's release arrives
+	 * first and commits nothing: press == -1 until a press lands on a button. */
+	sel = -1;  press = -1;  in = 0;
+	while ( sel < 0 )
+	{
+		if ( !getcmd(&c) )
+			continue;
+		if ( c.wm_type != C_INPUT || c.wm_arg[0] == IN_KEY )
+			continue;		/* modal: keys and clients wait */
+		mx = c.wm_arg[1];
+		my = c.wm_arg[2];
+		SM_Mouse_Pos.x = mx;  SM_Mouse_Pos.y = my;
+		hit = dlg_bhit(brc, nb);
+		if ( c.wm_arg[0] == IN_BUTTON )
+		{
+			if ( c.wm_arg[4] & c.wm_arg[3] & SM_LFT )
+			{			/* left press: arm */
+				if ( hit >= 0 )
+				{
+					press = hit;
+					in = 1;
+					dlg_binvert(brc, press);
+				}
+			}
+			else if ( (c.wm_arg[4] & SM_LFT) &&
+				  !(c.wm_arg[3] & SM_LFT) )
+			{			/* left release: commit or disarm */
+				if ( press >= 0 )
+				{
+					if ( in )
+						dlg_binvert(brc, press);
+					if ( hit == press )
+						sel = press;
+					press = -1;  in = 0;
+				}
+			}
+		}
+		else if ( press >= 0 && (hit == press) != in )
+		{				/* motion: track in/out of the arm */
+			dlg_binvert(brc, press);
+			in = !in;
+		}
+	}
+
+	srvlock();
+	gfx_cursor_hide();
+	if ( buf )
+	{
+		for ( yy = 0; yy < rows; yy++ )
+			mnu_wcpy(buf + yy * wpl,
+				 screen_addr(box.origin.x, box.origin.y + yy), wpl);
+		free((char *)buf);
+	}
+	else
+		background(box);
+	gfx_cursor_show();
+	srvunlock();
+	hr_glob()->overlay = 0;
+	if ( !buf )		/* no save-under: re-expose what the box covered */
+		expose_covered(-1, box.origin.x, box.origin.y,
+			       box.corner.x, box.corner.y);
+	return sel;
+}
+
+/* ------------------------------------------------------------------ */
+/* client dialog overlay (wire.h C_DLGOPEN / C_DLGCLOSE)              */
+/* ------------------------------------------------------------------ */
+
+/* Open requests taken from the pipe.  QUEUED, never acted on inline: a
+ * C_DLGOPEN can arrive while a nested tracker (menu, srvdialog, drag) owns
+ * the pipe, or while another dialog is up -- the main loop drains this when
+ * the desktop is quiescent, exactly like connq.  Small on purpose: unlike a
+ * dropped connect, a full queue can ANSWER (refuse) instead of dropping, so
+ * no client is ever left waiting. */
+#define NDLGQ	4
+static HRDLGO	dlgq[NDLGQ];
+static int	ndlgq;
+
+/* Publish / retract the dialog-interior surface (shmem.h SHM_DLGSURF), under
+ * the same seqlock discipline as publish_surf.  Topmost and not a layer, so
+ * it is always one fully visible rect. */
+static
+publish_dlg(on)
+{
+	HRSURF *sp;
+
+	sp = hr_dlgsurf();
+	sp->seq++;					/* odd: writing */
+	sp->mapped = on;
+	if ( on )
+	{
+		sp->ox = dlgint.origin.x;  sp->oy = dlgint.origin.y;
+		sp->cw = dlgint.corner.x - dlgint.origin.x;
+		sp->ch = dlgint.corner.y - dlgint.origin.y;
+		sp->nvis = 1;
+		sp->vis[0].x0 = dlgint.origin.x;  sp->vis[0].y0 = dlgint.origin.y;
+		sp->vis[0].x1 = dlgint.corner.x;  sp->vis[0].y1 = dlgint.corner.y;
+	}
+	else
+		sp->nvis = 0;
+	sp->seq++;					/* even: done */
+}
+
+/* Send a dialog event to the owner, with the DEAD-OWNER BACKSTOP: nothing in
+ * this system reaps a silently killed client (kill(pid,0) is EINVAL on this
+ * kernel), and a dialog whose owner is gone would swallow the very menus that
+ * could clear it.  A live owner is BLOCKED on this ring, so consecutive
+ * full-ring puts mean it is not draining -- presume it dead and close. */
+#define DLGDEAD	64
+static
+dlgsend(type, a0, a1, a2, a3)
+{
+	WMSG e;
+
+	e.wm_type = type;
+	e.wm_wid = dlgwid;
+	e.wm_arg[0] = a0; e.wm_arg[1] = a1;
+	e.wm_arg[2] = a2; e.wm_arg[3] = a3;
+	e.wm_arg[4] = e.wm_arg[5] = 0;
+	if ( hr_evput(dlgwid, (short *)&e) < 0 )
+	{
+		if ( ++dlgput >= DLGDEAD )
+		{
+			srvlogs("dialog owner dead: closing\n");
+			dlgclose();
+		}
+	}
+	else
+		dlgput = 0;
+}
+
+/* Close the dialog: restore the pixels, retract the surface, unfreeze, then
+ * deliver whatever the modal phase deferred.  Idempotent (killwin and the
+ * dead-owner backstop can race the owner's own C_DLGCLOSE). */
+dlgclose()
+{
+	int w, yy, saved;
+
+	if ( dlgwid < 0 )
+		return;
+	srvlock();
+	gfx_cursor_hide();
+	saved = (dlgsave != (int *)0);
+	if ( saved )
+	{
+		for ( yy = 0; yy < dlgrows; yy++ )
+			mnu_wcpy(dlgsave + yy * dlgwpl,
+				 screen_addr(dlgbox.origin.x, dlgbox.origin.y + yy),
+				 dlgwpl);
+		free((char *)dlgsave);
+		dlgsave = (int *)0;
+	}
+	else
+		background(dlgbox);
+	gfx_cursor_show();
+	srvunlock();
+	publish_dlg(0);
+	hr_glob()->overlay = 0;
+	w = dlgwid;
+	dlgwid = -1;
+	dlggrab = 0;
+	/* A full-content expose to the owner: its dialog library discarded every
+	 * event that arrived while it was modal, and this one repaint subsumes
+	 * them all.  With a pixel-exact restore nothing else changed under the box
+	 * (clients were frozen, kills and connects deferred); without one, repaint
+	 * whatever the box covered the hard way. */
+	sendev(w, E_EXPOSE, 0, 0, hr_surf(w)->cw, hr_surf(w)->ch);
+	if ( !saved )
+	{
+		expose_covered(-1, dlgbox.origin.x, dlgbox.origin.y,
+			       dlgbox.corner.x, dlgbox.corner.y);
+		redraw_icons();		/* the box may have covered desktop icons */
+	}
+	/* C_BYEs deferred while the box was up (killwin repaints): honour them. */
+	while ( dlgbye )
+		for ( yy = 0; yy < MAX_WINDOWS; yy++ )
+			if ( dlgbye & (1 << yy) )
+			{
+				dlgbye &= ~(1 << yy);
+				killwin(yy);
+			}
+}
+
+/* Serve one queued open request.  Refusals answer E_DLGOPEN 0 -- every
+ * request gets exactly one answer, because the requester blocks for it. */
+static
+dodlgopen(dp)
+HRDLGO *dp;
+{
+	int wid, iw, ih, bw, bh, yy;
+	RECT card;
+
+	wid = dp->hd_wid;
+	if ( wid < 0 || wid >= MAX_WINDOWS || !wins[wid].used )
+		return;				/* died while queued: no ring to answer */
+	if ( dlgwid >= 0 )
+	{
+		sendev(wid, E_DLGOPEN, 0, 0, 0, 0);	/* one at a time */
+		return;
+	}
+	iw = dp->hd_w;
+	ih = dp->hd_h;
+	if ( iw < 64 ) iw = 64;
+	if ( ih < 32 ) ih = 32;
+	if ( iw > XMAX - 32 ) iw = XMAX - 32;
+	if ( ih > YMAX - 32 ) ih = YMAX - 32;
+	/* untitled card (1px border) + the window-style drop-shadow margin; the
+	 * saved box covers card AND shadow */
+	bw = iw + 2;
+	bh = ih + 2;
+	dlgbox.origin.x = ((XMAX - bw - WD_SHADOW) / 2) & ~0x0f; /* word-align */
+	dlgbox.origin.y = (YMAX - bh - WD_SHADOW) / 2;
+	if ( dlgbox.origin.x < 0 ) dlgbox.origin.x = 0;
+	if ( dlgbox.origin.y < 0 ) dlgbox.origin.y = 0;
+	dlgbox.corner.x = dlgbox.origin.x + bw + WD_SHADOW;
+	dlgbox.corner.y = dlgbox.origin.y + bh + WD_SHADOW;
+	card = dlgbox;
+	card.corner.x -= WD_SHADOW;
+	card.corner.y -= WD_SHADOW;
+	dlgint.origin.x = card.origin.x + 1;
+	dlgint.origin.y = card.origin.y + 1;
+	dlgint.corner.x = dlgint.origin.x + iw;
+	dlgint.corner.y = dlgint.origin.y + ih;
+
+	/* An open pointer grab cannot outlive the freeze: its client would wait
+	 * forever for the release the modal phase swallows.  Synthesize it, the
+	 * way the menu path does. */
+	if ( grabwid >= 0 )
+	{
+		sendev(grabwid, E_BUTTON, lastgx, lastgy, 0, SM_LFT);
+		grabwid = -1;
+		lastgx = lastgy = -1;
+	}
+
+	/* Both from the BOX, never from the card: the box is what gets painted
+	 * (card + drop shadow), so it is what must be saved and put back.  A
+	 * card-height row count left the shadow's rows unsaved -- and so still
+	 * on the desktop after the dialog closed. */
+	dlgrows = dlgbox.corner.y - dlgbox.origin.y;
+	dlgwpl = words_between(dlgbox.origin.x, dlgbox.corner.x);
+	dlgsave = (int *)malloc(dlgwpl * dlgrows * 2);
+	/* The srvmenu bracket (freeze BEFORE lock, cursor-hide BEFORE save); the
+	 * owner is exempted by the OV_DLG|wid encoding, but only for the dialog
+	 * surface -- published below, after the frame is painted. */
+	hr_glob()->overlay = OV_DLG | wid;
+	srvlock();
+	gfx_cursor_hide();
+	if ( dlgsave )
+		for ( yy = 0; yy < dlgrows; yy++ )
+			mnu_wcpy(screen_addr(dlgbox.origin.x, dlgbox.origin.y + yy),
+				 dlgsave + yy * dlgwpl, dlgwpl);
+	srvfill(card, 0, L_TRUE);			/* white body */
+	dlg_border(card);
+	dlg_shadow(dlgbox, WD_SHADOW);
+	gfx_cursor_show();
+	srvunlock();
+
+	publish_dlg(1);
+	dlgwid = wid;
+	dlggrab = 0;
+	dlgput = 0;
+	dlastx = dlasty = -1;
+	srvlogn("dlgopen wid ", wid);
+	sendev(wid, E_DLGOPEN, 1, iw, ih, 0);
+}
+
+/* Serve the opens taken while a tracker owned the pipe (main loop, and only
+ * while no dialog is up). */
+draindlg()
+{
+	HRDLGO q[NDLGQ];
+	int i, n;
+
+	if ( (n = ndlgq) == 0 )
+		return;
+	for ( i = 0; i < n; i++ )	/* copy out first: nothing here recurses */
+		q[i] = dlgq[i];		/* today, but connq's discipline is cheap */
+	ndlgq = 0;
+	for ( i = 0; i < n; i++ )
+	{
+		dodlgopen(&q[i]);
+		if ( dlgwid >= 0 )
+		{
+			/* One opened: the rest must wait for it to close.  Put
+			 * them back so the next drain (after dlgclose) serves
+			 * them rather than refusing them. */
+			while ( ++i < n )
+				dlgq[ndlgq++] = q[i];
+			break;
+		}
+	}
+}
+
+/* ALL input while a client dialog is up.  System-modal: nothing reaches the
+ * windows, the icons, the menus or the title bars -- a left press inside the
+ * interior opens the dialog's own grab (E_DBUTTON/E_DMOTION, interior coords,
+ * UNCLAMPED so a button widget sees the pointer leave it), keys go to the
+ * owner as E_DKEY, and everything else is swallowed. */
+static
+dlginput(c)
+WMSG *c;
+{
+	int ix, iy, down, changed;
+
+	if ( c->wm_arg[0] == IN_MOVE )
+	{
+		mx = c->wm_arg[1];
+		my = c->wm_arg[2];
+		hr_glob()->curx = mx;	/* cursor-overlap gating must stay live */
+		hr_glob()->cury = my;
+		SM_Mouse_Pos.x = mx;
+		SM_Mouse_Pos.y = my;
+		if ( dlggrab )
+		{
+			ix = mx - dlgint.origin.x;
+			iy = my - dlgint.origin.y;
+			if ( ix != dlastx || iy != dlasty )
+			{
+				dlastx = ix;  dlasty = iy;
+				dlgsend(E_DMOTION, ix, iy, SM_LFT, 0);
+			}
+		}
+	}
+	else if ( c->wm_arg[0] == IN_BUTTON )
+	{
+		mx = c->wm_arg[1];
+		my = c->wm_arg[2];
+		SM_Mouse_Pos.x = mx;
+		SM_Mouse_Pos.y = my;
+		down = c->wm_arg[3];
+		changed = c->wm_arg[4];
+		ix = mx - dlgint.origin.x;
+		iy = my - dlgint.origin.y;
+		if ( changed & down & SM_LFT )
+		{			/* left press: only inside the interior */
+			if ( mx >= dlgint.origin.x && mx < dlgint.corner.x &&
+			     my >= dlgint.origin.y && my < dlgint.corner.y )
+			{
+				dlggrab = 1;
+				dlastx = ix;  dlasty = iy;
+				dlgsend(E_DBUTTON, ix, iy, down, changed);
+			}
+		}
+		else if ( (changed & SM_LFT) && !(down & SM_LFT) )
+		{			/* left release: always ends the grab */
+			if ( dlggrab )
+			{
+				dlggrab = 0;
+				dlgsend(E_DBUTTON, ix, iy, down, changed);
+			}
+		}
+		/* middle / right presses: swallowed (no paste, no menus) */
+	}
+	else if ( c->wm_arg[0] == IN_KEY )
+		dlgsend(E_DKEY, c->wm_arg[1], 0, 0, 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -2335,7 +2916,13 @@ deskmenu(x, y)
 	if ( sel < 0 )
 		return;
 	if ( sel == qidx )
-		quitwm();
+	{
+		/* Quit here means the whole desktop: every client dies with it,
+		 * so a slip of the menu drag must not be enough. */
+		if ( srvdialog("Do you want to quit ZView?",
+			       "Yes", "No", (char *)0) == 0 )
+			quitwm();
+	}
 	else if ( sel < napps )
 	{
 		/* single-instance app already open? bring it forward instead of
@@ -2367,8 +2954,8 @@ char	*g_winitems[] = { "Move", "Stretch", "Front", "Back", "Hide", "Quit" };
 #define NWINITEMS	6
 
 /* Labels for the HRM_* bits, LSB first: entry i is bit (1 << i). */
-char	*g_appitems[] = { "New", "Open...", "Save", "Cut", "Copy", "Paste",
-			  "Settings..." };
+char	*g_appitems[] = { "New", "Open", "Save", "Cut", "Copy", "Paste",
+			  "Settings" };
 #define NAPPITEMS	7
 
 winmenu(w, x, y)
@@ -2426,7 +3013,20 @@ winmenu(w, x, y)
 	else if ( sel == 2 ) raisewin(w);
 	else if ( sel == 3 ) backwin(w);
 	else if ( sel == 4 ) minwin(w);
-	else if ( sel == 5 ) killwin(w);
+	else if ( sel == 5 )
+	{
+		/* An app that declared HRF_CONFIRM holds live state behind this
+		 * window (a shell with running jobs), so ask first. */
+		if ( wins[w].confirm )
+		{
+			char qb[48];	/* title is <= 24 incl NUL */
+
+			sprintf(qb, "Do you want to quit %s?", wins[w].title);
+			if ( srvdialog(qb, "Yes", "No", (char *)0) != 0 )
+				return;
+		}
+		killwin(w);
+	}
 }
 
 /* A pointer button changed.  Right = pop up the desktop (launcher) or window
@@ -2579,6 +3179,7 @@ WMSG *c;
 union crec {
 	WMSG	c;
 	HRCONN	hc;
+	HRDLGO	hd;
 };
 static union crec cbuf;
 static HRCONN	connq[NCONNQ];
@@ -2592,22 +3193,47 @@ WMSG *c;
 	n = read(cmdfd, (char *)&cbuf, sizeof(WMSG));
 	if ( n != sizeof(WMSG) )
 		return 0;
-	if ( cbuf.hc.hc_type != C_CONNECT )
+	if ( cbuf.hc.hc_type == C_CONNECT )
 	{
-		*c = cbuf.c;
-		return 1;
+		for ( got = sizeof(WMSG); got < sizeof(HRCONN); got += n )
+		{
+			n = read(cmdfd, (char *)&cbuf + got, sizeof(HRCONN) - got);
+			if ( n <= 0 )
+				return 0;
+		}
+		if ( nconnq < NCONNQ )
+			connq[nconnq++] = cbuf.hc;
+		else
+			srvlogs("connect queue full\n");
+		return 0;
 	}
-	for ( got = sizeof(WMSG); got < sizeof(HRCONN); got += n )
+	if ( cbuf.hd.hd_type == C_DLGOPEN )
 	{
-		n = read(cmdfd, (char *)&cbuf + got, sizeof(HRCONN) - got);
-		if ( n <= 0 )
-			return 0;
+		/* same continuation-read + queue discipline as the connect */
+		for ( got = sizeof(WMSG); got < sizeof(HRDLGO); got += n )
+		{
+			n = read(cmdfd, (char *)&cbuf + got, sizeof(HRDLGO) - got);
+			if ( n <= 0 )
+				return 0;
+		}
+		/* sanitize before anything trusts it: a client bug must not
+		 * become a server one (sizes are re-clamped in dodlgopen) */
+		if ( cbuf.hd.hd_wid >= 0 && cbuf.hd.hd_wid < MAX_WINDOWS &&
+		     wins[cbuf.hd.hd_wid].used )
+		{
+			if ( ndlgq < NDLGQ )
+				dlgq[ndlgq++] = cbuf.hd;
+			else
+			{	/* full: ANSWER (refuse), never leave the
+				 * requester blocked on a reply that won't come */
+				sendev(cbuf.hd.hd_wid, E_DLGOPEN, 0, 0, 0, 0);
+				srvlogs("dialog queue full\n");
+			}
+		}
+		return 0;
 	}
-	if ( nconnq < NCONNQ )
-		connq[nconnq++] = cbuf.hc;
-	else
-		srvlogs("connect queue full\n");
-	return 0;
+	*c = cbuf.c;
+	return 1;
 }
 
 /* Create the windows for any connects taken while a menu/drag owned the pipe. */
@@ -2633,6 +3259,13 @@ WMSG *c;
 	wid = c->wm_wid;
 	if ( c->wm_type == C_INPUT )
 	{
+		if ( dlgwid >= 0 )
+		{
+			/* a client dialog is up: system-modal, everything is
+			 * routed (or swallowed) by the dialog tracker */
+			dlginput(c);
+			return;
+		}
 		if ( c->wm_arg[0] == IN_MOVE )
 		{
 			int cx, cy;
@@ -2679,9 +3312,24 @@ WMSG *c;
 		selwid = wid;
 		return;
 	}
+	if ( c->wm_type == C_DLGCLOSE )
+	{
+		if ( wid == dlgwid )	/* only the owner may close it */
+			dlgclose();
+		return;
+	}
 	if ( c->wm_type == C_BYE )
 	{
 		srvlogn("C_BYE wid ", wid);
+		/* killwin restacks and repaints -- not under a dialog box.  The
+		 * OWNER's own C_BYE must act now, though: killwin closes the
+		 * dialog first (below) and the teardown follows cleanly. */
+		if ( dlgwid >= 0 && wid != dlgwid &&
+		     wid >= 0 && wid < MAX_WINDOWS )
+		{
+			dlgbye |= 1 << wid;
+			return;
+		}
 		killwin(wid);
 	}
 }
@@ -2972,6 +3620,17 @@ char **argv;
 	hr_selinit();
 	hr_ackclr(0);			/* connect-ack slots: same garbage RAM */
 	hr_evinit(-1);			/* ... and every event ring */
+	{
+		/* The dialog surface is the same garbage RAM.  An odd leftover
+		 * seq would spin every later seqlock read forever (publish_dlg
+		 * only ever adds 2, which preserves parity), so zero it here. */
+		HRSURF *sp;
+
+		sp = hr_dlgsurf();
+		sp->seq = 0;
+		sp->mapped = 0;
+		sp->nvis = 0;
+	}
 
 	pumppid = startpump();
 
@@ -2985,6 +3644,13 @@ char **argv;
 	{
 		if ( getcmd(&c) )
 			docmd(&c);
-		drainconn();		/* windows for clients that just connected */
+		if ( dlgwid < 0 )
+		{
+			/* Deferred while a client dialog is up: doconnect/mkwin
+			 * paints chrome and restacks -- straight over a box that
+			 * is not a layer.  Both queues hold until it closes. */
+			drainconn();	/* windows for clients that just connected */
+			draindlg();	/* dialog opens taken mid-tracker */
+		}
 	}
 }

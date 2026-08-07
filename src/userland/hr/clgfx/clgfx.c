@@ -30,6 +30,8 @@ static int	mywid;
 static int	hrfd = -1;		/* /dev/hr fd for cursor on/off         */
 static int	curhid;			/* 1 while we have the cursor hidden    */
 static int	lastseq = -1;		/* seqlock value of the last sync'd S   */
+static int	indlg;			/* 1 = primitives target the DIALOG     */
+					/* surface (hr_dlgsurf), not the window */
 
 /* Cursor sprite box (framebuffer coords), captured once per batch in cl_begin;
  * a blit hides the driver's XOR cursor only when it overlaps this. */
@@ -89,7 +91,7 @@ cl_sync()
 	HRSURF *sp;
 	int s1, s2, i;
 
-	sp = hr_surf(mywid);
+	sp = indlg ? hr_dlgsurf() : hr_surf(mywid);
 	s1 = sp->seq;
 	if ( !(s1 & 1) && s1 == lastseq )
 		return;
@@ -120,10 +122,28 @@ cl_ch()		{ return S.ch; }
 cl_refresh()	{ cl_sync(); }
 cl_gen()	{ return lastseq; }
 
-/* 1 while a server transient overlay (pop-up menu / ghost drag) is on screen:
- * clients must skip drawing so they do not paint over it (it is not a layer, so
- * the clip descriptor cannot exclude it).  Read straight from the tail. */
-cl_frozen()	{ return hr_glob()->overlay; }
+/* 1 while a transient overlay (pop-up menu / dialog) is on screen: clients must
+ * skip drawing so they do not paint over it (it is not a layer, so the clip
+ * descriptor cannot exclude it).  The ONE exception: a client whose own dialog
+ * is up (overlay == OV_DLG|wid) may draw while targeting the dialog surface --
+ * its main window stays frozen like everyone else's (the box may cover it). */
+cl_frozen()
+{
+	register int ov;
+
+	if ( (ov = hr_glob()->overlay) == 0 )
+		return 0;
+	if ( indlg && ov == (OV_DLG | mywid) )
+		return 0;
+	return 1;
+}
+
+/* Switch the primitives between the window surface and the dialog surface
+ * (shmem.h SHM_DLGSURF).  Called by the widget library (hrdlg.c) around the
+ * dialog's lifetime; invalidating lastseq forces a full seqlock re-read of
+ * whichever descriptor is now current. */
+cl_dopen()	{ indlg = 1;  lastseq = -1;  cl_sync(); }
+cl_dclose()	{ indlg = 0;  lastseq = -1;  cl_sync(); }
 
 cl_fullyvis()
 {
@@ -312,8 +332,51 @@ char *s;
 	cl_pend(locked);
 }
 
+/* Draw string s with its cell top-left at content PIXEL (cx,cy) -- the widget
+ * variant of cl_text, which is cell-grid-locked (a button label sits at an
+ * arbitrary y no grid passes through).  Advance is the font's own cellw. */
+cl_ptext(fslot, cx, cy, s)
+char *s;
+{
+	HRFONT *f;
+	int px, py, fw, fh, c, i, cx0, cy0, cx1, cy1, slen, locked;
+
+	f = hr_font(fslot);
+	fw = f->cellw;  fh = f->cellh;
+	for ( slen = 0; s[slen]; slen++ )
+		;
+	locked = cl_pbegin(cx, cy, cx + slen * fw, cy + fh);
+	if ( !S.mapped || cl_frozen() )
+	{
+		cl_pend(locked);
+		return;
+	}
+	px = S.ox + cx;
+	py = S.oy + cy;
+	for ( ; (c = *s & 0xff) != 0; s++, px += fw )
+	{
+		if ( c < 0x20 || c > 0x7e )
+			continue;
+		for ( i = 0; i < S.nvis; i++ )
+		{
+			cx0 = px;       cy0 = py;
+			cx1 = px + fw;  cy1 = py + fh;
+			if ( cx0 < S.vis[i].x0 ) cx0 = S.vis[i].x0;
+			if ( cy0 < S.vis[i].y0 ) cy0 = S.vis[i].y0;
+			if ( cx1 > S.vis[i].x1 ) cx1 = S.vis[i].x1;
+			if ( cy1 > S.vis[i].y1 ) cy1 = S.vis[i].y1;
+			clglyph1(fslot, px, py, c, cx0, cy0, cx1, cy1);
+		}
+	}
+	cl_pend(locked);
+}
+
 /* Fill framebuffer rect (already in fb coords) clipped to rect r with val
- * (1=white, 0=black), via a pattern bitblt (op L_TRUE/L_FALSE reads no source). */
+ * (1=white, 0=black), via a pattern bitblt (op L_TRUE/L_FALSE reads no source).
+ * val 3 = 50% gray: L_TRUE through the HALF_TONE stipple, whose dest is
+ * result & pattern, so one blit lays the checker.  The pattern is indexed by
+ * DESTINATION x word / y line (bitblt BLT_pat_index), so the dither is anchored
+ * to the screen: adjacent fills and partial repaints always mesh. */
 static
 clfill_fb(x0, y0, x1, y1, r, val)
 HRRECT r;
@@ -336,13 +399,13 @@ HRRECT r;
 	blt.sp.x = x0;  blt.sp.y = y0;
 	blt.dst = &cldisp;
 	blt.dr = src.rect;
-	blt.op = (val == 2) ? L_NDST : (val ? L_TRUE : L_FALSE);
-	blt.pat = texture[0];
+	blt.op = (val == 2) ? L_NDST : (val == 0 ? L_FALSE : L_TRUE);
+	blt.pat = (val == 3) ? texture[4] : texture[0];	/* 4 = HALF_TONE */
 	bitblt(&blt, 1, 0);
 }
 
-/* Fill a content-relative pixel rect with val (0=black, 1=white, 2=invert),
- * clipped to the visible regions. */
+/* Fill a content-relative pixel rect with val (0=black, 1=white, 2=invert,
+ * 3=50% gray), clipped to the visible regions. */
 cl_fillrect(cx0, cy0, cx1, cy1, val)
 {
 	int i, locked;

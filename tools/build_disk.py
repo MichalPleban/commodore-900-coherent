@@ -231,16 +231,17 @@ def build(root_dir, perms_path, devices_path, out_path,
         tnode.nlinks += 1
         fs0.write_inode(tnode)
 
-    # -- Step D: /dev nodes from the device manifest (device inodes are nlink 1) --
+    # -- Step D: /dev nodes from the device manifest (device inodes are nlink 1).
+    # The on-disk dev word is (minor << 16) | major.
     now = int(time.time())
-    for t, path, mode_s, uid_s, gid_s, maj, minr, raw in devices:
+    for t, path, mode_s, uid_s, gid_s, maj, minr in devices:
         parent, name = split_parent(fs0, path)
         ino = fs0.alloc_inode()
         node = Inode(fs0, ino)
         node.mode = (0o020000 if t == "c" else 0o060000) | (int(mode_s, 8) & 0o7777)
         node.nlinks = 1
         node.uid, node.gid = int(uid_s), int(gid_s)
-        node.addrs[0] = int(raw)
+        node.addrs[0] = (int(minr) << 16) | int(maj)
         node.atime = node.mtime = node.ctime = now
         fs0.write_inode(node)
         fs0.add_dir_entry(parent, name, ino)

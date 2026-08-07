@@ -54,12 +54,18 @@ typedef struct {
 	short	magic;			/* HR_MAGIC once the tail is initialised */
 	short	curx, cury;		/* cursor hotspot, framebuffer coords   */
 	short	curon;			/* 1 = cursor currently drawn           */
-	short	overlay;		/* 1 = server transient overlay (menu /  */
-					/* ghost drag) is up: clients must NOT   */
-					/* draw, or they paint over it (it is not */
-					/* a layer, so their clip can't exclude  */
+	short	overlay;		/* nonzero = a transient overlay (menu / */
+					/* dialog) is up: clients must NOT draw,  */
+					/* or they paint over it (it is not a    */
+					/* layer, so their clip can't exclude    */
 					/* it).  They keep ingesting; only the   */
 					/* blit is skipped until it clears.      */
+					/* Encoding (OV_* below): OV_MENU = a    */
+					/* server menu/dialog, freezes EVERYONE; */
+					/* OV_DLG|wid = a client dialog owned by */
+					/* wid, which may draw on the DIALOG     */
+					/* surface (SHM_DLGSURF) only -- its own */
+					/* window is frozen like everyone else's. */
 	short	stacking;		/* 1 = the server holds the drawing lock */
 					/* for a layer/redraw op (its clip changes */
 					/* + restacking blits are in flight): a  */
@@ -71,6 +77,12 @@ typedef struct {
 					/* draw -- it only forces the locked path.) */
 } HRGLOB;
 #define hr_glob()	((HRGLOB *)(HRTAIL + SHM_GLOB))
+
+/* hr_glob()->overlay encodings.  Readers that only care about "is something
+ * over the screen" keep testing nonzero (clgfx cl_frozen, zterm, zclock). */
+#define OV_MENU		1		/* server menu / srvdialog: freeze all  */
+#define OV_DLG		0x100		/* 0x100|wid: client dialog, owner wid  */
+					/* may draw on the dialog surface only  */
 
 /* ---- per-window surface descriptor (the clip contract, GUI.md 2.9) -------- *
  * The server rewrites surf[wid] on every geometry / z-order change, bumping seq
@@ -305,6 +317,18 @@ typedef struct {
 /* Driver doorbell (must match the driver's hr.h). */
 #define CIOEVWAIT	('c'<<8 | 22)	/* sleep until ring <arg> is non-empty */
 #define CIOEVWAKE	('c'<<8 | 23)	/* wake whoever sleeps on ring <arg>   */
+
+/* ---- modal dialog overlay surface (wire.h C_DLGOPEN) ---------------------- *
+ * ONE extra clip descriptor, for the client-drawable modal dialog: the server
+ * saves the pixels under a centred box, draws the frame, and publishes the
+ * INTERIOR here (same seqlock discipline as SHM_SURF); the owning client's
+ * clgfx then targets this surface instead of its window's.  The box is topmost
+ * and not a layer, so it is always fully visible: nvis == 1, vis[0] == the
+ * whole interior.  A 17th slot in the SHM_SURF array is impossible -- the 16
+ * slots end at 0x37E0, just under SHM_LOCK 0x3800 -- so this one lives past
+ * the event rings (they end 0x5388; 0x5388..0x7000 is spare). */
+#define SHM_DLGSURF	0x5400		/* one HRSURF; ends 0x546E              */
+#define hr_dlgsurf()	((HRSURF *)(HRTAIL + SHM_DLGSURF))
 
 extern int	hr_evinit();	/* server: reset one ring (-1 = all)             */
 extern int	hr_evput();	/* server: hr_evput(i, wmsg) -> 0, or -1 if full */

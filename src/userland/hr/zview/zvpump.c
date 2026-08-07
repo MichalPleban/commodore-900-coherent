@@ -26,7 +26,31 @@ static int DEF_MOUSE[] = { 0xfffc, 0xfff8, 0xfff0, 0xffe0,
 
 /* Scancode -> ASCII, ported verbatim from the historical hi-res keyboard
  * message layer (kev.c SM_Keyboard, GUI.md 5.3), so the server gets real
- * ASCII.  Moved here from zview.c with the pump itself. */
+ * ASCII.  Moved here from zview.c with the pump itself.
+ *
+ * ONE departure from the original tables: the cursor/nav block (the XT keypad
+ * positions 0x47..0x53, which the original dropped -- it never tracked
+ * numlock) now emits the MicroEMACS control codes:
+ *     Up ^P  Down ^N  Left ^B  Right ^F   Home ^A  End ^E
+ *     PgUp ^Z  PgDn ^V   keypad Del -> DEL
+ * The wire stays plain ASCII, so nothing downstream changes: an editor that
+ * already binds the MicroEMACS set gets working arrows for free, a shell in a
+ * zterm sees them as the control keys a user could have typed anyway (and
+ * MicroEMACS running INSIDE a terminal window gets exactly the codes it
+ * wants), and dialogs ignore them.  The keypad digits never worked here
+ * (numlock was never handled), so nothing is lost.
+ *
+ * The FUNCTION keys deliver the HRK_* codes of wire.h (above ASCII):
+ * F1-F10 at the XT positions 0x3B..0x44, and the C900 specials as F11-F15.
+ * Which scancodes the specials use on REAL hardware is only partly known:
+ * Help is 0x54 (the hr driver's own Alt+Ctrl+Help hatch tests that code,
+ * and the historical table has the C900's DEL right beside it at 0x55);
+ * for Clear/Home, Pop/Push, Screen/Print and Stop/Continue we take the
+ * gfx/kbd.h block 0x5A..0x5D (that header is otherwise unused, but it is
+ * the one place those keys are named), plus 0x5F as an alternate Help.
+ * The emulator front ends send exactly these, so under emulation all five
+ * work; on the real machine F1-F10 and Help are certain, the rest are a
+ * best guess in table slots that were dead anyway. */
 #define KB_KEYUP	0x80
 #define KB_KEYSC	0x7f
 #define KB_LSHIFT	(0x2a-1)
@@ -56,11 +80,11 @@ static unsigned char lmaptab[] ={
 	 'd',  'f',  'g',  'h',  'j',  'k',  'l',  ';',
 	 '\'', '`',  XXX,  '\\',  'z',  'x',  'c',  'v',
 	 'b',  'n',  'm',  ',',  '.',  '/',  XXX,  SPC,
-	 XXX,  ' ',  XXX,  SPC,  SPC,  SPC,  SPC,  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  SPC,
-	 SPC,  SPC,  '-',  SPC,  SPC,  SPC,  '+',  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  DEL,  SPC,  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  '\r', SPC,
+	 XXX,  ' ',  XXX, '\201','\202','\203','\204','\205',
+	'\206','\207','\210','\211','\212', SPC,  SPC, '\001',
+	'\020','\032', '-', '\002', SPC, '\006', '+', '\005',
+	'\016','\026', SPC,  DEL, '\213', DEL,  SPC,  SPC,
+	 SPC,  SPC, '\214','\215','\216','\217', '\r','\213',
 	 SPC,  SPC,  SPC,  XXX,  XXX
 };
 static unsigned char umaptab[] ={
@@ -71,11 +95,11 @@ static unsigned char umaptab[] ={
 	 'D',  'F',  'G',  'H',  'J',  'K',  'L',  ':',
 	 '"',  '~',  XXX,  '|',  'Z',  'X',  'C',  'V',
 	 'B',  'N',  'M',  '<',  '>',  '?',  XXX,  SPC,
-	 XXX,  ' ',  XXX,  SPC,  SPC,  SPC,  SPC,  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  SPC,
-	 SPC,  SPC,  '-',  SPC,  SPC,  SPC,  '+',  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  DEL,  SPC,  SPC,
-	 SPC,  SPC,  SPC,  SPC,  SPC,  SPC,  '\r', SPC,
+	 XXX,  ' ',  XXX, '\201','\202','\203','\204','\205',
+	'\206','\207','\210','\211','\212', SPC,  SPC, '\001',
+	'\020','\032', '-', '\002', SPC, '\006', '+', '\005',
+	'\016','\026', SPC,  DEL, '\213', DEL,  SPC,  SPC,
+	 SPC,  SPC, '\214','\215','\216','\217', '\r','\213',
 	 SPC,  SPC,  SPC,  XXX,  XXX
 };
 #define SS0	0

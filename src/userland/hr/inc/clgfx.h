@@ -29,10 +29,14 @@ extern int	cl_fullyvis();	/* 1 if content is a single unclipped rect        */
 extern int	cl_frozen();	/* 1 while a server menu/overlay is up: skip drawing */
 extern int	cl_refresh();	/* re-read the clip descriptor (seqlock)          */
 extern int	cl_gen();	/* clip-descriptor generation (changes on hide/show/raise/resize) */
+extern int	cl_dopen();	/* target the DIALOG surface (hrdlg.c uses these) */
+extern int	cl_dclose();	/* back to the window surface                     */
 
 extern int	cl_text();	/* cl_text(fslot, col,row, s, cellw,cellh)        */
+extern int	cl_ptext();	/* cl_ptext(fslot, cx,cy, s): pixel-positioned    */
 extern int	cl_erase();	/* cl_erase(col,row, ncol,nrow, cellw,cellh) white */
-extern int	cl_fillrect();	/* cl_fillrect(cx0,cy0,cx1,cy1, val) content px    */
+extern int	cl_fillrect();	/* cl_fillrect(cx0,cy0,cx1,cy1, val) content px;
+				   val 0=black 1=white 2=invert 3=50% gray       */
 extern int	cl_point();	/* cl_point(cx,cy, val)                           */
 extern int	cl_line();	/* cl_line(cx0,cy0,cx1,cy1, val)                  */
 

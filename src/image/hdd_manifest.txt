@@ -175,7 +175,7 @@ f	/etc/ttys	644	3	1
 f	/etc/uload	744	3	1
 f	/etc/umount	755	3	1
 f	/etc/update	755	3	0
-f	/etc/utmp	666	3	0
+f	/etc/utmp	644	3	0
 f	/etc/wall	4755	0	0
 d	/f0	755	3	1
 d	/lib	755	0	0
@@ -191,7 +191,7 @@ f	/lib/libfs.a	644	0	1
 f	/lib/libm.a	644	0	0
 f	/lib/liby.a	644	0	1
 f	/lib/scrts0.o	644	0	1
-f	/lib/slibc.a	755	0	1
+f	/lib/slibc.a	644	0	1
 f	/lib/yyparse.c	644	0	1
 d	/mnt	755	0	1
 d	/tmp	755	0	1
@@ -263,7 +263,7 @@ l	/usr/include/types.h	/usr/include/sys/types.h
 f	/usr/include/uproc.h	644	0	0
 f	/usr/include/utmp.h	644	0	0
 d	/usr/lib	755	0	0
-f	/usr/lib/atrun	6755	0	0
+f	/usr/lib/atrun	4755	0	0
 f	/usr/lib/binunits	644	0	1
 f	/usr/lib/crontab	644	0	1
 f	/usr/lib/diff3	755	0	1
@@ -453,6 +453,7 @@ f	/usr/hr/etc/apps	644	0	1
 f	/usr/hr/etc/rc	755	0	1
 f	/usr/hr/icons/term.icn	644	0	1
 f	/usr/hr/icons/clock.icn	644	0	1
+f	/usr/hr/icons/edit.icn	644	0	1
 f	/usr/hr/icons/icon0.icn	644	0	1
 f	/usr/hr/icons/icon1.icn	644	0	1
 f	/usr/hr/icons/icon2.icn	644	0	1
@@ -478,6 +479,8 @@ f	/usr/hr/bin/zclock	755	0	1
 f	/usr/hr/bin/zview	755	0	1
 f	/usr/hr/bin/zvpump	755	0	1
 f	/usr/hr/bin/zvwatch	755	0	1
+f	/usr/hr/bin/zdlg	755	0	1
+f	/usr/hr/bin/zedit	755	0	1
 f	/usr/hr/bin/ptytest	755	0	1
 f	/usr/hr/bin/zterm	755	0	1
 f	/usr/hr/bin/hrpump	755	0	1
