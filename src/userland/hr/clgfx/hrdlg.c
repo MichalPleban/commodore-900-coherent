@@ -286,12 +286,25 @@ HRWIDGET *wp;
 }
 
 /* (Re)draw every widget -- call once after hr_dlgopen (and any custom canvas
- * drawing underneath them). */
+ * drawing underneath them).
+ *
+ * The FIRST text field is focused automatically: nearly every dialog with a
+ * field exists to have that field typed into (file names, search patterns),
+ * so it must not cost a mouse trip before typing works.  Only when nothing is
+ * focused yet -- a click elsewhere, or a Tab, moved the focus on purpose and
+ * a later redraw must not snap it back. */
 hr_dlgdraw(wg, n)
 HRWIDGET wg[];
 {
 	int i;
 
+	if ( focusw < 0 )
+		for ( i = 0; i < n; i++ )
+			if ( wg[i].dw_type == DW_TEXT )
+			{
+				focusw = i;
+				break;
+			}
 	for ( i = 0; i < n; i++ )
 		dwdraw(&wg[i], i == focusw);
 	return 0;
@@ -336,10 +349,11 @@ HRWIDGET wg[];
 /* Run the dialog: track the widgets until a DWF_END button is activated and
  * return its index, or -1 on E_QUIT (the window is gone: close up and exit).
  * Buttons arm on press, disarm as the pointer leaves, commit on release
- * inside; toggles flip on press; a click in a text field focuses it; keys go
- * to the focused field ('\b' rubs out), Return fires the DWF_DEF button and
- * Esc the DWF_CANCEL one.  The caller still owns the widget array: dw_val /
- * dw_buf hold the outcome. */
+ * inside; toggles flip on press; a click in a text field focuses it (the
+ * first field is focused from the start, hr_dlgdraw) and Tab moves the focus
+ * to the next field; keys go to the focused field ('\b' rubs out), Return
+ * fires the DWF_DEF button and Esc the DWF_CANCEL one.  The caller still
+ * owns the widget array: dw_val / dw_buf hold the outcome. */
 hr_dlgrun(wg, n)
 HRWIDGET wg[];
 {
@@ -438,6 +452,25 @@ HRWIDGET wg[];
 				{
 					if ( (i = dflagged(wg, n, DWF_CANCEL)) >= 0 )
 						ret = i;
+				}
+				else if ( c == '\t' )
+				{	/* Tab: focus the next text field, wrapping */
+					hit = -1;
+					for ( i = 1; i <= n; i++ )
+						if ( wg[(focusw + i) % n].dw_type
+						     == DW_TEXT )
+						{
+							hit = (focusw + i) % n;
+							break;
+						}
+					if ( hit >= 0 && hit != focusw )
+					{
+						i = focusw;
+						focusw = hit;
+						if ( i >= 0 )
+							dwdraw(&wg[i], 0);
+						dwdraw(&wg[hit], 1);
+					}
 				}
 				else if ( focusw >= 0 )
 				{

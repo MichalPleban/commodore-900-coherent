@@ -1,0 +1,144 @@
+.TH zedit "" "Command"
+.SH NAME
+zedit \- GUI text editor
+.SH SYNOPSIS
+\fBzedit [\fIoptions\fB] [\fIfile\fB]\fR
+.SH DESCRIPTION
+.HS
+zedit -- GUI text editor
+Usage:	zedit [ options ] [ file ]
+Keys:	^B/^F/^P/^N move, ^A/^E line start/end, ^Z/^V page up/down
+	^K kill line, ^W kill selection, ^Y yank, ^S find, ^X^C quit
+	F2 save, F3 open, F4 new, F5 cut, F6 copy, F7 paste, F8 find
+.HE
+.B zedit
+is the text editor of the
+.SM COHERENT
+GUI.
+It must be run under the
+.B zview
+desktop; started elsewhere it exits immediately.
+It edits one plain-text file in a resizable window with a scrollbar on
+the left edge and a status line showing the file name, a
+.B *
+when the buffer is modified, and the cursor position as
+.IR line , column .
+.PP
+With a
+.I file
+argument
+.B zedit
+loads that file; if it does not exist yet, editing starts in an empty
+buffer under that name.
+With no argument the buffer starts empty and untitled.
+.B zedit
+also accepts the standard window
+.I options
+of GUI applications
+(\fB\-T \-I \-S \-P \-H\fR); see
+.BR zview .
+.PP
+The keyboard commands follow the MicroEMACS convention of control keys
+and prefix chords.
+The C900 cursor keypad works as expected: the desktop translates the
+arrow keys and the keypad Home, End, PgUp, PgDn, Del and Enter keys
+into the corresponding control keys below.
+.PP
+Cursor motion:
+.DS
+.ta 6n 18n
+	\fB^B\fR	left one character (wraps to previous line)
+	\fB^F\fR	right one character (wraps to next line)
+	\fB^P\fR	up one line
+	\fB^N\fR	down one line
+	\fB^A\fR	to start of line
+	\fB^E\fR	to end of line
+	\fB^Z\fR	up one page
+	\fB^V\fR	down one page
+	\fBESC <\fR	to top of file
+	\fBESC >\fR	to end of file
+	\fBESC f\fR	forward one word
+	\fBESC b\fR	back one word
+	\fB^L\fR	recentre the cursor line
+.DE
+Editing:
+.DS
+.ta 6n 18n
+	\fBBS\fR	delete left; at column 0, join with previous line
+	\fBDEL, ^D\fR	delete right; at end of line, join with next line
+	\fB^K\fR	kill to end of line; repeated, appends and takes
+		the newline too
+	\fB^W\fR	kill the selection
+	\fB^Y\fR	yank (insert the last killed text)
+	\fB^O\fR	open a line below the cursor
+	\fB^T\fR	transpose the characters around the cursor
+	\fB^G\fR	abort; drop the selection
+.DE
+Search and file commands:
+.DS
+.ta 6n 18n
+	\fB^S\fR	find next (asks for a pattern the first time)
+	\fBESC s\fR	new search (always asks for the pattern)
+	\fB^X^C\fR	quit (confirms if the buffer is modified)
+.DE
+Function keys:
+.DS
+.ta 6n 18n
+	\fBF2\fR	save (asks for a name only if untitled)
+	\fBF3\fR	open a file
+	\fBF4\fR	new (empty) buffer
+	\fBF5\fR	cut the selection to the clipboard
+	\fBF6\fR	copy the selection to the clipboard
+	\fBF7\fR	paste the clipboard
+	\fBF8\fR	find next
+	\fBF10\fR	quit (delivered as ^X^C)
+	\fBHELP\fR	show the help summary
+	\fBCLR/HOME\fR	to top of file
+	\fBSTOP\fR	abort; drop the selection
+.DE
+Printable characters and TAB insert at the cursor.
+Tabs are stored literally and displayed at 8-column stops.
+RETURN splits the line at the cursor.
+.PP
+The mouse places the cursor with a left click, and a left drag selects
+text; on release the selection becomes the PRIMARY selection, which a
+middle click pastes in any GUI window (at the click point).
+Cut and Copy instead use the clipboard, a separate store, so a
+clipboard paste and a middle-click paste can carry different text.
+.PP
+The window menu offers New, Open, Save, Cut, Copy, Paste and Help
+above the standard window entries.
+Menu Save always shows the file-name dialog, prefilled with the
+current name;
+.B F2
+saves silently under the current name.
+In dialogs, TAB cycles among text fields, RETURN fires the default
+button and ESC cancels.
+.SH FILES
+.DS
+.ta 8n 32n
+	/tmp/.hrclip	clipboard
+	/usr/hr/icons/edit.icn	desktop icon
+.DE
+.SH "SEE ALSO"
+.BR zview ,
+.BR zterm ,
+.BR zfile ,
+.B ed
+.SH DIAGNOSTICS
+All diagnostics appear in dialogs:
+`Cannot open that file',
+`Cannot write that file',
+`Enter a file name',
+`Enter text to find',
+`Not found',
+`Discard unsaved changes?'.
+.SH NOTES
+The buffer holds at most 1024 lines of at most 240 characters.
+Loading stops at the line limit, and longer lines are split; either
+event marks the buffer modified so the truncation cannot be saved back
+silently.
+The kill buffer holds 2048 bytes, a search pattern 31 characters, and
+a file name 39 characters.
+Every line is written back with a trailing newline.
+There is no undo and no replace command.

@@ -1,0 +1,129 @@
+.TH zmail "" "Command"
+.SH NAME
+zmail \- GUI mail client
+.SH SYNOPSIS
+\fBzmail [\fIoptions\fB]\fR
+.SH DESCRIPTION
+.HS
+zmail -- GUI mail client
+Usage:	zmail [ options ]
+Keys:	^P/^N select message, ^Z/^V page, Space page down
+	d mark deleted, n new message, r reply
+.HE
+.B zmail
+is the mail client of the
+.SM COHERENT
+GUI.
+It must be run under the
+.B zview
+desktop.
+It reads the user's mailbox
+.BI /usr/spool/mail/ name
+(the format used by
+.BR 7mail )
+and shows a list of message headers \- number, a
+.B D
+mark, sender, date and subject \- above a pane with the text of the
+selected message.
+The newest message is selected at start-up, and the mailbox is
+polled for new mail every 15 seconds.
+.B zmail
+takes no file arguments; it accepts the standard window
+.I options
+of GUI applications; see
+.BR zview .
+.PP
+The button bar offers
+.B "New, Reply, Delete"
+and
+.B Purge
+while reading, and
+.B Send
+and
+.B Cancel
+while composing.
+Keyboard commands while reading:
+.DS
+.ta 6n 22n
+	\fB^P, ^N\fR	select the previous / next message
+	\fB^Z, ^B\fR	page the message text up
+	\fB^V, ^F, SPACE\fR	page the message text down
+	\fBd\fR	toggle the delete mark on the message
+	\fBn\fR	compose a new message
+	\fBr\fR	reply to the selected message
+.DE
+.B Delete
+only marks a message; nothing is removed from the mailbox until
+.BR Purge ,
+which asks for confirmation and rewrites the mailbox without the
+marked messages.
+.PP
+Composing replaces the text pane with a
+.B To:
+field, a
+.B Subject:
+field and a message body.
+TAB and RETURN move from field to field into the body; ^P from the
+top of the body returns to the fields.
+The body understands a subset of the
+.B zedit
+keys:
+.DS
+.ta 6n 22n
+	\fB^B, ^F, ^P, ^N\fR	move by character and line
+	\fB^A, ^E\fR	start / end of line
+	\fB^Z, ^V\fR	page up / down
+	\fBBS\fR	delete left, joining lines
+	\fBDEL, ^D\fR	delete right, joining lines
+	\fBRETURN\fR	split the line
+	\fBTAB\fR	insert a literal tab
+.DE
+A middle click pastes the PRIMARY selection: into a header field
+(up to the first newline) or into the body at the click point.
+.B Send
+and
+.B Cancel
+are fired with the mouse;
+.B Cancel
+confirms before discarding the composition.
+.PP
+.B Reply
+fills
+.B To:
+with the sender and
+.B Subject:
+with `Re:' and the old subject; the original text is not quoted.
+.PP
+Sending needs no mailer program:
+.B zmail
+validates every recipient with the password file and then appends the
+message directly to each recipient's mailbox, under
+.BR 7mail 's
+lock file.
+Recipients are local users only, at most 8 per message, separated by
+spaces in the
+.B To:
+field; if any recipient is unknown, nothing is delivered.
+.SH FILES
+.DS
+.ta 8n 34n
+	/usr/spool/mail/*	mailboxes
+	/tmp/maillock<uid>	mailbox lock
+	/usr/hr/icons/mail.icn	desktop icon
+.DE
+.SH "SEE ALSO"
+.BR zview ,
+.B 7mail
+.SH DIAGNOSTICS
+All diagnostics appear in dialogs, among them:
+`No such user: ...',
+`The message is empty',
+`No recipient in the To: field',
+`Cannot rewrite the mailbox'.
+.SH NOTES
+The list holds at most 200 messages and the text pane at most 500
+lines of at most 240 characters; longer messages end with
+`[message truncated]'.
+The mailbox is not polled while composing.
+Quitting from the window menu asks for confirmation, but an
+unfinished composition is still lost.

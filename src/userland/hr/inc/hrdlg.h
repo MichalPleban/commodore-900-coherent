@@ -54,7 +54,8 @@
 /* ---- widgets ------------------------------------------------------------- */
 #define DW_LABEL	0	/* static text                              */
 #define DW_BUTTON	1	/* push button (arm/track, commit on release) */
-#define DW_TEXT		2	/* single-line edit field (click to focus)  */
+#define DW_TEXT		2	/* single-line edit field (first one gets   */
+				/* the focus; click or Tab moves it)        */
 #define DW_CHECK	3	/* on/off toggle                            */
 #define DW_RADIO	4	/* one-of-group (dw_grp)                    */
 

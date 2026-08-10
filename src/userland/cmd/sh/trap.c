@@ -163,6 +163,8 @@ recover(context)
 	norecur++;
 	realint = realint && iflag;	/* iflag may have been cleared */
 	switch (context) {
+	case IPROF:
+		exit(0377);
 	case IRDY:
 	case ICMD:
 		break;
@@ -175,10 +177,14 @@ recover(context)
 		if (trap[sig].t_cnt) {
 			trap[sig].t_cnt = 0;
 			if (actp = trap[sig].t_act) {
+#if	0
 				trap[sig].t_act = NULL;
 				session(SARGS, actp);
 				trap[sig].t_act = actp;
 				setstrp(sig, NULL);
+#else
+				session(SARGS, actp);
+#endif
 			} else if (sig==SIGINT) {
 				if (! realint)
 					kill(getpid(), SIGINT);
@@ -195,4 +201,3 @@ recover(context)
 	}
 	return (1);
 }
-

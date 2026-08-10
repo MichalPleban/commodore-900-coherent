@@ -255,11 +255,23 @@ hr_evover(i)
 /* Block until ring i has something.  Announces eq_wait BEFORE the final
  * emptiness test so a producer between the two cannot lose the wake -- the
  * driver re-checks under sphi() as well, closing it on the kernel side too.
- * Returns immediately (no system call) when an event is already queued. */
+ * Returns immediately (no system call) when an event is already queued.
+ *
+ * THE SESSION-DEATH EXIT LIVES HERE.  When the server dies, its watchdog
+ * (zview.c srvwatch / zvwatch.c) clears the tail magic and rings every
+ * doorbell; a client that would wait on a dead session has nothing left to
+ * wait FOR -- no events will ever come, and any drawing it still does lands
+ * on the restored text console.  Every client's idle point is this function,
+ * so this one check ends them all: cheaper and surer than teaching each
+ * application's event loop about dying.  (The magic is already set before
+ * any client can exist -- the server stamps the tail before the rc script
+ * and the launcher icons -- so a live session never trips this.) */
 hr_evwait(i)
 {
 	register HREVQ *q;
 
+	if ( hr_glob()->magic != HR_MAGIC )
+		exit(1);			/* the session is over */
 	q = hr_evq(i);
 	if ( q->eq_head != q->eq_tail )
 		return 0;
@@ -271,5 +283,7 @@ hr_evwait(i)
 	}
 	hr_evio(CIOEVWAIT, i);
 	q->eq_wait = 0;
+	if ( hr_glob()->magic != HR_MAGIC )	/* the doorbell was the wake-up-and-die */
+		exit(1);
 	return 0;
 }

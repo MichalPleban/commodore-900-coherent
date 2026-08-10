@@ -1,0 +1,125 @@
+.TH zfile "" "Command"
+.SH NAME
+zfile \- GUI file manager
+.SH SYNOPSIS
+\fBzfile [\fIoptions\fB] [\fIdirectory\fB]\fR
+.SH DESCRIPTION
+.HS
+zfile -- GUI file manager
+Usage:	zfile [ options ] [ directory ]
+Keys:	^P/^N select, ^Z/^V page, Return enter dir, BS parent
+	e edit, c copy, m move, d delete, k mkdir, g go (also F2-F7)
+.HE
+.B zfile
+is the file manager of the
+.SM COHERENT
+GUI.
+It must be run under the
+.B zview
+desktop.
+It shows one directory at a time in `ls \-l' style \- mode string,
+name (directories with a trailing
+.BR / ),
+size and date \- with directories sorted first, then files,
+alphabetically.
+A button bar offers
+.B "Edit, Copy, Move, Delete, Mkdir"
+and
+.BR Go ,
+and a path line shows the current directory.
+.PP
+The
+.I directory
+argument must be an absolute path (starting with
+.BR / );
+without one,
+.B zfile
+starts at the root.
+.B zfile
+also accepts the standard window
+.I options
+of GUI applications; see
+.BR zview .
+.PP
+Keyboard commands (the cursor keypad maps onto the control keys
+as usual):
+.DS
+.ta 6n 22n
+	\fB^P, ^N\fR	select the previous / next entry
+	\fB^Z, ^B\fR	page the list up
+	\fB^V, ^F, SPACE\fR	page the list down
+	\fB^A, CLR/HOME\fR	select the first entry
+	\fB^E\fR	select the last entry
+	\fBRETURN\fR	enter the selected directory
+	\fBBS\fR	go to the parent directory
+	\fBHELP\fR	show the help summary
+	\fBe, F2\fR	Edit: open the selected file in zedit
+	\fBc, F3\fR	Copy the selected file
+	\fBm, F4\fR	Move (or rename) the selected file
+	\fBd, F5\fR	Delete the selected file or empty directory
+	\fBk, F6\fR	Mkdir: create a directory
+	\fBg, F7\fR	Go to a typed absolute path
+.DE
+A left click selects an entry; clicking the selected entry again
+within a second enters it if it is a directory.
+The scrollbar on the left edge scrolls the list.
+.PP
+The operations ask for names and confirmations in dialogs
+(RETURN fires the default button, ESC cancels, TAB moves between
+fields).
+Their semantics:
+.IP \fBCopy\fR
+copies an ordinary file, in
+.B zfile
+itself; a destination that is an existing directory receives the file
+under its own name, and overwriting an existing file is confirmed.
+.IP \fBMove\fR
+links and unlinks, so it works within one file system only and
+refuses directories.
+A move within the same directory is how a file is renamed.
+.IP \fBDelete\fR
+unlinks a file after confirmation; a directory must be empty and is
+removed with
+.BR rmdir .
+.IP \fBMkdir\fR
+runs
+.B mkdir
+with the typed name, relative to the current directory.
+.IP \fBGo\fR
+changes to a typed absolute path.
+.PP
+The directory is rescanned automatically every 5 seconds when it
+changes on disk; the selection is kept by name.
+.SH FILES
+.DS
+.ta 8n 32n
+	/usr/hr/bin/zedit	editor run by Edit
+	/bin/mkdir, /bin/rmdir	directory operations
+	/usr/hr/icons/file.icn	desktop icon
+.DE
+.SH "SEE ALSO"
+.BR zview ,
+.BR zedit ,
+.BR ls ,
+.BR cp ,
+.B mv
+.SH DIAGNOSTICS
+All diagnostics appear in dialogs, among them:
+`Cannot enter that directory',
+`Can only copy an ordinary file',
+`Cannot move there (other file system?)',
+`That directory is not empty',
+`Give an absolute path (starting /)',
+`Copy failed (disk full?)'.
+.SH NOTES
+The list holds at most 160 entries; a bigger directory is truncated
+and the count reads `160+ entries'.
+File names show at most 14 characters and paths may be at most 119
+characters.
+Dot-files are listed (only
+.B .
+and
+.B ..
+are hidden).
+There is no facility for running arbitrary programs from
+.BR zfile .

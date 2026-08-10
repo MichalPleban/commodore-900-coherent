@@ -1,0 +1,107 @@
+
+
+zzffiillee                                                       zzffiillee
+
+
+
+NNAAMMEE
+     zfile - GUI file manager
+
+SSYYNNOOPPSSIISS
+     zzffiillee [_o_p_t_i_o_n_s] [_d_i_r_e_c_t_o_r_y]
+
+DDEESSCCRRIIPPTTIIOONN
+     zzffiillee is the file manager of the COHERENT GUI.  It must be
+     run under the zzvviieeww desktop.  It shows one directory at a
+     time in `ls -l' style - mode string, name (directories with
+     a trailing /), size and date - with directories sorted
+     first, then files, alphabetically.  A button bar offers
+     EEddiitt, CCooppyy, MMoovvee, DDeelleettee, MMkkddiirr and GGoo, and a path line
+     shows the current directory.
+
+     The _d_i_r_e_c_t_o_r_y argument must be an absolute path (starting
+     with /); without one, zzffiillee starts at the root.  zzffiillee also
+     accepts the standard window _o_p_t_i_o_n_s of GUI applications; see
+     zzvviieeww.
+
+     Keyboard commands (the cursor keypad maps onto the control
+     keys as usual):
+
+                ^PP, ^NN          select the previous / next entry
+                ^ZZ, ^BB          page the list up
+                ^VV, ^FF, SSPPAACCEE   page the list down
+                ^AA, CCLLRR/HHOOMMEE    select the first entry
+                ^EE              select the last entry
+                RREETTUURRNN          enter the selected directory
+                BBSS              go to the parent directory
+                HHEELLPP            show the help summary
+                ee, FF22           Edit: open the selected file in zedit
+                cc, FF33           Copy the selected file
+                mm, FF44           Move (or rename) the selected file
+                dd, FF55           Delete the selected file or empty directory
+                kk, FF66           Mkdir: create a directory
+                gg, FF77           Go to a typed absolute path
+
+     A left click selects an entry; clicking the selected entry
+     again within a second enters it if it is a directory.  The
+     scrollbar on the left edge scrolls the list.
+
+     The operations ask for names and confirmations in dialogs
+     (RETURN fires the default button, ESC cancels, TAB moves be-
+     tween fields).  Their semantics:
+
+     CCooppyy copies an ordinary file, in zzffiillee itself; a destination
+          that is an existing directory receives the file under
+          its own name, and overwriting an existing file is con-
+          firmed.
+
+     MMoovvee links and unlinks, so it works within one file system
+          only and refuses directories.  A move within the same
+          directory is how a file is renamed.
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+zzffiillee                                                       zzffiillee
+
+
+
+     DDeelleettee
+          unlinks a file after confirmation; a directory must be
+          empty and is removed with rrmmddiirr.
+
+     MMkkddiirr
+          runs mmkkddiirr with the typed name, relative to the current
+          directory.
+
+     GGoo   changes to a typed absolute path.
+
+     The directory is rescanned automatically every 5 seconds
+     when it changes on disk; the selection is kept by name.
+
+FFIILLEESS
+                  /usr/hr/bin/zedit       editor run by Edit
+                  /bin/mkdir, /bin/rmdir  directory operations
+                  /usr/hr/icons/file.icn  desktop icon
+
+SSEEEE AALLSSOO
+     zzvviieeww, zzeeddiitt, llss, ccpp, mmvv
+
+DDIIAAGGNNOOSSTTIICCSS
+     All diagnostics appear in dialogs, among them: `Cannot enter
+     that directory', `Can only copy an ordinary file', `Cannot
+     move there (other file system?)', `That directory is not
+     empty', `Give an absolute path (starting /)', `Copy failed
+     (disk full?)'.
+
+NNOOTTEESS
+     The list holds at most 160 entries; a bigger directory is
+     truncated and the count reads `160+ entries'.  File names
+     show at most 14 characters and paths may be at most 119
+     characters.  Dot-files are listed (only .  and ..  are hid-
+     den).  There is no facility for running arbitrary programs
+     from zzffiillee.

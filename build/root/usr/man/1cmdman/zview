@@ -1,0 +1,179 @@
+
+
+zzvviieeww                                                       zzvviieeww
+
+
+
+NNAAMMEE
+     zview - window server and desktop
+
+SSYYNNOOPPSSIISS
+     zzvviieeww
+
+DDEESSCCRRIIPPTTIIOONN
+     zzvviieeww is the window server and desktop of the COHERENT GUI
+     on the hi-res (bitmap) display.  It loads the display driver
+     /ddrrvv/hhrr and the pseudo-terminal driver /ddrrvv/ppttyy, takes over
+     the screen and keyboard, loads the fonts, reads the applica-
+     tion catalog, puts an icon on the desktop for each catalog
+     entry, and runs the desktop start-up script.  It takes no
+     arguments.  At boot, /eettcc/rrcc starts it when the file
+     /eettcc/wwgguuii exists - create that file to enable the GUI; it
+     can equally be started by hand from the console: zzvviieeww &.
+
+     The desktop shows icons at the top left: one placeholder per
+     catalog application (no process exists behind it - clicking
+     it launches the program) and one icon per hidden window
+     (marked with a corner badge; clicking it restores the win-
+     dow).  Every window has a 3-button mouse and follows the
+     same conventions:
+
+     mmeennuuss
+          pop up under the rriigghhtt button and work by press-and-
+          hold: hold the button down, drag onto an entry - it
+          highlights as the pointer crosses it - and release to
+          choose it.  Releasing outside the menu, or without
+          moving onto an entry, chooses nothing.  The keyboard is
+          ignored while a menu is up.  Pressing on the empty
+          desktop opens the desktop menu; pressing on a window
+          opens that window's menu.
+
+     ddeesskkttoopp mmeennuu
+          lists the catalog applications (a single-instance entry
+          raises its existing window instead of starting a second
+          copy), then SSwwiittcchh ttoo..., a dialog of all open windows,
+          and QQuuiitt, which confirms and then shuts the GUI down,
+          restoring the text console.
+
+     wwiinnddooww mmeennuu
+          starts with the entries the application asked for (from
+          NNeeww, OOppeenn, SSaavvee, CCuutt, CCooppyy, PPaassttee, SSeettttiinnggss, HHeellpp),
+          then MMoovvee, SSttrreettcchh (resizable windows only), FFrroonntt,
+          BBaacckk, HHiiddee and QQuuiitt. Some applications confirm Quit
+          first.
+
+     rraaiissiinngg
+          a left click anywhere on a window brings it to the
+          front and gives it the keyboard; FFrroonntt and BBaacckk restack
+          it from the menu.  Every key goes to the focused (most
+          recently raised) window - there are no desktop keyboard
+          shortcuts.
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+zzvviieeww                                                       zzvviieeww
+
+
+
+     mmoovviinngg
+          drag the title bar directly with the left button.
+          Alternatively pick MMoovvee from the window menu: press the
+          left button to grab the window, drag the outline where
+          it should go, and release to place it - a right or mid-
+          dle press cancels instead.
+
+     rreessiizziinngg
+          pick SSttrreettcchh from the window menu (resizable windows
+          only), grab with the left button, and drag the window's
+          bottom-right corner; on release the application is told
+          its new size.  Windows are clamped to the screen and to
+          a 48x48 minimum.
+
+     hhiiddiinngg
+          HHiiddee takes the window off the screen and leaves a
+          desktop icon; clicking the icon puts the window back
+          exactly where it was.
+
+CCOOPPYY AANNDD PPAASSTTEE
+     Text moves between windows in two independent ways.
+
+     The quick way is the _s_e_l_e_c_t_i_o_n: sweep over text with the
+     lleefftt button held down - it highlights - and release; the
+     swept text becomes the PRIMARY selection.  A mmiiddddllee click
+     then pastes it into the window _u_n_d_e_r _t_h_e _p_o_i_n_t_e_r at the
+     click position, deliberately _w_i_t_h_o_u_t raising that window, so
+     text can be carried into a partly covered window without
+     disturbing the stacking.  Only one window at a time shows a
+     selection highlight; making a new selection clears the old
+     one, but the stored text remains until replaced, so it can
+     be pasted repeatedly.  This works in both directions between
+     any windows that support selection - sweep in a terminal and
+     middle-click into the editor, or sweep in the editor (or the
+     manual browser) and middle-click into a terminal.
+
+     The durable way is the _c_l_i_p_b_o_a_r_d, driven by the CCuutt, CCooppyy
+     and PPaassttee entries an application puts in its window menu (or
+     their function keys, where it has them).  It is a separate
+     store: it survives further selections and is explicit -
+     nothing reaches the clipboard until a Cut or Copy.  In a
+     terminal window, CCooppyy puts the current selection on the
+     clipboard and PPaassttee types the clipboard to the shell; in the
+     editor, Cut/Copy/Paste act on the selected text.  The two
+     stores can hold different text at the same time.
+
+OOPPTTIIOONNSS
+     zzvviieeww itself takes no options, but every GUI application ac-
+     cepts these, consumed before its own arguments:
+
+                -TT _t_i_t_l_e      window title
+                -II _f_i_l_e.iiccnn   icon (under /usr/hr/icons) when hidden
+                -SS _Wxx_H        content size in pixels (resizable
+                              applications only)
+                -PP _X,_Y        window position in screen pixels
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+zzvviieeww                                                       zzvviieeww
+
+
+
+                -HH            start hidden, as a desktop icon
+
+     The one global key chord lives in the display driver:
+     AALLTT+CCTTRRLL+HHEELLPP forcibly unloads it and shuts the desktop down
+     - the emergency exit for a hung screen.
+
+FFIILLEESS
+                  /etc/wgui             if present, rc starts the GUI
+                  /usr/hr/etc/apps      application catalog
+                  /usr/hr/etc/rc        desktop start-up script
+                  /usr/hr/icons/*.icn   icons
+                  /usr/hr/fonts/*.hf    fonts
+                  /drv/hr, /drv/pty     drivers, loaded at start-up
+                  /wscrash              crash status of a dead server
+
+     Each aappppss line reads _n_a_m_e:_p_a_t_h:_m_u_l_t_i:_i_c_o_n:_X,_Y - menu label,
+     program, whether many copies may run (1) or one (0), the
+     placeholder icon, and where a launched window goes; the last
+     two fields are optional and # starts a comment.  The rrcc
+     script runs at desktop start-up for anything that should be
+     resident from the beginning; each command must end in &.
+
+SSEEEE AALLSSOO
+     zztteerrmm, zzeeddiitt, zzffiillee, zzmmaaiill, zzmmaann, zzccaallcc, zzpprriinntt, zzmmoonn,
+     zzcclloocckk, zzppuuzzzzllee
+
+DDIIAAGGNNOOSSTTIICCSS
+     `zview: no hi-res display on this machine'; `zview: a window
+     server is already running' (if the driver was left loaded,
+     `/etc/uload /drv/hr' recovers).  If the server dies, a
+     watchdog writes the wait status to /wwssccrraasshh, restores the
+     text console, and reports `zview: server died -- screen and
+     keyboard restored'.
+
+NNOOTTEESS
+     At most 16 windows can be open and the catalog holds at most
+     12 applications.  The screen is 1024x800 pixels; windows are
+     clamped to it.  Applications are best launched from icons,
+     the desktop menu or the aappppss catalog rather than made resi-
+     dent in rrcc: a placeholder icon costs no memory until it is
+     clicked.

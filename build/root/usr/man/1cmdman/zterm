@@ -1,0 +1,83 @@
+
+
+zztteerrmm                                                       zztteerrmm
+
+
+
+NNAAMMEE
+     zterm - GUI terminal window
+
+SSYYNNOOPPSSIISS
+     zztteerrmm [_o_p_t_i_o_n_s]
+
+DDEESSCCRRIIPPTTIIOONN
+     zztteerrmm opens an 80x25-character terminal window under the
+     zzvviieeww desktop and runs an interactive /bbiinn/sshh in it on a
+     pseudo-terminal, with full job control: ^C interrupts, ^\
+     quits, and the line discipline is the normal tty one.  The
+     window closes by itself when the shell exits.  Quitting the
+     window from its menu asks for confirmation first, then hangs
+     up the shell.  zztteerrmm can be started from a desktop icon or
+     typed at a shell inside another zztteerrmm; it accepts the stan-
+     dard window _o_p_t_i_o_n_s of GUI applications (though not -SS: the
+     size is fixed); see zzvviieeww.
+
+     Keystrokes go to the shell.  The hi-res keyboard delivers
+     plain ASCII, and its special keys produce control codes
+     rather than escape sequences:
+
+                UUpp, DDoowwnn          ^P, ^N
+                LLeefftt, RRiigghhtt       ^B, ^F
+                HHOOMMEE, EENNDD         ^A, ^E
+                PPGG UUPP, PPGG DDNN      ^Z, ^V
+                BBSS                ^H (0x08)
+                DDEELL, kkeeyyppaadd DDeell   DEL (0x7f)
+                FF1100               ^X ^C (two keys)
+
+     The remaining function keys produce codes with no byte value
+     and are ignored in a terminal window.
+
+     On the output side zztteerrmm emulates a deliberate subset of the
+     ANSI terminal, enough for the shell, simple full-screen
+     programs and llss: CR, LF, BS, TAB (8-column stops), and the
+     escape sequences EESSCC [ rr;ccHH (and ff) cursor position, EESSCC [
+     nnAA/BB/CC/DD cursor motion, EESSCC [ JJ clear screen and home, and
+     EESSCC [ KK clear to end of line.  There are no character at-
+     tributes: bold, reverse and colour are not rendered.  Other
+     escape sequences are swallowed silently.
+
+     Up to 200 lines that scroll off the top are kept and can be
+     viewed with the scrollbar on the left edge; any shell output
+     snaps the view back to the live screen.  A left drag selects
+     text (wrapped lines are joined, trailing blanks trimmed) and
+     publishes it as the PRIMARY selection on release; a middle
+     click in any terminal pastes the PRIMARY selection to the
+     shell.  The window menu's CCooppyy copies the PRIMARY selection
+     to the clipboard, and PPaassttee types the clipboard to the
+     shell.
+
+FFIILLEESS
+                  /dev/ptyp0 ... /dev/ptyp7   pseudo-terminals
+                  /usr/hr/bin/hrpump          I/O helper (internal)
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+zztteerrmm                                                       zztteerrmm
+
+
+
+SSEEEE AALLSSOO
+     zzvviieeww, sshh, ssttttyy
+
+NNOOTTEESS
+     At most 8 terminal windows can exist at once - one pseudo-
+     terminal pair each.  The shell is /bbiinn/sshh regardless of en-
+     vironment.  A paste is limited to 1024 bytes, and the tty
+     driver itself accepts at most 255 characters in one input
+     line.  The scrollback is dropped, oldest first, when memory
+     runs short.  hhrrppuummpp is zztteerrmm's internal I/O helper and does
+     nothing useful run by hand.

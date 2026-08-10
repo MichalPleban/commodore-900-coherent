@@ -15,7 +15,7 @@
 #endif
 
 /* Machine dependent constants for Z8001 */
-#define	VERSION		"0.8.2"		/* hrgui text selection + clipboard */
+#define	VERSION		"0.8.3"		/* scientific zcalc + GUI polish */
 #define	MSASIZE		16		/* Space reserved for sys args */
 #define	ISTSIZE		256		/* Counts on stack growth */
 #define	ISTVIRT		ADDR(USTACK+1, 0)

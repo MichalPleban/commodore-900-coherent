@@ -1,0 +1,76 @@
+.TH zcalc "" "Command"
+.SH NAME
+zcalc \- GUI calculator
+.SH SYNOPSIS
+\fBzcalc [\fIoptions\fB]\fR
+.SH DESCRIPTION
+.HS
+zcalc -- GUI calculator
+Usage:	zcalc [ options ]
+Keys:	digits . + - * / ^ = c=clear e=CE n=+/- p=pi BS=rubout
+	s=sin o=cos t=tan l=ln g=log j=e^x r=sqrt i=1/x
+.HE
+.B zcalc
+is the calculator of the
+.SM COHERENT
+GUI.
+It must be run under the
+.B zview
+desktop.
+It shows a display over a fixed grid of buttons; every button also
+has a key equivalent, so the calculator can be driven entirely from
+the keyboard.
+Arithmetic is double precision; the trigonometric functions work in
+radians.
+It accepts the standard window
+.I options
+of GUI applications; see
+.BR zview .
+.PP
+The accepted keys:
+.DS
+.ta 6n 20n
+	\fB0-9, .\fR	enter a number
+	\fB+ \- /\fR	add, subtract, divide
+	\fB*, x\fR	multiply
+	\fB^\fR	y to the power x
+	\fB=, RETURN\fR	equals
+	\fBc\fR	Clear: start over (also clears Error)
+	\fBe\fR	CE: clear the entry, keep the pending operation
+	\fBn\fR	change the sign of the display
+	\fBp\fR	enter pi
+	\fBBS, DEL\fR	rub out the last typed digit
+	\fBs o t\fR	sin, cos, tan
+	\fBl g\fR	ln, log10
+	\fBj\fR	e to the power x
+	\fBr\fR	square root
+	\fBi\fR	1/x
+.DE
+The letter commands are lower-case; only
+.BR c ,
+.BR e ,
+.BR n ,
+.B p
+and
+.B x
+also work in upper case.
+The pending operator is shown at the left edge of the display.
+Operators are applied immediately, left to right; there is no
+precedence and no parentheses.
+.PP
+Division by zero, overflow past 1e99, and a function applied outside
+its domain show
+.BR Error ,
+which locks the calculator until
+.BR c .
+.SH "SEE ALSO"
+.BR zview ,
+.BR bc ,
+.B dc
+.SH NOTES
+The window has a fixed size (the
+.B \-S
+option is ignored) and there is no quit key; close the window from
+its menu.
+A typed entry holds at most 13 characters, and results are shown to
+at most 10 significant digits.

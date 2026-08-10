@@ -34,6 +34,8 @@ extern int	cl_dclose();	/* back to the window surface                     */
 
 extern int	cl_text();	/* cl_text(fslot, col,row, s, cellw,cellh)        */
 extern int	cl_ptext();	/* cl_ptext(fslot, cx,cy, s): pixel-positioned    */
+extern int	cl_ptextt();	/* like cl_ptext but transparent: ink only, cell
+				   background untouched (overlay double-strike)   */
 extern int	cl_erase();	/* cl_erase(col,row, ncol,nrow, cellw,cellh) white */
 extern int	cl_fillrect();	/* cl_fillrect(cx0,cy0,cx1,cy1, val) content px;
 				   val 0=black 1=white 2=invert 3=50% gray       */

@@ -1,0 +1,57 @@
+
+
+zzmmaann                                                         zzmmaann
+
+
+
+NNAAMMEE
+     zman - GUI manual-page browser
+
+SSYYNNOOPPSSIISS
+     zzmmaann [_o_p_t_i_o_n_s]
+
+DDEESSCCRRIIPPTTIIOONN
+     zzmmaann is the manual browser of the COHERENT GUI.  It must be
+     run under the zzvviieeww desktop.  It lists every pre-formatted
+     manual page installed under /uussrr/mmaann in a multi-column
+     catalog, and shows the selected page - with bold and under-
+     lining - in the pane below.  zzmmaann takes no page argument on
+     the command line; it accepts the standard window _o_p_t_i_o_n_s of
+     GUI applications; see zzvviieeww.
+
+     The find field in the top bar always has the keyboard focus:
+     printable characters are appended to it, and RETURN (or the
+     FFiinndd button) jumps to the named page - by exact name first,
+     then to the first page of which the typed text is a prefix.
+     Matching is case-sensitive.  The remaining keys:
+
+                ^PP, ^NN        select the previous / next page
+                ^ZZ, ^BB        page the text up
+                ^VV, ^FF        page the text down
+                BBSS, DDEELL       erase the last character of the find field
+                ^UU            clear the find field
+
+     Because every printable character goes to the find field,
+     SPACE types a space rather than paging.
+
+     With the mouse, a single click in the catalog loads the page
+     under the pointer; the two scrollbars on the left edge
+     scroll the catalog and the text.  A left drag in the text
+     pane selects text and publishes it as the PRIMARY selection
+     on release, for pasting into other windows with a middle
+     click.
+
+FFIILLEESS
+                  /usr/man/*man/*         pre-formatted manual pages
+                  /usr/hr/icons/man.icn   desktop icon
+
+SSEEEE AALLSSOO
+     zzvviieeww, mmaann, hheellpp
+
+NNOOTTEESS
+     The catalog is scanned once at start-up; pages installed
+     later do not appear until zzmmaann is restarted.  It holds at
+     most 250 pages from at most 8 section directories (those
+     named *mmaann). A page shows at most 600 lines of 200 columns,
+     and the find field holds 14 characters.  zzmmaann only reads the
+     pre-formatted pages; it never runs nnrrooffff.

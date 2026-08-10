@@ -8,6 +8,7 @@
  *  Minor device 0 is /dev/null
  *  Minor device 1 is physical memory
  *  Minor device 2 is kernel data
+ *  Minor device 3 is /dev/zero
  */
 #include <coherent.h>
 #include <drvcon.h>
@@ -22,6 +23,7 @@ int	nlread();
 int	nlwrite();
 int	nulldev();
 int	nonedev();
+int	ioputc();
 
 /*
  * Configuration table.
@@ -63,6 +65,12 @@ register IO *iop;
 		n = kucopy(kdaddr(iop->io_seek), iop->io_base, iop->io_ioc);
 		break;
 
+	case 3:
+		while (ioputc(0, iop) >= 0)
+			;
+		n = 0;		/* ioputc consumed io_ioc itself */
+		break;
+
 	default:
 		u.u_error = ENXIO;
 		return;
@@ -83,6 +91,7 @@ register IO *iop;
 
 	switch (minor(dev)) {
 	case 0:
+	case 3:
 		n = iop->io_ioc;
 		break;
 

@@ -2,12 +2,14 @@
  * Copyright (c) 1977-1995 Robert Swartz.
  * SPDX-License-Identifier: BSD-3-Clause
  */
-#include "sh.h"
-
 /*
+ * sh/eval.c
+ * Bourne shell.
  * Evaluation of parameter substitution, command substitution,
- *  blank interpretation, and file name generation.
+ * blank interpretation, and file name generation.
  */
+
+#include "sh.h"
 
 char	*arcp;		/* character position in argument */
 int	argf = 1;	/* First argument flag */
@@ -35,87 +37,126 @@ char *cp;
 		m = MNQUO;
 		argq = 0;
 	}
-	if (f==EARGS || f==EPATT)
-		argg = 1;
-	else
-		argg = 0;
+	argg = (f==EARGS || f==EPATT);
 
-	while ((c=*arcp++) != '\0') {
+	while ((c = *arcp++) != '\0') {
 		if (!class(c, m)) {
-			breakup(c);
+			add_char(c);
 			continue;
 		}
 		switch (c) {
 		case '"':	/* m == MNQUO || m == MDQUO */
-			m = ((argq^=1)&1) ? MDQUO : MNQUO;
+			m = ((argq ^= 1) & 1) ? MDQUO : MNQUO;
 			if (m==MDQUO && strcmp(arcp, "$@\"")!=0)
 				argf = 0;
 			continue;
 		case '\'':	/* m == MNQUO */
-			while ((c=*arcp++) != '\'')
-				qbreakup(c);
+			while ((c = *arcp++) != '\'')
+				add_quoted(c);
 			argf = 0;
 			continue;
 		case '\\':	/* m == MDQUO || m == MNQUO */
 			c = *arcp++;
 			if (m != MNQUO && ! class(c, m)) {
-				breakup('\\');
-				breakup(c);
+				add_char('\\');
+				add_char(c);
 			} else
-				qbreakup(c);
+				add_quoted(c);
 			argf = 0;
 			continue;
 		case '$':	/* m == MNQUO || m = MDQUO */
-			evalvar();
+			variable();
 			continue;
 		case '`':	/* m == MNQUO || m = MDQUO */
-			evalcom();
+			graves();
 			continue;
 		default:
-			breakup(c);
+			add_char(c);
 			continue;
 		}
 	}
 	if (f==EARGS)
-		addlist();
+		end_arg();
 	else
 		*strp++ = '\0';
 }
 
 /*
- * Read the name of a shell variable and perform the appropriate
- * substitution.
+ * Read the name of a shell variable and perform the appropriate substitution.
  * Doesn't check for end of buffer.
  */
-evalvar()
+variable()
 {
 	VAR *vp;
 	int s;
-	char *wp;
-	register int c;
+	char *wp, *sav;
+	register int c, count, quote;
 	register char *cp, *pp;
 
 	cp = strp;
 	s = '\0';
 	c = *arcp++;
 	if (class(c, MSVAR)) {
-		specvar(c);
+		special(c);
 		return;
-	} else if (c != '{') {
+	} else if (class(c, MRVAR)) {
 		while (class(c, MRVAR)) {
 			*cp++ = c;
 			c = *arcp++;
 		}
 		--arcp;
+	} else if (c != '{') {
+		/* Not a legal variable name, put it back. */
+		add_char('$');
+		add_char(c);
+		return;
 	} else {
-		while (index("}-=?+", c=*arcp++) == NULL)
+		/* c == '{' */
+		if (index("#?$!-@*0123456789", arcp[0]) != NULL && arcp[1] == '}') {
+			/* Allow specials of the form "${?}" etc. */
+			special(arcp[0]);
+			arcp += 2;
+			return;
+		}
+		while (index("}-=?+", c = *arcp++) == NULL)
 			*cp++ = c;
 		if (c != '}') {
+			/* ${VAR [-=?+] token} */
 			s = c;
+			if (cp[-1] == ':')
+				--cp;		/* allow e.g. ${VAR:=foo} */
 			*cp++ = '=';
 			wp = cp;
-			while ((c=*arcp++) != '}')
+			if ((quote = *arcp) == '"' || quote =='\'')
+				++arcp;
+			else
+				quote = 0;
+			for (count = 1; ; ) {
+				c = *arcp++;
+				if (c == '}' && count-- == 1)
+					break;
+				else if (c == '$' && quote != '\'') {
+/*
+ * steve 6/24/92
+ * This truly sleazy hack handles e.g. "${V1-$V2}", oy.
+ * It doesn't do it very well, paying no attention to quotes (for example).
+ * The recursive call to variable() should be straightforward but is not,
+ * the hacky way this module uses globals like strp requires the save/restore.
+ */
+					sav = strp;
+					strp = cp;
+					variable();
+					cp = strp;
+					strp = sav;
+					continue;
+				} else if (c == '{')
+					++count;
+				else if (quote != 0 && c == quote) {
+					quote = 0;
+					continue;
+				}
 				*cp++ = c;
+			}
 		}
 	}
 	*cp++ = '\0';
@@ -131,6 +172,8 @@ evalvar()
 		pp = NULL;
 		if ((vp=findvar(strp)) != NULL) {
 			pp = convvar(vp);
+			if (*pp == '\0')
+				pp = NULL;	/* regard value "" as not set */
 		}
 	}
 	switch (s) {
@@ -170,15 +213,15 @@ evalvar()
 	}
 	if (pp == NULL)
 		return;
-	while ((c=*pp++) != '\0')
-		breakup(c);
+	while ((c = *pp++) != '\0')
+		add_char(c);
 }
 
 /*
  * Return the value of the special shell variables.
  * No check for end of buffer.
  */
-specvar(n)
+special(n)
 register int n;
 {
 	register char *sp;
@@ -204,20 +247,20 @@ register int n;
 	case '-':
 		for (sp = &eflag; sp <= &xflag; sp += 1)
 			if (*sp)
-				breakup(*sp);
+				add_char(*sp);
 		return;
 	case '@':
 	case '*':
-		flag = (argq == 1 && n == '@') ? 1 : 0;
-		for (n=0; n<sargc; n++) {
+		flag = (argq == 1 && n == '@');
+		for (n = 0; n < sargc; n++) {
 			if (n) {
 				argq ^= flag;
-				breakup(' ');
+				add_char(' ');
 				argq ^= flag;
 			}
 			sp = sargp[n];
 			while (*sp)
-				breakup(*sp++);
+				add_char(*sp++);
 		}
 		return;
 	case '0':
@@ -233,23 +276,27 @@ register int n;
 		break;
 	}
 	while (*sp)
-		breakup(*sp++);
+		add_char(*sp++);
 }
 
 /*
  * Read and evaluate a command found between graves.
  */
-evalcom()
+graves()
 {
-	int pipev[2], f;
+	int pipev[2], f, oslret, oargf;
 	register FILE *fp;
 	register int c;
 	register int nnl;
 	char *cmdp;
 
+	oargf = argf;
+	oslret = slret;
 	cmdp = arcp;
-	while ((c=*arcp++) != '`');
+	while ((c = *arcp++) != '`')
+		;
 	if ((f = pipeline(pipev)) == 0) {
+		slret = oslret;		/* in case grave command uses $? */
 		dup2(pipev[1], 1);
 		close(pipev[0]);
 		close(pipev[1]);
@@ -278,54 +325,53 @@ evalcom()
 		else {
 			while (nnl) {
 				nnl--;
-				breakup('\n');
+				add_char('\n');
 			}
-			breakup(c);
+			add_char(c);
 		}
 	}
+	argf = oargf;
 	fclose(fp);
 	waitc(f);
 }
 
 /*
- * breakup adds characters to the current argument.
- * If no quotation is set, it picks off blanks and globs.
+ * Add a character to the current argument.
+ * If no quotation is set, pick off blanks and globs.
  */
-breakup(c)
+add_char(c)
 register int c;
 {
 	if (argq==0) {
 		if (index(vifs, c) != NULL) {
-			addlist();
+			end_arg();
 			return;
 		}
 		if (argg && class(c, MGLOB)) {
-			dobreakup(c);
+			add_arg(c);
 			return;
 		}
 	}
-	qbreakup(c);
+	add_quoted(c);
 }
 
 /*
- * qbreakup adds quoted characters to the current argument.
- * if argg is set, then glob characters are quoted with a
- * \, as well as \ itself.
+ * Add a quoted character to the current argument.
+ * if argg is set, then glob characters are quoted with a \,
+ * as well as \ itself.
  */
-qbreakup(c)
-register int c;
+add_quoted(c) register int c;
 {
 	if (argg && (class(c, MGLOB) || c == '\\'))
-		dobreakup('\\');
-	dobreakup(c);
+		add_arg('\\');
+	add_arg(c);
 }
 
 /*
- * dobreakup actually adds characters to the current argument
- * and checks for end of buffer.
+ * Add a character to the current argument
+ * and check for end of buffer.
  */
-dobreakup(c)
-register int c;
+add_arg(c) register int c;
 {
 	if (strp >= &strt[STRSIZE])	/* Should do more */
 		etoolong();
@@ -335,11 +381,11 @@ register int c;
 }
 
 /*
- * Addlist terminates the current argument if it is non-empty.
- * If argg is set, then we glob the argument to expand globs or
- * to simply remove any quotes.
+ * Terminate the current argument if it is non-empty.
+ * If argg is set, then glob the argument to expand globs
+ * or to simply remove any quotes.
  */
-addlist()
+end_arg()
 {
 	if (argf != 0)
 		return;
@@ -369,13 +415,13 @@ evalhere(u2)
 	tmp = shtmp();
 	if ((u1=creat(tmp, 0666))<0) {
 		ecantmake(tmp);
-		return (-1);
+		return -1;
 	}
 	if ((f2=fdopen(u2, "r"))==NULL) {
 		ecantfdop();
 		close(u1);
 		close(u2);
-		return (-1);
+		return -1;
 	}
 	while (fgets(buf, 128, f2) != NULL) {
 		eval(buf, EHERE);
@@ -388,6 +434,7 @@ evalhere(u2)
 		u2 = -1;
 	}
 	unlink(tmp);
-	return (u2);
+	return u2;
 }
 
+/* end of sh/eval.c */

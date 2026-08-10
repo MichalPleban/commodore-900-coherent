@@ -4,28 +4,35 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 /*
+ * sh/exec3.c
  * Bourne shell.
  * Builtin commands.
  */
+
 #include "sh.h"
 #include <sys/times.h>
-#include <const.h>		/* HZ defined here */
+#include <sys/const.h>		/* HZ defined here */
+
 #define HOUR	(60L*60L*HZ)
 #define MINUTE	(60L*HZ)
 #define SECOND	HZ
 
+char	*cd();
 
 extern	s_colon();
 extern	s_dot();
 extern	s_break();
 #define s_continue	s_break
 extern	s_cd();
+extern	s_dirs();
 extern	s_eval();
 extern	s_exec();
 extern	s_exit();
 extern	s_export();
 extern	s_login();
 #define s_newgrp	s_login
+extern	s_popd();
+extern	s_pushd();
 extern	s_read();
 #define s_readonly	s_export
 extern	s_set();
@@ -48,12 +55,15 @@ INLINE inls[] = {
 	0,	"break",	s_break,
 	0,	"continue",	s_continue,
 	0,	"cd",		s_cd,
+	0,	"dirs",		s_dirs,
 	0,	"eval",		s_eval,
 	0,	"exec",		s_exec,
 	0,	"exit",		s_exit,
 	0,	"export",	s_export,
 	0,	"login",	s_login,
 	0,	"newgrp",	s_newgrp,
+	0,	"popd",		s_popd,
+	0,	"pushd",	s_pushd,
 	0,	"read",		s_read,
 	0,	"readonly",	s_readonly,
 	0,	"set",		s_set,
@@ -62,7 +72,7 @@ INLINE inls[] = {
 	0,	"trap",		s_trap,
 	0,	"umask",	s_umask,
 	0,	"wait",		s_wait,
-	0,	NULL,		SNULL,
+	0,	NULL,		SNULL
 };
 
 inlfn()
@@ -70,22 +80,53 @@ inlfn()
 	register int (*s_func)();
 	register INLINE *ip;
 	register int ahash;
+	int pid, status;
 
 	if (inls[0].i_hash==0)
-		for (ip=inls; ip->i_name!=NULL; ip+=1)
+		for (ip=inls; ip->i_name!=NULL; ip++)
 			ip->i_hash = ihash(ip->i_name);
+	if (nargv[0] == NULL)
+		return 0;
 	ahash = ihash(nargv[0]);
-	for (ip=inls; ip->i_name!=NULL; ip+=1)
+	for (ip=inls; ip->i_name!=NULL; ip++)
 		if (ip->i_hash==ahash && strcmp(nargv[0], ip->i_name)==0)
 			break;
 	if ((s_func=ip->i_func) == SNULL)
-		return (0);
+		return 0;
 	if (*niovp != NULL && s_func != s_exec) {
-		eredir();
-		slret = 1;
+		/* Redirection with built-in command. */
+		/* Allowed only with eval, export, readonly, set, times. */
+		if (s_func != s_eval
+		 && s_func != s_export
+		 && s_func != s_set
+		 && s_func != s_times) {
+			eredir();
+			slret = 1;
+			return 1;
+		}
+		if ((pid = clone()) == 0) {
+			/* Perform redirection in child process. */
+			if (redirect(niovp) < 0)
+				slret = 1;
+			else if (s_func == s_eval)
+				slret = (*s_func)();
+			else {
+				/* Kludge stderr output to stdout. */
+				dup2(1, 2);
+				close(1);
+				slret = (*s_func)();
+			}
+			exit(slret);
+			/* NOTREACHED */
+		} else {
+			/* Parent waits for child and takes its exit status. */
+			while (wait(&status) != pid)
+				;
+			slret = status >> 8;
+		}
 	} else
 		slret = (*s_func)();
-	return (1);
+	return 1;
 }
 
 ihash(cp)
@@ -93,7 +134,7 @@ register char *cp;
 {
 	register int i;
 	for (i=0; *cp; i+=*cp++);
-	return (i);
+	return i;
 }
 
 /*
@@ -101,23 +142,25 @@ register char *cp;
  */
 s_colon()
 {
-	return (0);
+	return 0;
 }
+
 s_dot()
 {
 	if (nargc==2) {
 		ffind(NULL);
 		if (ffind(vpath, nargv[1], 4))
-			return (session(SFILE, duplstr(strt, 0)));
+			return session(SFILE, duplstr(strt, 0));
 		else {
 			ecantfind(nargv[1]);
-			return (1);
+			return 1;
 		}
 	} else if (nargc==1)
-		return (0);
+		return 0;
 	syntax();
-	return (1);
+	return 1;
 }
+
 s_break()
 {
 	register CON *cp;
@@ -137,28 +180,39 @@ s_break()
 		freebuf(cp->c_bpp);
 	}
 	printe("%s out of bounds", ret==1 ? "Continue" : "Break");
-	reset(RBRKCON);
-	NOTREACHED;
 }
+
 /* s_continue is overlaid with s_break */
+
 s_cd()
 {
-	register char *cp;
+	register char *dir;
 
-	cp = nargc<2 ? vhome : nargv[1];
-	if (chdir(cp) < 0) {
-		printe("%s: bad directory", cp);
-		return (1);
-	}
-	return (0);
+	if ((dir = cd((nargc<2) ? vhome : nargv[1])) == NULL)
+		return -1;			/* cd failed */
+	if (dstack[dstkp] != NULL)
+		sfree(dstack[dstkp]);
+	dstack[dstkp] = duplstr(dir, 1);	/* update dir stack */
+	return 0;
 }
+
+s_dirs()
+{
+	register int i;
+
+	for (i = dstkp; i >= 0; i--)
+		fprintf(stderr, "%s ", dstack[i]);
+	fputc('\n', stderr);
+}
+
 s_eval()
 {
 	if (nargc>1)
-		return (session(SARGV, ++nargv));
+		return session(SARGV, ++nargv);
 	else
-		return (0);
+		return 0;
 }
+
 s_exec()
 {
 	if (redirect(niovp) < 0) {
@@ -166,10 +220,10 @@ s_exec()
 			exit(1);
 			NOTREACHED;
 		}
-		return (1);
+		return 1;
 	}
 	if (nargc==1)
-		return (0);
+		return 0;
 	if (no1flag)
 		cleanup(2, NULL);
 	dflttrp(ICMD);
@@ -180,6 +234,7 @@ s_exec()
 	exit(1);
 	NOTREACHED;
 }
+
 s_exit()
 {
 	if (nargc > 1)
@@ -187,6 +242,7 @@ s_exit()
 	reset(RUEXITS);
 	NOTREACHED;
 }
+
 s_export()
 {
 	register int flag;
@@ -201,8 +257,9 @@ s_export()
 				flagvar(*varv++, flag);
 			else
 				eillvar(*varv++);
-	return (0);
+	return 0;
 }
+
 s_login()
 {
 	register char *cmd;
@@ -210,9 +267,61 @@ s_login()
 	cmd = nargv[0][0]=='l' ? "/bin/login" : "/bin/newgrp";
 	execve(cmd, nargv, envlvar(nenvp));
 	ecantfind(cmd);
-	return (1);
+	return 1;
 }
+
 /* s_newgrp is overlaid with s_login */
+
+s_popd()
+{
+	register int i, j, n, ret;
+
+	if (nargc == 1)
+		return popd();
+	/*
+	 * Kludge to pop one or more specific dir stack elements.
+	 * Do args backwards so e.g. "popd 2 3 4" works as expected.
+	 * Internal indices [0, dstkp] are user indices [dstkp, 0].
+	 */
+	for (ret = 0, i = nargc-1; i > 0; i--) {
+		if ((n = atoi(nargv[i])) == 0)
+			ret |= popd();
+		else if (n < 0 || n > dstkp) {
+			printe("Illegal arg: %d", n);
+			ret = -1;
+			continue;
+		} else {
+			j = dstkp - n;
+			if (dstack[j] != NULL)
+				sfree(dstack[j]);
+			for ( ; j < dstkp; j++)
+				dstack[j] = dstack[j+1];
+			--dstkp;
+		}
+	}
+	return ret;
+}
+
+s_pushd()
+{
+	register char *dir;
+	register int i, ret;
+
+	if (nargc == 1) {
+		/* Exchange top two stack elements. */
+		if (dstkp == 0)
+			return 1;		/* only one element on stack */
+		dir = dstack[dstkp-1];
+		dstack[dstkp-1] = dstack[dstkp];
+		dstack[dstkp] = dir;		/* exchange top two */
+		return ((cd(dir) == NULL) ? -1 : 0);	/* and cd accordingly */
+	}
+	/* Push one or more directories to stack. */
+	for (ret = 0, i = 1; i < nargc; i++)
+		ret |= pushd(nargv[i]);
+	return ret;
+}
+
 s_read()
 {
 	SES s;
@@ -232,9 +341,11 @@ s_read()
 			if (c == '\n')
 				--strp;
 			*strp = '\0';
-		} else if (! eol)
+		} else if (! eol) {
+			readflag = 1;
 			c = yylex();
-		else
+			readflag = 0;
+		} else
 			*strt = '\0';
 		if (namevar(*vp))
 			assnvar(*vp, duplstr(strt, 0));
@@ -243,17 +354,20 @@ s_read()
 		eol = c=='\n' || c==EOF;
 	}
 	sesp = s.s_next;
-	return (c==EOF);
+	return c==EOF;
 }
+
 /* s_readonly overlaid with s_export */
+
 s_set()
 {
 	if (nargc < 2) {
 		tellvar(0);
-		return (0);
+		return 0;
 	}
-	return (set(nargc, nargv, 0));
+	return set(nargc, nargv, 0);
 }
+
 s_shift()
 {
 	register int n;
@@ -264,18 +378,27 @@ s_shift()
 		sargc -= 1;
 		sargp += 1;
 	}
-	return (n!=0);
+	return n!=0;
 }
+
 s_times()
 {
+#if	_I386
+#define	tb_cutime	tms_cutime
+#define	tb_cstime	tms_cstime
+	struct	tms	tb;
+#else
 	struct tbuffer tb;
+
+#endif
 
 	times(&tb);
 	ptime(tb.tb_cutime);
 	ptime(tb.tb_cstime);
 	prints("\n");
-	return (0);
+	return 0;
 }
+
 s_trap()
 {
 	register char **vp;
@@ -284,7 +407,7 @@ s_trap()
 
 	err = 0;
 	if (nargc==1)
-		return (telltrp());
+		return telltrp();
 	vp = ++nargv;
 	cp = *vp;
 	if (class(cp[0], MDIGI)
@@ -300,16 +423,18 @@ s_trap()
 			err |= 1;
 		}
 	}
-	return (err);
+	return err;
 }
+
 s_umask()
 {
 	if (nargc < 2)
 		prints("%03o\n", ufmask);
 	else
 		umask(ufmask = atoi(nargv[1]));
-	return (0);
+	return 0;
 }
+
 s_wait()
 {
 	register int f;
@@ -318,7 +443,65 @@ s_wait()
 	if (f > 0)
 		f = -f;
 	waitc(f);
-	return (slret);
+	return slret;
+}
+
+/*
+ * Change to given directory.
+ * Update global variable CWD accordingly.
+ * Return NULL if bad, otherwise full pathname of the directory.
+ */
+char *
+cd(dir) register char *dir;
+{
+	if (chdir(dir) < 0) {
+		printe("%s: bad directory", dir);
+		return NULL;
+	}
+	if (*dir != '/') {
+		/*
+		 * Find an absolute pathname for the dstack and $CWD.
+		 * The directory now in dstack[dstkp] is "." if getwd() failed
+		 * for any reason (e.g., the user lacks search permission
+		 * down the path to "/", or "." was rm'ed by another process).
+		 * Avoid getwd() in this case, it can undo the chdir() above.
+		 */
+		if ((strcmp(dstack[dstkp], ".") == 0)
+		 || ((dir = getwd()) == NULL))
+			return NULL;
+	}
+	assnvar("CWD", dir);
+	return dir;
+}
+
+/*
+ * Pop the directory stack and change to the previous stacked directory.
+ */
+popd()
+{
+	if (dstkp == 0) {
+		printe("Directory stack underflow");
+		return -1;
+	}
+	if (dstack[dstkp] != NULL)
+		sfree(dstack[dstkp]);
+	return (cd(dstack[--dstkp]) == NULL ? -1 : 0);
+}
+
+/*
+ * Change to given directory and add it to the directory stack.
+ */
+pushd(dir) register char *dir;
+{
+	if ((dir = cd(dir)) == NULL)
+		return -1;			/* cd failed */
+	if (++dstkp >= DSTACKN) {
+		--dstkp;
+		printe("Directory stack overflow");
+		return -1;
+	}
+	dstack[dstkp] = duplstr(dir, 1);
+	return 0;
 }
 
 /*
@@ -357,17 +540,16 @@ register char *argv[];
 			xflag = 0;
 		}
 		if (flag == 0 && argc == 2)
-			return (errflag);
+			return errflag;
 	}
 	if (errflag)
-		return (1);
-	if (sargv != NULL) {
+		return 1;
+	if (sargv != NULL)
 		vfree(sargv);
-	}
 	sargv = vdupl(argv);
 	sargc = argc - n;
 	sargp = sargv + n;
-	return (0);
+	return 0;
 }
 
 /*
@@ -389,3 +571,5 @@ long t;
 	}
 	prints("%d.%ds ", seconds, tenths);
 }
+
+/* end of sh/exec3.c */

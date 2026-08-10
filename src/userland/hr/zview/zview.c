@@ -17,11 +17,13 @@
  * gfx_reply_hook and turned into E_EXPOSE events to the affected client, which
  * repaints (redraw-on-expose, GUI.md sec 2.10).
  *
- * Nothing about the desktop's contents is compiled in: what comes up at start-up
- * is the shell script /usr/hr/etc/rc (runrc), and what the right-click desktop
- * menu offers is the catalog /usr/hr/etc/apps (loadapps).  An app declares its
- * own window when it connects (wire.h HRCONN), and may be started either by us
- * or straight from a shell.
+ * Nothing about the desktop's contents is compiled in: the catalog
+ * /usr/hr/etc/apps (loadapps) names what the right-click desktop menu offers
+ * AND which entries get a start-up placeholder icon -- an icon with no process
+ * behind it that launches the app when clicked (placesync/drawplace) -- and
+ * the shell script /usr/hr/etc/rc (runrc) starts anything the user wants
+ * resident from power-on.  An app declares its own window when it connects
+ * (wire.h HRCONN), and may be started either by us or straight from a shell.
  */
 #include <stdio.h>
 #include <signal.h>
@@ -61,6 +63,8 @@ struct win {
 	int	stretch;	/* 1 = the client allows the user to resize it */
 	int	confirm;	/* 1 = window-menu Quit asks first (HRF_CONFIRM) */
 	int	menu;		/* HRM_* the client wants in its window menu */
+	int	ourkid;		/* 1 = we forked this client (launchapp), so  */
+				/* its corpse is OURS to reap (see deadpool)  */
 } wins[MAX_WINDOWS];
 
 int	cmdfd;			/* server end (read) of the shared command pipe */
@@ -68,18 +72,37 @@ int	cmdwr;			/* write end kept so children can inherit it    */
 
 /* Launchable applications, read from /usr/hr/etc/apps at startup (GUI.md: a
  * data-driven launcher menu so new software installs without recompiling the
- * server).  One line per app: name:execpath:multi .  The catalog says only what
- * the SERVER has to decide -- what the launcher menu reads and whether a second
- * copy may be started; the window's title, size, icon and flags belong to the
- * application and reach us in its C_CONNECT (wire.h), so an app can also be run
- * with a bare argv from a shell.  The table is fixed-size bss (no heap) and the
- * strings are filled at runtime, so nothing here bloats the near-full data
- * segment. */
+ * server).  One line per app: name:execpath:multi:icon:X,Y (the last two
+ * optional).  The catalog says only what the SERVER has to decide -- what the
+ * launcher menu reads and whether a second copy may be started; the window's
+ * title, size, icon and flags belong to the application and reach us in its
+ * C_CONNECT (wire.h), so an app can also be run with a bare argv from a shell.
+ *
+ * An entry with an `icon' field additionally gets a PLACEHOLDER icon on the
+ * desktop: it is drawn like a minimised window's icon (minus the live-process
+ * badge, drawiconc) but NO process exists behind it -- clicking it launches
+ * the program (at X,Y if given).
+ * This replaced starting every app from the rc script minimised with -H,
+ * which held a whole resident process per icon on a machine where memory is
+ * the scarce thing.  A single-instance entry's placeholder leaves the desktop
+ * while its window is open and comes back when it closes (placesync); a
+ * multi-instance entry's is permanent, labelled "New <name>", and every click
+ * starts a fresh copy.  The placeholder icon is named HERE, not by the app,
+ * because it must exist before the app does; once the app connects, its own
+ * declared artwork wins for the real minimised icon.
+ *
+ * The table is fixed-size bss (no heap) and the strings are filled at
+ * runtime, so nothing here bloats the near-full data segment. */
 #define MAX_APPS	12
 struct app {
 	char	name[16];	/* menu label                                     */
 	char	path[40];	/* executable                                     */
 	int	multi;		/* 1 = allow many instances; 0 = single (re-raise) */
+	char	icon[20];	/* placeholder .icn; "" = no placeholder icon     */
+	int	px, py;		/* window origin for a placeholder launch, -1 =   */
+				/* none given (window opens where the click was)  */
+	int	show;		/* 1 = placeholder icon currently on the desktop  */
+	int	islot;		/* its desktop-icon slot while shown              */
 } apps[MAX_APPS];
 int	napps;
 
@@ -95,6 +118,54 @@ struct pend {
 	int	seq;		/* launch order, for reclaiming the oldest slot */
 } pends[MAX_WINDOWS];
 int	pendseq;
+
+/* Children whose death is expected (a client whose window was killed, the rc
+ * script's shell) wait here to be reaped.  The server can never call a bare
+ * wait() -- it would block the whole desktop behind the input pump -- so each
+ * entry is PROBED with kill(pid, 0) first: this kernel answers ESRCH for a
+ * zombie (PSDEAD, coh/sys1.c ukill), and only a probe that says "dead" makes
+ * the wait() call, which then cannot block -- a dead unreaped child of ours
+ * guarantees at least one zombie to collect.  Without this every closed
+ * window left a zombie in the process table for the life of the session,
+ * which is process slots gone exactly when the desktop is starved (the
+ * memory-exhaustion complaints started here).
+ * A full pool just drops the entry -- that child stays a zombie until quitwm,
+ * which is the pre-pool behaviour, not a new failure. */
+#define NDEAD	(2 * MAX_WINDOWS)
+int	deadpid[NDEAD];
+int	ndead;
+
+deadadd(pid)
+{
+	if ( pid > 0 && ndead < NDEAD )
+		deadpid[ndead++] = pid;
+}
+
+/* Probe the pool; on the first corpse found, reap ONE zombie child.  wait()
+ * may hand back a different child than the one probed (any zombie of ours) --
+ * drop whichever entry it names (the probed one stays for the next pass, and
+ * every zombie gets collected within a few passes).  At most one wait() per
+ * call keeps this O(small) inside the main loop. */
+reapdead()
+{
+	register int i, w;
+	int st;
+
+	for ( i = 0; i < ndead; i++ )
+		if ( kill(deadpid[i], 0) < 0 )
+		{
+			w = wait(&st);
+			if ( w < 0 )
+				w = deadpid[i];	/* no child?? drop the entry */
+			for ( i = 0; i < ndead; i++ )
+				if ( deadpid[i] == w )
+				{
+					deadpid[i] = deadpid[--ndead];
+					break;
+				}
+			return;
+		}
+}
 
 int	nwins;			/* count of live windows          */
 int	focuswid = -1;		/* window that receives keystrokes (Phase 2) */
@@ -677,6 +748,8 @@ killwin(wid)
 	if ( selwid == wid )			/* its highlight goes with the window */
 		selwid = -1;
 	hr_ackclr(wins[wid].pid);	/* release its connect-ack slot */
+	if ( wins[wid].ourkid )		/* our fork: reap the corpse when it turns up */
+		deadadd(wins[wid].pid);
 	sendev(wid, E_QUIT, 0, 0, 0, 0);	/* outside the lock: may block */
 	hr_setdraw(wid, 0);		/* client is gone: drop its drain flag so the */
 					/* srvlock() below (and later ops) don't spin */
@@ -714,6 +787,8 @@ killwin(wid)
 		expose_covered(wid, old.origin.x, old.origin.y,
 				    old.corner.x, old.corner.y);
 	redraw_icons();				/* closing a window may uncover icons */
+	placesync();		/* last window of a single-instance app gone: its
+				 * placeholder icon returns to the desktop */
 }
 
 /* Raise a window to the front (click-to-raise / demo cycling). */
@@ -801,6 +876,18 @@ expose_covered(exclwid, rx0, ry0, rx1, ry1)
 		     lp->rect.origin.x < rx1 && lp->rect.corner.x > rx0 &&
 		     lp->rect.origin.y < ry1 && lp->rect.corner.y > ry0 )
 		{
+			/* The client repaints only its CONTENT; the frame, title
+			 * bar and shadow are the server's.  The engine redraws
+			 * those from dellayer/pushback's update list -- but that
+			 * list lives in fixed-size tables (update[] / the per-
+			 * layer reg[]), and with many overlapping windows they
+			 * saturate and entries drop, leaving an uncovered
+			 * window's decoration background-filled (the "closing
+			 * one of many windows eats the title bars below" bug).
+			 * Redraw the decoration unconditionally: outline/
+			 * srvtitle clip to the layer's L_VISIBLE regions, so
+			 * this can never paint over a covering window. */
+			redecorate(w);
 			/* Only the part this window had COVERED is damaged, so send
 			 * that and not the whole content: sp->ox/oy is where the
 			 * content sits on screen (shmem.h HRSURF), and qexposer
@@ -925,6 +1012,9 @@ startpump()
 #define ICONPR	((XMAX - 2 * ICONX0) / ICONCW)	/* icons per row */
 #define iconx(slot) (ICONX0 + ((slot) % ICONPR) * ICONCW)
 #define icony(slot) (ICONY0 + ((slot) / ICONPR) * ICONCH)
+
+/* Fallback artwork when an icon is not installed (see iconok below). */
+#define HR_DEFICON	"icon0.icn"
 
 extern int	*texture[];
 extern int	words_between();
@@ -1162,7 +1252,8 @@ RECT clip;
 	bitblt(&blt, 1, 0);
 }
 
-/* Lowest desktop-icon slot not currently occupied by a minimised window. */
+/* Lowest desktop-icon slot not currently occupied by a minimised window or by
+ * an app placeholder -- the two kinds share the one icon field. */
 iconslot()
 {
 	int s, w, used;
@@ -1176,6 +1267,9 @@ iconslot()
 				used = 1;
 				break;
 			}
+		for ( w = 0; w < napps && !used; w++ )
+			if ( apps[w].show && apps[w].islot == s )
+				used = 1;
 		if ( !used )
 			return s;
 	}
@@ -1253,20 +1347,26 @@ RECT cell, out[];
 	return (nw < max) ? nw : max;
 }
 
-/* Draw (on) or erase (off) a minimised window's desktop icon + label, CLIPPED to
- * the parts of its cell not covered by any window -- icons are not layers, so we
- * clip them to the bare desktop ourselves (a partially covered icon shows its
- * visible piece; a fully covered one shows nothing, and moving a window off it
- * makes it reappear via redraw_icons). */
-drawicon(wid, on)
+/* Core icon-cell painter: draw (on) or erase (off) the 48px artwork `iname' +
+ * text `label' in desktop-icon slot `slot', CLIPPED to the parts of its cell
+ * not covered by any window -- icons are not layers, so we clip them to the
+ * bare desktop ourselves (a partially covered icon shows its visible piece; a
+ * fully covered one shows nothing, and moving a window off it makes it
+ * reappear via redraw_icons).  Shared by a minimised window's icon (drawicon,
+ * live=1) and an app placeholder's (drawplace, live=0): a LIVE icon has a
+ * running process behind it and carries a marker -- a small black square badge
+ * in the glyph's bottom-right corner -- so it reads apart from a placeholder,
+ * which looks the same but starts a fresh process when clicked. */
+drawiconc(slot, iname, label, on, live)
+char *iname, *label;
 {
-	RECT cell, plate, vr[ICONRB], lc;
+	RECT cell, plate, badge, vr[ICONRB], lc;
 	HRFONT *f;
 	char lab[ICONLMAX + 1];
 	int x, y, nvr, i, lx, ly, nc;
 
-	x = iconx(wins[wid].islot);
-	y = icony(wins[wid].islot);
+	x = iconx(slot);
+	y = icony(slot);
 	cell.origin.x = x - ICONPAD;             cell.origin.y = y - 2;
 	cell.corner.x = x + ICONW + ICONPAD;     cell.corner.y = y + ICONW + ICONLH + 2;
 	/* The label is black-on-white; the glyph cells alone would butt straight
@@ -1276,23 +1376,38 @@ drawicon(wid, on)
 	 * 1px of white pads the glyphs inside the plate.  The label is centred under
 	 * the glyph and truncated to what the cell holds. */
 	f = hr_font(SHM_FICON);
-	nc = strlen(wins[wid].title);
+	nc = strlen(label);
 	if ( nc > ICONLMAX )
 		nc = ICONLMAX;
-	strncpy(lab, wins[wid].title, nc);
+	strncpy(lab, label, nc);
 	lab[nc] = '\0';
 	lx = x + (ICONW - nc * f->cellw) / 2;
 	ly = y + ICONW + 2;
 	plate.origin.x = lx - 1;           plate.origin.y = ly - 1;
 	plate.corner.x = lx + nc * f->cellw + 1;
 	plate.corner.y = ly + f->cellh + 1;
+	/* The live marker: a 6x6 black square inside a 10x10 white surround at the
+	 * glyph's bottom-right corner.  The white ring keeps it readable even where
+	 * the artwork's own strokes reach the corner. */
+	badge.origin.x = x + ICONW - 10;   badge.origin.y = y + ICONW - 10;
+	badge.corner.x = x + ICONW;        badge.corner.y = y + ICONW;
 	nvr = desktop_rects(cell, vr, ICONRB);
 	gfx_cursor_hide();
 	for ( i = 0; i < nvr; i++ ) {
 		srvfill(vr[i], 10, L_TRUE);		/* clear this visible piece */
 		if ( !on )
 			continue;
-		srvicon(x, y, wins[wid].icon, vr[i]);	/* app icon, clipped */
+		srvicon(x, y, iname, vr[i]);	/* app icon, clipped */
+		if ( live ) {
+			lc = R_Intersection(badge, vr[i]);
+			if ( !R_null(lc) )
+				srvfill(lc, 0, L_TRUE);	/* white surround */
+			lc.origin.x = badge.origin.x + 2;  lc.origin.y = badge.origin.y + 2;
+			lc.corner.x = badge.corner.x - 2;  lc.corner.y = badge.corner.y - 2;
+			lc = R_Intersection(lc, vr[i]);
+			if ( !R_null(lc) )
+				srvfill(lc, 0, L_FALSE);	/* black square */
+		}
 		if ( nc <= 0 )
 			continue;
 		lc = R_Intersection(plate, vr[i]);
@@ -1302,6 +1417,29 @@ drawicon(wid, on)
 		}
 	}
 	gfx_cursor_show();
+}
+
+/* A minimised window's desktop icon: artwork from its connect record, label =
+ * its (possibly "#N"-suffixed) title. */
+drawicon(wid, on)
+{
+	drawiconc(wins[wid].islot, wins[wid].icon, wins[wid].title, on, 1);
+}
+
+/* Catalog entry `ai's placeholder icon.  A multi-instance entry is labelled
+ * "New <name>" -- clicking it always starts a FRESH copy, and the label is
+ * what tells the user so (a plain "Shell" icon would read as one particular
+ * shell); a single-instance entry just shows its name, since its placeholder
+ * and its minimised window are never on screen together. */
+drawplace(ai, on)
+{
+	char lab[24];
+
+	if ( apps[ai].multi )
+		sprintf(lab, "New %s", apps[ai].name);
+	else
+		strcpy(lab, apps[ai].name);
+	drawiconc(apps[ai].islot, apps[ai].icon, lab, on, 0);
 }
 
 /* Repaint every minimised window's icon.  The engine never repaints icons (they
@@ -1317,6 +1455,43 @@ redraw_icons()
 	for ( w = 0; w < MAX_WINDOWS; w++ )
 		if ( wins[w].used && wins[w].min )
 			drawicon(w, 1);
+	for ( w = 0; w < napps; w++ )
+		if ( apps[w].show )
+			drawplace(w, 1);
+	srvunlock();
+}
+
+/* Recompute which catalog entries should be showing a placeholder icon and
+ * draw/erase the deltas.  Visible = has artwork AND (multi-instance, or no
+ * live window launched from that entry).  Called at startup (everything
+ * shows), after a connect (a single-instance app now has its window: its
+ * placeholder comes off) and after a window teardown (the last window of a
+ * single-instance app closed: its placeholder returns) -- so from the user's
+ * side the app seems to minimise itself back to its icon, but the process and
+ * its memory are gone. */
+placesync()
+{
+	int i, vis;
+
+	srvlock();
+	for ( i = 0; i < napps; i++ )
+	{
+		if ( !apps[i].icon[0] )
+			continue;
+		vis = apps[i].multi || appwindow(i) < 0;
+		if ( vis && !apps[i].show )
+		{
+			apps[i].islot = iconslot();
+			apps[i].show = 1;
+			drawplace(i, 1);
+		}
+		else if ( !vis && apps[i].show )
+		{
+			drawplace(i, 0);
+			apps[i].show = 0;
+			apps[i].islot = -1;
+		}
+	}
 	srvunlock();
 }
 
@@ -1523,61 +1698,101 @@ resizewin(wid, cx, cy)
 /* ------------------------------------------------------------------ */
 
 /* Read /usr/hr/etc/apps into apps[].  One line per app:
- * name:execpath:multi  ('#'/blank lines skipped). */
+ * name:execpath:multi:icon:X,Y  -- the last two optional ('#'/blank lines
+ * skipped).  `icon' makes the entry a desktop placeholder (struct app above);
+ * artwork that is not installed falls back to the generic icon, like a
+ * client's connect record does. */
+/* One catalog line -> an apps[] entry (comment/blank/overlong-comment lines
+ * come through here too and are skipped). */
+static
+appline(p)
+char *p;
+{
+	char *fld[5];
+	char *f;
+	int nf;
+
+	if ( !*p || *p == '#' || napps >= MAX_APPS )
+		return;
+	nf = 0;
+	fld[nf++] = p;
+	f = p;
+	while ( nf < 5 )
+	{
+		while ( *f && *f != ':' )
+			f++;
+		if ( !*f )
+			break;
+		*f++ = 0;
+		fld[nf++] = f;
+	}
+	if ( nf >= 2 )
+	{
+		struct app *a;
+
+		a = &apps[napps++];
+		strncpy(a->name, fld[0], sizeof(a->name) - 1);
+		strncpy(a->path, fld[1], sizeof(a->path) - 1);
+		a->multi = (nf > 2) ? atoi(fld[2]) : 0;
+		a->px = a->py = -1;
+		a->show = 0;
+		a->islot = -1;
+		if ( nf > 3 && fld[3][0] )
+			strncpy(a->icon,
+				iconok(fld[3]) ? fld[3] : HR_DEFICON,
+				sizeof(a->icon) - 1);
+		if ( nf > 4 )
+		{
+			char *q;
+
+			a->px = atoi(fld[4]);
+			for ( q = fld[4]; *q && *q != ','; q++ )
+				;
+			if ( *q )
+				a->py = atoi(q + 1);
+			if ( a->px < 0 || a->py < 0 )
+				a->px = a->py = -1;
+		}
+	}
+}
+
 loadapps()
 {
-	int fd, nb;
-	char buf[1024];
-	char *p, *e;
+	int fd, nb, ll;
+	char rb[256];		/* read chunk                             */
+	char line[160];		/* one line; longer ones are truncated,   */
+				/* which only ever bites a comment        */
+	register int i;
 
 	napps = 0;
 	fd = open("/usr/hr/etc/apps", 0);
 	if ( fd < 0 )
 		return;
-	nb = read(fd, buf, sizeof(buf) - 1);
-	close(fd);
-	if ( nb <= 0 )
-		return;
-	buf[nb] = 0;
-	p = buf;
-	while ( *p && napps < MAX_APPS )
+	/* Stream the file a chunk at a time: the catalog must never be
+	 * silently truncated by a fixed whole-file buffer (it once was, at
+	 * 2048 bytes -- the entries past the header comment just vanished). */
+	ll = 0;
+	while ( (nb = read(fd, rb, sizeof(rb))) > 0 )
 	{
-		char *fld[3];
-		int nf;
-
-		e = p;
-		while ( *e && *e != '\n' )
-			e++;
-		if ( *e )
-			*e++ = 0;
-		if ( *p && *p != '#' )
+		for ( i = 0; i < nb; i++ )
 		{
-			char *f;
-
-			nf = 0;
-			fld[nf++] = p;
-			f = p;
-			while ( nf < 3 )
+			if ( rb[i] != '\n' )
 			{
-				while ( *f && *f != ':' )
-					f++;
-				if ( !*f )
-					break;
-				*f++ = 0;
-				fld[nf++] = f;
+				if ( ll < sizeof(line) - 1 )
+					line[ll++] = rb[i];
+				continue;
 			}
-			if ( nf >= 2 )
-			{
-				struct app *a;
-
-				a = &apps[napps++];
-				strncpy(a->name, fld[0], sizeof(a->name) - 1);
-				strncpy(a->path, fld[1], sizeof(a->path) - 1);
-				a->multi = (nf > 2) ? atoi(fld[2]) : 0;
-			}
+			line[ll] = 0;
+			ll = 0;
+			appline(line);
 		}
-		p = e;
 	}
+	if ( ll > 0 )
+	{
+		line[ll] = 0;
+		appline(line);
+	}
+	close(fd);
 }
 
 /* Set window wid's displayed title from its base: plain when it is the only
@@ -1629,6 +1844,28 @@ char *base;
  * C_CONNECT (doconnect below), which is what carries the title/size/icon/flags.
  * All we keep meanwhile is a pending slot.  Returns 0, or -1 if it could not be
  * started. */
+/* Is pending-launch slot p still backed by a live process?  A launch that
+ * died before its C_CONNECT -- under memory exhaustion the exec or the app's
+ * own start-up fails -- must not hold its slot: apppending() would then say
+ * "on its way" for ever and every later click on that icon would do nothing,
+ * even long after the memory came back (the stuck-icon bug).  kill(pid, 0)
+ * probes liveness (a zombie is PSDEAD: ESRCH); a dead launch frees the slot
+ * and is reaped on the spot -- wait() cannot block, the pid is our own
+ * unreaped child, so a zombie child of ours exists right now. */
+static
+pendlive(p)
+{
+	int st;
+
+	if ( !pends[p].used )
+		return 0;
+	if ( kill(pends[p].pid, 0) >= 0 )
+		return 1;
+	pends[p].used = 0;	/* died before its C_CONNECT: free + reap */
+	wait(&st);
+	return 0;
+}
+
 launchapp(ai, x, y)
 {
 	int i, p, ev[2], pid;
@@ -1640,8 +1877,8 @@ launchapp(ai, x, y)
 
 	p = -1;
 	for ( i = 0; i < MAX_WINDOWS; i++ )
-		if ( !pends[i].used )
-		{
+		if ( !pendlive(i) )		/* free, or freed just now: a dead */
+		{				/* launch must not hold its slot   */
 			p = i;
 			break;
 		}
@@ -1711,9 +1948,8 @@ runrc()
 
 /* Is `name' an installed icon?  A client may ask for artwork that was never
  * shipped (or ask for none at all); rather than leave a minimised window with a
- * bare label, fall back to the generic application icon -- and if even that is
- * missing, to nothing, which drawicon already tolerates. */
-#define HR_DEFICON	"icon0.icn"
+ * bare label, fall back to the generic application icon (HR_DEFICON) -- and if
+ * even that is missing, to nothing, which drawiconc already tolerates. */
 iconok(name)
 char *name;
 {
@@ -1820,6 +2056,7 @@ HRCONN *hc;
 	wins[wid].confirm = (hc->hc_flags & HRF_CONFIRM) != 0;
 	wins[wid].menu = hc->hc_menu & HRM_ALL;	/* its own window-menu entries */
 	wins[wid].pid = hc->hc_pid;
+	wins[wid].ourkid = (p >= 0);	/* forked by launchapp: reap it when it dies */
 	wins[wid].min = 0;
 	hr_evinit(wid);			/* a reused wid must not inherit the old
 					 * occupant's queued events */
@@ -1847,6 +2084,11 @@ HRCONN *hc;
 		wins[wid].inst = hi + 1;
 	}
 	relabel(wins[wid].base);
+	/* A single-instance app now has its window: its placeholder icon (if it
+	 * had one) comes off the desktop.  Done BEFORE a -H minimise below picks
+	 * an icon slot, so the slot the placeholder frees is the lowest one again
+	 * and the minimised icon lands where the placeholder sat. */
+	placesync();
 
 	/* The granted content size, read out BEFORE anything else can happen to the
 	 * window: -H takes wtbl[wid] away (minwin stashes the WSTRUCT). */
@@ -1965,6 +2207,13 @@ int *s, *d;
 		*d++ = *s++;
 }
 
+/* Dialog-kit helpers (defined below, with the dialog section) that the menu
+ * shares.  dlg_save MUST be declared before use: it returns a pointer, and an
+ * implicit-int declaration would truncate it to a 16-bit word. */
+static int	*dlg_save();
+static int	dlg_down();
+static int	dlg_border();
+
 /* Pop up a menu of n text items at (mx0,my0); track the pointer in a nested
  * command-pipe loop (client draws are frozen meanwhile); return the selected
  * index or -1.  The pixels under the box are saved and restored, so whatever was
@@ -1973,7 +2222,7 @@ srvmenu(items, n, mx0, my0)
 char *items[];
 {
 	RECT box;
-	int i, w, itemh, boxw, boxh, sel, last, it, yy, wpl, rows;
+	int i, w, itemh, boxw, boxh, sel, last, it, wpl;
 	int *buf;
 	WMSG c;
 
@@ -2001,34 +2250,10 @@ char *items[];
 	box.corner.x = box.origin.x + boxw;
 	box.corner.y = box.origin.y + boxh;
 
-	rows = box.corner.y - box.origin.y;
-	wpl = words_between(box.origin.x, box.corner.x);
-	buf = (int *)malloc(wpl * rows * 2);
-	/* Freeze direct-render clients for the menu's whole lifetime: the menu is a
-	 * transient overlay, NOT a layer, so a client's clip can't exclude it and it
-	 * would otherwise paint over it (the flood-covers-the-menu bug).  Set the flag
-	 * BEFORE taking the lock so a client that checks it while holding the lock sees
-	 * it; take the lock around the save+draw so any in-flight client primitive
-	 * finishes first and the menu lands on top of it. */
-	hr_glob()->overlay = OV_MENU;
-	srvlock();
-	/* Hide the cursor BEFORE saving the pixels under the menu: otherwise the XOR
-	 * cursor (if it overlaps the box) is captured into the save buffer and
-	 * painted back on restore, leaving a stray arrow where the menu was. */
-	gfx_cursor_hide();
-	if ( buf )
-		for ( yy = 0; yy < rows; yy++ )
-			mnu_wcpy(screen_addr(box.origin.x, box.origin.y + yy),
-				 buf + yy * wpl, wpl);
+	buf = dlg_save(box, &wpl, OV_MENU);
 
 	srvfill(box, 0, L_TRUE);			/* white body */
-	{
-		RECT e;
-		e = box; e.corner.y = box.origin.y + 1;   srvfill(e, 0, L_FALSE);
-		e = box; e.origin.y = box.corner.y - 1;   srvfill(e, 0, L_FALSE);
-		e = box; e.corner.x = box.origin.x + 1;   srvfill(e, 0, L_FALSE);
-		e = box; e.origin.x = box.corner.x - 1;   srvfill(e, 0, L_FALSE);
-	}
+	dlg_border(box);
 	for ( i = 0; i < n; i++ )
 		if ( items[i] == MNU_DIV )
 		{
@@ -2087,28 +2312,7 @@ char *items[];
 		}
 	}
 
-	srvlock();
-	gfx_cursor_hide();
-	if ( buf )
-	{
-		for ( yy = 0; yy < rows; yy++ )
-			mnu_wcpy(buf + yy * wpl,
-				 screen_addr(box.origin.x, box.origin.y + yy), wpl);
-		free((char *)buf);
-	}
-	else
-		background(box);	/* malloc failed: no saved pixels, so repaint the */
-					/* desktop where the menu was, then re-expose windows */
-	gfx_cursor_show();
-	srvunlock();
-	hr_glob()->overlay = 0;		/* clients may draw again (they full-repaint) */
-	/* If we couldn't save/restore (low memory), the menu box was left on screen
-	 * -- exactly the "menu never goes away" bug.  Having painted the desktop back
-	 * over it above, now ask any windows it overlapped to repaint (outside the
-	 * lock: sendev may block).  This guarantees the menu is dismissed. */
-	if ( !buf )
-		expose_covered(-1, box.origin.x, box.origin.y,
-			       box.corner.x, box.corner.y);
+	dlg_down(box, buf, wpl);
 	if ( curfd >= 0 ) ioctl(curfd, CIOMOUSE, DEF_MOUSE);	/* restore arrow */
 	return sel;
 }
@@ -2194,138 +2398,102 @@ RECT brc[];
 	gfx_cursor_show();
 }
 
-/* The server's own modal dialog: a centred box with a message (msg; '|' breaks
- * it into up to 4 lines) and 1..3 buttons (b1/b2 may be NULL), drawn with the
- * same save-under / overlay-freeze bracket as srvmenu and tracked in the same
- * nested command-pipe loop.  MOUSE ONLY (keys are ignored, like the menu);
- * classic arm/track buttons: a left press INSIDE a button arms and inverts it,
- * dragging out disarms, and only a release inside the armed button commits --
- * a release anywhere else leaves the dialog up (it is modal; every caller
- * provides a safe button, so there is no escape hatch to need).  Returns the
- * committed button's index (0-based).  Chrome metrics come from hrdlg.h so a
- * server confirmation looks exactly like a client dialog. */
-srvdialog(msg, b0, b1, b2)
-char *msg, *b0, *b1, *b2;
+/* Centre a bw x bh dialog on screen (x word-aligned for the row save/restore)
+ * and give it the window-style drop-shadow margin: *pbox is what gets saved
+ * and painted (card + shadow), *pcard the card the chrome is drawn on. */
+static
+dlg_place(bw, bh, pbox, pcard)
+RECT *pbox, *pcard;
 {
-	RECT box, card, brc[3];
-	char mbuf[128];
-	char *lines[4], *bl[3];
-	int nl, nb, fw, fh, i, w, lw, bw, boxw, boxh;
-	int rows, wpl, yy, bx, by, sel, press, in, hit;
+	pbox->origin.x = ((XMAX - bw - WD_SHADOW) / 2) & ~0x0f;
+	pbox->origin.y = (YMAX - bh - WD_SHADOW) / 2;
+	if ( pbox->origin.x < 0 ) pbox->origin.x = 0;
+	if ( pbox->origin.y < 0 ) pbox->origin.y = 0;
+	pbox->corner.x = pbox->origin.x + bw + WD_SHADOW;
+	pbox->corner.y = pbox->origin.y + bh + WD_SHADOW;
+	*pcard = *pbox;
+	pcard->corner.x -= WD_SHADOW;
+	pcard->corner.y -= WD_SHADOW;
+}
+
+/* Paint one dialog button: border, mini drop shadow, centred label.  The
+ * +1,+1: the FUI glyphs sit high-left in their cells, so plain integer
+ * centring lands the label a pixel off (see memory: recurring). */
+static
+dlg_button(r, label)
+RECT r;
+char *label;
+{
+	RECT s;
+
+	dlg_border(r);
+	s = r;
+	s.corner.x += DLG_BSHAD;
+	s.corner.y += DLG_BSHAD;
+	dlg_shadow(s, DLG_BSHAD);
+	srvmenuglyphs(SHM_FUI,
+		      r.origin.x + (r.corner.x - r.origin.x -
+				    strlen(label) * hr_font(SHM_FUI)->cellw) / 2 + 1,
+		      r.origin.y + (r.corner.y - r.origin.y -
+				    hr_font(SHM_FUI)->cellh) / 2 + 1,
+		      label, r);
+}
+
+/* Put a dialog/menu box up: save the pixels under it (NULL on malloc failure
+ * -- tolerated, the take-down repaints instead) and enter the overlay bracket
+ * with freeze flag `ov'.  Freeze clients (the box is a transient overlay, NOT
+ * a layer, so a client's clip can't exclude it and it would otherwise paint
+ * over it -- the flood-covers-the-menu bug) BEFORE taking the lock, so a
+ * client that checks the flag while holding the lock sees it; take the lock
+ * around the save+paint so any in-flight client primitive finishes first and
+ * the box lands on top of it.  Hide the cursor BEFORE saving, or its XOR
+ * sprite is captured into the buffer and painted back on restore, leaving a
+ * stray arrow.  Returns with the lock held and the cursor hidden -- the
+ * caller paints, then closes the bracket itself (gfx_cursor_show +
+ * srvunlock). */
+static int *
+dlg_save(box, pwpl, ov)
+RECT box;
+int *pwpl;
+{
+	int rows, wpl, yy;
 	int *buf;
-	WMSG c;
-
-	fw = hr_font(SHM_FUI)->cellw;
-	fh = hr_font(SHM_FUI)->cellh;
-
-	/* split the message on '|' (into a local copy: we plant NULs) */
-	strncpy(mbuf, msg, sizeof(mbuf) - 1);
-	mbuf[sizeof(mbuf) - 1] = 0;
-	nl = 0;
-	lines[nl++] = mbuf;
-	for ( i = 0; mbuf[i] && nl < 4; i++ )
-		if ( mbuf[i] == '|' )
-		{
-			mbuf[i] = 0;
-			lines[nl++] = &mbuf[i + 1];
-		}
-
-	bl[0] = b0;  bl[1] = b1;  bl[2] = b2;
-	nb = 1 + (b1 != 0) + (b1 != 0 && b2 != 0);
-
-	/* box size: whichever is wider, the message block or the button row */
-	w = 0;
-	for ( i = 0; i < nl; i++ )
-	{
-		lw = strlen(lines[i]) * fw;
-		if ( lw > w ) w = lw;
-	}
-	bw = 0;
-	for ( i = 0; i < nb; i++ )
-		bw += strlen(bl[i]) * fw + 2 * DLG_BTNPAD;
-	bw += (nb - 1) * DLG_GAPX + DLG_BSHAD;	/* the row's own drop shadow */
-	if ( bw > w ) w = bw;
-	boxw = w + 2 * DLG_MARG;
-	boxh = DLG_MARG + nl * fh + DLG_GAPY + DLG_BTNH + DLG_BSHAD + DLG_MARG;
-
-	/* centred on screen, x word-aligned for the row save/restore.  The saved
-	 * box carries the WD_SHADOW drop-shadow margin (right + bottom) beyond
-	 * the card the chrome is drawn on. */
-	box.origin.x = ((XMAX - boxw - WD_SHADOW) / 2) & ~0x0f;
-	box.origin.y = (YMAX - boxh - WD_SHADOW) / 2;
-	if ( box.origin.x < 0 ) box.origin.x = 0;
-	if ( box.origin.y < 0 ) box.origin.y = 0;
-	box.corner.x = box.origin.x + boxw + WD_SHADOW;
-	box.corner.y = box.origin.y + boxh + WD_SHADOW;
-	card = box;
-	card.corner.x -= WD_SHADOW;
-	card.corner.y -= WD_SHADOW;
-
-	/* button rects: a centred row along the bottom */
-	by = box.origin.y + DLG_MARG + nl * fh + DLG_GAPY;
-	bx = box.origin.x + (boxw - bw) / 2;
-	for ( i = 0; i < nb; i++ )
-	{
-		brc[i].origin.x = bx;
-		brc[i].origin.y = by;
-		brc[i].corner.x = bx + strlen(bl[i]) * fw + 2 * DLG_BTNPAD;
-		brc[i].corner.y = by + DLG_BTNH;
-		bx = brc[i].corner.x + DLG_GAPX;
-	}
 
 	rows = box.corner.y - box.origin.y;
 	wpl = words_between(box.origin.x, box.corner.x);
 	buf = (int *)malloc(wpl * rows * 2);
-	/* The srvmenu bracket, in the same order and for the same reasons: freeze
-	 * clients BEFORE taking the lock; hide the cursor BEFORE saving the pixels
-	 * (or its XOR sprite is captured and painted back on restore). */
-	hr_glob()->overlay = OV_MENU;
+	hr_glob()->overlay = ov;
 	srvlock();
 	gfx_cursor_hide();
 	if ( buf )
 		for ( yy = 0; yy < rows; yy++ )
 			mnu_wcpy(screen_addr(box.origin.x, box.origin.y + yy),
 				 buf + yy * wpl, wpl);
+	*pwpl = wpl;
+	return buf;
+}
 
-	srvfill(card, 0, L_TRUE);			/* white body */
-	dlg_border(card);
-	dlg_shadow(box, WD_SHADOW);
-	for ( i = 0; i < nl; i++ )
-		srvmenuglyphs(SHM_FUI,
-			      card.origin.x + (boxw - strlen(lines[i]) * fw) / 2,
-			      card.origin.y + DLG_MARG + i * fh, lines[i], card);
-	for ( i = 0; i < nb; i++ )
-	{
-		RECT s;
+/* The srvdialog/srvswitch arm/track loop over nb rects: a left press inside
+ * rect i arms and XOR-inverts it, dragging out disarms, and only a release
+ * inside the armed rect commits -- a slip of the mouse commits nothing.
+ * MOUSE ONLY and modal (keys and clients wait).  The opening click's release
+ * arrives first and commits nothing: press == -1 until a press lands inside.
+ * Tracks with the plain arrow (its hotspot is already the aim point; no
+ * sprite swap, unlike the menu).  Returns the committed rect's index. */
+static
+dlg_track(brc, nb)
+RECT brc[];
+{
+	int sel, press, in, hit;
+	WMSG c;
 
-		dlg_border(brc[i]);
-		s = brc[i];			/* its own mini drop shadow */
-		s.corner.x += DLG_BSHAD;
-		s.corner.y += DLG_BSHAD;
-		dlg_shadow(s, DLG_BSHAD);
-		/* +1,+1: the FUI glyphs sit high-left in their cells, so plain
-		 * integer centring lands the label a pixel off (see memory:
-		 * recurring) */
-		srvmenuglyphs(SHM_FUI,
-			      brc[i].origin.x +
-			      (brc[i].corner.x - brc[i].origin.x -
-			       strlen(bl[i]) * fw) / 2 + 1,
-			      brc[i].origin.y + (DLG_BTNH - fh) / 2 + 1,
-			      bl[i], brc[i]);
-	}
-	gfx_cursor_show();
-	srvunlock();		/* painted; clients stay frozen via overlay */
-
-	/* Track with the plain arrow (its hotspot is already the aim point; no
-	 * sprite swap, unlike the menu).  The opening click's release arrives
-	 * first and commits nothing: press == -1 until a press lands on a button. */
 	sel = -1;  press = -1;  in = 0;
 	while ( sel < 0 )
 	{
 		if ( !getcmd(&c) )
 			continue;
 		if ( c.wm_type != C_INPUT || c.wm_arg[0] == IN_KEY )
-			continue;		/* modal: keys and clients wait */
+			continue;
 		mx = c.wm_arg[1];
 		my = c.wm_arg[2];
 		SM_Mouse_Pos.x = mx;  SM_Mouse_Pos.y = my;
@@ -2360,7 +2528,22 @@ char *msg, *b0, *b1, *b2;
 			in = !in;
 		}
 	}
+	return sel;
+}
 
+/* Take a dialog/menu box down: restore the saved pixels and lift the overlay
+ * freeze (clients full-repaint).  When the save-under malloc had failed the
+ * box is still on screen -- exactly the "menu never goes away" bug -- so
+ * repaint the desktop over it and ask the windows it overlapped to repaint
+ * (outside the lock: sendev may block), which guarantees it is dismissed. */
+static
+dlg_down(box, buf, wpl)
+RECT box;
+int *buf;
+{
+	int rows, yy;
+
+	rows = box.corner.y - box.origin.y;
 	srvlock();
 	gfx_cursor_hide();
 	if ( buf )
@@ -2378,7 +2561,206 @@ char *msg, *b0, *b1, *b2;
 	if ( !buf )		/* no save-under: re-expose what the box covered */
 		expose_covered(-1, box.origin.x, box.origin.y,
 			       box.corner.x, box.corner.y);
+}
+
+/* The server's own modal dialog: a centred box with a message (msg; '|' breaks
+ * it into up to 4 lines) and 1..3 buttons (b1/b2 may be NULL), drawn with the
+ * same save-under / overlay-freeze bracket as srvmenu and tracked in the same
+ * nested command-pipe loop.  MOUSE ONLY (keys are ignored, like the menu);
+ * classic arm/track buttons: a left press INSIDE a button arms and inverts it,
+ * dragging out disarms, and only a release inside the armed button commits --
+ * a release anywhere else leaves the dialog up (it is modal; every caller
+ * provides a safe button, so there is no escape hatch to need).  Returns the
+ * committed button's index (0-based).  Chrome metrics come from hrdlg.h so a
+ * server confirmation looks exactly like a client dialog. */
+srvdialog(msg, b0, b1, b2)
+char *msg, *b0, *b1, *b2;
+{
+	RECT box, card, brc[3];
+	char mbuf[128];
+	char *lines[4], *bl[3];
+	int nl, nb, fw, fh, i, w, lw, bw, boxw, boxh;
+	int wpl, bx, by, sel;
+	int *buf;
+
+	fw = hr_font(SHM_FUI)->cellw;
+	fh = hr_font(SHM_FUI)->cellh;
+
+	/* split the message on '|' (into a local copy: we plant NULs) */
+	strncpy(mbuf, msg, sizeof(mbuf) - 1);
+	mbuf[sizeof(mbuf) - 1] = 0;
+	nl = 0;
+	lines[nl++] = mbuf;
+	for ( i = 0; mbuf[i] && nl < 4; i++ )
+		if ( mbuf[i] == '|' )
+		{
+			mbuf[i] = 0;
+			lines[nl++] = &mbuf[i + 1];
+		}
+
+	bl[0] = b0;  bl[1] = b1;  bl[2] = b2;
+	nb = 1 + (b1 != 0) + (b1 != 0 && b2 != 0);
+
+	/* box size: whichever is wider, the message block or the button row */
+	w = 0;
+	for ( i = 0; i < nl; i++ )
+	{
+		lw = strlen(lines[i]) * fw;
+		if ( lw > w ) w = lw;
+	}
+	bw = 0;
+	for ( i = 0; i < nb; i++ )
+		bw += strlen(bl[i]) * fw + 2 * DLG_BTNPAD;
+	bw += (nb - 1) * DLG_GAPX + DLG_BSHAD;	/* the row's own drop shadow */
+	if ( bw > w ) w = bw;
+	boxw = w + 2 * DLG_MARG;
+	boxh = DLG_MARG + nl * fh + DLG_GAPY + DLG_BTNH + DLG_BSHAD + DLG_MARG;
+
+	dlg_place(boxw, boxh, &box, &card);
+
+	/* button rects: a centred row along the bottom */
+	by = box.origin.y + DLG_MARG + nl * fh + DLG_GAPY;
+	bx = box.origin.x + (boxw - bw) / 2;
+	for ( i = 0; i < nb; i++ )
+	{
+		brc[i].origin.x = bx;
+		brc[i].origin.y = by;
+		brc[i].corner.x = bx + strlen(bl[i]) * fw + 2 * DLG_BTNPAD;
+		brc[i].corner.y = by + DLG_BTNH;
+		bx = brc[i].corner.x + DLG_GAPX;
+	}
+
+	buf = dlg_save(box, &wpl, OV_MENU);
+
+	srvfill(card, 0, L_TRUE);			/* white body */
+	dlg_border(card);
+	dlg_shadow(box, WD_SHADOW);
+	for ( i = 0; i < nl; i++ )
+		srvmenuglyphs(SHM_FUI,
+			      card.origin.x + (boxw - strlen(lines[i]) * fw) / 2,
+			      card.origin.y + DLG_MARG + i * fh, lines[i], card);
+	for ( i = 0; i < nb; i++ )
+		dlg_button(brc[i], bl[i]);
+	gfx_cursor_show();
+	srvunlock();		/* painted; clients stay frozen via overlay */
+
+	sel = dlg_track(brc, nb);
+	dlg_down(box, buf, wpl);
 	return sel;
+}
+
+/* The desktop-menu "Switch to" dialog: a centred card showing every open
+ * window as an ICON CELL -- the same 48px artwork the desktop icons at the
+ * top of the screen use (srvicon, with the iconok/HR_DEFICON fallback) over
+ * a small centred SHM_FICON label -- laid out in alt-tab-style rows that
+ * wrap after SW_PERROW cells, above a Cancel button.  The cells track
+ * exactly like srvdialog's buttons -- a left press inside a cell arms and
+ * XOR-inverts it (the alt-tab highlight), dragging out disarms, and only a
+ * release inside the armed cell commits -- so a slip of the mouse cannot
+ * switch windows.  The chosen window is brought forward (restorewin if
+ * minimised, else raisewin) only AFTER the dialog is taken down: both
+ * repaint and sendev, neither of which may happen under the overlay freeze. */
+#define SW_CW		64	/* cell width == the desktop's ICONCW       */
+#define SW_PERROW	6	/* cells per row before wrapping            */
+#define SW_PADT		6	/* cell pad above the 48px artwork          */
+#define SW_LGAP		2	/* artwork <-> label gap (drawiconc's)      */
+#define SW_PADB		5	/* cell pad below the label                 */
+#define SW_LMAX		((SW_CW - 4) / 6)	/* label chars (sail is 6x8) */
+#define SW_CH		(SW_PADT + ICONW + SW_LGAP + 8 + SW_PADB)
+srvswitch()
+{
+	RECT box, card, rc[MAX_WINDOWS + 1];
+	char lab[MAX_WINDOWS][SW_LMAX + 1];
+	int wid[MAX_WINDOWS];
+	int nw, fw, i, w, boxw, boxh, btnw;
+	int ncol, nrow, gx0, ix, iy, nc;
+	int wpl, ry, sel;
+	int *buf;
+
+	nw = 0;
+	for ( i = 0; i < MAX_WINDOWS; i++ )
+		if ( wins[i].used )
+		{
+			wid[nw] = i;
+			strncpy(lab[nw], wins[i].title, SW_LMAX);
+			lab[nw][SW_LMAX] = '\0';
+			nw++;
+		}
+	if ( nw == 0 )
+	{
+		srvdialog("No windows are open.", "OK", (char *)0, (char *)0);
+		return;
+	}
+
+	fw = hr_font(SHM_FUI)->cellw;
+	ncol = nw < SW_PERROW ? nw : SW_PERROW;
+	nrow = (nw + ncol - 1) / ncol;
+
+	/* box size: the cell grid or the Cancel button, whichever is wider */
+	w = ncol * SW_CW;
+	btnw = strlen("Cancel") * fw + 2 * DLG_BTNPAD;
+	if ( btnw + DLG_BSHAD > w ) w = btnw + DLG_BSHAD;
+	boxw = w + 2 * DLG_MARG;
+	boxh = DLG_MARG + nrow * SW_CH + DLG_GAPY + DLG_BTNH + DLG_BSHAD + DLG_MARG;
+
+	dlg_place(boxw, boxh, &box, &card);
+
+	/* cell rects tile the (centred) grid -- the whole cell is the click
+	 * target AND the invert highlight; rc[nw] is the Cancel button so one
+	 * dlg_bhit/dlg_binvert pass covers cells and button alike */
+	gx0 = box.origin.x + (boxw - ncol * SW_CW) / 2;
+	ry = box.origin.y + DLG_MARG;
+	for ( i = 0; i < nw; i++ )
+	{
+		rc[i].origin.x = gx0 + (i % ncol) * SW_CW;
+		rc[i].origin.y = ry + (i / ncol) * SW_CH;
+		rc[i].corner.x = rc[i].origin.x + SW_CW;
+		rc[i].corner.y = rc[i].origin.y + SW_CH;
+	}
+	ry += nrow * SW_CH;
+	rc[nw].origin.x = box.origin.x + (boxw - btnw - DLG_BSHAD) / 2;
+	rc[nw].origin.y = ry + DLG_GAPY;
+	rc[nw].corner.x = rc[nw].origin.x + btnw;
+	rc[nw].corner.y = rc[nw].origin.y + DLG_BTNH;
+
+	buf = dlg_save(box, &wpl, OV_MENU);
+
+	srvfill(card, 0, L_TRUE);			/* white body */
+	dlg_border(card);
+	dlg_shadow(box, WD_SHADOW);
+	/* each cell: the 48px artwork centred, its label centred beneath --
+	 * drawiconc's look, minus the desktop clipping (the card is all ours)
+	 * and minus the label plate (the card body is already white).  The
+	 * icon name needs no iconok fallback: doconnect stored one already. */
+	for ( i = 0; i < nw; i++ )
+	{
+		ix = rc[i].origin.x + (SW_CW - ICONW) / 2;
+		iy = rc[i].origin.y + SW_PADT;
+		srvicon(ix, iy, wins[wid[i]].icon, card);
+		nc = strlen(lab[i]);
+		srvmenuglyphs(SHM_FICON,
+			      rc[i].origin.x + (SW_CW - nc * 6) / 2,
+			      iy + ICONW + SW_LGAP, lab[i], card);
+	}
+	dlg_button(rc[nw], "Cancel");
+	gfx_cursor_show();
+	srvunlock();		/* painted; clients stay frozen via overlay */
+
+	sel = dlg_track(rc, nw + 1);	/* nw cells + the Cancel button */
+	dlg_down(box, buf, wpl);
+
+	if ( sel >= 0 && sel < nw )
+	{
+		w = wid[sel];
+		if ( wins[w].used )		/* kills only happen in the main
+						 * loop, but guard anyway */
+		{
+			if ( wins[w].min )
+				restorewin(w);
+			else
+				raisewin(w);
+		}
+	}
 }
 
 /* ------------------------------------------------------------------ */
@@ -2506,7 +2888,7 @@ static
 dodlgopen(dp)
 HRDLGO *dp;
 {
-	int wid, iw, ih, bw, bh, yy;
+	int wid, iw, ih, bw, bh;
 	RECT card;
 
 	wid = dp->hd_wid;
@@ -2527,15 +2909,7 @@ HRDLGO *dp;
 	 * saved box covers card AND shadow */
 	bw = iw + 2;
 	bh = ih + 2;
-	dlgbox.origin.x = ((XMAX - bw - WD_SHADOW) / 2) & ~0x0f; /* word-align */
-	dlgbox.origin.y = (YMAX - bh - WD_SHADOW) / 2;
-	if ( dlgbox.origin.x < 0 ) dlgbox.origin.x = 0;
-	if ( dlgbox.origin.y < 0 ) dlgbox.origin.y = 0;
-	dlgbox.corner.x = dlgbox.origin.x + bw + WD_SHADOW;
-	dlgbox.corner.y = dlgbox.origin.y + bh + WD_SHADOW;
-	card = dlgbox;
-	card.corner.x -= WD_SHADOW;
-	card.corner.y -= WD_SHADOW;
+	dlg_place(bw, bh, &dlgbox, &card);
 	dlgint.origin.x = card.origin.x + 1;
 	dlgint.origin.y = card.origin.y + 1;
 	dlgint.corner.x = dlgint.origin.x + iw;
@@ -2551,23 +2925,15 @@ HRDLGO *dp;
 		lastgx = lastgy = -1;
 	}
 
-	/* Both from the BOX, never from the card: the box is what gets painted
-	 * (card + drop shadow), so it is what must be saved and put back.  A
-	 * card-height row count left the shadow's rows unsaved -- and so still
-	 * on the desktop after the dialog closed. */
-	dlgrows = dlgbox.corner.y - dlgbox.origin.y;
-	dlgwpl = words_between(dlgbox.origin.x, dlgbox.corner.x);
-	dlgsave = (int *)malloc(dlgwpl * dlgrows * 2);
-	/* The srvmenu bracket (freeze BEFORE lock, cursor-hide BEFORE save); the
-	 * owner is exempted by the OV_DLG|wid encoding, but only for the dialog
+	/* Save/restore geometry from the BOX, never from the card: the box is
+	 * what gets painted (card + drop shadow), so it is what must be saved
+	 * and put back.  A card-height row count left the shadow's rows unsaved
+	 * -- and so still on the desktop after the dialog closed.  The dlgclose
+	 * restore needs dlgrows too, so keep it alongside dlg_save's wpl.  The
+	 * owner is exempted from the OV_DLG|wid freeze, but only for the dialog
 	 * surface -- published below, after the frame is painted. */
-	hr_glob()->overlay = OV_DLG | wid;
-	srvlock();
-	gfx_cursor_hide();
-	if ( dlgsave )
-		for ( yy = 0; yy < dlgrows; yy++ )
-			mnu_wcpy(screen_addr(dlgbox.origin.x, dlgbox.origin.y + yy),
-				 dlgsave + yy * dlgwpl, dlgwpl);
+	dlgrows = dlgbox.corner.y - dlgbox.origin.y;
+	dlgsave = dlg_save(dlgbox, &dlgwpl, OV_DLG | wid);
 	srvfill(card, 0, L_TRUE);			/* white body */
 	dlg_border(card);
 	dlg_shadow(dlgbox, WD_SHADOW);
@@ -2828,6 +3194,9 @@ quitwm()
 {
 	int w, pid, st;
 
+	hr_glob()->magic = 0;	/* session over: anything the kills below miss
+				 * (a client mid-fork, a stray pump) exits at
+				 * its next hr_evwait instead of lingering */
 	for ( w = 0; w < MAX_WINDOWS; w++ )
 		if ( wins[w].used )
 		{
@@ -2880,25 +3249,51 @@ appwindow(ai)
 	return -1;
 }
 
+/* Reap the window of a client that DIED without saying C_BYE.  A SIGSEGV'd
+ * app (memory exhaustion kills this way: a failed stack/heap grow is a hard
+ * fault) leaves its window standing for ever -- an empty shell nobody can
+ * close, holding a window slot, and if it died mid-primitive its SHM_INDRAW
+ * flag wedges every later srvlock into the megaspin drain.  killwin cures all
+ * of that (it clears the drain flag first thing), the server just never knew
+ * the client was gone: pipes don't say, and the rings never block.  So PROBE:
+ * one window per main-loop pass (one kill(pid,0) per input event at worst),
+ * round robin, deferred while a dialog overlay is up -- killwin restacks and
+ * repaints, which must not land on a box that is not a layer. */
+int	pollw;
+
+reapwins()
+{
+	if ( dlgwid >= 0 )
+		return;
+	pollw = (pollw + 1) & (MAX_WINDOWS - 1);
+	if ( wins[pollw].used && wins[pollw].pid > 0 &&
+	     kill(wins[pollw].pid, 0) < 0 )
+	{
+		srvlogn("client died, reaping window ", pollw);
+		killwin(pollw);
+	}
+}
+
 /* Has catalog entry `ai' been started but not yet shown its window? */
 apppending(ai)
 {
 	int i;
 
 	for ( i = 0; i < MAX_WINDOWS; i++ )
-		if ( pends[i].used && pends[i].ai == ai )
+		if ( pends[i].used && pends[i].ai == ai && pendlive(i) )
 			return 1;
 	return 0;
 }
 
-/* Right-click on the empty desktop: menu of launchable apps, a divider, then
- * "Quit" (quit the whole window manager).  Multi-instance apps read "New <name>
- * ...", single-instance apps read "<name>...". */
+/* Right-click on the empty desktop: menu of launchable apps, a divider,
+ * "Switch to..." (the running-window list dialog, srvswitch), another divider,
+ * then "Quit" (quit the whole window manager).  Multi-instance apps read
+ * "New <name>...", single-instance apps read "<name>...". */
 deskmenu(x, y)
 {
 	char labels[MAX_APPS][24];
-	char *items[MAX_APPS + 2];
-	int i, n, qidx, sel;
+	char *items[MAX_APPS + 4];
+	int i, n, qidx, swidx, sel;
 
 	n = 0;
 	for ( i = 0; i < napps; i++ )
@@ -2909,13 +3304,18 @@ deskmenu(x, y)
 			sprintf(labels[i], "%s...", apps[i].name);
 		items[n++] = labels[i];
 	}
+	items[n++] = MNU_DIV;			/* divider after the app list */
+	swidx = n;
+	items[n++] = "Switch to...";
 	items[n++] = MNU_DIV;			/* divider before Quit */
 	qidx = n;
 	items[n++] = "Quit";
 	sel = srvmenu(items, n, x, y);
 	if ( sel < 0 )
 		return;
-	if ( sel == qidx )
+	if ( sel == swidx )
+		srvswitch();
+	else if ( sel == qidx )
 	{
 		/* Quit here means the whole desktop: every client dies with it,
 		 * so a slip of the menu drag must not be enough. */
@@ -2955,8 +3355,8 @@ char	*g_winitems[] = { "Move", "Stretch", "Front", "Back", "Hide", "Quit" };
 
 /* Labels for the HRM_* bits, LSB first: entry i is bit (1 << i). */
 char	*g_appitems[] = { "New", "Open", "Save", "Cut", "Copy", "Paste",
-			  "Settings" };
-#define NAPPITEMS	7
+			  "Settings", "Help" };
+#define NAPPITEMS	8
 
 winmenu(w, x, y)
 {
@@ -3029,6 +3429,19 @@ winmenu(w, x, y)
 	}
 }
 
+/* Is the pointer (mx,my) on desktop-icon slot `slot'?  One test for both icon
+ * kinds (minimised windows and app placeholders), pulled out of handlebtn --
+ * icons may occupy several rows, so each one's own cell is tested rather than
+ * a single row band. */
+static
+iconhit(slot)
+{
+	return mx >= iconx(slot) - ICONPAD &&
+	       mx <  iconx(slot) + ICONW + ICONPAD &&
+	       my >= icony(slot) - 2 &&
+	       my <  icony(slot) + ICONW + ICONLH + 2;
+}
+
 /* A pointer button changed.  Right = pop up the desktop (launcher) or window
  * menu; left = click-to-raise, and inside a window's content it also starts the
  * pointer grab that carries the selection gesture to the client; middle = paste
@@ -3080,12 +3493,41 @@ WMSG *c;
 	{
 		for ( w = 0; w < MAX_WINDOWS; w++ )
 			if ( wins[w].used && wins[w].min &&
-			     mx >= iconx(wins[w].islot) - ICONPAD &&
-			     mx < iconx(wins[w].islot) + ICONW + ICONPAD &&
-			     my >= icony(wins[w].islot) - 2 &&
-			     my < icony(wins[w].islot) + ICONW + ICONLH + 2 )
+			     iconhit(wins[w].islot) )
 			{
 				restorewin(w);
+				return;
+			}
+	}
+
+	/* an app placeholder icon? launch that catalog entry -- the whole point
+	 * of a placeholder is that no process exists until this click.  The
+	 * window goes to the catalog's X,Y if given, else it opens at the click.
+	 * While a launch is pending (forked, no C_CONNECT yet) further clicks do
+	 * nothing, so a double-click does not start two copies -- for a multi
+	 * entry too: an INTENDED second copy is a second click a moment later.
+	 * The single-instance live-window case is only reachable for an app
+	 * started outside the catalog (its window has appi -1, so the
+	 * placeholder stayed); surface that window rather than duplicate it,
+	 * like the desktop menu does. */
+	{
+		int i;
+
+		for ( i = 0; i < napps; i++ )
+			if ( apps[i].show &&
+			     iconhit(apps[i].islot) )
+			{
+				if ( !apps[i].multi && (w = appwindow(i)) >= 0 )
+				{
+					if ( wins[w].min )
+						restorewin(w);
+					else
+						raisewin(w);
+				}
+				else if ( !apppending(i) )
+					launchapp(i,
+					    apps[i].px >= 0 ? apps[i].px : mx,
+					    apps[i].px >= 0 ? apps[i].py : my);
 				return;
 			}
 	}
@@ -3380,22 +3822,6 @@ char *path;
 	return 0;
 }
 
-/* The console the watchdog below restores.  hrtty's clear-screen is ESC [ E
- * (hrterm2.c -- it is NOT the vt100 ESC [ 2 J its TIOCGTERM answer implies),
- * and it repaints from its own text table, so this both wipes the dead desktop
- * off the framebuffer and proves the console is alive again. */
-wdconsole()
-{
-	static char msg[] =
-	    "\033[E\007zview: server died -- screen and keyboard restored\r\n";
-	int fd;
-
-	if ( (fd = open("/dev/console", 1)) < 0 )
-		return;
-	write(fd, msg, sizeof(msg) - 1);
-	close(fd);
-}
-
 /* Crash insurance.  /drv/hr owns the keyboard interrupt vector for as long as
  * it is loaded -- hrload() rewires it to its own ISR, hruload() puts hrtty's
  * back (drv/hr.c) -- and its ISR posts every scancode to a message queue only
@@ -3450,6 +3876,11 @@ srvwatch()
 		;
 	if ( w == srv && st == 0 )
 		_exit(0);			/* quitwm(): already cleaned up */
+	/* (zvwatch also declares the session dead to the surviving clients --
+	 * tail magic + doorbells, see zvwatch.c.  This in-process fallback
+	 * only runs when that exec failed and keeps to the old minimum, the
+	 * driver unload: clients still exit off the dead magic below.) */
+	hr_glob()->magic = 0;
 	if ( (pid = fork()) == 0 )
 	{
 		execl("/etc/uload", "uload", "/drv/hr", (char *)0);
@@ -3457,8 +3888,8 @@ srvwatch()
 	}
 	while ( pid > 0 && (w = wait(&st)) != pid && w >= 0 )
 		;
-	wdconsole();
-	_exit(0);
+	_exit(0);	/* (zvwatch, the normal vigil, also restores + labels
+			 * the console; this bare fallback just unloads) */
 }
 
 /* A client that died leaves a broken event pipe; without this, the server's next
@@ -3635,15 +4066,22 @@ char **argv;
 	pumppid = startpump();
 
 	/* Load the launchable-app catalog (/usr/hr/etc/apps) -- what the right-click
-	 * desktop menu offers -- and then hand the first screen over to the user's
-	 * own start-up script, which is what decides what is actually open. */
+	 * desktop menu offers -- and put up the placeholder icons of every entry
+	 * that names one: the start-up desktop is a row of icons with NOTHING
+	 * running behind them, and an app is only launched (and only then takes
+	 * memory) when its icon is clicked.  The rc script still runs for anything
+	 * the user wants genuinely resident from power-on. */
 	loadapps();
-	runrc();
+	placesync();
+	deadadd(runrc());	/* the rc shell exits when the script ends: reap it */
 
 	for (;;)
 	{
 		if ( getcmd(&c) )
 			docmd(&c);
+		reapwins();		/* notice a client that died window-up */
+		if ( ndead )		/* collect children whose windows are gone */
+			reapdead();
 		if ( dlgwid < 0 )
 		{
 			/* Deferred while a client dialog is up: doconnect/mkwin

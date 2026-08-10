@@ -16,7 +16,7 @@
  *     = one VRAM word, so the text grid keeps its byte alignment.
  *
  * Commands live in the window menu (wire.h HRM_*): New, Open, Save, Cut,
- * Copy, Paste.  Open and Save put up a modal file-name dialog (hrdlg); Save
+ * Copy, Paste, Help.  Open and Save put up a modal file-name dialog (hrdlg); Save
  * comes prefilled with the current name.  Cut/Copy write the mouse selection
  * to the CLIPBOARD store; Paste inserts the clipboard at the cursor.  The
  * select-drag also publishes the PRIMARY selection on release, and a
@@ -35,11 +35,14 @@
  *   ^O open a line below the cursor   ^T transpose   ^L recentre + redraw
  *   ^S find next (a Find dialog asks for the pattern the first time)
  *   ^G abort (drop the selection)
+ *   ^X^C quit -- the MicroEMACS exit chord; asks only when the buffer is
+ *      modified (the window-menu Quit asks the server's generic question)
  *   ESC is Meta:  M-< / M-> buffer start/end   M-v page up
  *                 M-f / M-b word forward/back  M-s new search pattern
  * and the function keys (wire.h HRK_*):
- *   F1/Help = this list as a dialog        F2 = save (dialog only if unnamed)
+ *   Help (F11) = this list as a dialog     F2 = save (dialog only if unnamed)
  *   F3 = Open   F4 = New   F5/F6/F7 = Cut/Copy/Paste   F8 = find next
+ *   F10 = quit: zvpump delivers it AS the ^X^C chord, not as a code of its own
  *   Clear/Home = top of file   Stop/Continue = abort (drop the selection)
  * plus mouse: click places the cursor, drag selects.
  *
@@ -75,7 +78,8 @@ extern char	*malloc();
 #define	FNLEN	40		/* file-name buffer (path) */
 
 HRAPP	me = { "Edit", "edit.icn", 0, 0, HRF_STRETCH | HRF_CONFIRM, 0, 0,
-	       HRM_NEW | HRM_OPEN | HRM_SAVE | HRM_CUT | HRM_COPY | HRM_PASTE };
+	       HRM_NEW | HRM_OPEN | HRM_SAVE | HRM_CUT | HRM_COPY | HRM_PASTE |
+	       HRM_HELP };
 
 int	mywid;
 int	cellw, cellh;		/* cell metrics (terminal font)               */
@@ -118,6 +122,7 @@ char	kbuf[MAXKILL];		/* killed text, yanked back by ^Y             */
 int	kn;			/* bytes in it                                */
 int	lastkill;		/* last command was a kill: the next appends  */
 int	metap;			/* 1 = ESC seen: next key is a Meta command   */
+int	ctlxp;			/* 1 = ^X seen: next key completes the chord  */
 
 char	srchbuf[32];		/* the search pattern (^S / M-s)              */
 
@@ -1538,7 +1543,7 @@ dosearch(newpat)
 	return 0;
 }
 
-/* ---- the Help dialog (F1 / the C900 Help key) ----------------------- *
+/* ---- the Help dialog (the C900 Help key, F11) ----------------------- *
  * One card listing the whole key set -- the C900 keyboard has a Help key,
  * so it should do something helpful. */
 
@@ -1554,7 +1559,8 @@ HRWIDGET hwg[] = {
     { DW_LABEL, 12, 172, 0, 0, "F2 Save    F3 Open     F4 New" },
     { DW_LABEL, 12, 192, 0, 0, "F5 Cut     F6 Copy     F7 Paste   F8 Find" },
     { DW_LABEL, 12, 212, 0, 0, "Clear/Home top of file   Stop/Cont abort" },
-    { DW_BUTTON, 171, 244, 70, DLG_BTNH, "OK", 0, 0, (char *)0, 0,
+    { DW_LABEL, 12, 232, 0, 0, "F10 or ^X^C quit (asks if unsaved)" },
+    { DW_BUTTON, 171, 264, 70, DLG_BTNH, "OK", 0, 0, (char *)0, 0,
       DWF_DEF | DWF_CANCEL | DWF_END },
 };
 #define	NHWG	(sizeof(hwg) / sizeof(hwg[0]))
@@ -1565,7 +1571,7 @@ dohelp()
 	int w, h, r;
 
 	w = 412;
-	h = 288;
+	h = 308;
 	r = hr_dlgopen(&w, &h);
 	if ( r == -2 )
 		exit(0);
@@ -1618,6 +1624,19 @@ doopen()
 	return 0;
 }
 
+/* ^X^C (MicroEMACS exit; F10 arrives as this chord, zvpump.c): quit, asking
+ * only when there are unsaved changes.  The window-menu Quit instead asks the
+ * server's generic HRF_CONFIRM question and lands here as E_QUIT.  hr_bye()
+ * tells the server to reap the window (zterm's self-quit idiom). */
+static
+doquit()
+{
+	if ( modified && !confirm("Discard unsaved changes?") )
+		return 0;
+	hr_bye();
+	exit(0);
+}
+
 /* ------------------------------------------------------------------ */
 /* keyboard                                                           */
 /* ------------------------------------------------------------------ */
@@ -1645,6 +1664,14 @@ dokey(c)
 		fixview();
 		return 0;
 	}
+	if ( ctlxp )				/* the key after a ^X */
+	{
+		ctlxp = 0;
+		lastkill = 0;
+		if ( c == 'C'-0x40 )		/* ^X^C: quit (MicroEMACS) */
+			doquit();
+		return 0;			/* unknown ^X chord: ignored */
+	}
 	waskill = 0;
 	switch ( c )
 	{
@@ -1669,8 +1696,8 @@ dokey(c)
 	case 'Z'-0x40:	pgmove(-1);			break;
 	case 'V'-0x40:	pgmove(1);			break;
 	case 'G'-0x40:	selclear();			break;	/* abort */
+	case 'X'-0x40:	ctlxp = 1;			break;	/* ^X prefix */
 	case 033:	metap = 1;  selclear();		break;
-	case HRK_F1:
 	case HRK_HELP:	dohelp();			break;
 	case HRK_F2:	quicksave();			break;
 	case HRK_F3:	doopen();			break;
@@ -1851,6 +1878,7 @@ char **argv;
 				case HRM_CUT:	putsel(1);  delsel();	break;
 				case HRM_COPY:	putsel(1);		break;
 				case HRM_PASTE:	insstream(1);		break;
+				case HRM_HELP:	dohelp();		break;
 				}
 				need = 1;
 				break;

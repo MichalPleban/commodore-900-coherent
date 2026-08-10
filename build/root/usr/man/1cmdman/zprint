@@ -1,0 +1,80 @@
+
+
+zzpprriinntt                                                     zzpprriinntt
+
+
+
+NNAAMMEE
+     zprint - GUI print manager
+
+SSYYNNOOPPSSIISS
+     zzpprriinntt [_o_p_t_i_o_n_s]
+
+DDEESSCCRRIIPPTTIIOONN
+     zzpprriinntt is the print manager of the COHERENT GUI.  It must be
+     run under the zzvviieeww desktop.  It watches the llpprr spool
+     directory and shows the queued jobs - number, a * on the job
+     now printing, owner, size and the submitting command - above
+     a pane describing the selected job (owner, submission time,
+     banner, notification, and the files to print).  The bar also
+     reports the printer state: printing, jobs held with no
+     daemon, or idle.  The spool is re-read every 5 seconds.
+     zzpprriinntt accepts the standard window _o_p_t_i_o_n_s of GUI ap-
+     plications; see zzvviieeww.
+
+     Keyboard commands:
+
+                ^PP, ^NN          select the previous / next job
+                ^ZZ, ^BB          page the description up
+                ^VV, ^FF, SSPPAACCEE   page the description down
+                pp               the Print button
+                cc               the Cancel button
+                rr               the Reprint / Start button
+
+     The buttons:
+
+     PPrriinntt
+          asks for the full path name of a file and submits it
+          with llpprr.
+
+     CCaanncceell
+          removes the selected job after confirmation.  Can-
+          celling the job now printing tells the printer daemon
+          to abandon it (the same signal llppsskkiipp sends); can-
+          celling a queued job removes its spool files.
+
+     RReepprriinntt
+          tells the daemon to start the current job over from the
+          top (as llppsskkiipp -rr does).  When no daemon is running and
+          jobs are held, this button reads SSttaarrtt instead and
+          starts /uussrr/lliibb/llppdd.
+
+FFIILLEESS
+                  /usr/spool/lpd        the print spool
+                  /usr/spool/lpd/dpid   printer-daemon lock file
+                  /bin/lpr              used by Print
+                  /usr/lib/lpd          the printer daemon
+
+SSEEEE AALLSSOO
+     zzvviieeww, llpprr
+
+DDIIAAGGNNOOSSTTIICCSS
+
+
+CCOOHHEERREENNTT CCoommmmaanndd MMaannuuaall                                    PPaaggee 11
+
+
+
+
+zzpprriinntt                                                     zzpprriinntt
+
+
+
+     Dialog notices: `Give the full path name of the file', `Can-
+     not read that file', `Nothing to print'.
+
+NNOOTTEESS
+     The list holds at most 64 jobs.  The spooler's own permis-
+     sions apply: removing another user's job or signalling the
+     daemon needs the appropriate user, and such failures are
+     silent.

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 /*
@@ -32,6 +33,8 @@ char	cfline[300];		/* Control file line */
 char	comment[300];		/* Comment line */
 FILE	*lp;
 int	printing;		/* On while printing */
+int	gotcancel;		/* SIGTRAP arrived; see chksig() */
+int	gotrest;		/* SIGREST arrived; see chksig() */
 
 char	*lgets();
 int	cancel();
@@ -46,8 +49,24 @@ char *argv[];
 	setuid(DAEMON);
 	if (chdir(spooldir) < 0)
 		lperr("spool directory botch");
-	if ((fd = creat(lockfile, 0400)) < 0)
-		exit(0);
+	if ((fd = creat(lockfile, 0400)) < 0) {
+		/*
+		 * Either a daemon is running, or one crashed and left
+		 * its lock behind -- and a stale 0400 lock keeps every
+		 * later daemon from starting.  Probe the recorded pid
+		 * and break the lock when it is dead.
+		 */
+		if ((fd = open(lockfile, 0)) < 0)
+			exit(0);
+		if (read(fd, (char *)&pid, sizeof pid) != sizeof pid)
+			pid = 0;
+		close(fd);
+		if (pid != 0 && kill(pid, 0) == 0)
+			exit(0);	/* really running */
+		unlink(lockfile);
+		if ((fd = creat(lockfile, 0400)) < 0)
+			exit(0);
+	}
 	if (fork())
 		exit(0);
 	signal(SIGINT, SIG_IGN);
@@ -112,6 +131,7 @@ again:
 		printing = 1;
 		fprintf(lp, "%s\n\n", cfname);
 		while (lgets(cfline, sizeof cfline, cfp) != NULL) {
+			chksig();
 			if (!printing)
 				message = "Listing killed by order: %.*s\n";
 			else if (printing < 0) {
@@ -211,14 +231,16 @@ char *msg;
 /*
  * Cancel the listing that is printing
  * just now.
+ * The handlers only set a flag: stdio must not be entered from signal
+ * context, because the signal usually interrupts the mainline inside a
+ * write to the printer, and a fprintf here re-enters the half-updated
+ * stdio state.  That corrupted the malloc arena and killed the daemon
+ * in free() -- leaving a stale `dpid' lock behind.
  */
 cancel()
 {
 	signal(SIGTRAP, SIG_IGN);
-	if (printing) {
-		printing = 0;
-		fprintf(lp, "\n\n\nListing cancelled by order\n");
-	}
+	gotcancel = 1;
 	signal(SIGTRAP, cancel);
 }
 
@@ -229,11 +251,31 @@ cancel()
 restart()
 {
 	signal(SIGREST, SIG_IGN);
-	if (printing) {
-		printing = -1;
-		fprintf(lp, "\n\n\nListing restarted by order\n");
-	}
+	gotrest = 1;
 	signal(SIGREST, restart);
+}
+
+/*
+ * Act on the signal flags at mainline level.  Called from the printing
+ * loops (the control file scan, the file printer, the banner rows) so a
+ * cancel takes effect promptly even in the middle of a long listing.
+ */
+chksig()
+{
+	if (gotcancel) {
+		gotcancel = 0;
+		if (printing) {
+			printing = 0;
+			fprintf(lp, "\n\n\nListing cancelled by order\n");
+		}
+	}
+	if (gotrest) {
+		gotrest = 0;
+		if (printing) {
+			printing = -1;
+			fprintf(lp, "\n\n\nListing restarted by order\n");
+		}
+	}
 }
 
 /*

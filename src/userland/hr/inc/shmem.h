@@ -199,8 +199,10 @@ typedef struct {
  * the driver's CIOMLOCK is hardwired to SHM_LOCK's address, and a second futex is
  * not worth a driver change for a lock held microseconds.  A waiter spins,
  * bounded, and then STEALS the word if SHM_SELTIME says the holder has had it for
- * seconds (kill(pid,0) is not an option: this kernel rejects signal 0 with EINVAL,
- * coh/sys1.c ukill).  A legitimate holder never holds it for a second; a dropped
+ * seconds.  (kill(pid,0) works as a liveness probe on this kernel nowadays --
+ * coh/sys1.c ukill answers ESRCH for a dead pid -- but the time-based steal
+ * predates that and stays: it also covers a LIVE holder wedged mid-copy.)
+ * A legitimate holder never holds it for a second; a dropped
  * selection is harmless, a permanently wedged one is not. */
 #define SHM_SELLOCK	0x4110		/* TSET word: 0 free / 0xFFFF held        */
 #define SHM_SELPID	0x4112		/* holder's pid (diagnostic)              */

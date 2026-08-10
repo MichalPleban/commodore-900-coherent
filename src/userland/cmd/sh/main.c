@@ -1,11 +1,14 @@
 /*
  * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 /*
+ * sh/main.c
  * The Bourne shell.
- * Main programme, initialisation and miscellaneous routines.
+ * Main program, initialization and miscellaneous routines.
  */
+
 #include <param.h>
 #include "sh.h"
 
@@ -14,8 +17,13 @@ char *argv[];
 char *envp[];
 {
 	sarg0 = argc>0 ? argv[0] : "";
+	fakearg(0, argc, argv, envp);
 	if (argc>0 && argv[0][0]=='-') {
-		lgnflag++;
+		lgnflag = 1;
+		umask(ufmask=022);
+	} else if (argc>0 && argv[0][0]=='+') {
+		dflttrp(IBACK);		/* for security, no <Ctrl-C> out of /etc/profile */
+		lgnflag = 2;
 		umask(ufmask=022);
 	} else {
 		umask(ufmask=umask(ufmask));
@@ -23,6 +31,7 @@ char *envp[];
 
 	if (setjmp(restart) != 0) {
 		/* reentry for shell command file execution */
+		fakearg(1, nargc, nargv, nenvp);
 		argc = nargc;
 		argv = nargv;
 		envp = nenvp;
@@ -33,27 +42,65 @@ char *envp[];
 	shpid = getpid();
 	initvar(envp);
 	cleanup(1, NULL);
-	if (set(argc, argv, 1)) {
-		exit(1);
-		NOTREACHED;
-	}
+	if (set(argc, argv, 1))
+		return(1);
 	if (cflag) {
 		if (sargp[0]==NULL) {
 			printe("No string for -c?");
-			exit(1);
-			NOTREACHED;
+			return(1);
 		}
 		--sargc;
 		session(SARGS, *sargp++);
 	} else if (!sflag && !iflag && sargc!=0) {
 		sarg0 = *sargp++;
 		--sargc;
-		session(SFILE, sarg0);
+		if (scmdp == NULL)
+			scmdp = sarg0;
+		session(SFILE, scmdp);
 	} else {
 		session(SSTR, stdin);
 	}
 	cleanup(2, NULL);
 	return (slret);
+}
+
+/*
+ * Make the arg listing of ps come out right.
+ *	f == 0, first entry, determine buffer limits.
+ *	f != 0, later entry, fill buffer with lies.
+ */
+fakearg(f, argc, argv, envp)
+int f, argc;
+char **argv, **envp;
+{
+	static char *fbuf;
+	static int nbuf;
+	register int n;
+
+	if (f == 0) {
+		fbuf = argv[0];
+		nbuf = 0;
+		if (envp != NULL && envp[0] != NULL) {
+			while (envp[1] != NULL)
+				envp += 1;
+			nbuf = envp[0] - fbuf + strlen(envp[0]) - 1;
+		} else if (argc > 0)
+			nbuf = argv[argc-1] - fbuf + strlen(argv[argc-1]) - 1;
+	} else {
+		if (fbuf == NULL || nbuf == 0)
+			return;
+		n = 0;
+		fbuf[0] = 0;
+		while (--argc > 0) {
+			argv += 1;
+			n += strlen(argv[0]) + 1;
+			if (n >= nbuf)
+				break;
+			strcat(fbuf, argv[0]);
+			strcat(fbuf, " ");
+		}
+		strcat(fbuf, "\1");	/* non-ascii terminator */
+	}
 }
 
 /*
@@ -100,19 +147,31 @@ register char *p;
 			s.s_flag = iflag;
 		else
 			iflag = s.s_flag;
-		dflttrp(IRDY);
+		if (lgnflag != 2)
+			dflttrp(IRDY);	/* allow <Ctrl-C> unless "+sh" */
 	}
 
 	/* Loop on input */
 	for (;;) {
-		switch (rcode = setjmp(s.s_envl)) {
+		rcode = setjmp(s.s_envl);
+		switch (rcode) {
 		case RSET:	/* initial setjmp call */
-			if (lgnflag) {
+			switch (lgnflag) {
+			case 1:		/* - sign invocation */
 				lgnflag = 0;
 				if (ffind("/etc", "profile", 4))
 					session(SFILE, duplstr(strt, 0));
+				recover(IPROF);
 				if (*vhome && ffind(vhome, ".profile", 4))
 					session(SFILE, duplstr(strt, 0));
+				break;
+			case 2:		/* + sign invocation */
+				lgnflag = 0;
+				if (ffind("/etc", "profile", 4))
+					session(SFILE, duplstr(strt, 0));
+				recover(IPROF);
+				dflttrp(IRDY);	/* allow <Ctrl-C> in SHELL */
+				return exshell( findvar("SHELL") );
 			}
 			checkmail();
 			comflag = 1;
@@ -120,7 +179,8 @@ register char *p;
 			recover(IRDY);
 			freebuf(s.s_bpp);
 			s.s_bpp = savebuf();
-			yyparse();
+			if (yyparse() != 0)
+				syntax();
 		case REOF:
 			recover(IRDY);
 			break;
@@ -155,7 +215,7 @@ register char *p;
 				reset(rcode);
 				NOTREACHED;
 			}
-			if ( ! iflag || (tflag && tflag++ >= 2))
+			if (rcode == RUEXITS || !iflag || (tflag && tflag++ >= 2))
 				break;
 			continue;
 		case RNOSBRK:
@@ -252,7 +312,7 @@ char *a1;
  * Make a core dump in /tmp and longjmp back to session -
  *	there's a possibility we'll die horribly.
  */
-panic()
+panic(i) register int i;
 {
 #ifdef PARANOID
 	register int f;
@@ -263,7 +323,7 @@ panic()
 	}
 	waitc(f);
 #endif
-	printe("Internal shell assertion failed");
+	printe("Internal shell assertion %d failed", i);
 	reset(RNOWAY);
 	NOTREACHED;
 }
@@ -275,21 +335,20 @@ printe(a1)
 char *a1;
 {
 	errflag += 1;
-	if (! noeflag) {
-		fprintf(stderr, "%r", &a1);
-		fprintf(stderr, "\n");
-	}
+	if (! noeflag)
+		fprintf(stderr, "%r\n", &a1);
 }
 
 /*
  * Some familiar errors.
  */
-ecantopen(s) char *s; { printe("Can't open %s", s); }
-ecantfind(s) char *s; { printe("Can't find %s", s); }
-ecantmake(s) char *s; { printe("Can't create %s", s); }
+ecantopen(s) char *s; { printe("Cannot open %s", s); }
+ecantfind(s) char *s; { printe("Cannot find %s", s); }
+e2big(s) char *s; { printe("File to big to execute: %s", s); }
+ecantmake(s) char *s; { printe("Cannot create %s", s); }
 emisschar(c) { printe("Missing `%c'", c); }
 ecantfdop() { printe("Fdopen failed"); }
-enotdef(s) char *s; { printe("Can't find variable %s", s); }
+enotdef(s) char *s; { printe("Cannot find variable %s", s); }
 eillvar(s) char *s; { printe("Illegal variable name: %s", s); }
 eredir() { printe("Illegal redirection"); }
 etoolong() { printe("Argument too long: %.*s", STRSIZE, strt); }
@@ -319,8 +378,13 @@ char *vps;
  */
 syntax()
 {
-	if (sesp->s_type == SFILE)
-		printe("%s: Syntax error in line %d", sesp->s_strp, yyline);
-	else
+	if (sesp->s_type == SFILE) {
+		if (feof(sesp->s_ifp))
+			printe("%s: Syntax error at EOF", sesp->s_strp);
+		else
+			printe("%s: Syntax error in line %d", sesp->s_strp, yyline);
+	} else
 		printe("Syntax error");
 }
+
+/* end of sh/main.c */

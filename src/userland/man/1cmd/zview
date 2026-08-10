@@ -1,0 +1,217 @@
+.TH zview "" "Command"
+.SH NAME
+zview \- window server and desktop
+.SH SYNOPSIS
+\fBzview\fR
+.SH DESCRIPTION
+.HS
+zview -- window server and desktop
+Usage:	zview &
+	Started at boot by /etc/rc when /etc/wgui exists.
+	Hold the right button for the menu; Quit restores the
+	text console.
+.HE
+.B zview
+is the window server and desktop of the
+.SM COHERENT
+GUI on the hi-res (bitmap) display.
+It loads the display driver
+.B /drv/hr
+and the pseudo-terminal driver
+.BR /drv/pty ,
+takes over the screen and keyboard, loads the fonts, reads the
+application catalog, puts an icon on the desktop for each catalog
+entry, and runs the desktop start-up script.
+It takes no arguments.
+At boot,
+.B /etc/rc
+starts it when the file
+.B /etc/wgui
+exists \- create that file to enable the GUI; it can equally be
+started by hand from the console:
+.BR "zview &" .
+.PP
+The desktop shows icons at the top left: one placeholder per catalog
+application (no process exists behind it \- clicking it launches the
+program) and one icon per hidden window (marked with a corner badge;
+clicking it restores the window).
+Every window has a 3-button mouse and follows the same conventions:
+.IP \fBmenus\fR
+pop up under the
+.B right
+button and work by press-and-hold: hold the button down, drag onto an
+entry \- it highlights as the pointer crosses it \- and release to
+choose it.
+Releasing outside the menu, or without moving onto an entry, chooses
+nothing.
+The keyboard is ignored while a menu is up.
+Pressing on the empty desktop opens the desktop menu; pressing on a
+window opens that window's menu.
+.IP "\fBdesktop menu\fR"
+lists the catalog applications (a single-instance entry raises its
+existing window instead of starting a second copy), then
+.BR "Switch to..." ,
+a dialog of all open windows, and
+.BR Quit ,
+which confirms and then shuts the GUI down, restoring the text
+console.
+.IP "\fBwindow menu\fR"
+starts with the entries the application asked for (from
+.BR New ,
+.BR Open ,
+.BR Save ,
+.BR Cut ,
+.BR Copy ,
+.BR Paste ,
+.BR Settings ,
+.BR Help ),
+then
+.BR Move ,
+.B Stretch
+(resizable windows only),
+.BR Front ,
+.BR Back ,
+.B Hide
+and
+.BR Quit .
+Some applications confirm Quit first.
+.IP \fBraising\fR
+a left click anywhere on a window brings it to the front and gives it
+the keyboard;
+.B Front
+and
+.B Back
+restack it from the menu.
+Every key goes to the focused (most recently raised) window \- there
+are no desktop keyboard shortcuts.
+.IP \fBmoving\fR
+drag the title bar directly with the left button.
+Alternatively pick
+.B Move
+from the window menu: press the left button to grab the window, drag
+the outline where it should go, and release to place it \- a right or
+middle press cancels instead.
+.IP \fBresizing\fR
+pick
+.B Stretch
+from the window menu (resizable windows only), grab with the left
+button, and drag the window's bottom-right corner; on release the
+application is told its new size.
+Windows are clamped to the screen and to a 48x48 minimum.
+.IP \fBhiding\fR
+.B Hide
+takes the window off the screen and leaves a desktop icon; clicking
+the icon puts the window back exactly where it was.
+.SH "COPY AND PASTE"
+Text moves between windows in two independent ways.
+.PP
+The quick way is the
+.IR selection :
+sweep over text with the
+.B left
+button held down \- it highlights \- and release; the swept text
+becomes the PRIMARY selection.
+A
+.B middle
+click then pastes it into the window
+.I "under the pointer"
+at the click position, deliberately
+.I without
+raising that window, so text can be carried into a partly covered
+window without disturbing the stacking.
+Only one window at a time shows a selection highlight; making a new
+selection clears the old one, but the stored text remains until
+replaced, so it can be pasted repeatedly.
+This works in both directions between any windows that support
+selection \- sweep in a terminal and middle-click into the editor, or
+sweep in the editor (or the manual browser) and middle-click into a
+terminal.
+.PP
+The durable way is the
+.IR clipboard ,
+driven by the
+.BR Cut ,
+.B Copy
+and
+.B Paste
+entries an application puts in its window menu (or their function
+keys, where it has them).
+It is a separate store: it survives further selections and is
+explicit \- nothing reaches the clipboard until a Cut or Copy.
+In a terminal window,
+.B Copy
+puts the current selection on the clipboard and
+.B Paste
+types the clipboard to the shell; in the editor, Cut/Copy/Paste act
+on the selected text.
+The two stores can hold different text at the same time.
+.SH OPTIONS
+.B zview
+itself takes no options, but every GUI application accepts these,
+consumed before its own arguments:
+.DS
+.ta 6n 20n
+	\fB\-T \fItitle\fR	window title
+	\fB\-I \fIfile\fB.icn\fR	icon (under /usr/hr/icons) when hidden
+	\fB\-S \fIW\fBx\fIH\fR	content size in pixels (resizable
+		applications only)
+	\fB\-P \fIX\fB,\fIY\fR	window position in screen pixels
+	\fB\-H\fR	start hidden, as a desktop icon
+.DE
+The one global key chord lives in the display driver:
+.B ALT+CTRL+HELP
+forcibly unloads it and shuts the desktop down \- the emergency exit
+for a hung screen.
+.SH FILES
+.DS
+.ta 8n 30n
+	/etc/wgui	if present, rc starts the GUI
+	/usr/hr/etc/apps	application catalog
+	/usr/hr/etc/rc	desktop start-up script
+	/usr/hr/icons/*.icn	icons
+	/usr/hr/fonts/*.hf	fonts
+	/drv/hr, /drv/pty	drivers, loaded at start-up
+	/wscrash	crash status of a dead server
+.DE
+Each
+.B apps
+line reads
+\fIname\fB:\fIpath\fB:\fImulti\fB:\fIicon\fB:\fIX\fB,\fIY\fR
+\- menu label, program, whether many copies may run (1) or one (0),
+the placeholder icon, and where a launched window goes; the last two
+fields are optional and
+.B #
+starts a comment.
+The
+.B rc
+script runs at desktop start-up for anything that should be resident
+from the beginning; each command must end in
+.BR & .
+.SH "SEE ALSO"
+.BR zterm ,
+.BR zedit ,
+.BR zfile ,
+.BR zmail ,
+.BR zman ,
+.BR zcalc ,
+.BR zprint ,
+.BR zmon ,
+.BR zclock ,
+.B zpuzzle
+.SH DIAGNOSTICS
+`zview: no hi-res display on this machine';
+`zview: a window server is already running' (if the driver was left
+loaded, `/etc/uload /drv/hr' recovers).
+If the server dies, a watchdog writes the wait status to
+.BR /wscrash ,
+restores the text console, and reports
+`zview: server died -- screen and keyboard restored'.
+.SH NOTES
+At most 16 windows can be open and the catalog holds at most 12
+applications.
+The screen is 1024x800 pixels; windows are clamped to it.
+Applications are best launched from icons, the desktop menu or the
+.B apps
+catalog rather than made resident in
+.BR rc :
+a placeholder icon costs no memory until it is clicked.

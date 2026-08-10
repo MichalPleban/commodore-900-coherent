@@ -1,28 +1,80 @@
-CFLAGS=-O
-sh: main.o alloc.o eval.o exec1.o exec2.o exec3.o extern.o lex.o malloc.o tab.o trap.o var.o y.tab.o atoi.o glob.o
-	cc -i -o sh main.o alloc.o eval.o exec1.o exec2.o exec3.o extern.o lex.o malloc.o tab.o trap.o var.o y.tab.o atoi.o glob.o
+# /usr/src/cmd0/sh/Makefile 4/3/93
 
-psh: main.o alloc.o eval.o exec1.o exec2.o exec3.o extern.o lex.o malloc.o tab.o trap.o var.o y.tab.o atoi.o glob.o
-	cc -n -o psh -O -DPARANOID main.c alloc.o eval.o exec1.o exec2.o exec3.o extern.o lex.o malloc.o tab.o trap.o var.o y.tab.o atoi.o glob.o
+DESTDIR=/bin386/bin/
 
-any:
-	@: dummy entry
-alloc.o: sh.h alloc.c
-eval.o: sh.h eval.c
-exec1.o: sh.h exec1.c
-exec2.o: sh.h exec2.c
-exec3.o: sh.h exec3.c
-extern.o: sh.h extern.c
-lex.o: sh.h y.tab.h lex.c
-main.o: sh.h main.c
-malloc.o: malloc.c
-tab.o: sh.h tab.c
-trap.o: sh.h trap.c
-var.o: sh.h var.c any
-	cc -O -c -DVERSION='"VERSION='"`version`"'"' var.c
-y.tab.o: sh.h y.tab.h
-	cc -O -c y.tab.c
-y.tab.h: sh.y
-	yacc sh.y
-atoi.o: atoi.c
-glob.o: sh.h glob.c
+# Version number for var.c.
+VERSION=V3.4.5
+# Parsing stack depth for y.tab.c.
+YYMAXDEPTH=300
+
+CFLAGS= -O -I$(SRCPATH)
+# Undefine _copyright_ to pull in libc.a/copyright.o.
+LDFLAGS= -n -i -u _copyright
+# Don't bind shared on the PDP-11.
+# LDFLAGS= -i
+
+OBJ=\
+	alloc.o\
+	atoi.o\
+	eval.o\
+	exec1.o\
+	exec2.o\
+	exec3.o\
+	extern.o\
+	glob.o\
+	lex.o\
+	main.o\
+	tab.o\
+	trap.o\
+	var.o\
+	y.tab.o
+
+SRCS=\
+	sh.h\
+	sh.y\
+	alloc.c\
+	atoi.c\
+	eval.c\
+	exec1.c\
+	exec2.c\
+	exec3.c\
+	extern.c\
+	glob.c\
+	lex.c \
+	main.c\
+	tab.c\
+	trap.c\
+	var.c
+
+# Primary target.
+sh: $(OBJ)
+	$(CC) $(LDFLAGS) -o $(DESTDIR)sh $(OBJ)
+
+psh: $(OBJ)
+	$(CC) -n -o psh -O -DPARANOID $(OBJ)
+
+# Secondary targets.
+alloc.o:	sh.h alloc.c
+atoi.o:		atoi.c
+eval.o:		sh.h eval.c
+exec1.o:	sh.h exec1.c
+exec2.o:	sh.h exec2.c
+exec3.o:	sh.h exec3.c
+extern.o:	sh.h extern.c
+glob.o:		sh.h glob.c
+lex.o:		sh.h lex.c y.tab.o
+main.o:		sh.h main.c
+tab.o:		sh.h tab.c
+trap.o:		sh.h trap.c
+var.o:		var.c sh.h
+	$(CC) -c $(CFLAGS) -DVERSION=\"$(VERSION)\" $<
+y.tab.c:	sh.y
+	yacc $<
+y.tab.o:	y.tab.c sh.h
+	$(CC) -c $(CFLAGS) -DYYMAXDEPTH=$(YYMAXDEPTH) $<
+
+# Etc.
+clean:
+	rm $(OBJ)
+
+# end of /usr/src/cmd0/sh/Makefile

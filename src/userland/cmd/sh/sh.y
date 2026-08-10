@@ -3,16 +3,17 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 /*
+ * sh/sh.y
  * The Bourne shell.
  * This shell is dedicated to Ciaran Gerald Aidan O'Donnell.
- * May he live a thousand minutes.  (long enough to fix up YACC).
+ * May he live a thousand minutes (long enough to fix up YACC).
  * It is also dedicated to Steve Bourne.
  * May he live a thousand seconds.
  */
 %{
 #include "sh.h"
 
-#define YYERROR	{yyerrflag=1; goto YYerract; }
+#define YYERROR	{ yyerrflag=1; goto YYerract; }
 
 extern	NODE	*node();
 %}
@@ -23,37 +24,54 @@ extern	NODE	*node();
 	int	yu_nval;
 }
 
-%token _NULL _DSEMI _ANDF _ORF _NAME _IORS _ASGN
-%token _CASE _DO _DONE _ELIF _ELSE _ESAC _FI _FOR _IF _IN _THEN
-%token _UNTIL _WHILE _OBRAC _CBRAC
+%token _ANDF
+%token _ASGN
+%token _CASE
+%token _CBRAC
+%token _DO
+%token _DONE
+%token _DSEMI
+%token _ELIF
+%token _ELSE
+%token _ESAC
+%token _FI
+%token _FOR
+%token _IF
+%token _IN
+%token _IORS
+%token _NAME
+%token _NULL
+%token _OBRAC
+%token _ORF
+%token _THEN
+%token _UNTIL
+%token _WHILE
 
-%type <yu_node> command_line	command_list	logical_command
-%type <yu_node> pipe_command	command		argument_list
-%type <yu_node> argument	control		in_name_list
-%type <yu_node> name_list	case_list	case_line
-%type <yu_node>	pattern_list	do_list		else_part
-%type <yu_node> command_sequence	opt_command_sequence
-%type <yu_node> sub_shell
+%type <yu_node>	arg		arg_list	case_line	case_list
+%type <yu_node>	cmd		cmd_line	cmd_list	cmd_seq
+%type <yu_node>	control		do_list		else_part	in_name_list
+%type <yu_node>	logical_cmd	name_list	opt_cmd_seq	pattern_list
+%type <yu_node>	pipe_cmd	sub_shell
 
-%type <yu_strp>	redirect	name	asgn
+%type <yu_strp>	asgn		name		redirect
 
 %type <yu_nval> whuntile
 
 %%
 
 session:
-	session command_line
+	session cmd_line
 |
 ;
 
-command_line:
+cmd_line:
 	'\n' {
 		sesp->s_node = NULL;
 		reset(RCMD);
 		NOTREACHED;
 	}
 |
-	command_list '\n' {
+	cmd_list '\n' {
 		sesp->s_node = $1;
 		reset(errflag ? RERR : RCMD);
 		NOTREACHED;
@@ -80,6 +98,8 @@ whuntile:	_WHILE optnls {	$$ = NWHILE;	}
 
 do:	_DO optnls | _DO ';' optnls ;
 
+in:	_IN | _IN sep ;
+
 oror:	_ORF optnls;
 
 andand:	_ANDF optnls;
@@ -94,73 +114,73 @@ cparen:	')' optnls ;
 
 dsemi:	_DSEMI optnls ;
 
-command_list:
-	logical_command {
+cmd_list:
+	logical_cmd {
 		$$ = $1;
 	}
-|	logical_command '&' {
+|	logical_cmd '&' {
 		$$ = node(NBACK, $1, NULL);
 	}
-|	logical_command ';' {
+|	logical_cmd ';' {
 		$$ = $1;
 	}
-|	logical_command '&' command_list {
+|	logical_cmd '&' cmd_list {
 		$$ = node(NBACK, $1, $3);
 	}
-|	logical_command ';' command_list {
+|	logical_cmd ';' cmd_list {
 		$$ = node(NLIST, $1, $3);
 	}
 ;
 
-logical_command:
-	pipe_command {
+logical_cmd:
+	pipe_cmd {
 		$$ = $1;
 	}
-|	pipe_command oror logical_command {
+|	pipe_cmd oror logical_cmd {
 		$$ = node(NORF, $1, $3);
 	}
-|	pipe_command andand logical_command {
+|	pipe_cmd andand logical_cmd {
 		$$ = node(NANDF, $1, $3);
 	}
 ;
 
-pipe_command:
-	command or pipe_command {
+pipe_cmd:
+	cmd or pipe_cmd {
 		$$ = node(NPIPE, $1, $3);
 	}
-|	command {
+|	cmd {
 		$$ = $1;
 	}
 ;
 
-command:
-	argument_list_init argument_list {
+cmd:
+	arg_list_init arg_list {
 		$$ = node(NCOMS, $2, NULL);
 		keypop();
 	}
 ;
 
-argument_list_init:
+arg_list_init:
 	{
 		keypush();
 		keyflag = 1;
 	}
 ;
 
-argument_list:
-	argument argument_list {
+arg_list:
+	arg arg_list {
 		if (($1->n_type == NCTRL && $2->n_type == NARGS)
 		 || ($1->n_type == NARGS && $2->n_type == NCTRL)) {
 			YYERROR;
 		}
 		($$ = $1)->n_next = $2;
 	}
-|	argument {
+|	arg {
 		$$ = $1;
 	}
 ;
 
-argument:
+arg:
 	redirect {
 		$$ = node(NIORS, $1, NULL);
 	}
@@ -172,7 +192,7 @@ argument:
 		$$ = node(NASSG, $1, NULL);
 	}
 |	control {
-		if ( ! keyflag) {
+		if (!keyflag) {
 			YYERROR;
 		}
 		$$ = node(NCTRL, $1, NULL);
@@ -200,20 +220,27 @@ control:
 		$$ = node(NFOR, $2, node(NFOR2, $3, node(NLIST, $5, NULL)));
 		$$->n_next->n_next->n_next = $$->n_next;
 	}
-|	_CASE name _IN sep case_list _ESAC {
+|	_FOR name in_name_list do_list _DONE {
+		$$ = node(NFOR, $2, node(NFOR2, $3, node(NLIST, $4, NULL)));
+		$$->n_next->n_next->n_next = $$->n_next;
+	}
+|	_CASE name sep in case_list _ESAC {
 		$$ = node(NCASE, $2, $5);
 	}
-|	whuntile command_sequence do_list _DONE {
+|	_CASE name in case_list _ESAC {
+		$$ = node(NCASE, $2, $4);
+	}
+|	whuntile cmd_seq do_list _DONE {
 		$$ = node($1, $2, node(NLIST, $3, NULL));
 		$$->n_next->n_next = $$;
 	}
-|	if command_sequence then opt_command_sequence else_part _FI {
+|	if cmd_seq then opt_cmd_seq else_part _FI {
 		$$ = node(NIF, node(NNULL, $2, $4), $5);
 	}
-|	oparen opt_command_sequence ')' {
+|	oparen opt_cmd_seq ')' {
 		$$ = node(NPARN, $2, NULL);
 	}
-|	obrack opt_command_sequence _CBRAC {
+|	obrack opt_cmd_seq _CBRAC {
 		$$ = node(NBRAC, $2, NULL);
 	}
 ;
@@ -240,7 +267,8 @@ case_list:
 	case_line dsemi case_list {
 		register NODE *np;
 
-		for (np=$1; np->n_next; np=np->n_next);
+		for (np=$1; np->n_next; np=np->n_next)
+			;
 		np->n_next = $3;
 		$$ = $1;
 	}
@@ -253,7 +281,7 @@ case_list:
 ;
 
 case_line:
-	pattern_list cparen opt_command_sequence {
+	pattern_list cparen opt_cmd_seq {
 		$$ = node(NCASE2, $3, $1);
 	}
 ;
@@ -268,7 +296,7 @@ pattern_list:
 ;
 
 do_list:
-	do opt_command_sequence {
+	do opt_cmd_seq {
 		$$ = $2;
 	}
 |	{
@@ -277,10 +305,10 @@ do_list:
 ;
 
 else_part:
-	elif command_sequence then opt_command_sequence else_part {
-		$$ = node(NIF, node(NULL, $2, $4), $5);
+	elif cmd_seq then opt_cmd_seq else_part {
+		$$ = node(NIF, node(NNULL, $2, $4), $5);
 	}
-|	else opt_command_sequence {
+|	else opt_cmd_seq {
 		$$ = node(NELSE, $2, NULL);
 	}
 |	{
@@ -288,8 +316,8 @@ else_part:
 	}
 ;
 
-opt_command_sequence:
-	command_sequence {
+opt_cmd_seq:
+	cmd_seq {
 		$$ = $1;
 	}
 |
@@ -298,11 +326,11 @@ opt_command_sequence:
 	}
 ;
 
-command_sequence:
-	command_list nls command_sequence {
+cmd_seq:
+	cmd_list nls cmd_seq {
 		$$ = node(NLIST, $1, $3);
 	}
-|	command_list optnls {
+|	cmd_list optnls {
 		$$ = $1;
 	}
 ;
@@ -334,7 +362,7 @@ NODE *auxp, *next;
 	np->n_type = type;
 	np->n_auxp = auxp;
 	np->n_next = next;
-	return (np);
+	return np;
 }
 
 #define NBPC 8
@@ -346,7 +374,8 @@ keyflush()
 {
 	register char *kp;
 
-	for (kp = keys+NKEY; kp > keys; *--kp = 0);
+	for (kp = keys+NKEY; kp > keys; *--kp = 0)
+		;
 	keyi = NKEY * NBPC;
 }
 
@@ -356,7 +385,7 @@ keypop()
 	register int	km;
 
 	if ((km = keyi++) >= NKEY * NBPC) {
-		panic();
+		panic(11);
 		NOTREACHED;
 	}
 	kp = keys + (km / NBPC);
@@ -371,7 +400,7 @@ keypush()
 	register int	km;
 
 	if ((km = --keyi) < 0) {
-		panic();
+		panic(12);
 		NOTREACHED;
 	}
 	if (keyflag) {
@@ -384,15 +413,17 @@ keypush()
  * The following fragments might implement named pipes.
  * The token declaration goes in the header.
  * The nopen production should go with the others of its ilk.
- * The production fragment goes into argument:
+ * The production fragment goes into arg:
 %token _NOPEN _NCLOSE
 nopen:	_NOPEN optnls ;
 
-|	nopen pipe_command ')' {
+|	nopen pipe_cmd ')' {
 		$$ = node(NRPIPE, $2, NULL);
 	}
-|	oparen pipe_command _NCLOSE {
+|	oparen pipe_cmd _NCLOSE {
 		$$ = node(NWPIPE, $2, NULL);
 	}
  *
  */
+
+/* end of sh/sh.y */

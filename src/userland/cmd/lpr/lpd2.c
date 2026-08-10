@@ -124,8 +124,12 @@ FILE *fp;
 {
 	register i, j;
 	register char *s;
+	extern	printing;
 
 	for (i=0; i!=9; i++) {
+		chksig();
+		if (printing <= 0)
+			return;
 		for (s=line; *s!='\0'; s++)
 			for (j=0200; j!=0; j>>=1)
 				if(BAS<=*s && *s<=0177 && font[*s-BAS][i]&j)

@@ -1,0 +1,57 @@
+
+
+zzccaallcc                                                       zzccaallcc
+
+
+
+NNAAMMEE
+     zcalc - GUI calculator
+
+SSYYNNOOPPSSIISS
+     zzccaallcc [_o_p_t_i_o_n_s]
+
+DDEESSCCRRIIPPTTIIOONN
+     zzccaallcc is the calculator of the COHERENT GUI.  It must be run
+     under the zzvviieeww desktop.  It shows a display over a fixed
+     grid of buttons; every button also has a key equivalent, so
+     the calculator can be driven entirely from the keyboard.
+     Arithmetic is double precision; the trigonometric functions
+     work in radians.  It accepts the standard window _o_p_t_i_o_n_s of
+     GUI applications; see zzvviieeww.
+
+     The accepted keys:
+
+                00-99, .        enter a number
+                + - /         add, subtract, divide
+                *, xx          multiply
+                ^             y to the power x
+                =, RREETTUURRNN     equals
+                cc             Clear: start over (also clears Error)
+                ee             CE: clear the entry, keep the pending operation
+                nn             change the sign of the display
+                pp             enter pi
+                BBSS, DDEELL       rub out the last typed digit
+                ss oo tt         sin, cos, tan
+                ll gg           ln, log10
+                jj             e to the power x
+                rr             square root
+                ii             1/x
+
+     The letter commands are lower-case; only cc, ee, nn, pp and xx
+     also work in upper case.  The pending operator is shown at
+     the left edge of the display.  Operators are applied im-
+     mediately, left to right; there is no precedence and no
+     parentheses.
+
+     Division by zero, overflow past 1e99, and a function applied
+     outside its domain show EErrrroorr, which locks the calculator
+     until cc.
+
+SSEEEE AALLSSOO
+     zzvviieeww, bbcc, ddcc
+
+NNOOTTEESS
+     The window has a fixed size (the -SS option is ignored) and
+     there is no quit key; close the window from its menu.  A
+     typed entry holds at most 13 characters, and results are
+     shown to at most 10 significant digits.

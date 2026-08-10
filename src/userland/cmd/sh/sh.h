@@ -4,15 +4,18 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 /*
- * A shell.
+ * sh/sh.h
+ * Bourne shell.
  * Header file.
  */
 
 #include <stdio.h>
 #include <setjmp.h>
+#include <string.h>
 
 #define STRSIZE	2000			/* Maximum length of single token */
 #define IALSIZE	8			/* Initial argument list size */
+#define	DSTACKN	30			/* Directory stack depth */
 #define NOTREACHED	return
 
 /*
@@ -65,18 +68,16 @@
 /*
  * Node.
  */
-typedef	union	node {
-	struct {
-		int	n_type;		/* Type of node */
-		union	node *n_next;	/* Pointer to next */
-		union	node *n_auxp;	/* Auxiliary pointer */
-	};
-	struct {
-		int	n_type;		/* Type of node */
-		union	node *n_next;	/* Pointer to next */
-		char	*n_strp;	/* Pointer to string */
-	};
+typedef	struct	node {
+	int	n_type;			/* Type of node */
+	struct	node *n_next;		/* Pointer to next */
+	union	{
+		struct	node *nu_auxp;	/* Auxiliary pointer */
+		char	*nu_strp;	/* Pointer to string */
+	} n_u;
 } NODE;
+#define	n_auxp	n_u.nu_auxp
+#define	n_strp	n_u.nu_strp
 
 /*
  * Flags in variables.
@@ -163,6 +164,7 @@ typedef struct ses {
 #define IEVAL	3	/* Command evaluation in progress */
 #define IBACK	4	/* Background process */
 #define IFORK	5	/* Child after fork */
+#define IPROF	6	/* Reading /etc/profile for login */
 
 /*
  * Evaluation contexts.
@@ -206,6 +208,7 @@ extern	char	*sarg0;			/* Name shell called with */
 extern	char	**sargv;		/* Argument vector to shell */
 extern	char	**senvp;		/* Environment vector to shell */
 extern	char	**sargp;		/* Current argument to shell */
+extern	char	*scmdp;			/* Path/filename of command file */
 extern	int	nargc;			/* New argument count, for command */
 extern	char	**nargv;		/* New argument vector, for command */
 extern	char	**nenvp;		/* New environment, for command */
@@ -224,6 +227,7 @@ extern	int	errflag;		/* Set by call to printe */
 extern	int	keyflag;		/* Look for keyword in next word */
 extern	int	noeflag;		/* Turn off errors */
 extern	int	prpflag;		/* Do prompt before next read */
+extern	int	readflag;		/* Doing read command? */
 /* Parameters used by shell. */
 extern	char	*vhome;			/* Home directory */
 extern	char	*vpath;			/* Search pathname */
@@ -236,6 +240,9 @@ extern	char	*vshell;		/* Shell to use */
 extern	char	strt[STRSIZE];		/* String buffer */
 extern	char	*strp;			/* Pointer in string buffer */
 extern	VAR	*varp;			/* Pointer to shell variables */
+extern	char	*dstack[DSTACKN];	/* Directory stack */
+extern	int	dstkp;			/* Directory stack pointer */
+
 /* Tables */
 extern	char	lextab[];		/* Character type table */
 /* Data external to shell */
@@ -253,7 +260,7 @@ extern	char	**makargl();		/* in alloc.c */
 extern	char	**addargl();		/* in alloc.c */
 extern	BUF	**savebuf();		/* in alloc.c */
 extern	char	**vdupl();		/* in alloc.c */
-extern	char	*any();			/* in glob.c */
+extern	char	*gany();		/* in glob.c */
 extern	int	sigintr();		/* in trap.c */
 extern	VAR	*findvar();		/* in var.c */
 extern	VAR	*setsvar();		/* in var.c */
@@ -261,7 +268,8 @@ extern	VAR	*flagvar();		/* in var.c */
 extern	VAR	*assnvar();		/* in var.c */
 extern	char	*convvar();		/* in var.c */
 extern	char	**envlvar();		/* in var.c */
-extern	char	*index();		/* in /lib/libc.a */
-extern	char	*strcpy();		/* in /lib/libc.a */
-extern	char	*strncpy();		/* in /lib/libc.a */
-extern	char	*strcat();		/* in /lib/libc.a */
+extern	char	*_getwd();		/* in /lib/libc.a */
+#define	index(cp, c)	strchr((cp), (c))
+#define	rindex(cp, c)	strrchr((cp), (c))
+
+/* end of sh/sh.h */

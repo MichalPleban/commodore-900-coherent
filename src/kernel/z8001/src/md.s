@@ -1398,6 +1398,7 @@ icode:
 argv:	.word	USEG, file-icode
 	.word	USEG, swap-icode
 	.word	USEG, driv_no-icode	/ default console; vidsel may repoint this
+	.word	USEG, driv_lp-icode	/ line printer (loadable, slot 3)
 	.long	0
 
 file:	.ascii	"/etc/init"
@@ -1407,11 +1408,15 @@ swap:			/ no swapper exec by init
 / Console driver names.  The argv[2] offset above is patched by vidsel
 / (called from `start') to driv_lr/driv_hr when a video card is probed;
 / it is left at driv_no (serial console) when no display is present.
+/ init loads every argv[2..] driver via /etc/load, so argv[3] makes it
+/ install /drv/lp right after the console driver.
 driv_lr: .ascii	"/drv/lrtty"		/ low-res text card
 	.byte	0
 driv_hr: .ascii	"/drv/hrtty"		/ hi-res bitmap card
 	.byte	0
 driv_no: .ascii	"/drv/notty"		/ no display: serial console
+	.byte	0
+driv_lp: .ascii	"/drv/lp"		/ line printer
 	.byte	0
 / driv2:	.ascii	"/drv/al"
 /	.byte	0

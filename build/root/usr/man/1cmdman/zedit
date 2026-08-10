@@ -1,0 +1,139 @@
+
+
+zzeeddiitt                                                       zzeeddiitt
+
+
+
+NNAAMMEE
+     zedit - GUI text editor
+
+SSYYNNOOPPSSIISS
+     zzeeddiitt [_o_p_t_i_o_n_s] [_f_i_l_e]
+
+DDEESSCCRRIIPPTTIIOONN
+     zzeeddiitt is the text editor of the COHERENT GUI.  It must be
+     run under the zzvviieeww desktop; started elsewhere it exits im-
+     mediately.  It edits one plain-text file in a resizable win-
+     dow with a scrollbar on the left edge and a status line
+     showing the file name, a * when the buffer is modified, and
+     the cursor position as _l_i_n_e, _c_o_l_u_m_n.
+
+     With a _f_i_l_e argument zzeeddiitt loads that file; if it does not
+     exist yet, editing starts in an empty buffer under that
+     name.  With no argument the buffer starts empty and un-
+     titled.  zzeeddiitt also accepts the standard window _o_p_t_i_o_n_s of
+     GUI applications (-TT -II -SS -PP -HH); see zzvviieeww.
+
+     The keyboard commands follow the MicroEMACS convention of
+     control keys and prefix chords.  The C900 cursor keypad
+     works as expected: the desktop translates the arrow keys and
+     the keypad Home, End, PgUp, PgDn, Del and Enter keys into
+     the corresponding control keys below.
+
+     Cursor motion:
+
+                ^BB          left one character (wraps to previous line)
+                ^FF          right one character (wraps to next line)
+                ^PP          up one line
+                ^NN          down one line
+                ^AA          to start of line
+                ^EE          to end of line
+                ^ZZ          up one page
+                ^VV          down one page
+                EESSCC <       to top of file
+                EESSCC >       to end of file
+                EESSCC ff       forward one word
+                EESSCC bb       back one word
+                ^LL          recentre the cursor line
+
+     Editing:
+
+                BBSS          delete left; at column 0, join with previous line
+                DDEELL, ^DD     delete right; at end of line, join with next line
+                ^KK          kill to end of line; repeated, appends and takes
+                            the newline too
+                ^WW          kill the selection
+                ^YY          yank (insert the last killed text)
+                ^OO          open a line below the cursor
+                ^TT          transpose the characters around the cursor
+                ^GG          abort; drop the selection
+
+     Search and file commands:
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+zzeeddiitt                                                       zzeeddiitt
+
+
+
+                ^SS          find next (asks for a pattern the first time)
+                EESSCC ss       new search (always asks for the pattern)
+                ^XX^CC        quit (confirms if the buffer is modified)
+
+     Function keys:
+
+                FF22          save (asks for a name only if untitled)
+                FF33          open a file
+                FF44          new (empty) buffer
+                FF55          cut the selection to the clipboard
+                FF66          copy the selection to the clipboard
+                FF77          paste the clipboard
+                FF88          find next
+                FF1100         quit (delivered as ^X^C)
+                HHEELLPP        show the help summary
+                CCLLRR/HHOOMMEE    to top of file
+                SSTTOOPP        abort; drop the selection
+
+     Printable characters and TAB insert at the cursor.  Tabs are
+     stored literally and displayed at 8-column stops.  RETURN
+     splits the line at the cursor.
+
+     The mouse places the cursor with a left click, and a left
+     drag selects text; on release the selection becomes the
+     PRIMARY selection, which a middle click pastes in any GUI
+     window (at the click point).  Cut and Copy instead use the
+     clipboard, a separate store, so a clipboard paste and a mid-
+     dle-click paste can carry different text.
+
+     The window menu offers New, Open, Save, Cut, Copy, Paste and
+     Help above the standard window entries.  Menu Save always
+     shows the file-name dialog, prefilled with the current name;
+     FF22 saves silently under the current name.  In dialogs, TAB
+     cycles among text fields, RETURN fires the default button
+     and ESC cancels.
+
+FFIILLEESS
+                  /tmp/.hrclip            clipboard
+                  /usr/hr/icons/edit.icn  desktop icon
+
+SSEEEE AALLSSOO
+     zzvviieeww, zztteerrmm, zzffiillee, eedd
+
+DDIIAAGGNNOOSSTTIICCSS
+     All diagnostics appear in dialogs: `Cannot open that file',
+     `Cannot write that file', `Enter a file name', `Enter text
+     to find', `Not found', `Discard unsaved changes?'.
+
+NNOOTTEESS
+     The buffer holds at most 1024 lines of at most 240 charac-
+     ters.  Loading stops at the line limit, and longer lines are
+     split; either event marks the buffer modified so the trunca-
+     tion cannot be saved back silently.  The kill buffer holds
+     2048 bytes, a search pattern 31 characters, and a file name
+     39 characters.  Every line is written back with a trailing
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+zzeeddiitt                                                       zzeeddiitt
+
+
+
+     nneewwlliinnee.  There is no undo and no replace command.

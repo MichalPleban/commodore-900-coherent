@@ -1,0 +1,49 @@
+.TH zpuzzle "" "Command"
+.SH NAME
+zpuzzle \- GUI fifteen puzzle
+.SH SYNOPSIS
+\fBzpuzzle [\fIoptions\fB]\fR
+.SH DESCRIPTION
+.HS
+zpuzzle -- GUI fifteen puzzle
+Usage:	zpuzzle [ options ]
+Keys:	h/j/k/l slide a tile left/down/up/right, n new game
+.HE
+.B zpuzzle
+is the classic fifteen puzzle: fifteen numbered tiles and one gap on
+a four-by-four board.
+Slide the tiles until they read 1 to 15 in order.
+It must be run under the
+.B zview
+desktop and accepts the standard window
+.I options
+of GUI applications; see
+.BR zview .
+.PP
+A left click on any tile in the same row or column as the gap slides
+the whole run of tiles between it and the gap one place \- so one
+click can move several tiles.
+Clicks elsewhere are ignored.
+.PP
+The keys move one tile at a time and name the direction the tile
+moves:
+.DS
+.ta 6n 16n
+	\fBh\fR	slide a tile left
+	\fBl\fR	slide a tile right
+	\fBk\fR	slide a tile up
+	\fBj\fR	slide a tile down
+	\fBn\fR	new game (also the window menu's New entry)
+.DE
+The status line counts moves \- each tile slid counts as one \- and
+announces `Solved in N moves!' when the puzzle is done; the board
+then freezes until a new game is dealt.
+.SH "SEE ALSO"
+.B zview
+.SH NOTES
+The deal is made by walking the gap 400 random legal moves from the
+solved position, so every game is solvable \- which is true of only
+half of all random tile arrangements.
+The window has a fixed size (the
+.B \-S
+option is ignored).

@@ -1,0 +1,41 @@
+
+
+zzcclloocckk                                                     zzcclloocckk
+
+
+
+NNAAMMEE
+     zclock - GUI clock
+
+SSYYNNOOPPSSIISS
+     zzcclloocckk [_o_p_t_i_o_n_s]
+
+DDEESSCCRRIIPPTTIIOONN
+     zzcclloocckk shows an analogue clock face with hour, minute and
+     second hands, updated every second.  It must be run under
+     the zzvviieeww desktop, is resizable, and accepts the standard
+     window _o_p_t_i_o_n_s of GUI applications; see zzvviieeww.
+
+     When run by the superuser, the window menu gains a SSeettttiinnggss
+     entry that opens a dialog with two fields, DDaattee: (as
+     _Y_Y_Y_Y-_M_M-_D_D) and TTiimmee: (as _H_H:_M_M:_S_S), prefilled with the cur-
+     rent local time.  TAB switches between the fields, RETURN is
+     OK and ESC cancels.  OK sets the system clock; if a field
+     does not parse, the dialog stays up and says why.  The typed
+     time is local time and is converted using the current
+     timezone.
+
+     There are no other keyboard commands.
+
+SSEEEE AALLSSOO
+     zzvviieeww, ddaattee
+
+DDIIAAGGNNOOSSTTIICCSS
+     On the dialog's message line: `Use YYYY-MM-DD and HH:MM:SS',
+     `Year must be 1970-2037', `No such date', `No such time',
+     `Cannot set the clock'.
+
+NNOOTTEESS
+     Only the superuser sees the SSeettttiinnggss entry, and only the su-
+     peruser can set the clock.  The year is limited to 2037 by
+     the 32-bit time counter.

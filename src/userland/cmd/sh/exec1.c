@@ -1,15 +1,18 @@
 /*
  * Copyright (c) 1977-1995 Robert Swartz.
- * Copyright (c) 2026 Michal Pleban.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 /*
+ * sh/exec1.c
  * The Bourne shell.
  * Shell part of execution.
  */
+
 #include "sh.h"
 
-char *lastcmd = NULL;
+char *lastcmd = "";
+
+char *skipredir();
 
 /*
  * Execute the given node, wait for completion, return status.
@@ -43,12 +46,11 @@ register NODE *np;
 	case 2:		/* break */
 		goto break2;
 	default:
-		panic();
+		panic(1);
 		NOTREACHED;
 	}
 
-	for ( ; np; np=np->n_next) {
-
+	for ( ; np != NULL; np=np->n_next) {
 	recover(ICMD);
 	f = 0;
 	nllflag = mynllflag;
@@ -96,8 +98,10 @@ register NODE *np;
 		break;
 	case NIF:
 		nllflag = 0;
-		if ( ! command(np->n_auxp->n_auxp))
+		if (!command(np->n_auxp->n_auxp))
 			np = np->n_auxp;
+		else if (np->n_next == NULL)
+			slret = 0;		/* exit status 0 if no elsepart */
 		continue;
 	case NELSE:
 		command(np->n_auxp);
@@ -146,15 +150,14 @@ register NODE *np;
 			NOTREACHED;
 		}
 		sback = f;
-		if (sesp->s_flag)
-			prints("%d\n", f);
+		prints("%d\n", f);
 		f = 0;
 		continue;
 	case NPIPE:
 		f = pipecoms(np);
 		break;
 	default:
-		panic();
+		panic(2);
 		NOTREACHED;
 	}
 	break;
@@ -162,7 +165,8 @@ register NODE *np;
 	}
 break2:
 	nllflag = mynllflag;
-	sesp->s_con = sesp->s_con->c_next;
+	if (sesp->s_con != NULL)
+		sesp->s_con = sesp->s_con->c_next;
 	if (f)
 		waitc(f);
 	if (slret)
@@ -172,7 +176,7 @@ break2:
 		reset(RUABORT);
 		NOTREACHED;
 	}
-	return (slret);
+	return slret;
 }
 
 /*
@@ -187,7 +191,7 @@ comscom(np)
 register NODE *np;
 {
 	register int f;
-	register char **app;
+	register char **app, *s, *s1, *sp;
 	int nputs, nargs;
 
 	nargc = 1;
@@ -206,10 +210,33 @@ register NODE *np;
 		switch (np->n_type) {
 		case NIORS:
 			f |= FIORS;
+#if	0
+			/* Old code. */
 			eval(np->n_strp, EWORD);
 			niovp = addargl(niovp, duplstr(strt, 0));
 			if (xflag)
 				nputs += puta(nputs, strt);
+#else
+			/*
+			 * New code by steve 1/24/91.
+			 * This allows globs in redirection args.
+			 */
+			s = skipredir(np->n_strp);
+			nargs = nargc;
+			eval(s, EARGS);			/* expand as arg */
+			for (s1 = np->n_strp, sp = strt; s1 < s; )
+				*sp++ = *s1++;
+			strcpy(sp, nargv[nargs]);	/* build redir arg */
+			niovp = addargl(niovp, duplstr(strt, 0));
+			if (xflag)
+				nputs += puta(nputs, strt);
+			--nargc;
+			for (app = nargv+nargs; *app; app++) {
+				*app = *(app + 1);	/* shift remaining args */
+				if (xflag && *app != NULL)
+					nputs += puta(nputs, *app);
+			}
+#endif
 			continue;
 		case NARGS:
 			f |= FARGS;
@@ -236,14 +263,14 @@ register NODE *np;
 			continue;
 		case NCTRL:
 			if (nctlp!=NULL) {
-				panic();
+				panic(3);
 				NOTREACHED;
 			}
 			f |= FARGS;
 			nctlp = np;
 			continue;
 		default:
-			panic();
+			panic(4);
 			NOTREACHED;
 		}
 	}
@@ -292,11 +319,13 @@ register NODE *np;
 	case		FIORS|	FASSG:
 		for (app = nenvp; *app!=NULL; )
 			setsvar(*app++);
-		if ((f&~FASSG)==0)
+		if ((f&~FASSG)==0) {
+			slret = 0;
 			return (0);
+		}
 		break;
 	default:
-		panic();
+		panic(5);
 		NOTREACHED;
 	}
 	if (nllflag || (f=clone()) == 0) {
@@ -351,14 +380,16 @@ register NODE *np;
 			if (p1st == 0)
 				p1st = f;
 			dup2(pipev[0], 0);
-			close(pipev[0]);
+			if (pipev[0] != 0)
+				close(pipev[0]);
 			close(pipev[1]);
 		} else {
 			/* Child takes left hand side */
 			np = np->n_auxp;
 			dup2(pipev[1], 1);
 			close(pipev[0]);
-			close(pipev[1]);
+			if (pipev[1] != 1)
+				close(pipev[1]);
 			exit(command(np));
 			NOTREACHED;
 		}
@@ -377,3 +408,24 @@ register NODE *np;
 		NOTREACHED;
 	}
 }
+
+/*
+ * Skip a redirection arg, return pointer to following nonspace.
+ */
+char *
+skipredir(s) register char *s;
+{
+	if (*s >= '1' && *s <= '9')
+		++s;
+	if (*s == '>' || *s == '<')
+		++s;
+	if (*s == '>' || *s == '<')
+		++s;
+	if (*s == '&')
+		++s;
+	while (*s == ' ' || *s == '\t')
+		++s;
+	return s;
+}
+
+/* end of sh/exec1.c */

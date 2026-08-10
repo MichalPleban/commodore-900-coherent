@@ -1,0 +1,54 @@
+.TH zclock "" "Command"
+.SH NAME
+zclock \- GUI clock
+.SH SYNOPSIS
+\fBzclock [\fIoptions\fB]\fR
+.SH DESCRIPTION
+.HS
+zclock -- GUI clock
+Usage:	zclock [ options ]
+	Settings menu entry (root only) sets the date and time.
+.HE
+.B zclock
+shows an analogue clock face with hour, minute and second hands,
+updated every second.
+It must be run under the
+.B zview
+desktop, is resizable, and accepts the standard window
+.I options
+of GUI applications; see
+.BR zview .
+.PP
+When run by the superuser, the window menu gains a
+.B Settings
+entry that opens a dialog with two fields,
+.B Date:
+(as
+.IR YYYY\-MM\-DD )
+and
+.B Time:
+(as
+.IR HH:MM:SS ),
+prefilled with the current local time.
+TAB switches between the fields, RETURN is OK and ESC cancels.
+OK sets the system clock; if a field does not parse, the dialog
+stays up and says why.
+The typed time is local time and is converted using the current
+timezone.
+.PP
+There are no other keyboard commands.
+.SH "SEE ALSO"
+.BR zview ,
+.B date
+.SH DIAGNOSTICS
+On the dialog's message line:
+`Use YYYY-MM-DD and HH:MM:SS',
+`Year must be 1970-2037',
+`No such date',
+`No such time',
+`Cannot set the clock'.
+.SH NOTES
+Only the superuser sees the
+.B Settings
+entry, and only the superuser can set the clock.
+The year is limited to 2037 by the 32-bit time counter.

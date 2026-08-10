@@ -190,6 +190,13 @@ cl_pbegin(cx0, cy0, cx1, cy1)
 
 	cl_sync();			/* seqlock read -- valid without the lock */
 	g = hr_glob();
+	/* Dead session (the server's watchdog cleared the magic): the screen
+	 * belongs to the restored text console now.  Painting on it is the one
+	 * thing we must not do, and there is nobody left to draw FOR -- exit.
+	 * Catches the clients whose idle point is not hr_evwait (zterm's main
+	 * draws off its pty mux); hrlock.c hr_evwait catches the rest. */
+	if ( g->magic != HR_MAGIC )
+		exit(1);
 	/* 16x16 sprite from the hotspot, padded 1px so a blit that just grazes it
 	 * still hides it (a shown cursor XOR-clipped by a blit leaves a stray arrow). */
 	curbx0 = g->curx - 1;   curby0 = g->cury - 1;
@@ -261,10 +268,11 @@ cl_pend(locked)
 
 /* Blit one glyph of font `fslot' with cell top-left at framebuffer (gx,gy),
  * painting only the part inside the already-clipped rect (x0,y0)-(x1,y1).  One
- * bitblt shifts each glyph row; L_NSRC paints black ink on a white cell (the
- * .hf fonts store ink=1). */
+ * bitblt shifts each glyph row; op L_NSRC paints black ink on a white cell
+ * (the .hf fonts store ink=1), L_NAND paints the ink only and leaves the rest
+ * of the cell alone (transparent -- what cl_ptextt uses to double-strike). */
 static
-clglyph1(fslot, gx, gy, c, x0, y0, x1, y1)
+clglyph1(fslot, gx, gy, c, x0, y0, x1, y1, op)
 {
 	HRFONT *f;
 	BLTSTRUCT blt;
@@ -283,7 +291,7 @@ clglyph1(fslot, gx, gy, c, x0, y0, x1, y1)
 	src.rect.corner.x = f->cellw;  src.rect.corner.y = f->cellh;
 	blt.src = &src;
 	blt.dst = &cldisp;
-	blt.op = L_NSRC;
+	blt.op = op;
 	blt.pat = texture[0];
 	blt.dr.origin.x = x0;  blt.dr.origin.y = y0;
 	blt.dr.corner.x = x1;  blt.dr.corner.y = y1;
@@ -326,16 +334,16 @@ char *s;
 			if ( cy0 < S.vis[i].y0 ) cy0 = S.vis[i].y0;
 			if ( cx1 > S.vis[i].x1 ) cx1 = S.vis[i].x1;
 			if ( cy1 > S.vis[i].y1 ) cy1 = S.vis[i].y1;
-			clglyph1(fslot, px, py, c, cx0, cy0, cx1, cy1);
+			clglyph1(fslot, px, py, c, cx0, cy0, cx1, cy1, L_NSRC);
 		}
 	}
 	cl_pend(locked);
 }
 
-/* Draw string s with its cell top-left at content PIXEL (cx,cy) -- the widget
- * variant of cl_text, which is cell-grid-locked (a button label sits at an
- * arbitrary y no grid passes through).  Advance is the font's own cellw. */
-cl_ptext(fslot, cx, cy, s)
+/* The shared body of cl_ptext/cl_ptextt: string s with its cell top-left at
+ * content PIXEL (cx,cy), each glyph blitted with logical op `op'. */
+static
+clptext1(fslot, cx, cy, s, op)
 char *s;
 {
 	HRFONT *f;
@@ -365,10 +373,28 @@ char *s;
 			if ( cy0 < S.vis[i].y0 ) cy0 = S.vis[i].y0;
 			if ( cx1 > S.vis[i].x1 ) cx1 = S.vis[i].x1;
 			if ( cy1 > S.vis[i].y1 ) cy1 = S.vis[i].y1;
-			clglyph1(fslot, px, py, c, cx0, cy0, cx1, cy1);
+			clglyph1(fslot, px, py, c, cx0, cy0, cx1, cy1, op);
 		}
 	}
 	cl_pend(locked);
+}
+
+/* Draw string s with its cell top-left at content PIXEL (cx,cy) -- the widget
+ * variant of cl_text, which is cell-grid-locked (a button label sits at an
+ * arbitrary y no grid passes through).  Advance is the font's own cellw. */
+cl_ptext(fslot, cx, cy, s)
+char *s;
+{
+	clptext1(fslot, cx, cy, s, L_NSRC);
+}
+
+/* Like cl_ptext but TRANSPARENT: only the ink is painted, the rest of each
+ * cell is left alone.  What a caller lays over already-drawn text -- zman
+ * double-strikes a run one pixel over for the lineprinter's own bold. */
+cl_ptextt(fslot, cx, cy, s)
+char *s;
+{
+	clptext1(fslot, cx, cy, s, L_NAND);
 }
 
 /* Fill framebuffer rect (already in fb coords) clipped to rect r with val

@@ -1,17 +1,37 @@
 # ZView launchable applications, read by zview at startup.
-# One line per app:  name:execpath:multi
-#   name        menu label
+# One line per app:  name:execpath:multi:icon:X,Y   (the last two optional)
+#   name        menu label, and the placeholder icon's label (multi=1 entries
+#               show "New <name>" under the icon)
 #   execpath    program; run with a bare argv (no window arguments)
 #   multi       1 = may open many (launcher shows "New <name>...");
 #               0 = single instance (launcher shows "<name>..."; re-launch raises it)
+#   icon        .icn under /usr/hr/icons: puts a PLACEHOLDER icon on the desktop
+#               at start-up.  It looks like a minimised app minus the corner
+#               badge (that marks a live process), and NO process exists
+#               behind it -- clicking it launches the program,
+#               which is what replaced starting every app resident with -H from
+#               the rc script (a whole process held in memory per icon).  A
+#               single-instance entry's placeholder leaves the desktop while its
+#               window is open and returns when it closes; a multi entry's stays
+#               put, and every click starts a fresh copy.
+#   X,Y         where a placeholder launch puts the window (top-left of the
+#               frame); left out, the window opens at the click.
 #
-# The window itself -- title, size, icon, whether it may be stretched -- is NOT
-# configured here: the application declares it at start-up (hr_open, see
-# inc/hrapp.h), so a program can also be run straight from a shell.
+# The window itself -- title, size, icon while ACTUALLY minimised, whether it
+# may be stretched -- is NOT configured here: the application declares it at
+# start-up (hr_open, see inc/hrapp.h), so a program can also be run straight
+# from a shell.  The icon named here exists only for the placeholder, which is
+# on screen before the program is; once the app runs, its own declaration wins.
 #
-# This is the LAUNCHER MENU only.  What comes up when the desktop starts is a
-# separate thing: the shell script /usr/hr/etc/rc, which is also where an app's
-# position/size/minimised options go (an entry here is run with a bare argv).
-Shell:/usr/hr/bin/zterm:1
-Editor:/usr/hr/bin/zedit:1
-Clock:/usr/hr/bin/zclock:0
+# The rc script /usr/hr/etc/rc still runs at desktop start-up, for anything
+# that should be genuinely RESIDENT from power-on.
+Shell:/usr/hr/bin/zterm:1:term.icn:48,88
+Files:/usr/hr/bin/zfile:1:file.icn:120,100
+Editor:/usr/hr/bin/zedit:1:edit.icn:80,60
+Mail:/usr/hr/bin/zmail:0:mail.icn:100,120
+Manual:/usr/hr/bin/zman:0:man.icn:180,140
+Calculator:/usr/hr/bin/zcalc:0:calc.icn:600,180
+Printer:/usr/hr/bin/zprint:0:printer.icn:380,300
+Monitor:/usr/hr/bin/zmon:0:monitor.icn:300,180
+Puzzle:/usr/hr/bin/zpuzzle:0:puzzle.icn:700,300
+Clock:/usr/hr/bin/zclock:0:clock.icn:720,88

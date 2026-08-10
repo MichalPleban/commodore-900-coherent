@@ -413,12 +413,15 @@ sed_obj := $(addprefix $(OBJ)/userland/cmd/sed/,sed0.o sed1.o sed2.o sed3.o)
 $(BINDIR)/sed: $(sed_obj) $(CRT) $(LIBC)
 	$(call link,$(sed_obj))
 
-# sh: uses the checked-in y.tab.c; VERSION is normally `version` output.
+# sh: V3.4.5 (April 1993, from ../Versions/3.2_userspace_relic-d), the last
+# Mark Williams state of the Bourne shell -- '#' comments, pushd/popd/dirs,
+# ${VAR:=word} forms, POSIX exit statuses.  Uses the checked-in y.tab.c;
+# YYMAXDEPTH raised per its Makefile (Comeau C++'s install script).
 # Linked -n (shared text): a shell runs behind every terminal window and every
 # fork of one otherwise carries a private copy of its ~28K text -- the single
 # biggest lever on the 1 MiB machine's terminal count.
 sh_obj := $(patsubst $(SRC)/%.c,$(OBJ)/%.o,$(wildcard $(CMDS)/sh/*.c))
-$(sh_obj): CFLAGS += -I$(CMDS)/sh -DVERSION='"COHERENT"'
+$(sh_obj): CFLAGS += -I$(CMDS)/sh -DVERSION='"V3.4.5"' -DYYMAXDEPTH=300
 $(BINDIR)/sh: LDNFLAGS := -n
 $(BINDIR)/sh: $(sh_obj) $(CRT) $(LIBC)
 	$(call link,$(sh_obj))
@@ -592,10 +595,11 @@ COH_OBJS := $(addprefix $(OBJ)/kernel/coh/,\
 	misc.o null.o pipe.o printf.o proc.o seg.o sig.o sys1.o sys2.o sys3.o \
 	tab.o timeout.o var.o) \
 	$(OBJ)/kernel/drv/tty.o $(OBJ)/kernel/drv/ct.o
-# libcmdr.a: Commodore machine-dependent glue + al/lp drivers.  (pty is a
-# loadable /drv module - see PTY_OBJS below - not resident.)
+# libcmdr.a: Commodore machine-dependent glue + the al serial driver.  (pty
+# and lp are loadable /drv modules - see PTY_OBJS/LP_OBJS below - not
+# resident.)
 CMDR_OBJS := $(addprefix $(OBJ)/kernel/z8001/,\
-	drv/al.o drv/lp.o src/commodore.o src/console.o src/ddt.o src/trap.o)
+	drv/al.o src/commodore.o src/console.o src/ddt.o src/trap.o)
 
 LIBCOH  := $(OBJ)/kernel/libcoh.a
 LIBCMDR := $(OBJ)/kernel/libcmdr.a
@@ -614,17 +618,20 @@ HRTTY_OBJS := $(addprefix $(OBJ)/kernel/z8001/drv/hrtty/,\
 NOTTY_OBJS := $(OBJ)/kernel/z8001/drv/notty.o
 # Pseudo-terminal driver: loadable /drv module (kept out of resident kernel).
 PTY_OBJS := $(OBJ)/kernel/z8001/drv/pty.o
+# Line printer driver: loadable /drv module, installed at boot by init (the
+# icode argv in md.s lists /drv/lp after the console driver).
+LP_OBJS := $(OBJ)/kernel/z8001/drv/lp.o
 
 # Every kernel object -- C and the cpp-preprocessed assembly -- is rebuilt when
 # any kernel header changes.  Without this a `make kernel` after editing (say)
 # param.h relinks objects compiled against the OLD layout: it builds, boots, and
 # then misbehaves, which reads as a code bug and is not one.
 KERNEL_OBJS := $(COH_OBJS) $(CMDR_OBJS) $(KWD) $(KSWAP) $(WDCON) $(FDCON) \
-	$(NOTTY_OBJS) $(PTY_OBJS) $(LRTTY_OBJS) $(HRTTY_OBJS) $(KMD)
+	$(NOTTY_OBJS) $(PTY_OBJS) $(LP_OBJS) $(LRTTY_OBJS) $(HRTTY_OBJS) $(KMD)
 $(KERNEL_OBJS): $(KHDRS)
 
 # Kernel C objects use the kernel flags (replacing the userland CFLAGS).
-$(COH_OBJS) $(CMDR_OBJS) $(KWD) $(KSWAP) $(WDCON) $(FDCON) $(NOTTY_OBJS) $(PTY_OBJS): CFLAGS = $(KCFLAGS)
+$(COH_OBJS) $(CMDR_OBJS) $(KWD) $(KSWAP) $(WDCON) $(FDCON) $(NOTTY_OBJS) $(PTY_OBJS) $(LP_OBJS): CFLAGS = $(KCFLAGS)
 # lrtty/ and hrtty/ sources also need their own directory on the include path.
 $(LRTTY_OBJS): CFLAGS = $(KCFLAGS) -I$(KSRC)/z8001/drv/lrtty
 $(HRTTY_OBJS): CFLAGS = $(KCFLAGS) -I$(KSRC)/z8001/drv/hrtty
@@ -751,9 +758,13 @@ $(DRVDIR)/pty: $(PTY_OBJS) $(KSYM)
 	@mkdir -p $(dir $@)
 	$(LD) -X -o $@ $(PTY_OBJS) -k$(KSYM)
 	chmod +x $@
+$(DRVDIR)/lp: $(LP_OBJS) $(KSYM)
+	@mkdir -p $(dir $@)
+	$(LD) -X -o $@ $(LP_OBJS) -k$(KSYM)
+	chmod +x $@
 
 KERNEL_TARGETS := $(ROOT)/coherent $(FLOPPYDIR)/coherent $(ROOT)/etc/swap \
-	$(DRVDIR)/lrtty $(DRVDIR)/hrtty $(DRVDIR)/notty $(DRVDIR)/pty
+	$(DRVDIR)/lrtty $(DRVDIR)/hrtty $(DRVDIR)/notty $(DRVDIR)/pty $(DRVDIR)/lp
 kernel: $(KERNEL_TARGETS)
 
 # ===========================================================================
@@ -929,8 +940,12 @@ $(HRGUIBIN)/gfxtest: $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) 
 # --- Phase 1: window server + clock client ---
 # Both need the shared wire protocol header in addition to the engine headers.
 $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zview/zvpump.o \
+	$(HRGUIOBJ)/zview/zvwatch.o \
 	$(HRGUIOBJ)/zclock/zclock.o $(HRGUIOBJ)/zdlg/zdlg.o \
-	$(HRGUIOBJ)/zedit/zedit.o \
+	$(HRGUIOBJ)/zedit/zedit.o $(HRGUIOBJ)/zmail/zmail.o \
+	$(HRGUIOBJ)/zprint/zprint.o $(HRGUIOBJ)/zcalc/zcalc.o \
+	$(HRGUIOBJ)/zman/zman.o $(HRGUIOBJ)/zfile/zfile.o \
+	$(HRGUIOBJ)/zpuzzle/zpuzzle.o \
 	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o \
 	$(HRGUIOBJ)/clgfx/hrsel.o $(HRGUIOBJ)/cmd/hrclip.o \
 	$(HRGUIOBJ)/clgfx/hrapp.o $(HRGUIOBJ)/clgfx/hrdlg.o \
@@ -1030,6 +1045,68 @@ $(HRGUIBIN)/zedit: $(HRGUIOBJ)/zedit/zedit.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG
 	@mkdir -p $(dir $@)
 	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zedit/zedit.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
 
+# zmail: direct-render mail client -- zedit's diff renderer + scrollbars over
+# the 7mail spool format (/usr/spool/mail/<user>); the dialog kit for its
+# notices and the selection store for middle-click paste while composing.
+$(HRGUIBIN)/zmail: LDNFLAGS := -n
+$(HRGUIBIN)/zmail: $(HRGUIOBJ)/zmail/zmail.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zmail/zmail.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# zmon: direct-render system monitor -- a memory bar over a process list.
+# The data comes the way ps and mem get it (nlist /coherent, walk procq and
+# segmq through a /dev/kmem arena snapshot, command lines via /dev/mem and
+# /dev/swap), so like those two it compiles against the machine-specific
+# kernel headers.  Read-only: no dialogs, no selection store.
+$(HRGUIOBJ)/zmon/zmon.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc \
+	-I$(SRC)/kernel/z8001/h -I$(SRC)/kernel/h
+$(HRGUIBIN)/zmon: LDNFLAGS := -n
+$(HRGUIBIN)/zmon: $(HRGUIOBJ)/zmon/zmon.o $(CLGFX) $(HRSBAR) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zmon/zmon.o $(CLGFX) $(HRSBAR) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# zprint: direct-render print manager -- zmail's skeleton (button bar + job
+# list + detail pane) over the lpr spool (/usr/spool/lpd cf files); the dialog
+# kit for its Print.../confirm dialogs.  No selection store: nothing to paste.
+$(HRGUIBIN)/zprint: LDNFLAGS := -n
+$(HRGUIBIN)/zprint: $(HRGUIOBJ)/zprint/zprint.o $(CLGFX) $(HRSBAR) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zprint/zprint.o $(CLGFX) $(HRSBAR) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# zcalc: direct-render desk calculator -- a fixed window of chrome buttons.
+# Double-precision arithmetic shown with %g, so like factor/units it links the
+# real dtoa formatter ahead of libc; the scientific pad pulls libm.
+$(HRGUIBIN)/zcalc: LDNFLAGS := -n
+$(HRGUIBIN)/zcalc: $(HRGUIOBJ)/zcalc/zcalc.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(DTOA) $(LIBM) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(DTOA) $(HRGUIOBJ)/zcalc/zcalc.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBM) $(LIBC)
+
+# zman: direct-render manual-page browser -- zprint's skeleton (find field +
+# list + content pane) over the pre-formatted catman pages in /usr/man, with
+# the nroff overstrikes rendered as real bold (transparent double-strike,
+# cl_ptextt) and underline.  No dialogs: the find field lives in the bar
+# (hrdlg.h is included for the DLG_* metrics only).  HRSEL: the content pane
+# is select-to-copy, so it writes the PRIMARY selection store like zterm.
+$(HRGUIBIN)/zman: LDNFLAGS := -n
+$(HRGUIBIN)/zman: $(HRGUIOBJ)/zman/zman.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zman/zman.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# zpuzzle: the 15 puzzle (the early X demos' `puzzle') -- a fixed board of
+# sliding tiles, clgfx only: no scrollbar, no dialogs.
+$(HRGUIBIN)/zpuzzle: LDNFLAGS := -n
+$(HRGUIBIN)/zpuzzle: $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
+# zfile: direct-render file manager -- an ls -l listing of one directory with
+# open/copy/move/delete/mkdir through the dialog kit.  Launched executables
+# inherit the command pipe, so any +x binary becomes a launchable GUI app.
+$(HRGUIBIN)/zfile: LDNFLAGS := -n
+$(HRGUIBIN)/zfile: $(HRGUIOBJ)/zfile/zfile.o $(CLGFX) $(HRSBAR) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zfile/zfile.o $(CLGFX) $(HRSBAR) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
 # hrpump: the terminal's I/O pumps, a tiny libc-only helper zterm execs instead
 # of forking copies of itself (memory: keeps a few open terminals from exhausting
 # RAM).  NO libhrgfx/clgfx -- it only shuffles bytes between fds.
@@ -1099,7 +1176,9 @@ $(DRVDIR)/hr: $(HRGUIOBJ)/drv/hr.o $(HRGUIOBJ)/drv/hrasm.o $(KSYM)
 
 HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/zview \
 	$(HRGUIBIN)/zvpump $(HRGUIBIN)/zvwatch $(HRGUIBIN)/zclock \
-	$(HRGUIBIN)/zdlg $(HRGUIBIN)/zedit \
+	$(HRGUIBIN)/zdlg $(HRGUIBIN)/zedit $(HRGUIBIN)/zmail $(HRGUIBIN)/zprint \
+	$(HRGUIBIN)/zmon $(HRGUIBIN)/zcalc $(HRGUIBIN)/zman $(HRGUIBIN)/zfile \
+	$(HRGUIBIN)/zpuzzle \
 	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIBIN)/hrclip \
 	$(HRGUIFONTS) \
 	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/rc $(HRGUIICONS)

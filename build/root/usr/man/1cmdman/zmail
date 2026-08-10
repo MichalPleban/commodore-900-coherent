@@ -1,0 +1,97 @@
+
+
+zzmmaaiill                                                       zzmmaaiill
+
+
+
+NNAAMMEE
+     zmail - GUI mail client
+
+SSYYNNOOPPSSIISS
+     zzmmaaiill [_o_p_t_i_o_n_s]
+
+DDEESSCCRRIIPPTTIIOONN
+     zzmmaaiill is the mail client of the COHERENT GUI.  It must be
+     run under the zzvviieeww desktop.  It reads the user's mailbox
+     /uussrr/ssppooooll/mmaaiill/_n_a_m_e (the format used by 77mmaaiill) and shows a
+     list of message headers - number, a DD mark, sender, date and
+     subject - above a pane with the text of the selected mes-
+     sage.  The newest message is selected at start-up, and the
+     mailbox is polled for new mail every 15 seconds.  zzmmaaiill
+     takes no file arguments; it accepts the standard window _o_p-
+     _t_i_o_n_s of GUI applications; see zzvviieeww.
+
+     The button bar offers NNeeww, RReeppllyy, DDeelleettee and PPuurrggee while
+     reading, and SSeenndd and CCaanncceell while composing.  Keyboard com-
+     mands while reading:
+
+                ^PP, ^NN          select the previous / next message
+                ^ZZ, ^BB          page the message text up
+                ^VV, ^FF, SSPPAACCEE   page the message text down
+                dd               toggle the delete mark on the message
+                nn               compose a new message
+                rr               reply to the selected message
+
+     DDeelleettee only marks a message; nothing is removed from the
+     mailbox until PPuurrggee, which asks for confirmation and
+     rewrites the mailbox without the marked messages.
+
+     Composing replaces the text pane with a TToo: field, a SSuubb-
+     jjeecctt: field and a message body.  TAB and RETURN move from
+     field to field into the body; ^P from the top of the body
+     returns to the fields.  The body understands a subset of the
+     zzeeddiitt keys:
+
+                ^BB, ^FF, ^PP, ^NN  move by character and line
+                ^AA, ^EE          start / end of line
+                ^ZZ, ^VV          page up / down
+                BBSS              delete left, joining lines
+                DDEELL, ^DD         delete right, joining lines
+                RREETTUURRNN          split the line
+                TTAABB             insert a literal tab
+
+     A middle click pastes the PRIMARY selection: into a header
+     field (up to the first newline) or into the body at the
+     click point.  SSeenndd and CCaanncceell are fired with the mouse; CCaann-
+     cceell confirms before discarding the composition.
+
+     RReeppllyy fills TToo: with the sender and SSuubbjjeecctt: with `Re:' and
+     the old subject; the original text is not quoted.
+
+     Sending needs no mailer program: zzmmaaiill validates every
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+zzmmaaiill                                                       zzmmaaiill
+
+
+
+     rreecciippiieenntt with the password file and then appends the mes-
+     sage directly to each recipient's mailbox, under 77mmaaiill's
+     lock file.  Recipients are local users only, at most 8 per
+     message, separated by spaces in the TToo: field; if any
+     recipient is unknown, nothing is delivered.
+
+FFIILLEESS
+                  /usr/spool/mail/*         mailboxes
+                  /tmp/maillock<uid>        mailbox lock
+                  /usr/hr/icons/mail.icn    desktop icon
+
+SSEEEE AALLSSOO
+     zzvviieeww, 77mmaaiill
+
+DDIIAAGGNNOOSSTTIICCSS
+     All diagnostics appear in dialogs, among them: `No such
+     user: ...', `The message is empty', `No recipient in the To:
+     field', `Cannot rewrite the mailbox'.
+
+NNOOTTEESS
+     The list holds at most 200 messages and the text pane at
+     most 500 lines of at most 240 characters; longer messages
+     end with `[message truncated]'.  The mailbox is not polled
+     while composing.  Quitting from the window menu asks for
+     confirmation, but an unfinished composition is still lost.

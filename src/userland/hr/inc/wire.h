@@ -164,7 +164,8 @@ typedef struct {
 #define HRM_COPY	0x0010		/* "Copy"       */
 #define HRM_PASTE	0x0020		/* "Paste"      */
 #define HRM_SETTINGS	0x0040		/* "Settings"   */
-#define HRM_ALL		0x007f		/* every bit above: what the server knows */
+#define HRM_HELP	0x0080		/* "Help"       */
+#define HRM_ALL		0x00ff		/* every bit above: what the server knows */
 
 /* ---- server -> client event codes ---- */
 #define E_CONNECTED	1		/* arg0=wid arg1=width arg2=height      */

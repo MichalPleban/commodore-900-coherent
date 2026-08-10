@@ -1,7 +1,9 @@
 # d/f	path	mode	uid	gid   |   hardlink:  l	path	target
 # floppy filesystem manifest (perms/owners from disk1_hr; minimal boot set).
 # /drv/{notty,lrtty,hrtty}: console drivers; the kernel (md.s vidsel) picks one
-# at boot and init loads it via /etc/load.  /dev nodes come from devices.txt.
+# at boot and init loads it via /etc/load.  /drv/lp: the loadable line printer
+# driver, listed in the icode argv, so init loads it unconditionally - it MUST
+# ship or init exits.  /dev nodes come from devices.txt.
 d	/	755	0	1
 d	/bin	755	0	1
 d	/dev	755	3	1
@@ -36,5 +38,6 @@ f	/etc/reboot	755	3	1
 f	/etc/swap	755	0	1
 f	/etc/ttys	644	3	0
 f	/drv/hrtty	755	0	1
+f	/drv/lp	755	0	1
 f	/drv/lrtty	755	0	1
 f	/drv/notty	755	0	1

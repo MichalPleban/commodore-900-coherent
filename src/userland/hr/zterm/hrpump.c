@@ -28,6 +28,7 @@
 #define	MX_DATA	0
 #define	MX_EVT	1
 #define	MX_EOF	2
+#define	MX_FAIL	3	/* written by zterm's failed children, never by hrpump */
 struct mux {
 	char		tag;
 	unsigned char	n;

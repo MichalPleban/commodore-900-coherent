@@ -1,0 +1,77 @@
+.TH zman "" "Command"
+.SH NAME
+zman \- GUI manual-page browser
+.SH SYNOPSIS
+\fBzman [\fIoptions\fB]\fR
+.SH DESCRIPTION
+.HS
+zman -- GUI manual-page browser
+Usage:	zman [ options ]
+Keys:	^P/^N select page, ^Z/^V page text, ^U clear field
+	type a name and press Return to find a page
+.HE
+.B zman
+is the manual browser of the
+.SM COHERENT
+GUI.
+It must be run under the
+.B zview
+desktop.
+It lists every pre-formatted manual page installed under
+.B /usr/man
+in a multi-column catalog, and shows the selected page \- with bold
+and underlining \- in the pane below.
+.B zman
+takes no page argument on the command line; it accepts the standard
+window
+.I options
+of GUI applications; see
+.BR zview .
+.PP
+The find field in the top bar always has the keyboard focus:
+printable characters are appended to it, and RETURN (or the
+.B Find
+button) jumps to the named page \- by exact name first, then to the
+first page of which the typed text is a prefix.
+Matching is case-sensitive.
+The remaining keys:
+.DS
+.ta 6n 20n
+	\fB^P, ^N\fR	select the previous / next page
+	\fB^Z, ^B\fR	page the text up
+	\fB^V, ^F\fR	page the text down
+	\fBBS, DEL\fR	erase the last character of the find field
+	\fB^U\fR	clear the find field
+.DE
+Because every printable character goes to the find field, SPACE
+types a space rather than paging.
+.PP
+With the mouse, a single click in the catalog loads the page under
+the pointer; the two scrollbars on the left edge scroll the catalog
+and the text.
+A left drag in the text pane selects text and publishes it as the
+PRIMARY selection on release, for pasting into other windows with a
+middle click.
+.SH FILES
+.DS
+.ta 8n 32n
+	/usr/man/*man/*	pre-formatted manual pages
+	/usr/hr/icons/man.icn	desktop icon
+.DE
+.SH "SEE ALSO"
+.BR zview ,
+.BR man ,
+.B help
+.SH NOTES
+The catalog is scanned once at start-up; pages installed later do
+not appear until
+.B zman
+is restarted.
+It holds at most 250 pages from at most 8 section directories
+(those named
+.BR *man ).
+A page shows at most 600 lines of 200 columns, and the find field
+holds 14 characters.
+.B zman
+only reads the pre-formatted pages; it never runs
+.BR nroff .

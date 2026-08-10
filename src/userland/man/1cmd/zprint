@@ -1,0 +1,85 @@
+.TH zprint "" "Command"
+.SH NAME
+zprint \- GUI print manager
+.SH SYNOPSIS
+\fBzprint [\fIoptions\fB]\fR
+.SH DESCRIPTION
+.HS
+zprint -- GUI print manager
+Usage:	zprint [ options ]
+Keys:	^P/^N select job, ^Z/^V page, Space page down
+	p print a file, c cancel job, r reprint / start daemon
+.HE
+.B zprint
+is the print manager of the
+.SM COHERENT
+GUI.
+It must be run under the
+.B zview
+desktop.
+It watches the
+.B lpr
+spool directory and shows the queued jobs \- number, a
+.B *
+on the job now printing, owner, size and the submitting command \-
+above a pane describing the selected job (owner, submission time,
+banner, notification, and the files to print).
+The bar also reports the printer state: printing, jobs held with no
+daemon, or idle.
+The spool is re-read every 5 seconds.
+.B zprint
+accepts the standard window
+.I options
+of GUI applications; see
+.BR zview .
+.PP
+Keyboard commands:
+.DS
+.ta 6n 22n
+	\fB^P, ^N\fR	select the previous / next job
+	\fB^Z, ^B\fR	page the description up
+	\fB^V, ^F, SPACE\fR	page the description down
+	\fBp\fR	the Print button
+	\fBc\fR	the Cancel button
+	\fBr\fR	the Reprint / Start button
+.DE
+The buttons:
+.IP \fBPrint\fR
+asks for the full path name of a file and submits it with
+.BR lpr .
+.IP \fBCancel\fR
+removes the selected job after confirmation.
+Cancelling the job now printing tells the printer daemon to abandon
+it (the same signal
+.B lpskip
+sends); cancelling a queued job removes its spool files.
+.IP \fBReprint\fR
+tells the daemon to start the current job over from the top
+(as
+.B "lpskip \-r"
+does).
+When no daemon is running and jobs are held, this button reads
+.B Start
+instead and starts
+.BR /usr/lib/lpd .
+.SH FILES
+.DS
+.ta 8n 30n
+	/usr/spool/lpd	the print spool
+	/usr/spool/lpd/dpid	printer-daemon lock file
+	/bin/lpr	used by Print
+	/usr/lib/lpd	the printer daemon
+.DE
+.SH "SEE ALSO"
+.BR zview ,
+.B lpr
+.SH DIAGNOSTICS
+Dialog notices:
+`Give the full path name of the file',
+`Cannot read that file',
+`Nothing to print'.
+.SH NOTES
+The list holds at most 64 jobs.
+The spooler's own permissions apply: removing another user's job or
+signalling the daemon needs the appropriate user, and such failures
+are silent.

@@ -1,0 +1,86 @@
+.TH zmon "" "Command"
+.SH NAME
+zmon \- GUI system monitor
+.SH SYNOPSIS
+\fBzmon [\fIoptions\fB]\fR
+.SH DESCRIPTION
+.HS
+zmon -- GUI system monitor
+Usage:	zmon [ options ]
+Keys:	^P/^N scroll process list, ^Z/^V page, Space page down
+.HE
+.B zmon
+is the system monitor of the
+.SM COHERENT
+GUI.
+It must be run under the
+.B zview
+desktop.
+Every 3 seconds it takes a snapshot of the kernel through
+.B /dev/kmem
+and redraws what changed: a memory total line, a bar of user memory
+in use, a breakdown grid (kernel, arena, buffers, segments, stacks,
+system, shared, saving, free, holes, largest), and a process list
+in
+.B ps
+style \- PID, user, size, tty, state, time and command.
+The display is read-only; there is no way to signal or kill a
+process from it.
+.B zmon
+accepts the standard window
+.I options
+of GUI applications; see
+.BR zview .
+.PP
+The only keys scroll the process list:
+.DS
+.ta 6n 22n
+	\fB^P, ^N\fR	up / down one line
+	\fB^Z, ^B\fR	up one page
+	\fB^V, ^F, SPACE\fR	down one page
+.DE
+The state column shows
+.B R
+running,
+.B S
+sleeping,
+.B W
+waiting,
+.B T
+stopped and
+.B Z
+defunct.
+Command lines that cannot be read show as
+.BR <defunct> ,
+.BR <idle> ,
+.B <swap>
+or
+.BR <slib> .
+.SH FILES
+.DS
+.ta 8n 30n
+	/coherent	kernel image, for the symbol table
+	/dev/kmem	kernel memory (required)
+	/dev/mem, /dev/swap	command lines (optional)
+.DE
+.SH "SEE ALSO"
+.BR zview ,
+.B ps
+.SH DIAGNOSTICS
+When the kernel cannot be read, the memory pane shows
+`Memory: no data' with the reason beneath:
+`(bad namelist in /coherent)',
+`(cannot open /dev/kmem)',
+`(kernel memory read error)',
+`(out of memory)'.
+.SH NOTES
+Reading
+.B /dev/kmem
+requires the usual permission; without it
+.B zmon
+runs but shows no data.
+Without
+.B /dev/mem
+only the command column degrades.
+At most 96 processes are shown.
+The refresh interval is fixed.

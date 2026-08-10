@@ -1,7 +1,14 @@
 /*
  * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
  * SPDX-License-Identifier: BSD-3-Clause
  */
+/*
+ * sh/var.c
+ * Bourne shell.
+ * Variables.
+ */
+
 #include "sh.h"
 
 VAR *vnode();
@@ -19,17 +26,19 @@ initvar(envp)
 char **envp;
 {
 	register char **nvp;
+	char *wd;
 	static struct initvals {
 		int i_flag;
 		char *i_name;
 	} initvals[] = {
 		VSET,	"IFS= \t\n",
-		VRDO,	VERSION,
 		VSET,	"PS2=> ",
 		VSET,	"PS1=$ ",
 		VSET,	"MAIL=",
 		VSET,	"PATH=:/bin:/usr/bin",
 		VSET,	"HOME=",
+		VSET,	"CWD=",
+		VSET,	"VERSION=" VERSION,
 		0,	NULL
 	};
 	static char lasterror[] = "LASTERROR";
@@ -59,6 +68,12 @@ char **envp;
 		setsvar(*nvp++);
 	if (findvar(lasterror) == NULL)
 		flagvar(lasterror, VEXP);
+	if (findvar("CWD") == NULL)
+		flagvar("CWD", VEXP);
+	if ((wd = getwd()) == NULL)
+		wd = ".";			/* getwd() failed */
+	dstack[dstkp] = wd = duplstr(wd, 1);	/* to dstack */
+	assnvar("CWD", wd);			/* and to $CWD */
 }
 
 /*
@@ -146,7 +161,7 @@ register char *cp;
 	if ((vp=findvar(cp)) == NULL)
 		vp = varp = vnode(0, NULL, varp);
 	if (vp->v_flag & VRDO) {
-		printe("Can't set %s", cp);
+		printe("Cannot set %s", cp);
 		return (NULL);
 	}
 	sfree(vp->v_strp);
@@ -306,3 +321,5 @@ VAR *n;
 	vp->v_next = n;
 	return (vp);
 }
+
+/* end of sh/var.c */

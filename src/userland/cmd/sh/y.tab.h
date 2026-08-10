@@ -3,36 +3,36 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#line 16 "sh.y"
+#line 17 "/usr/src/cmd0/sh/sh.y"
 typedef union {
 	NODE	*yu_node;
 	char	*yu_strp;
 	int	yu_nval;
 } YYSTYPE;
-#define _NULL 256
-#define _DSEMI 257
-#define _ANDF 258
-#define _ORF 259
-#define _NAME 260
-#define _IORS 261
-#define _ASGN 262
-#define _CASE 263
-#define _DO 264
-#define _DONE 265
-#define _ELIF 266
-#define _ELSE 267
-#define _ESAC 268
-#define _FI 269
-#define _FOR 270
-#define _IF 271
-#define _IN 272
-#define _THEN 273
-#define _UNTIL 274
-#define _WHILE 275
-#define _OBRAC 276
-#define _CBRAC 277
+#define _ANDF 256
+#define _ASGN 257
+#define _CASE 258
+#define _CBRAC 259
+#define _DO 260
+#define _DONE 261
+#define _DSEMI 262
+#define _ELIF 263
+#define _ELSE 264
+#define _ESAC 265
+#define _FI 266
+#define _FOR 267
+#define _IF 268
+#define _IN 269
+#define _IORS 270
+#define _NAME 271
+#define _NULL 272
+#define _OBRAC 273
+#define _ORF 274
+#define _THEN 275
+#define _UNTIL 276
+#define _WHILE 277
 #ifdef YYTNAMES
-extern struct yytname
+extern readonly struct yytname
 {
 	char	*tn_name;
 	int	tn_val;

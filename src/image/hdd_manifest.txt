@@ -134,6 +134,7 @@ f	/coherent	644	0	1
 d	/dev	755	0	1
 d	/drv	755	0	1
 f	/drv/hrtty	700	0	0
+f	/drv/lp	700	0	0
 f	/drv/lrtty	700	0	0
 f	/drv/notty	700	0	0
 f	/drv/pty	700	0	0
@@ -240,6 +241,7 @@ f	/usr/include/sgtty.h	644	0	0
 f	/usr/include/signal.h	644	0	0
 f	/usr/include/stat.h	644	0	0
 f	/usr/include/stdio.h	644	0	0
+f	/usr/include/string.h	644	0	0
 d	/usr/include/sys	755	0	0
 l	/usr/bin/uncompress	/usr/bin/compress
 l	/usr/bin/zcat	/usr/bin/compress
@@ -415,6 +417,17 @@ f	/usr/man/1cmdman/write	644	0	1
 f	/usr/man/1cmdman/xmail	644	0	1
 f	/usr/man/1cmdman/yacc	644	0	1
 f	/usr/man/1cmdman/yes	644	0	1
+f	/usr/man/1cmdman/zcalc	644	0	1
+f	/usr/man/1cmdman/zclock	644	0	1
+f	/usr/man/1cmdman/zedit	644	0	1
+f	/usr/man/1cmdman/zfile	644	0	1
+f	/usr/man/1cmdman/zmail	644	0	1
+f	/usr/man/1cmdman/zman	644	0	1
+f	/usr/man/1cmdman/zmon	644	0	1
+f	/usr/man/1cmdman/zprint	644	0	1
+f	/usr/man/1cmdman/zpuzzle	644	0	1
+f	/usr/man/1cmdman/zterm	644	0	1
+f	/usr/man/1cmdman/zview	644	0	1
 f	/usr/man/8cmdman/Ncron	644	0	1
 f	/usr/man/8cmdman/ac	644	0	1
 f	/usr/man/8cmdman/accton	644	0	1
@@ -454,6 +467,13 @@ f	/usr/hr/etc/rc	755	0	1
 f	/usr/hr/icons/term.icn	644	0	1
 f	/usr/hr/icons/clock.icn	644	0	1
 f	/usr/hr/icons/edit.icn	644	0	1
+f	/usr/hr/icons/mail.icn	644	0	1
+f	/usr/hr/icons/printer.icn	644	0	1
+f	/usr/hr/icons/monitor.icn	644	0	1
+f	/usr/hr/icons/calc.icn	644	0	1
+f	/usr/hr/icons/man.icn	644	0	1
+f	/usr/hr/icons/file.icn	644	0	1
+f	/usr/hr/icons/puzzle.icn	644	0	1
 f	/usr/hr/icons/icon0.icn	644	0	1
 f	/usr/hr/icons/icon1.icn	644	0	1
 f	/usr/hr/icons/icon2.icn	644	0	1
@@ -481,6 +501,13 @@ f	/usr/hr/bin/zvpump	755	0	1
 f	/usr/hr/bin/zvwatch	755	0	1
 f	/usr/hr/bin/zdlg	755	0	1
 f	/usr/hr/bin/zedit	755	0	1
+f	/usr/hr/bin/zmail	755	0	1
+f	/usr/hr/bin/zprint	755	0	1
+f	/usr/hr/bin/zmon	755	0	1
+f	/usr/hr/bin/zcalc	755	0	1
+f	/usr/hr/bin/zman	755	0	1
+f	/usr/hr/bin/zfile	755	0	1
+f	/usr/hr/bin/zpuzzle	755	0	1
 f	/usr/hr/bin/ptytest	755	0	1
 f	/usr/hr/bin/zterm	755	0	1
 f	/usr/hr/bin/hrpump	755	0	1

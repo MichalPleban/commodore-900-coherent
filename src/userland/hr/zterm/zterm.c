@@ -27,6 +27,7 @@
  * (single) main process blocks on one read() of the mux, owning all state.
  */
 #include <stdio.h>
+#include <signal.h>
 #include "wire.h"
 #include "shmem.h"
 #include "clgfx.h"
@@ -128,11 +129,13 @@ int	sbforce	= 1;		/* 1 = repaint the whole bar (expose/first)   */
 
 int	mfd = -1;		/* pty master fd */
 char	sname[16];		/* slave device path */
+int	shpid, eppid, mppid;	/* children: shell, event pump, master pump */
 
 /* ---- mux record: tag + length + payload (one atomic pipe write) ---- */
 #define	MX_DATA	0		/* d[0..n-1] = master output bytes */
 #define	MX_EVT	1		/* d[0..11]  = a WMSG event        */
 #define	MX_EOF	2		/* master hit EOF (shell exited)   */
+#define	MX_FAIL	3		/* a child failed to set up (low memory) */
 struct mux {
 	char		tag;
 	unsigned char	n;
@@ -798,6 +801,37 @@ openpty()
 	return -1;
 }
 
+/* In a CHILD whose set-up failed: report on the mux, then die.  The main loop
+ * hears nothing but the mux, so a failure that never reaches it is a window
+ * that sits empty forever -- which is exactly what happened under memory
+ * pressure (zterm's own fork/hr_open squeaked through, the shell's did not).
+ * The pty driver can't cover these cases: it raises master-EOF only after the
+ * slave has been OPENED and closed, and a pump that dies before pumping
+ * reports nothing at all. */
+static
+muxfail()
+{
+	struct mux mx;
+
+	mx.tag = MX_FAIL;
+	mx.n = 0;
+	write(muxw, &mx, sizeof(mx));
+	_exit(1);
+}
+
+/* Failure teardown: take the surviving children with us.  The one that
+ * matters is the master pump: if the slave was never opened the pty will
+ * never raise EOF, so it would sit in read() forever -- pinning its process
+ * AND the pty pair (the master side is single-open).  The child that failed
+ * is already a zombie; kill()ing it is harmless. */
+static
+killkids()
+{
+	if ( shpid > 0 ) kill(shpid, SIGKILL);
+	if ( eppid > 0 ) kill(eppid, SIGKILL);
+	if ( mppid > 0 ) kill(mppid, SIGKILL);
+}
+
 /* Fork a shell whose stdin/stdout/stderr are the slave (its controlling tty).
  *
  * The shell keeps ONE inherited fd: HR_CMDFD, the shared command pipe.  That is
@@ -818,7 +852,7 @@ spawnsh()
 	{
 		s = open(sname, 2);		/* claims the pty as ctty */
 		if ( s < 0 )
-			_exit(1);
+			muxfail();	/* slave never opened -> no EOF would come */
 		dup2(s, 0);
 		dup2(s, 1);
 		dup2(s, 2);
@@ -826,7 +860,7 @@ spawnsh()
 			if ( f != HR_CMDFD )
 				close(f);
 		execl("/bin/sh", "sh", "-i", (char *)0);
-		_exit(127);
+		_exit(127);	/* slave open+closed -> master EOF tells zterm */
 	}
 	return pid;
 }
@@ -881,15 +915,12 @@ char **argv;
 		hr_bye();
 		exit(1);
 	}
-	if ( spawnsh() < 0 )
-	{
-		hr_bye();
-		exit(1);
-	}
 
-	clearall();
-	flush();
-
+	/* The mux pipe is made BEFORE any child is forked so that every child
+	 * from here on has somewhere to report a set-up failure (muxfail /
+	 * MX_FAIL): the main loop below listens to nothing else, and its record
+	 * keeps until the loop starts even though the children close their
+	 * copies of the ends. */
 	if ( pipe(mp) < 0 )
 	{
 		hr_bye();
@@ -897,6 +928,15 @@ char **argv;
 	}
 	muxr = mp[0];
 	muxw = mp[1];
+
+	if ( (shpid = spawnsh()) < 0 )
+	{
+		hr_bye();
+		exit(1);
+	}
+
+	clearall();
+	flush();
 
 	/* Spawn the two I/O pumps as a TINY separate program (hrpump) rather than
 	 * forking copies of ourselves: a fork clones this process's whole data/BSS
@@ -909,15 +949,24 @@ char **argv;
 		sprintf(ms, "%d", mfd);
 		sprintf(mw, "%d", muxw);
 		sprintf(ev, "%d", mywid);	/* the pump listens on our RING now */
-		if ( fork() == 0 )		/* event pump (keys straight to master) */
+		eppid = fork();
+		if ( eppid == 0 )		/* event pump (keys straight to master) */
 		{
 			execl("/usr/hr/bin/hrpump", "hrpump", "e", ms, mw, ev, (char *)0);
-			_exit(1);
+			muxfail();		/* exec died (low memory): tell main */
 		}
-		if ( fork() == 0 )		/* master-output pump */
+		mppid = eppid < 0 ? -1 : fork();
+		if ( mppid == 0 )		/* master-output pump */
 		{
 			execl("/usr/hr/bin/hrpump", "hrpump", "m", ms, mw, (char *)0);
-			_exit(1);
+			muxfail();
+		}
+		if ( eppid < 0 || mppid < 0 )	/* a pump fork failed: no pump would
+						 * ever feed the mux -- all-or-nothing */
+		{
+			killkids();
+			hr_bye();
+			exit(1);
 		}
 	}
 	close(muxw);				/* main reads events via the mux */
@@ -974,6 +1023,15 @@ char **argv;
 				if ( need ) flush();
 				hr_bye();	/* the shell exited: reap the window */
 				exit(0);
+			}
+			else if ( m->tag == MX_FAIL )
+			{
+				/* the shell or a pump could not be set up (low
+				 * memory): give the window back rather than let it
+				 * sit empty forever -- all-or-nothing, as above */
+				killkids();
+				hr_bye();
+				exit(1);
 			}
 			else if ( m->tag == MX_EVT )
 			{

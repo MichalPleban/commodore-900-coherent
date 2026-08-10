@@ -1,0 +1,45 @@
+
+
+zzppuuzzzzllee                                                   zzppuuzzzzllee
+
+
+
+NNAAMMEE
+     zpuzzle - GUI fifteen puzzle
+
+SSYYNNOOPPSSIISS
+     zzppuuzzzzllee [_o_p_t_i_o_n_s]
+
+DDEESSCCRRIIPPTTIIOONN
+     zzppuuzzzzllee is the classic fifteen puzzle: fifteen numbered
+     tiles and one gap on a four-by-four board.  Slide the tiles
+     until they read 1 to 15 in order.  It must be run under the
+     zzvviieeww desktop and accepts the standard window _o_p_t_i_o_n_s of GUI
+     applications; see zzvviieeww.
+
+     A left click on any tile in the same row or column as the
+     gap slides the whole run of tiles between it and the gap one
+     place - so one click can move several tiles.  Clicks else-
+     where are ignored.
+
+     The keys move one tile at a time and name the direction the
+     tile moves:
+
+                hh         slide a tile left
+                ll         slide a tile right
+                kk         slide a tile up
+                jj         slide a tile down
+                nn         new game (also the window menu's New entry)
+
+     The status line counts moves - each tile slid counts as one
+     - and announces `Solved in N moves!' when the puzzle is
+     done; the board then freezes until a new game is dealt.
+
+SSEEEE AALLSSOO
+     zzvviieeww
+
+NNOOTTEESS
+     The deal is made by walking the gap 400 random legal moves
+     from the solved position, so every game is solvable - which
+     is true of only half of all random tile arrangements.  The
+     window has a fixed size (the -SS option is ignored).

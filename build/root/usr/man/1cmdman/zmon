@@ -1,0 +1,53 @@
+
+
+zzmmoonn                                                         zzmmoonn
+
+
+
+NNAAMMEE
+     zmon - GUI system monitor
+
+SSYYNNOOPPSSIISS
+     zzmmoonn [_o_p_t_i_o_n_s]
+
+DDEESSCCRRIIPPTTIIOONN
+     zzmmoonn is the system monitor of the COHERENT GUI.  It must be
+     run under the zzvviieeww desktop.  Every 3 seconds it takes a
+     snapshot of the kernel through /ddeevv/kkmmeemm and redraws what
+     changed: a memory total line, a bar of user memory in use, a
+     breakdown grid (kernel, arena, buffers, segments, stacks,
+     system, shared, saving, free, holes, largest), and a process
+     list in ppss style - PID, user, size, tty, state, time and
+     command.  The display is read-only; there is no way to sig-
+     nal or kill a process from it.  zzmmoonn accepts the standard
+     window _o_p_t_i_o_n_s of GUI applications; see zzvviieeww.
+
+     The only keys scroll the process list:
+
+                ^PP, ^NN          up / down one line
+                ^ZZ, ^BB          up one page
+                ^VV, ^FF, SSPPAACCEE   down one page
+
+     The state column shows RR running, SS sleeping, WW waiting, TT
+     stopped and ZZ defunct.  Command lines that cannot be read
+     show as <ddeeffuunncctt>, <iiddllee>, <sswwaapp> or <sslliibb>.
+
+FFIILLEESS
+                  /coherent             kernel image, for the symbol table
+                  /dev/kmem             kernel memory (required)
+                  /dev/mem, /dev/swap   command lines (optional)
+
+SSEEEE AALLSSOO
+     zzvviieeww, ppss
+
+DDIIAAGGNNOOSSTTIICCSS
+     When the kernel cannot be read, the memory pane shows
+     `Memory: no data' with the reason beneath: `(bad namelist in
+     /coherent)', `(cannot open /dev/kmem)', `(kernel memory read
+     error)', `(out of memory)'.
+
+NNOOTTEESS
+     Reading /ddeevv/kkmmeemm requires the usual permission; without it
+     zzmmoonn runs but shows no data.  Without /ddeevv/mmeemm only the com-
+     mand column degrades.  At most 96 processes are shown.  The
+     refresh interval is fixed.

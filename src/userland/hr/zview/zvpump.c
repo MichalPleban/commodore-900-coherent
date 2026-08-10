@@ -42,6 +42,12 @@ static int DEF_MOUSE[] = { 0xfffc, 0xfff8, 0xfff0, 0xffe0,
  *
  * The FUNCTION keys deliver the HRK_* codes of wire.h (above ASCII):
  * F1-F10 at the XT positions 0x3B..0x44, and the C900 specials as F11-F15.
+ * F10 is a second departure of the same kind as the nav block: it is remapped
+ * in main() to the MicroEMACS QUIT chord ^X ^C (two IN_KEY records), so it
+ * reads "quit" everywhere the nav keys read "move" -- zedit exits on it, and
+ * MicroEMACS in a terminal window gets its own exit sequence.  (A shell sees
+ * ^X, then the ^C a user could have typed anyway.)  HRK_F10 therefore never
+ * reaches a client.
  * Which scancodes the specials use on REAL hardware is only partly known:
  * Help is 0x54 (the hr driver's own Alt+Ctrl+Help hatch tests that code,
  * and the historical table has the C900's DEL right beside it at 0x55);
@@ -223,6 +229,13 @@ main()
 			if ( a < 0 )
 				continue;	/* release / modifier / dead key */
 			c.wm_arg[0] = IN_KEY;
+			if ( a == HRK_F10 )
+			{		/* F10 = the MicroEMACS quit chord ^X ^C
+				 * (see the keymap comment above) */
+				c.wm_arg[1] = 'X' & 0x1f;
+				write(HR_CMDFD, &c, sizeof(c));
+				a = 'C' & 0x1f;
+			}
 			c.wm_arg[1] = a;
 		}
 		else

@@ -30,7 +30,10 @@ char	*file;
 		return (1);
 	lputc( '\f');
 
-	while ((c=getline( f)) && printing>0) {
+	while ((c=getline( f)) != 0) {
+		chksig();
+		if (printing <= 0)
+			break;
 		putline( line1);
 		putline( line0);
 		lputc( c);

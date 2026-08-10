@@ -1,16 +1,19 @@
 /*
  * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 /*
+ * sh/exec2.c
  * Bourne shell.
  * System part of execution.
  */
+
 #include "sh.h"
 #include <errno.h>
 #include <param.h>
 #include <signal.h>
-#include <stat.h>
+#include <sys/stat.h>
 
 /*
  * Wait for the given process to complete.
@@ -71,7 +74,7 @@ int pid;
 				slret = ECHILD;
 			break;
 		} else {
-			panic();
+			panic(6);
 			NOTREACHED;
 		}
 	}
@@ -133,7 +136,7 @@ flexec()
 	while (ffind(vpath, *nargv, 1)) {
 		execve(strt, nargv, nenvp);
 		if (errno==ENOEXEC) {
-			*nargv = duplstr(strt, 0);
+			scmdp = duplstr(strt, 0);
 			nargc += 1;
 			nargv -= 1;
 			nargv = vdupl(nargv);
@@ -143,6 +146,10 @@ flexec()
 				sesp = sesp->s_next;
 			}
 			longjmp(restart, 1);
+		}
+		if (errno==E2BIG) {
+			e2big(nargv[0]);
+			return(-1);
 		}
 	}
 	ecantfind(nargv[0]);
@@ -175,7 +182,7 @@ char **iovp;
 				break;
 		if (*io++ == '&') {
 			if (op != 1 && op != -1) {
-				panic();
+				panic(7);
 				NOTREACHED;
 			}
 			u2 = *io++;
@@ -221,7 +228,7 @@ char **iovp;
 			close(u2);
 			continue;
 		default:
-			panic();
+			panic(8);
 			NOTREACHED;
 		}
 	}
@@ -299,6 +306,46 @@ char *paths, *file;
 }
 
 /*
+ * execute a non standard shell.
+ */
+exshell(vp) VAR *vp;
+{
+	char *vshell;
+	register char *p;
+
+	vshell = vp->v_strp;
+	while (*vshell && *vshell++ != '=');
+	/* Construct -name argv[0] */
+	if ((p = rindex(vshell, '/')) != NULL)
+		p += 1;
+	else
+		p = vshell;
+	strcpy(strt, "-");
+	strcat(strt, p);
+	/* Construct argv */
+	nargv = makargl();
+	nargv = addargl(nargv, "sh");
+	nargv = addargl(nargv, duplstr(strt, 0));
+	nargc = 2;
+	/* Construct envp */
+	nenvp = makargl();
+	nenvp = envlvar(nenvp);
+	/* Try exec */
+	execve(vshell, nargv+1, nenvp);
+
+	if (errno==ENOEXEC) {
+		fakearg(1, nargc, nargv, nenvp);
+		sargc = 0;
+		sargp = nargv+2;
+		sarg0 = nargv[1];
+		nllflag = 0;
+		return session(SFILE, vshell);
+	}
+	fprintf(stderr, "No shell: %s\n", vshell);
+	exit(1);
+}
+
+/*
  * Check to see if we have mail.
  */
 checkmail()
@@ -311,10 +358,15 @@ checkmail()
 	if (stat(vmail, &sbuf)<0) {
 		mailsize = 0;
 	} else {
-		if (sbuf.st_size > mailsize
-		 && mailsize != -1)
-			prints("You have mail.\n");
+		if (sbuf.st_size != 0
+		 && sbuf.st_size > mailsize) {
+			if (mailsize == -1)
+				prints("You have mail.\n");
+			else
+				prints("You have new mail.\n");
+		}
 		mailsize = sbuf.st_size;
 	}
 }
 
+/* end of sh/exec2.c */

@@ -17,16 +17,15 @@ extern	CON	nlcon[];		/* Null device */
 extern	CON	ctcon[];		/* Console terminal */
 extern	CON	alcon[];		/* Asynchronous line */
 extern	CON	wdcon[];		/* Western Digital hard disk */
-extern	CON	lpcon[];		/* line printer */
 
 /*
- * Device table.  Slot 9 (pseudo-terminals) is filled at run time by
- * `load /drv/pty' - the pty driver is a loadable to keep it out of the
- * 64K resident code segment; both pty sides share its one major (the minor
- * selects master/slave), so slot 10 is free.
+ * Device table.  Slots 3 and 9 are filled at run time by `/etc/load':
+ * slot 3 (line printer) is loaded by init from the icode argv (/drv/lp),
+ * slot 9 (pseudo-terminals) at GUI start-up (/drv/pty) - both are
+ * loadables to keep them out of the 64K resident code segment.
  */
 DRV drvl[16] ={
-	{nlcon},	{ctcon},	{wdcon},	{lpcon},
+	{nlcon},	{ctcon},	{wdcon},	{NULL},		/* slot 3 = /drv/lp (loadable) */
 	{NULL},		{alcon},	{NULL},		{NULL},		/* slot 6 was DTC hdcon (not in production) */
 	{NULL},		{NULL},		{NULL},		{NULL},		/* slot 9 = /drv/pty (loadable) */
 	{NULL},		{NULL},		{NULL},		{NULL},

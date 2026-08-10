@@ -10,6 +10,12 @@
  * April 1984.
  * Improved February 1985 (grr)
  *
+ * LOADABLE (/drv/lp, major 3).  Like /drv/pty, this driver is kept out
+ * of the 64K resident code segment: it is linked with -k against the
+ * symboled kernel and installed at boot by init, whose icode argv
+ * (md.s) lists /drv/lp after the console driver.  The Z8036 port
+ * initialisation stays in the resident mach (md.s); lpload() only sets
+ * up the buffer and grabs the interrupt vector.
  */
 #include	<coherent.h>
 #include	<drvcon.h>

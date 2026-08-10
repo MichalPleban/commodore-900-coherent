@@ -100,9 +100,13 @@ peteprint("dellayer 0x%lx\n", lp);
 		update[i].wid = -1;
 	}
 
+	/* j is bounded: every layer can contribute up to MAX_LRBUF regions, so
+	 * with enough overlapping windows this overran update[] and stomped the
+	 * globals after it.  A full list just drops the excess -- zview's
+	 * expose_covered/redecorate repaint what the dropped entries covered. */
 	j = 0;
 	for ( rlp = DM_rearmost; rlp; rlp = rlp->front )
-		for ( i = 0; i < MAX_LRBUF; i++ )
+		for ( i = 0; i < MAX_LRBUF && j < MAX_UPBUF; i++ )
 	 	{
 			reg = rlp->reg[i];
 			if ( (reg.cov_by == lp) && (reg.flag == L_OBSCURED) )
@@ -202,9 +206,11 @@ peteprint("pushback : entry\n");
 	for ( i = 0; i < MAX_UPBUF; i++ )
 		update[i].wmgr = update[i].wid = -1;
 	
+	/* j < MAX_UPBUF: same overrun guard as dellayer (all layers x all
+	 * regions can exceed the table; excess entries drop, zview repaints) */
 	j = 0;
 	for ( tlp = DM_rearmost; tlp ; tlp = tlp->front )
-		for ( i = 0; i < MAX_LRBUF; i++ )
+		for ( i = 0; i < MAX_LRBUF && j < MAX_UPBUF; i++ )
 			if ((tlp->reg[i].cov_by == lp)&&(tlp->reg[i].flag == L_OBSCURED) )
 			{
 				update[j].wmgr = wtbl[lp2id(tlp)]->wn_Wmgr;
@@ -580,10 +586,11 @@ RECT r;
 		update[i].wid = -1;
 	}
 
-	/* initialize update table index */
+	/* initialize update table index.  j < MAX_UPBUF: same overrun guard as
+	 * dellayer/pushback (excess entries drop, zview repaints). */
 	j = 0;
 	for ( lp = DM_rearmost; lp; lp = lp->front )
-		for ( i = 0; i < MAX_LRBUF; i++ ) 
+		for ( i = 0; i < MAX_LRBUF && j < MAX_UPBUF; i++ )
 		{
 			reg = lp->reg[i];
 			if  ((reg.cov_by==gkLayer)&&(reg.flag==L_OBSCURED))
@@ -628,8 +635,9 @@ RECT r;
 	make_vis_list();
 
 	/* add to the update list all areas of the translated layer */
-	/* which are now visible                                    */
-	for ( i = 0; (i < MAX_LRBUF) && (gkLayer->reg[i].flag != L_EMPTY); i++ )
+	/* which are now visible (j continues from above, same bound) */
+	for ( i = 0; i < MAX_LRBUF && j < MAX_UPBUF &&
+		     gkLayer->reg[i].flag != L_EMPTY; i++ )
 	{
 		reg = gkLayer->reg[i];
 		if ( reg.flag == L_VISIBLE )

@@ -1,0 +1,104 @@
+.TH zterm "" "Command"
+.SH NAME
+zterm \- GUI terminal window
+.SH SYNOPSIS
+\fBzterm [\fIoptions\fB]\fR
+.SH DESCRIPTION
+.HS
+zterm -- GUI terminal window
+Usage:	zterm [ options ]
+	Runs an interactive shell in an 80x25 window with 200
+	lines of scrollback.  Arrow keys send ^P ^N ^B ^F.
+.HE
+.B zterm
+opens an 80x25-character terminal window under the
+.B zview
+desktop and runs an interactive
+.B /bin/sh
+in it on a pseudo-terminal, with full job control: ^C interrupts,
+^\e quits, and the line discipline is the normal tty one.
+The window closes by itself when the shell exits.
+Quitting the window from its menu asks for confirmation first, then
+hangs up the shell.
+.B zterm
+can be started from a desktop icon or typed at a shell inside
+another
+.BR zterm ;
+it accepts the standard window
+.I options
+of GUI applications (though not
+.BR \-S :
+the size is fixed); see
+.BR zview .
+.PP
+Keystrokes go to the shell.
+The hi-res keyboard delivers plain ASCII, and its special keys
+produce control codes rather than escape sequences:
+.DS
+.ta 6n 24n
+	\fBUp, Down\fR	^P, ^N
+	\fBLeft, Right\fR	^B, ^F
+	\fBHOME, END\fR	^A, ^E
+	\fBPG UP, PG DN\fR	^Z, ^V
+	\fBBS\fR	^H (0x08)
+	\fBDEL, keypad Del\fR	DEL (0x7f)
+	\fBF10\fR	^X ^C (two keys)
+.DE
+The remaining function keys produce codes with no byte value and are
+ignored in a terminal window.
+.PP
+On the output side
+.B zterm
+emulates a deliberate subset of the ANSI terminal, enough for the
+shell, simple full-screen programs and
+.BR ls :
+CR, LF, BS, TAB (8-column stops), and the escape sequences
+.B "ESC [ r;cH"
+(and
+.BR f )
+cursor position,
+.B "ESC [ nA/B/C/D"
+cursor motion,
+.B "ESC [ J"
+clear screen and home, and
+.B "ESC [ K"
+clear to end of line.
+There are no character attributes: bold, reverse and colour are not
+rendered.
+Other escape sequences are swallowed silently.
+.PP
+Up to 200 lines that scroll off the top are kept and can be viewed
+with the scrollbar on the left edge; any shell output snaps the view
+back to the live screen.
+A left drag selects text (wrapped lines are joined, trailing blanks
+trimmed) and publishes it as the PRIMARY selection on release; a
+middle click in any terminal pastes the PRIMARY selection to the
+shell.
+The window menu's
+.B Copy
+copies the PRIMARY selection to the clipboard, and
+.B Paste
+types the clipboard to the shell.
+.SH FILES
+.DS
+.ta 8n 36n
+	/dev/ptyp0 ... /dev/ptyp7	pseudo-terminals
+	/usr/hr/bin/hrpump	I/O helper (internal)
+.DE
+.SH "SEE ALSO"
+.BR zview ,
+.BR sh ,
+.B stty
+.SH NOTES
+At most 8 terminal windows can exist at once \- one pseudo-terminal
+pair each.
+The shell is
+.B /bin/sh
+regardless of environment.
+A paste is limited to 1024 bytes, and the tty driver itself accepts
+at most 255 characters in one input line.
+The scrollback is dropped, oldest first, when memory runs short.
+.B hrpump
+is
+.BR zterm 's
+internal I/O helper and does nothing useful run by hand.

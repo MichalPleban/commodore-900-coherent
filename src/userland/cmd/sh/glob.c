@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1977-1995 Robert Swartz.
+ * Copyright (c) 2026 Michal Pleban.
  * SPDX-License-Identifier: BSD-3-Clause
  */
 /*
@@ -8,9 +9,9 @@
  */
 #include "sh.h"
 
-#include <types.h>
+#include <sys/types.h>
 #include <dir.h>
-#include <stat.h>
+#include <sys/stat.h>
 
 #define isdir(s)	(((s)->st_mode&S_IFMT)==S_IFDIR)
 
