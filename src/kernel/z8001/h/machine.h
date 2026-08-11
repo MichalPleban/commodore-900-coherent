@@ -50,6 +50,7 @@
 #define	ES	0x3D		/* Extra segment */
 #define	OS	0x3E		/* System overlay segment */
 #define	SS	0x3F		/* System stack/U-area segment */
+#define	SLS0	0x34		/* First shared library text segment */
 #define	USTACK	0x00		/* User stack */
 #define	USEG	0x03		/* Start of user segments */
 #define	BMPHYS	0x00FF0000L	/* Physical (paddr_t) of bitmap */

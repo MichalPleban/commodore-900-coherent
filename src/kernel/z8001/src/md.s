@@ -265,6 +265,8 @@ vmaps_:
 / Segment 30 code is code size of coherent, system only
 / Segment 31 data is full 64K, system only
 / Segments 32 and 33 are clist and buffer-mapped segments
+/ Segments 34..38 are CPU inhibited at boot; 34+ become the shared
+/ library text segments (user read-only) when a library is loaded (slmap)
 / Segment 39 is the Western Digital Disc Mailbox and buffers
 / Segments 3A and 3B are accessible to everyone for the bitmap
 / Segments 3C, 3D, 3E are extra and overlay segments, full 64K, system only
@@ -975,6 +977,15 @@ pputp_:
 
 ukcopy_:
 	ldl	rr2, args(1)		/ from pointer
+	ld	r1, r2			/ ufix it: segment byte ...
+	and	r1, $0x7F00		/   without the DA flag bit
+	cp	r1, $0x3400		/ shared library text (SLS0 ..
+	JR	ult, 2f			/   SLS0+NSLIB-1, mapped user
+	cp	r1, $0x3600		/   read-only) passes through:
+	JR	uge, 2f			/   string literals live there
+	and	r2, $~0x80FF		/ Keep segment; clear flag+low
+	JR	0f
+2:
 	and	r2, $~0xE0FF		/ ufix it
 	JR	0f
 
@@ -1048,8 +1059,49 @@ pfix_:
 	ldctl	FCW, r4			/ Restore interrupts
 	ret
 
+/ Set up a whole descriptor (base, limit and attribute) for a shared
+/ library segment.  Like pfix, but pfix writes only the base and leaves
+/ the boot-time attribute (CPU inhibit for segments 0x34..0x38) alone.
+/ Descriptors at or above 0x30 are never touched by loadmmu, so a
+/ mapping made here holds for every process until changed again.
+/
+/ slmap(sn, p, len, attr)
+/ int sn;			/ hardware segment number
+/ paddr_t p;			/ physical byte address of segment base
+/ int len;			/ limit byte, (256-byte pages)-1
+/ int attr;			/ attribute byte (0x01 user r/o, 0x04 inhibit)
+
+	.globl	slmap_
+
+slmap_:
+	ldctl	r4, FCW
+	ldb	rh0, arglb(1)		/ segment # to map
+	ldl	rr2, args(2)		/ paddr_t
+	srll	rr2, $10		/ to saddr_t
+	add	r3, r3			/ <<2 to hardware
+	add	r3, r3			/ ...
+	di	VI			/ Interrupts disabled for fiddling
+	soutb	MMU+0x0100, rh0		/ Segment #
+	soutb	MMU+0x0800, rh3		/ base high
+	soutb	MMU+0x0800, rl3		/ base low
+	ldb	rl1, arglb(4)		/ limit byte
+	soutb	MMU+0x0900, rl1		/ Set limit field
+	ldb	rl1, arglb(5)		/ attribute byte
+	soutb	MMU+0x0A00, rl1		/ Set attribute field
+	ldctl	FCW, r4			/ Restore interrupts
+	ret
+
 ufix_:
 	ldl	rr0, args(1)		/ ptr
+	ld	r2, r0			/ segment byte ...
+	and	r2, $0x7F00		/   without the DA flag bit
+	cp	r2, $0x3400		/ shared library text (SLS0 ..
+	JR	ult, 1f			/   SLS0+NSLIB-1, mapped user
+	cp	r2, $0x3600		/   read-only) passes through:
+	JR	uge, 1f			/   reads are legal, writes
+	and	r0, $~0x80FF		/   still trap in the MMU
+	ret
+1:
 	and	r0, $~0xE0FF		/ Turn off bottom, non-user seg bits
 	ret
 

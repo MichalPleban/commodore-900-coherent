@@ -107,6 +107,8 @@ mproto()
 			return (0);
 		if (i == SISTACK)
 			sn = USTACK+1;
+		else if (i == SISSLIB)
+			sn = USTACK+2;	/* seg 2 even if no library 0 */
 		else if (i == SIPSLIB)
 			sn = USEG;
 	}

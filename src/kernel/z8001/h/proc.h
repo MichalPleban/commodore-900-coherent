@@ -65,6 +65,13 @@ typedef struct proc {
 #define SIAUXIL	8			/* Auxiliary segment */
 
 /*
+ * Number of shared libraries.  Library slot `i' attaches its private
+ * data at process slot SISSLIB+i (hardware segment 1+i); its text is
+ * mapped once, for everyone, at hardware segment SLS0+i.
+ */
+#define	NSLIB	2
+
+/*
  * Status of process (p_state).
  */
 #define PSSLEEP	1			/* Sleeping */
@@ -138,7 +145,7 @@ extern	PROC	procq;			/* Process queue */
 extern	PROC	*iprocp;		/* Idle process struct */
 extern	PROC	*eprocp;		/* Init process struct */
 extern	PROC	*cprocp;		/* Current process */
-extern	PROC	*slprocp;		/* Shared library */
+extern	PROC	*slib[NSLIB];		/* Shared library holders */
 
 #endif
 

@@ -189,6 +189,7 @@ f	/lib/crts0.o	644	0	0
 f	/lib/dtoa.o	644	0	0
 f	/lib/libc.a	644	0	1
 f	/lib/libfs.a	644	0	1
+f	/lib/libhrgfx.sl	755	0	0
 f	/lib/libm.a	644	0	0
 f	/lib/liby.a	644	0	1
 f	/lib/scrts0.o	644	0	1

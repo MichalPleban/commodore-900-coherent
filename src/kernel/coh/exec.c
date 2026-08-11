@@ -148,6 +148,25 @@ ret:
 	return (0);
 }
 
+#if Z8001
+/*
+ * Check whether any shared library referenced by an LF_SLREF image
+ * (per-library flag bits LF_SLREF0<<slot) is not currently loaded.
+ */
+static
+slibmiss(lflag)
+int lflag;
+{
+	register int sl;
+
+	for (sl = 0; sl < NSLIB; sl++) {
+		if ((lflag & (LF_SLREF0<<sl)) != 0 && slib[sl] == NULL)
+			return (1);
+	}
+	return (0);
+}
+#endif
+
 /*
  * Given the name of an executable l.out, a null terminated argument
  * list and a null terminated environment list, execute the l.out with the
@@ -186,17 +205,16 @@ char	*envp[];
 		pp->p_flags |= PFKERN;
 #if Z8001
 	} else if ((lflag&LF_SLIB) != 0) {
+		/*
+		 * Shared library image.  Only validate here; `PFSLIB'
+		 * and the slot registration happen after the load has
+		 * succeeded, so a failed exec leaves no trace.
+		 */
 		if (super() == 0) {
 			idetach(ip);
 			return;
 		}
-		if (slprocp != NULL) {
-			u.u_error = ENOEXEC;
-			idetach(ip);
-			return;
-		}
-		pp->p_flags |= PFSLIB|PFLOCK;
-	} else if ((lflag&LF_SLREF)!=0 && slprocp==NULL) {
+	} else if ((lflag&LF_SLREF)!=0 && slibmiss(lflag)) {
 			/*
 			 * Perhaps should be made its own errno.
 			 */
@@ -279,24 +297,51 @@ char	*envp[];
 	}
 #if Z8001
 	if ((lflag & LF_SLIB) != 0) {
-		if (sisp!=NULL || pisp!=NULL || sdsp==NULL) {
+		register int sl;
+
+		/*
+		 * The shared chunk (library text + rodata) is mapped
+		 * once, for every process, at the fixed system segment
+		 * SLS0+slot; the slot is encoded in the link base
+		 * (l_entry).  The private chunk stays in SIPDATA as the
+		 * pristine per-process data template.  Re-check the
+		 * slot here: the load sleeps, and two loaders can race
+		 * past the early super() check.
+		 */
+		sl = (int)(pc >> 24) - SLS0;
+		if (sisp != NULL || pisp != NULL || sdsp == NULL
+		 || sl < 0 || sl >= NSLIB || slib[sl] != NULL
+		 || sdsp->s_size > MSSIZE) {
 			u.u_error = ENOEXEC;
 			goto out;
 		}
-		slprocp = pp;
+		slmap(SLS0+sl, ctob((paddr_t)sdsp->s_mbase),
+		    sdsp->s_size >= MSSIZE ? 0xFF :
+		    (int)(sdsp->s_size<<CSH)-1, 0x01);
+		pp->p_flags |= PFSLIB|PFLOCK;
+		pp->p_isig = ~(sig_t)0;	/* clients run from our text */
+		slib[sl] = pp;
 	} else if ((lflag & LF_SLREF) != 0) {
 		register PROC *slpp;
+		register int sl;
 
-		if ((slpp = slprocp) == NULL
-		 || (lssp = slpp->p_segp[SISDATA]) == NULL
-		 || (lssp = segdupl(lssp)) == NULL) {
-			u.u_error = ENOEXEC;
-			goto out;
-		}
-		if ((lpsp = slpp->p_segp[SIPDATA]) != NULL
-		 && (lpsp = segdupl(lpsp)) == NULL) {
-			u.u_error = ENOEXEC;
-			goto out;
+		/*
+		 * Attach each referenced library's private data: a
+		 * physical copy of the holder's pristine SIPDATA
+		 * template, mapped at hardware segment 1+slot by
+		 * mproto().  The library text needs no per-process
+		 * work - it is permanently mapped at SLS0+slot.
+		 */
+		for (sl = 0; sl < NSLIB; sl++) {
+			if ((lflag & (LF_SLREF0<<sl)) == 0)
+				continue;
+			if ((slpp = slib[sl]) == NULL
+			 || slpp->p_segp[SIPDATA] == NULL
+			 || (pp->p_segp[SISSLIB+sl] =
+			    segdupl(slpp->p_segp[SIPDATA])) == NULL) {
+				u.u_error = ENOEXEC;
+				goto out;
+			}
 		}
 	}
 #endif

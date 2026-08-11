@@ -900,7 +900,14 @@ HRGUIOBJ = $(OBJ)/userland/hr
 HRGUIBIN = $(ROOT)/usr/hr/bin
 
 # The engine's sources #include <smgr.h> etc. from their own directory.
-HRGFXCFLAGS = -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRGFXDIR)
+# -Wa,-S: string literals into the SHARED data section (as -S rebinds .strn
+# into L_SHRD) -- under an ld -n link (every z* client, zview) and in the
+# shared library the literals then live in the read-only shared half, one
+# copy per binary/library instead of one per process.  Requires that no hr
+# source writes into a string literal (they don't; a violation faults
+# loudly as SIGSEGV on first write).  Harmless in combined static links
+# (gfxtest), where SHRD is writable.
+HRGFXCFLAGS = -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRGFXDIR) -Wa,-S
 
 # ZView headers: the engine's (gfx/) and the client/server contract (inc/), plus
 # the system ones.  inc/ matters most -- wire.h and hrapp.h define records and
@@ -982,6 +989,42 @@ HRDLG := $(HRGUIOBJ)/clgfx/hrdlg.o
 # Same rule again: named explicitly by clients that scroll a view.
 HRSBAR := $(HRGUIOBJ)/clgfx/hrsbar.o
 
+# --- libhrgfx.sl: the shared library (kernel LF_SLIB, slot 0) ---
+# The whole client-side gfx stack -- engine minus the server-only layer.o,
+# plus the clgfx layer, the selection store, the dialog kit, the scrollbar,
+# and globals.o -- linked ONCE as an LF_SHR image whose text (+ -S string
+# literals) sits at system segment 0x34 (mapped once for every process by
+# the kernel at load; see exec.c/slmap) and whose private half (blitter
+# templates, engine globals, commons) sits at segment 1, copied per process
+# from the holder's pristine template at exec.  Clients name the .sl on
+# their ld line: ld imports every global as an absolute address, so they
+# link NO gfx objects at all.  The trailing DTOA + libc bake in the libc
+# subset the library itself calls (clients bind those few symbols from the
+# library too; the REAL dtoa goes in so a client's printf %f bound from the
+# library formats floats -- zcalc).  NOT stripped: clients read the symbol
+# table.  mkslib.py validates the halves fit their 64K segments, stamps
+# LF_SLIB and sets l_entry to the slot's text base.
+# NOT converted to .sl clients: zview + gfxtest (the server side keeps its
+# own layer.o/globals statically), and hrpump/hrclip/zvpump/zvwatch -- for
+# a 400-byte pump, attaching the ~10K per-process data template would be a
+# regression, not a saving.
+SHLIB := $(LIBDIR)/libhrgfx.sl
+# slcrt.o: the library-side crt -- the absolutes crts0.s normally provides
+# (SS, errno_) and the raw _exit stub, without crts0's start code (a library
+# has no main).  The library's baked-in sbrk caches its break in its own
+# seg-1 `end', which is exactly right: the kernel's ubrk grows the segment
+# the break address lies in, so a shared client's heap lives in segment 1
+# behind the library data (and a client's OWN heap, if it pulls its own
+# malloc, stays in its own data segment -- the two coexist).
+SLCRT := $(OBJ)/userland/lib/csu/slcrt.o
+SLGFX_OBJ := $(HRGFX_ASM) $(filter-out $(HRGUIOBJ)/gfx/layer.o,$(HRGFX_C)) \
+	$(HRGFX_GLOB) $(CLGFX) $(HRSEL) $(HRDLG) $(HRSBAR)
+
+$(SHLIB): $(SLCRT) $(SLGFX_OBJ) $(DTOA) $(LIBC) tools/mkslib.py
+	@mkdir -p $(dir $@)
+	$(LD) -n -X -R 0x34000000 -D 0x1000000 -o $@ $(SLCRT) $(SLGFX_OBJ) $(DTOA) $(LIBC)
+	$(PYTHON) tools/mkslib.py --slot 0 $@
+
 # zview owns the screen: links the engine (libhrgfx) + globals.o directly.
 # Fonts are loaded at runtime from /usr/hr/fonts/*.hf into the shared VRAM tail
 # (inc/shmem.h) and blitted with the engine's bitblt -- no embedded/kernel font.
@@ -1005,19 +1048,19 @@ $(HRGUIBIN)/zvwatch: $(HRGUIOBJ)/zview/zvwatch.o $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zview/zvwatch.o $(LIBC)
 
-# zclock: direct-render graphics client -- links clgfx + globals + libhrgfx so it
-# blits its own face/hands straight to VRAM; needs libm (sin/cos).
+# zclock: direct-render graphics client -- draws via the shared library (its
+# face/hands blit straight to VRAM); needs libm (sin/cos).
 # -n costs nothing and shares text if a second clock is ever opened.
 $(HRGUIBIN)/zclock: LDNFLAGS := -n
-$(HRGUIBIN)/zclock: $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBM) $(LIBC)
+$(HRGUIBIN)/zclock: $(HRGUIOBJ)/zclock/zclock.o $(SHLIB) $(CRT) $(LIBM) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zclock/zclock.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBM) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zclock/zclock.o $(SHLIB) $(LIBM) $(LIBC)
 
-# zdlg: the dialog demo / test client -- clgfx + the widget kit (HRDLG).
+# zdlg: the dialog demo / test client (widget kit via the shared library).
 $(HRGUIBIN)/zdlg: LDNFLAGS := -n
-$(HRGUIBIN)/zdlg: $(HRGUIOBJ)/zdlg/zdlg.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zdlg: $(HRGUIOBJ)/zdlg/zdlg.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zdlg/zdlg.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zdlg/zdlg.o $(SHLIB) $(LIBC)
 
 # ptytest is a plain client: no gfx, just exercises the kernel pty driver.
 $(HRGUIBIN)/ptytest: $(HRGUIOBJ)/ptytest/ptytest.o $(CRT) $(LIBC)
@@ -1033,25 +1076,25 @@ $(HRGUIBIN)/ptytest: $(HRGUIOBJ)/ptytest/ptytest.o $(CRT) $(LIBC)
 # instances.
 $(HRGUIOBJ)/zterm/zterm.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
 $(HRGUIBIN)/zterm: LDNFLAGS := -n
-$(HRGUIBIN)/zterm: $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zterm: $(HRGUIOBJ)/zterm/zterm.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zterm/zterm.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zterm/zterm.o $(SHLIB) $(LIBC)
 
 # zedit: direct-render text editor -- the diff renderer + scrollbar of zterm,
 # the dialog kit for its Open/Save file dialogs, and the selection store for
 # Cut/Copy/Paste.  -n: shared text across editor instances, like zterm.
 $(HRGUIBIN)/zedit: LDNFLAGS := -n
-$(HRGUIBIN)/zedit: $(HRGUIOBJ)/zedit/zedit.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zedit: $(HRGUIOBJ)/zedit/zedit.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zedit/zedit.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zedit/zedit.o $(SHLIB) $(LIBC)
 
 # zmail: direct-render mail client -- zedit's diff renderer + scrollbars over
 # the 7mail spool format (/usr/spool/mail/<user>); the dialog kit for its
 # notices and the selection store for middle-click paste while composing.
 $(HRGUIBIN)/zmail: LDNFLAGS := -n
-$(HRGUIBIN)/zmail: $(HRGUIOBJ)/zmail/zmail.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zmail: $(HRGUIOBJ)/zmail/zmail.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zmail/zmail.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zmail/zmail.o $(SHLIB) $(LIBC)
 
 # zmon: direct-render system monitor -- a memory bar over a process list.
 # The data comes the way ps and mem get it (nlist /coherent, walk procq and
@@ -1061,25 +1104,25 @@ $(HRGUIBIN)/zmail: $(HRGUIOBJ)/zmail/zmail.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRDLG
 $(HRGUIOBJ)/zmon/zmon.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc \
 	-I$(SRC)/kernel/z8001/h -I$(SRC)/kernel/h
 $(HRGUIBIN)/zmon: LDNFLAGS := -n
-$(HRGUIBIN)/zmon: $(HRGUIOBJ)/zmon/zmon.o $(CLGFX) $(HRSBAR) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zmon: $(HRGUIOBJ)/zmon/zmon.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zmon/zmon.o $(CLGFX) $(HRSBAR) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zmon/zmon.o $(SHLIB) $(LIBC)
 
 # zprint: direct-render print manager -- zmail's skeleton (button bar + job
 # list + detail pane) over the lpr spool (/usr/spool/lpd cf files); the dialog
 # kit for its Print.../confirm dialogs.  No selection store: nothing to paste.
 $(HRGUIBIN)/zprint: LDNFLAGS := -n
-$(HRGUIBIN)/zprint: $(HRGUIOBJ)/zprint/zprint.o $(CLGFX) $(HRSBAR) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zprint: $(HRGUIOBJ)/zprint/zprint.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zprint/zprint.o $(CLGFX) $(HRSBAR) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zprint/zprint.o $(SHLIB) $(LIBC)
 
 # zcalc: direct-render desk calculator -- a fixed window of chrome buttons.
 # Double-precision arithmetic shown with %g, so like factor/units it links the
 # real dtoa formatter ahead of libc; the scientific pad pulls libm.
 $(HRGUIBIN)/zcalc: LDNFLAGS := -n
-$(HRGUIBIN)/zcalc: $(HRGUIOBJ)/zcalc/zcalc.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(DTOA) $(LIBM) $(LIBC)
+$(HRGUIBIN)/zcalc: $(HRGUIOBJ)/zcalc/zcalc.o $(SHLIB) $(CRT) $(DTOA) $(LIBM) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(DTOA) $(HRGUIOBJ)/zcalc/zcalc.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBM) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(DTOA) $(HRGUIOBJ)/zcalc/zcalc.o $(SHLIB) $(LIBM) $(LIBC)
 
 # zman: direct-render manual-page browser -- zprint's skeleton (find field +
 # list + content pane) over the pre-formatted catman pages in /usr/man, with
@@ -1088,24 +1131,24 @@ $(HRGUIBIN)/zcalc: $(HRGUIOBJ)/zcalc/zcalc.o $(CLGFX) $(HRDLG) $(HRGFX_GLOB) $(L
 # (hrdlg.h is included for the DLG_* metrics only).  HRSEL: the content pane
 # is select-to-copy, so it writes the PRIMARY selection store like zterm.
 $(HRGUIBIN)/zman: LDNFLAGS := -n
-$(HRGUIBIN)/zman: $(HRGUIOBJ)/zman/zman.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zman: $(HRGUIOBJ)/zman/zman.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zman/zman.o $(CLGFX) $(HRSBAR) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zman/zman.o $(SHLIB) $(LIBC)
 
 # zpuzzle: the 15 puzzle (the early X demos' `puzzle') -- a fixed board of
 # sliding tiles, clgfx only: no scrollbar, no dialogs.
 $(HRGUIBIN)/zpuzzle: LDNFLAGS := -n
-$(HRGUIBIN)/zpuzzle: $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zpuzzle: $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(CLGFX) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(SHLIB) $(LIBC)
 
 # zfile: direct-render file manager -- an ls -l listing of one directory with
 # open/copy/move/delete/mkdir through the dialog kit.  Launched executables
 # inherit the command pipe, so any +x binary becomes a launchable GUI app.
 $(HRGUIBIN)/zfile: LDNFLAGS := -n
-$(HRGUIBIN)/zfile: $(HRGUIOBJ)/zfile/zfile.o $(CLGFX) $(HRSBAR) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/zfile: $(HRGUIOBJ)/zfile/zfile.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zfile/zfile.o $(CLGFX) $(HRSBAR) $(HRDLG) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zfile/zfile.o $(SHLIB) $(LIBC)
 
 # hrpump: the terminal's I/O pumps, a tiny libc-only helper zterm execs instead
 # of forking copies of itself (memory: keeps a few open terminals from exhausting
@@ -1174,7 +1217,7 @@ $(DRVDIR)/hr: $(HRGUIOBJ)/drv/hr.o $(HRGUIOBJ)/drv/hrasm.o $(KSYM)
 	$(LD) -X -o $@ $(HRGUIOBJ)/drv/hr.o $(HRGUIOBJ)/drv/hrasm.o -k$(KSYM)
 	chmod +x $@
 
-HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/zview \
+HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(SHLIB) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/zview \
 	$(HRGUIBIN)/zvpump $(HRGUIBIN)/zvwatch $(HRGUIBIN)/zclock \
 	$(HRGUIBIN)/zdlg $(HRGUIBIN)/zedit $(HRGUIBIN)/zmail $(HRGUIBIN)/zprint \
 	$(HRGUIBIN)/zmon $(HRGUIBIN)/zcalc $(HRGUIBIN)/zman $(HRGUIBIN)/zfile \

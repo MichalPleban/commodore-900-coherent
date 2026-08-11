@@ -57,7 +57,7 @@ PROC	procq;				/* proc.h */
 PROC	*iprocp;			/* proc.h */
 PROC	*eprocp;			/* proc.h */
 PROC	*cprocp;			/* proc.h */
-PROC	*slprocp;			/* proc.h */
+PROC	*slib[NSLIB];			/* proc.h */
 PLINK	linkq[NHPLINK];			/* proc.h */
 
 struct	ptrace pts;			/* ptrace.h */

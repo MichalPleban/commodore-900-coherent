@@ -59,7 +59,8 @@ size_t ds;
 	for (sp=segmq.s_forw; sp!=&segmq; sp=sp->s_forw) {
 		if (sp->s_ip==ip && (sp->s_flags&(SFSHRX|SFTEXT))==f) {
 			unlock(seglink);
-			sp = segdupl(sp);
+			if ((sp = segdupl(sp)) == NULL)
+				return (NULL);
 			segfinm(sp);
 			*rp = 1;
 			return (sp);
@@ -72,7 +73,8 @@ size_t ds;
 	for (sp=segdq.s_forw; sp!=&segdq; sp=sp->s_forw) {
 		if (sp->s_ip==ip && (sp->s_flags&(SFSHRX|SFTEXT))==f) {
 			unlock(seglink);
-			sp = segdupl(sp);
+			if ((sp = segdupl(sp)) == NULL)
+				return (NULL);
 			segfinm(sp);
 			*rp = 1;
 			return (sp);
@@ -142,6 +144,12 @@ register SEG *sp;
 	register size_t ss;
 
 	if ((sp->s_flags&SFSHRX) != 0) {
+		/*
+		 * `s_urefc' is a char; refuse rather than wrap at the
+		 * 128th sharer (the caller fails the exec or fork).
+		 */
+		if (sp->s_urefc >= 127)
+			return (NULL);
 		sp->s_urefc++;
 		sp->s_lrefc++;
 		return (sp);

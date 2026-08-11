@@ -191,8 +191,19 @@ pexit(s)
 	ldetach(u.u_rdir);
 	ldetach(u.u_cdir);
 	fdaclose();
-	if (pp == slprocp)
-		slprocp = NULL;
+	for (n = 0; n < NSLIB; n++) {
+		if (pp == slib[n]) {
+			/*
+			 * The library holder is dying: unregister the
+			 * slot and inhibit the globally mapped text
+			 * segment before its memory is freed below.
+			 * Running clients are lost, but new execs get
+			 * a clean ENOEXEC instead of stale memory.
+			 */
+			slib[n] = NULL;
+			slmap(SLS0+n, (paddr_t)0, 0, 0x04);
+		}
+	}
 
 	/*
 	 * This must be done in backwards order to prevent freeing the

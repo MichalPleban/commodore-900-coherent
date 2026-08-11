@@ -43,11 +43,43 @@ register char *cp;
 {
 	register SEG *sp;
 	register paddr_t sb;
+	register int si;
 
-	sp = SELF->p_segp[SIPDATA];
-	sb = vtop(u.u_segl[SIPDATA].sr_base);
-	if (cp != NULL)
+	si = SIPDATA;
+#if Z8001
+	/*
+	 * A shared-library client's heap lives behind the attached
+	 * library data in hardware segment 1 (or 2): the library's
+	 * sbrk caches a break address in its own data segment (its
+	 * `end').  Grow the segment the passed address actually lies
+	 * in.  Unlike SIPDATA, those segments cannot spill past 64K
+	 * (mproto() forces the next hardware segment after each).
+	 */
+	if (cp != NULL) {
+		switch ((int)((vaddr_t)cp >> 24)) {
+		case USTACK+1:
+			si = SISSLIB;
+			break;
+		case USTACK+2:
+			si = SIPSLIB;
+			break;
+		}
+		if (SELF->p_segp[si] == NULL)
+			si = SIPDATA;
+	}
+#endif
+	sp = SELF->p_segp[si];
+	sb = vtop(u.u_segl[si].sr_base);
+	if (cp != NULL) {
+#if Z8001
+		if (si != SIPDATA && vtop(cp) - sb > ctob((paddr_t)MSSIZE)) {
+			u.u_error = ENOMEM;
+			sb += ctob((paddr_t)sp->s_size);
+			return ((char *)ptov(sb));
+		}
+#endif
 		segsize(sp, vtop(cp) - sb);
+	}
 	sb += ctob((paddr_t)sp->s_size);
 	return ((char *)ptov(sb));
 }

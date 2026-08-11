@@ -43,6 +43,14 @@ struct	ldheader {
 #define	LF_32	020		/* 32-bit format l.out */
 #define	LF_SLREF 040		/* References shared library */
 #define	LF_SLIB	0100		/* Is the shared library */
+#define	LF_SLREF0 0200		/* References shared library slot 0 */
+#define	LF_SLREF1 0400		/* References shared library slot 1 */
+
+/*
+ * Hardware segment of shared-library slot 0 text (must match the
+ * kernel's SLS0 in machine.h); slot i lives at L_SLSEG0+i.
+ */
+#define	L_SLSEG0 0x34
 
 /* Formats */
 #define	AFMT	"%08lx"		/* Address */

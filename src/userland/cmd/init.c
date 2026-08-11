@@ -79,6 +79,24 @@ char *argv[];
 	for (n=2; n<argc; n++)
 		loaddrv(argv[n]);
 	/*
+	 * Load the shared library: exec'ing an LF_SLIB image turns the
+	 * child into its holder, paused forever in the kernel while every
+	 * process shares its text (mapped once at segment 0x34).  Must
+	 * precede anything that could exec a shared-linked (LF_SLREF)
+	 * binary.  Gated on the boot video probe: vidsel (md.s) patched
+	 * our console-driver argument to /drv/hrtty only when the hi-res
+	 * card is present, and libhrgfx serves only GUI clients -- on a
+	 * serial or low-res machine the resident ~50K would be waste.
+	 * If the card or the file is absent the system simply runs
+	 * without it: shared clients fail to exec with ENOEXEC,
+	 * everything static is unaffected.
+	 */
+	if (argc >= 3 && strcmp(argv[2], "/drv/hrtty") == 0
+	 && access("/lib/libhrgfx.sl", 0) == 0 && fork() == 0) {
+		execl("/lib/libhrgfx.sl", "libhrgfx", NULL);
+		exit(1);
+	}
+	/*
 	 * The console driver named in argv[2] is now loaded, so /dev/console
 	 * is live; announce ourselves before spawning the first shell.
 	 */
