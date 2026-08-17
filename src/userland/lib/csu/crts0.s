@@ -24,7 +24,7 @@ start:
 _exit_:
 	sys	1
 
-	.prvd
-	.word	0			/ NULL
-environ_:
-	.long	0
+/ environ_ itself is defined in libc (gen/environ.s), not here: the shared
+/ libc references it (getenv, exec*), and library code may only reference
+/ addresses inside the library image.  The reference above pulls the
+/ member into every static link.

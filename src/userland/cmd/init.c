@@ -76,25 +76,29 @@ char *argv[];
 		rootro = 1;
 	if (argc >= 2)
 		loadswp(argv[1]);
-	for (n=2; n<argc; n++)
-		loaddrv(argv[n]);
 	/*
-	 * Load the shared library: exec'ing an LF_SLIB image turns the
-	 * child into its holder, paused forever in the kernel while every
-	 * process shares its text (mapped once at segment 0x34).  Must
-	 * precede anything that could exec a shared-linked (LF_SLREF)
-	 * binary.  Gated on the boot video probe: vidsel (md.s) patched
-	 * our console-driver argument to /drv/hrtty only when the hi-res
-	 * card is present, and libhrgfx serves only GUI clients -- on a
-	 * serial or low-res machine the resident ~50K would be waste.
-	 * If the card or the file is absent the system simply runs
-	 * without it: shared clients fail to exec with ENOEXEC,
-	 * everything static is unaffected.
+	 * argv[2..] name what to bring up, in order, and the KERNEL
+	 * decides the list (icode/vidsel in md.s): loadable drivers go
+	 * through /etc/load, and a name ending in ".sl" is exec'd as a
+	 * shared-library holder -- exec'ing an LF_SLIB image turns the
+	 * child into its holder, paused forever in the kernel while
+	 * every process shares its text; this must precede anything
+	 * that could exec a shared-linked (LF_SLREF) binary.  The
+	 * kernel always passes /lib/libc.sl (slot 0) and repoints the
+	 * gfx slot to /lib/libhrgfx.sl (slot 1) only when its boot
+	 * video probe found the hi-res card; an unused slot arrives as
+	 * an empty string and is skipped, so init applies no policy of
+	 * its own.  If a library file is absent the system simply runs
+	 * without it: shared clients fail to exec with ENOEXEC, and
+	 * everything static (the rescue set) is unaffected.
 	 */
-	if (argc >= 3 && strcmp(argv[2], "/drv/hrtty") == 0
-	 && access("/lib/libhrgfx.sl", 0) == 0 && fork() == 0) {
-		execl("/lib/libhrgfx.sl", "libhrgfx", NULL);
-		exit(1);
+	for (n=2; n<argc; n++) {
+		if (argv[n][0] == '\0')
+			continue;
+		if (issl(argv[n]))
+			loadsl(argv[n]);
+		else
+			loaddrv(argv[n]);
 	}
 	/*
 	 * The console driver named in argv[2] is now loaded, so /dev/console
@@ -199,6 +203,34 @@ char *np;
 		return;
 	execve(np, NULL, NULL);
 	panic("Cannot load ", np);
+}
+
+/*
+ * Does the name end in ".sl" (a shared library, not a driver)?
+ */
+issl(np)
+char *np;
+{
+	register char *cp;
+
+	for (cp=np; *cp; cp++)
+		;
+	return (cp-np > 3 && strcmp(cp-3, ".sl") == 0);
+}
+
+/*
+ * Load the given shared library: the child execs it and becomes its
+ * resident holder.  A missing library is not an error (see main).
+ */
+loadsl(np)
+char *np;
+{
+	if (access(np, 0) != 0)
+		return;
+	if (fork() != 0)
+		return;
+	execl(np, np, NULL);
+	exit(1);
 }
 
 /*

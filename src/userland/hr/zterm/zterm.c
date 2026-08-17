@@ -880,7 +880,7 @@ char **argv;
 	char *rb;
 	struct mux *m;
 	WMSG e;
-	int mp[2], i, got, off, rlen, need, pending, fz, wasidle;
+	int mp[2], i, got, off, rlen, need, pending;
 
 	/* Cell metrics come from the terminal font in the shared VRAM tail, which
 	 * is readable before we have a window; ask for a window big enough for the
@@ -980,8 +980,8 @@ char **argv;
 	 * split tail is carried to the next read. */
 	rb = (char *)rbuf;
 	rlen = 0;
-	pending = 0;
-	wasidle = 1;			/* force a full repaint on the first pass */
+	invalidate();			/* full repaint on the first pass */
+	pending = 1;
 	for (;;)
 	{
 		got = read(muxr, rb + rlen, sizeof(rbuf) - rlen);
@@ -1183,32 +1183,30 @@ char **argv;
 		/* Decide draw vs. defer.  DO NOT draw while (a) a server overlay (pop-up
 		 * menu / ghost drag) is up -- we would paint over it, it is not a layer we
 		 * can clip to, or (b) the window is unmapped (minimised).  We keep
-		 * ingesting into grid[] regardless, so nothing is lost; the moment we are
-		 * drawable again we force ONE full repaint (invalidate) and resume -- our
-		 * surface was blanked or is stale wholesale, and while unmapped we got no
-		 * damage we could have trusted.
+		 * ingesting into grid[] regardless, so nothing is lost.
 		 *
-		 * A mere clip-descriptor CHANGE no longer forces that full repaint.  It
-		 * used to (paintgen), because every restack sent a full-content E_EXPOSE
-		 * anyway; now the server sends the damaged rect only, so a raise costs the
-		 * strip that was covered instead of all 80x25 cells, and honouring the rect
-		 * is the whole point.  Every path that really does invalidate everything --
-		 * move, resize, restore from an icon -- still sends a full-content expose
-		 * of its own, and the expose is emitted AFTER the new clip is published, so
-		 * we cannot patch incrementally over a surface the server has not finished
-		 * with (the "flood scribbles random characters onto a just-unhidden window"
-		 * bug). */
+		 * Resuming does NOT by itself force a full repaint any more (the old
+		 * `wasidle' flag): a freeze we merely sat out left our pixels untouched --
+		 * the menu/dialog save-under restores what the box covered, and restoring
+		 * from an icon sends a full-content expose of its own.  So after every
+		 * menu anywhere on the desktop, every busy terminal repainted its whole
+		 * grid for nothing.  What DOES owe a repaint is a draw of ours that was
+		 * dropped against the freeze -- a flush that raced the overlay opening
+		 * loses those primitives silently -- and cl_dropped() reports exactly
+		 * that, so only the client that actually lost content repaints.
+		 *
+		 * A mere clip-descriptor CHANGE does not force a repaint either (it used
+		 * to, via paintgen): being covered MORE just tightens the clip, and every
+		 * genuine uncover arrives as a damage-rect expose from the server, emitted
+		 * AFTER the new clip is published, so we cannot patch incrementally over a
+		 * surface the server has not finished with (the "flood scribbles random
+		 * characters onto a just-unhidden window" bug). */
 		cl_refresh();			/* re-read the clip (cheap when unchanged) */
-		fz = cl_frozen();
-		if ( fz || !cl_mapped() )
+		if ( !cl_frozen() && cl_mapped() )
 		{
-			wasidle = 1;		/* deferring -> full repaint when we resume */
-		}
-		else
-		{
-			if ( wasidle )
+			if ( cl_dropped() )
 			{
-				invalidate();	/* first pass after being undrawable */
+				invalidate();	/* a draw was lost against a freeze */
 				pending = 1;
 			}
 			if ( pending )
@@ -1216,7 +1214,6 @@ char **argv;
 				flush();	/* ONE repaint for the whole drained batch */
 				pending = 0;
 			}
-			wasidle = 0;
 		}
 	}
 	hr_bye();		/* pumps died: reap our window on the way out */

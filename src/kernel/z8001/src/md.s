@@ -1110,7 +1110,10 @@ ufix_:
 / main_ copies icode into user space (eveinit).  It overwrites the
 / icode-relative offset in the argv[2] slot of the init argument vector
 / (default driv_no = /drv/notty) with driv_hr or driv_lr when the
-/ corresponding framebuffer RAM is found.  Detection is a two-pattern
+/ corresponding framebuffer RAM is found; on hi-res it also repoints
+/ the gfx-library slot argv[5] (default sl_no = empty) to sl_hr, which
+/ makes init load the resident /lib/libhrgfx.sl -- the load decision is
+/ made HERE, never inferred by init.  Detection is a two-pattern
 / write/read-back; undecoded reads return garbage on this machine, and
 / there is no system RAM in the framebuffer windows, so a match is
 / conclusive.  Hi-res is preferred, then low-res, else serial.
@@ -1121,6 +1124,8 @@ vidsel:
 	jr	eq, 1f			/ absent - try text card
 	ld	r0, $driv_hr-icode
 	ld	argv+10, r0		/ patch argv[2] offset -> /drv/hrtty
+	ld	r0, $sl_hr-icode
+	ld	argv+22, r0		/ patch argv[5] offset -> /lib/libhrgfx.sl
 	ret
 1:	ld	r0, $0x3700		/ text framebuffer 0x370000 >> 8
 	call	vprobe
@@ -1451,6 +1456,8 @@ argv:	.word	USEG, file-icode
 	.word	USEG, swap-icode
 	.word	USEG, driv_no-icode	/ default console; vidsel may repoint this
 	.word	USEG, driv_lp-icode	/ line printer (loadable, slot 3)
+	.word	USEG, sl_c-icode	/ shared C library (always, slot 4)
+	.word	USEG, sl_no-icode	/ gfx library; vidsel may repoint this
 	.long	0
 
 file:	.ascii	"/etc/init"
@@ -1460,8 +1467,13 @@ swap:			/ no swapper exec by init
 / Console driver names.  The argv[2] offset above is patched by vidsel
 / (called from `start') to driv_lr/driv_hr when a video card is probed;
 / it is left at driv_no (serial console) when no display is present.
-/ init loads every argv[2..] driver via /etc/load, so argv[3] makes it
-/ install /drv/lp right after the console driver.
+/ init brings up every argv[2..] entry in order: names ending ".sl" are
+/ exec'd as shared-library holders, everything else is a driver loaded
+/ via /etc/load, so argv[3] installs /drv/lp right after the console
+/ driver.  The gfx-library slot (argv[5]) is the same patch scheme as
+/ the console driver: it stays sl_no (empty - init skips it) unless
+/ vidsel found the hi-res card, so the KERNEL decides whether the
+/ resident libhrgfx.sl is loaded, and init applies no policy of its own.
 driv_lr: .ascii	"/drv/lrtty"		/ low-res text card
 	.byte	0
 driv_hr: .ascii	"/drv/hrtty"		/ hi-res bitmap card
@@ -1469,6 +1481,12 @@ driv_hr: .ascii	"/drv/hrtty"		/ hi-res bitmap card
 driv_no: .ascii	"/drv/notty"		/ no display: serial console
 	.byte	0
 driv_lp: .ascii	"/drv/lp"		/ line printer
+	.byte	0
+sl_c:	.ascii	"/lib/libc.sl"		/ shared C library (slot 0)
+	.byte	0
+sl_hr:	.ascii	"/lib/libhrgfx.sl"	/ gfx library (slot 1), hi-res only
+	.byte	0
+sl_no:			/ no gfx library
 	.byte	0
 / driv2:	.ascii	"/drv/al"
 /	.byte	0

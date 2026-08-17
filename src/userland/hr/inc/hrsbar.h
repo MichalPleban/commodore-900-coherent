@@ -9,7 +9,8 @@
  *
  * The bar models a DOCUMENT of sb_total units (lines, usually) of which
  * sb_page are visible at once; sb_pos is the first visible unit, clamped to
- * 0..sb_total-sb_page.  The arrows move one unit, the trough one page, and
+ * 0..sb_total-sb_page.  The arrows -- both stacked at the BOTTOM of the bar,
+ * up above down, as NeXT drew them -- move one unit, the trough one page, and
  * the thumb -- proportional, as GEM drew it -- tracks the pointer.  When the
  * whole document fits (sb_total <= sb_page) the thumb fills the trough and
  * nothing moves.

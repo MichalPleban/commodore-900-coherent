@@ -1728,7 +1728,7 @@ main(argc, argv)
 char **argv;
 {
 	WMSG e;
-	int need, wasidle, i;
+	int need, i;
 
 	/* Cell metrics from the terminal font in the shared tail (readable
 	 * before we have a window); ask for exactly zterm's content -- the
@@ -1766,12 +1766,14 @@ char **argv;
 	}
 
 	invalidate();
+	need = 1;			/* flushed below, or by the first loop
+					 * pass if a server overlay is up now */
 	cl_refresh();
 	if ( cl_mapped() && !cl_frozen() )
+	{
 		flush();
-
-	need = 0;
-	wasidle = 0;
+		need = 0;
+	}
 	for (;;)
 	{
 		hr_evwait(mywid);
@@ -1893,17 +1895,16 @@ char **argv;
 			need = 1;
 		}
 		/* Draw or defer, zterm's discipline: never paint under a server
-		 * overlay or while unmapped; on resuming, one full repaint. */
+		 * overlay or while unmapped.  Resuming alone owes nothing (the
+		 * save-under restored our pixels); only a draw DROPPED against a
+		 * freeze does, and cl_dropped() reports exactly that. */
 		cl_refresh();
-		if ( cl_frozen() || !cl_mapped() )
-			wasidle = 1;
-		else
+		if ( !cl_frozen() && cl_mapped() )
 		{
-			if ( wasidle )
+			if ( cl_dropped() )
 			{
 				invalidate();
 				need = 1;
-				wasidle = 0;
 			}
 			if ( need )
 			{

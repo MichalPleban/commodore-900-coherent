@@ -2,14 +2,15 @@
 .SH NAME
 init \- process control initialization
 .SH SYNOPSIS
-\fB/etc/init [\fIswapper \fB[\fIdriver ...\fB]]\fR
+\fB/etc/init [\fIswapper \fB[\fIfile ...\fB]]\fR
 .SH DESCRIPTION
 .HS
 init -- process control initialization
-Usage:	/etc/init [ swapper [ driver ... ] ]
+Usage:	/etc/init [ swapper [ file ... ] ]
 If 'swapper' is given, it is loaded and started as a program.
-Each further 'driver' argument is loaded, one at a time, with
-'/etc/load'.
+Each further 'file' argument is brought up in order: a name ending
+in '.sl' is started as a shared library, anything else is a driver
+loaded with '/etc/load'.  Empty arguments are skipped.
 .HE
 The kernel starts
 .B init
@@ -28,11 +29,34 @@ program with
 and
 .BR execve ().
 Every further argument names a
+.I file
+to bring up, in order.
+A name ending in
+.B .sl
+is a shared library:
+.B init
+starts it with
+.BR fork ()
+and
+.BR execve (),
+and the child becomes the library's resident holder.
+Any other name is a
 .I driver
 file, which
 .B init
-loads, one at a time, by running
+loads by running
 .BR /etc/load .
+An empty argument, or a shared library whose file does not exist, is
+silently skipped; the system runs without it.
+.PP
+The argument list itself is composed by the kernel:
+it always passes the console driver and
+.BR /lib/libc.sl ,
+and adds
+.B /lib/libhrgfx.sl
+only when its boot-time video probe found the hi-res display card.
+.B init
+applies no policy of its own.
 .SH "Boot Sequence"
 .B init
 first tries to create the file
@@ -125,6 +149,8 @@ with
 \fB/etc/ttys\fR	terminals to enable
 \fB/etc/utmp\fR	currently logged-in lines
 \fB/etc/load\fR	driver loader, run for each \fIdriver\fR argument
+\fB/lib/libc.sl\fR	shared C library, started at boot
+\fB/lib/libhrgfx.sl\fR	shared graphics library (hi-res machines)
 \fB/usr/adm/wtmp\fR	login accounting log
 .DE
 .SH "SEE ALSO"

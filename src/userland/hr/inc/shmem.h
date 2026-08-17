@@ -12,8 +12,9 @@
  *   - the per-window clip descriptors, so a client can clip its own drawing to
  *     the visible parts of its window (direct-render, Model A).
  * Pixels go straight to the framebuffer and control/events stay on pipes;
- * neither travels through here.  Budget (of 28 KB): 3 font slots ~7.4 KB of the
- * 12 KB reserved + globals + 16 descriptors ~1.8 KB, leaving ~14 KB spare.
+ * neither travels through here.  Budget (of 28 KB): fonts hold 12 KB reserved;
+ * the tables below (globals, clip descriptors, locks, selection, acks, event
+ * rings, dialog surface, window list) end at 0x5662, leaving ~6.4 KB spare.
  */
 #ifndef HRSHMEM_H
 #define HRSHMEM_H
@@ -331,6 +332,36 @@ typedef struct {
  * the event rings (they end 0x5388; 0x5388..0x7000 is spare). */
 #define SHM_DLGSURF	0x5400		/* one HRSURF; ends 0x546E              */
 #define hr_dlgsurf()	((HRSURF *)(HRTAIL + SHM_DLGSURF))
+
+/* ---- published window list (server -> anyone) ----------------------------- *
+ * A read-only MIRROR of the server's private wins[] bookkeeping, so a taskbar,
+ * monitor or switcher can enumerate the desktop without asking the server:
+ * slot index = window id, ww_used says the slot is live, ww_min that it sits
+ * minimised as a desktop icon.  The AUTHORITATIVE list stays inside zview --
+ * this table is display-only BY DESIGN: the tail is writable by every process,
+ * and a wild store here can at worst mislabel somebody's window list, never
+ * make the server kill(2) a scribbled pid (which is why wins[] itself, whose
+ * pids drive signals and reaping, is not the thing shared).  Same seqlock
+ * discipline as HRSURF: the server bumps wl_seq odd before rewriting and even
+ * after, and only when something actually changed -- so a poller can watch
+ * hr_winseq() to notice change cheaply.  Geometry is deliberately NOT
+ * duplicated here: hr_surf(wid) already publishes the live clip/origin. */
+#define SHM_WINLIST	0x5480
+#define HRWL_N		HRACK_N		/* == MAX_WINDOWS, like the ack table */
+typedef struct {
+	short	ww_used;		/* slot holds a live window          */
+	short	ww_pid;			/* its client process                */
+	short	ww_min;			/* 1 = minimised to a desktop icon   */
+	char	ww_title[24];		/* displayed title (wins[].title)    */
+} HRWIN;				/* 30 B */
+typedef struct {
+	short	wl_seq;			/* seqlock: odd while server writing */
+	HRWIN	wl_win[HRWL_N];		/* indexed by window id              */
+} HRWLIST;				/* 482 B: 0x5480..0x5662; spare follows */
+#define hr_wlist()	((HRWLIST *)(HRTAIL + SHM_WINLIST))
+
+extern int	hr_winlist();	/* reader: hr_winlist(out[HRWL_N]) -> n live, -1 no server */
+extern int	hr_winseq();	/* reader: wl_seq, to notice a change cheaply    */
 
 extern int	hr_evinit();	/* server: reset one ring (-1 = all)             */
 extern int	hr_evput();	/* server: hr_evput(i, wmsg) -> 0, or -1 if full */

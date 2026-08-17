@@ -334,9 +334,10 @@ baddest( )
 
 
 /* Cursor hide depth: 0 = cursor shown, >0 = one or more hide brackets active.
- * The XOR cursor is a driver-global resource that the window server AND every
+ * The cursor is a driver-global resource that the window server AND every
  * direct-render client (GUI.md Model A) must bracket around their own blits or
- * the sprite smears.  Because those processes run concurrently and each keeps
+ * the sprite smears (a blit under the drawn sprite would be stomped by the
+ * save-under restore).  Because those processes run concurrently and each keeps
  * its OWN per-process count, the ONLY place they can compose correctly is here:
  * the driver counts the total outstanding hides and reveals the cursor only when
  * the LAST bracket ends.  (ms_en stays the on-screen state its many readers -
@@ -394,7 +395,7 @@ hrmsedraw()
 	if ( not mousebuf.ms_en )
 	{
 		mousebuf.ms_en = ~0;
-		hrmerge(mousebuf.ms_x/8, mousebuf.ms_y);
+		hrshow(mousebuf.ms_x/8, mousebuf.ms_y);
 		timeout( &timebuf, 1, hrmouse, 0);
 	}
 }
@@ -483,7 +484,7 @@ hrmouse( )
 		mouse.m_msg[3] = y;
 		mspend = 1;		/* sprite wants to move to (x,y) */
 	}
-	/* Redraw the XOR sprite, preferably while NO userland op holds the drawing
+	/* Redraw the sprite, preferably while NO userland op holds the drawing
 	 * lock -- a blit racing this erase/draw is what left the stray cursor.  We
 	 * cannot spin at timer level, so if the lock is held we defer to a later tick
 	 * (mspend).  But a client flooding output holds the lock across a whole
@@ -491,8 +492,9 @@ hrmouse( )
 	 * cursor; after a few ticks we redraw anyway.  A forced redraw is safe unless
 	 * the cursor sits exactly on the cells being blitted, and that is precisely
 	 * the "painting where the cursor is" case the client hides for -- so at worst
-	 * a brief flicker there, never a frozen pointer.  hrdraw publishes the drawn
-	 * position to the tail so clients hide the sprite accurately. */
+	 * a brief flicker there (the save-under restore may put back a stale patch,
+	 * healed by the very next redraw), never a frozen pointer.  hrdraw publishes
+	 * the drawn position to the tail so clients hide the sprite accurately. */
 	if (mspend && (HRFUTEX == 0 || ++msdefer >= 4))
 	{
 		hrudraw();			/* erase at the old drawn position */
@@ -773,12 +775,20 @@ hrkey()
 }
 
 
-hrmerge(xcbase, y)
+/* Paint the sprite: save the framebuffer bytes under the 24x16 cell into
+ * ms_sav, then lay down ink and outline through the opacity mask
+ * (screen = screen & ~mask | (mask & ~ink); screen 1 = white, so ink pixels
+ * go black and the outline pixels white).  hrhide() restores ms_sav; the two
+ * MUST alternate (the ms_en / hrudraw+hrdraw pairing guarantees it), or a
+ * second paint would capture the sprite itself as "background". */
+hrshow(xcbase, y)
 int	xcbase;
 register int	y;
 {
 	register char	*p;
 	register char	*q;
+	register char	*m;
+	char	*s;
 	int	yn;
 
 	if ( y < YSPLIT )
@@ -786,12 +796,42 @@ register int	y;
 	else
 		p = (char *)SEG1 + (y-YSPLIT)*(XMAX/8) + xcbase;
 	q = (char *)mousebuf.ms_buf;
+	m = (char *)mousebuf.ms_msk;
+	s = (char *)mousebuf.ms_sav;
 	for ( yn = nel(mousebuf.ms_buf) ; yn ; yn-- )
 	{
-		*p++ ^= *q++;
-		*p++ ^= *q++;
-		*p++ ^= *q++;
-		q++;	/* bad practice, skip over unused byte */
+		*s++ = *p;  *p = *p & ~*m | *m & ~*q;  p++; q++; m++;
+		*s++ = *p;  *p = *p & ~*m | *m & ~*q;  p++; q++; m++;
+		*s++ = *p;  *p = *p & ~*m | *m & ~*q;  p++; q++; m++;
+		q++; m++; s++;	/* bad practice, skip over unused byte */
+		y++;
+		if ( y != YSPLIT )
+			p += (XMAX/8) - 3;
+		else
+			p = (char *)SEG1 + xcbase;
+	}
+}
+
+/* Take the sprite off screen: put back the saved background bytes. */
+hrhide(xcbase, y)
+int	xcbase;
+register int	y;
+{
+	register char	*p;
+	register char	*s;
+	int	yn;
+
+	if ( y < YSPLIT )
+		p = (char *)SEG0 + y*(XMAX/8) + xcbase;
+	else
+		p = (char *)SEG1 + (y-YSPLIT)*(XMAX/8) + xcbase;
+	s = (char *)mousebuf.ms_sav;
+	for ( yn = nel(mousebuf.ms_sav) ; yn ; yn-- )
+	{
+		*p++ = *s++;
+		*p++ = *s++;
+		*p++ = *s++;
+		s++;	/* bad practice, skip over unused byte */
 		y++;
 		if ( y != YSPLIT )
 			p += (XMAX/8) - 3;
@@ -814,6 +854,12 @@ hrlshift(dx)
 		sdll(lp, dx);
 		lp++;
 	}
+	lp = mousebuf.ms_msk;
+	for ( rows = nel(mousebuf.ms_msk); rows; rows-- )
+	{
+		sdll(lp, dx);
+		lp++;
+	}
 }
 
 
@@ -823,7 +869,7 @@ hrlshift(dx)
  */
 hrudraw()
 {
-	hrmerge(mousebuf.ms_x/8, mousebuf.ms_y);
+	hrhide(mousebuf.ms_x/8, mousebuf.ms_y);
 }
 
 
@@ -839,7 +885,7 @@ int	y;
 	mousebuf.ms_y = y;
 	obit = mousebuf.ms_bit;
 	hrlshift( (mousebuf.ms_bit = 7 - (x&7)) - obit);
-	hrmerge(x/8, y);
+	hrshow(x/8, y);
 	HRGLOB_CURX = x;		/* publish the live sprite position for clients */
 	HRGLOB_CURY = y;
 }

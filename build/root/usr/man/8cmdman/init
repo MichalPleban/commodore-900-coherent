@@ -8,7 +8,7 @@ NNAAMMEE
      init - process control initialization
 
 SSYYNNOOPPSSIISS
-     /eettcc/iinniitt [_s_w_a_p_p_e_r [_d_r_i_v_e_r ...]]
+     /eettcc/iinniitt [_s_w_a_p_p_e_r [_f_i_l_e ...]]
 
 DDEESSCCRRIIPPTTIIOONN
      The kernel starts iinniitt as the first process, with process
@@ -19,8 +19,18 @@ DDEESSCCRRIIPPTTIIOONN
 
      If given an argument, iinniitt loads it as a _s_w_a_p_p_e_r program
      with ffoorrkk() and eexxeeccvvee(). Every further argument names a
-     _d_r_i_v_e_r file, which iinniitt loads, one at a time, by running
-     /eettcc/llooaadd.
+     _f_i_l_e to bring up, in order.  A name ending in .ssll is a
+     shared library: iinniitt starts it with ffoorrkk() and eexxeeccvvee(), and
+     the child becomes the library's resident holder.  Any other
+     name is a _d_r_i_v_e_r file, which iinniitt loads by running
+     /eettcc/llooaadd. An empty argument, or a shared library whose file
+     does not exist, is silently skipped; the system runs without
+     it.
+
+     The argument list itself is composed by the kernel: it al-
+     ways passes the console driver and /lliibb/lliibbcc.ssll, and adds
+     /lliibb/lliibbhhrrggffxx.ssll only when its boot-time video probe found
+     the hi-res display card.  iinniitt applies no policy of its own.
 
 BBoooott SSeeqquueennccee
      iinniitt first tries to create the file /eettcc/bboooottttiimmee; this
@@ -49,16 +59,6 @@ BBoooott SSeeqquueennccee
      llooggiinn) on a given line exits, iinniitt clears that line's uuttmmpp
      entry, restores the terminal's mode and ownership, and res-
      tarts ggeettttyy on it, unless the line has since been disabled
-     in /eettcc/ttttyyss. Other terminating children are simply reaped.
-
-SSiiggnnaallss
-     iinniitt responds to two signals:
-
-     SSIIGGQQUUIITT  Re-reads /eettcc/ttttyyss, starting ggeettttyy on any newly
-              enabled line and killing the ggeettttyy (or login ses-
-              sion) on any line that has been disabled.  Sent to
-              iinniitt with kkiillll -qquuiitt 11.
-
 
 
 COHERENT Administration Manual                             Page 1
@@ -69,6 +69,16 @@ COHERENT Administration Manual                             Page 1
 iinniitt                                                         iinniitt
 
 
+
+     iinn /eettcc/ttttyyss. Other terminating children are simply reaped.
+
+SSiiggnnaallss
+     iinniitt responds to two signals:
+
+     SSIIGGQQUUIITT  Re-reads /eettcc/ttttyyss, starting ggeettttyy on any newly
+              enabled line and killing the ggeettttyy (or login ses-
+              sion) on any line that has been disabled.  Sent to
+              iinniitt with kkiillll -qquuiitt 11.
 
      SSIIGGHHUUPP   Sends SSIIGGKKIILLLL to every process and returns the sys-
               tem to single-user mode.  Sent to iinniitt with kkiillll -11
@@ -81,6 +91,8 @@ FFIILLEESS
           /eettcc/ttttyyss       terminals to enable
           /eettcc/uuttmmpp       currently logged-in lines
           /eettcc/llooaadd       driver loader, run for each _d_r_i_v_e_r argument
+          /lliibb/lliibbcc.ssll    shared C library, started at boot
+          /lliibb/lliibbhhrrggffxx.ssllshared graphics library (hi-res machines)
           /uussrr/aaddmm/wwttmmpp   login accounting log
 
 SSEEEE AALLSSOO

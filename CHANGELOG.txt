@@ -1,3 +1,12 @@
+Version 0.9.0 (11 August 2026):
+- Four more source-less binaries (l, fdformat, fortune, moo) were decompiled from disassembly and are now built from source like everything else.
+- The mouse cursor is now drawn as a proper opaque sprite (black ink with a white outline) instead of the old XOR pattern, so it stays visible over black window titles and no longer inverts what is under it.
+- The window server now publishes the window list (id, pid, title, minimised state) in shared memory, so any client can enumerate the desktop (hr_winlist).
+- The Monitor's process list gained a WINDOW column: the desktop window each process owns, read from the shared window list (a minimised window's title carries a trailing *).
+- Added shared libraries: /lib/libc.sl and /lib/libhrgfx.sl are loaded once at boot and mapped into every process, shrinking commands on disk and in memory.
+- Most commands now link against the shared libc; boot and repair tools (sh, init, mount, check tools, etc.) remain fully static so the system boots even without shared libraries.
+- Commands linked against the shared libc get full floating-point printf support.
+
 Version 0.8.3 (10 August 2026):
 - Added /dev/zero device.
 - Fixed lpd crashing on a cancel or restart request.

@@ -218,10 +218,11 @@ extern int who_top_at();
 int	curfd = -1;		/* a driver fd for cursor on/off (CIOMSE*) */
 int	pumppid = -1;		/* the input-pump child (killed on WM quit) */
 
-/* Cursor arbitration hooks (installed into libhrgfx): the driver draws an XOR
- * cursor, so hide it around each server blit or it leaves trails (GUI.md 6.2). */
+/* Cursor arbitration hooks (installed into libhrgfx): the driver paints an
+ * opaque save-under cursor, so hide it around each server blit or the blit is
+ * stomped when the saved background is put back (GUI.md 6.2). */
 /* Reference-counted so nested hide/show compose (the driver's cursor flag is a
- * plain boolean): only the OUTERMOST hide actually removes the XOR cursor and
+ * plain boolean): only the OUTERMOST hide actually removes the cursor and
  * the outermost show restores it, so a top-level op can bracket a whole blit
  * sequence even though inner helpers (outline, drawicon, bitblt) bracket too. */
 int	curdepth;
@@ -238,7 +239,7 @@ srv_curshow()
 
 /* The global GUI drawing lock (hrlock.s / shmem.h), held while the server
  * changes the layer stack / clip descriptors / framebuffer so no direct-render
- * client (or the driver's XOR cursor) can interleave -- this is what stops a
+ * client (or the driver's cursor) can interleave -- this is what stops a
  * busy client painting into a window the server is mid-way through stacking on
  * top (the persistent "root bleeds into the new terminal" race), and the stray
  * cursor.  RECURSIVE (a per-process depth count): the engine's reply hook
@@ -353,18 +354,37 @@ qexpose(wid)
 	qexposer(wid, 0, 0, wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
 }
 
-/* the driver's default arrow cursor sprite (from the old smgr) */
-int DEF_MOUSE[] = { 0xfffc, 0xfff8, 0xfff0, 0xffe0,
-		    0xffc0, 0xffc0, 0xffe0, 0xfff0,
-		    0xfff8, 0xfffc, 0xf3fe, 0xe1ff,
-		    0x80ff, 0x007f, 0x003e, 0x001c };
+/* Cursor sprites.  Each is TWO 16-word planes for CIOMOUSE: the ink (1 =
+ * black pixel) followed by the opacity mask (ink | its 1-pixel white
+ * outline, an 8-connected dilation; scratch script cursors.py regenerates
+ * these).  The driver paints them as proper opaque cursors -- black ink,
+ * white rim -- so they stay visible over black title bars.
+ *
+ * the default arrow (the old smgr wedge, nudged right+down 1px so the
+ * outline can wrap its tip and top/left edges; the ink tip is at (1,1) and
+ * the hotspot (0,0) lands on the outline's corner pixel) */
+int DEF_MOUSE[] = { 0x0000, 0x7ffe, 0x7ffc, 0x7ff8,
+		    0x7ff0, 0x7fe0, 0x7fe0, 0x7ff0,
+		    0x7ff8, 0x7ffc, 0x7ffe, 0x79ff,
+		    0x70ff, 0x407f, 0x003f, 0x001f,
+		    /* mask */
+		    0xffff, 0xffff, 0xffff, 0xfffe,
+		    0xfffc, 0xfff8, 0xfff8, 0xfffc,
+		    0xfffe, 0xffff, 0xffff, 0xffff,
+		    0xffff, 0xf9ff, 0xe0ff, 0x007f };
 
 /* the move/resize "hand" cursor (original desktop dmouse.c MOV_MOUSE): shown
  * while a ghost-drag is active, then DEF_MOUSE is restored. */
 int MOV_MOUSE[] = { 0x0000, 0x01b0, 0x19b0, 0x19b6,
 		    0x0db6, 0x0db6, 0x0ffe, 0x0ffe,
 		    0x07fe, 0x67fe, 0x7ffe, 0x3ffe,
-		    0x1ffc, 0x07fc, 0x07f8, 0x03f8 };
+		    0x1ffc, 0x07fc, 0x07f8, 0x03f8,
+		    /* mask (bottom outline clips at the cell edge -- the ink
+		     * reaches row 15; harmless, it is the wrist) */
+		    0x03f8, 0x3ff8, 0x3fff, 0x3fff,
+		    0x3fff, 0x1fff, 0x1fff, 0x1fff,
+		    0xffff, 0xffff, 0xffff, 0xffff,
+		    0x7fff, 0x3ffe, 0x0ffe, 0x0ffc };
 
 /* ...and ITS hotspot: the middle of the hand.  Unlike the arrows this shape has
  * no tip -- it is a fist -- so what it grabs with is its centre, which is the
@@ -382,9 +402,16 @@ int MOV_MOUSE[] = { 0x0000, 0x01b0, 0x19b0, 0x19b6,
 /* the menu cursor (original desktop dmouse.c MNU_MOUSE): a right-pointing arrow
  * shown while a pop-up menu is open, then DEF_MOUSE is restored. */
 int MNU_MOUSE[] = { 0x0000, 0x0180, 0x01c0, 0x01e0,
-		    0x01f0, 0xfff8, 0xfffc, 0xfffe,
-		    0xffff, 0xfffe, 0xfffc, 0xfff8,
-		    0x01f0, 0x01e0, 0x01c0, 0x0180 };
+		    0x01f0, 0x7ff8, 0x7ffc, 0x7ffe,
+		    0x7fff, 0x7ffe, 0x7ffc, 0x7ff8,
+		    0x01f0, 0x01e0, 0x01c0, 0x0180,
+		    /* mask (butt pulled in from col 0 so the left outline
+		     * fits; the tip keeps col 15 -- its outline clips there,
+		     * invisible since this cursor lives over white menus) */
+		    0x03c0, 0x03e0, 0x03f0, 0x03f8,
+		    0xfffc, 0xfffe, 0xffff, 0xffff,
+		    0xffff, 0xffff, 0xffff, 0xfffe,
+		    0xfffc, 0x03f8, 0x03f0, 0x03e0 };
 
 /* ...and its HOTSPOT.  The driver has no notion of one: hrdraw() (drv/hr2.c)
  * puts the sprite's top-left corner at the pointer position.  That is right for
@@ -643,12 +670,67 @@ publish_surf(wid)
 	sp->seq++;					/* even: done */
 }
 
+/* Mirror wins[] into the shared window list (shmem.h SHM_WINLIST) so any
+ * client can enumerate the desktop.  Display-only fields -- the authoritative
+ * wins[] stays private (its pids drive kill/reaping; the tail is writable by
+ * everyone).  Same change-compare as publish_surf: wl_seq moves only when the
+ * list really changed, so a poller can watch it.  Scalar far-pointer stores,
+ * like every other write to the tail in this file. */
+publish_wins()
+{
+	register HRWIN *pw;
+	register HRWLIST *wl;
+	register char *s;
+	int w, i, diff;
+
+	wl = hr_wlist();
+	diff = 0;
+	for ( w = 0; w < MAX_WINDOWS && !diff; w++ )
+	{
+		pw = &wl->wl_win[w];
+		if ( wins[w].used )
+		{
+			if ( !pw->ww_used || pw->ww_pid != wins[w].pid ||
+			     pw->ww_min != wins[w].min )
+				diff = 1;
+			else
+				for ( s = wins[w].title, i = 0; i < 24; i++ )
+					if ( pw->ww_title[i] != s[i] )
+					{
+						diff = 1;
+						break;
+					}
+		}
+		else if ( pw->ww_used )
+			diff = 1;
+	}
+	if ( !diff )
+		return;
+	wl->wl_seq++;				/* odd: writing */
+	for ( w = 0; w < MAX_WINDOWS; w++ )
+	{
+		pw = &wl->wl_win[w];
+		if ( wins[w].used )
+		{
+			pw->ww_pid = wins[w].pid;
+			pw->ww_min = wins[w].min;
+			for ( s = wins[w].title, i = 0; i < 24; i++ )
+				pw->ww_title[i] = s[i];
+			pw->ww_used = 1;
+		}
+		else
+			pw->ww_used = 0;
+	}
+	wl->wl_seq++;				/* even: done */
+}
+
 /* Republish every window: any single op can cover/uncover others. */
 publish_all()
 {
 	int w;
 	for ( w = 0; w < MAX_WINDOWS; w++ )
 		publish_surf(w);
+	publish_wins();
 }
 
 /* Create a window at rectangle r, register it as window `wid'.  Mirrors the
@@ -896,6 +978,39 @@ expose_covered(exclwid, rx0, ry0, rx1, ry1)
 			qexposer(w, rx0 - sp->ox, ry0 - sp->oy,
 				    rx1 - sp->ox, ry1 - sp->oy);
 		}
+}
+
+/* Expose only the VACATED part of a move/resize: the strips of `old' that the
+ * window's new rect no longer covers.  Windows under old-INTERSECT-new were
+ * covered before AND after -- the op uncovered nothing of theirs, so exposing
+ * the whole old rect (as this used to) made everything under a dragged or
+ * grown window repaint for no reason.  A grow vacates nothing and exposes
+ * nothing; a small drag costs the two trailing strips. */
+expose_vacated(wid, old, new)
+RECT old, new;
+{
+	int y0, y1;
+
+	if ( new.corner.x <= old.origin.x || new.origin.x >= old.corner.x ||
+	     new.corner.y <= old.origin.y || new.origin.y >= old.corner.y )
+	{
+		/* disjoint: the whole old rect was vacated */
+		expose_covered(wid, old.origin.x, old.origin.y,
+				    old.corner.x, old.corner.y);
+		return;
+	}
+	if ( old.origin.y < new.origin.y )		/* top strip */
+		expose_covered(wid, old.origin.x, old.origin.y,
+				    old.corner.x, new.origin.y);
+	if ( old.corner.y > new.corner.y )		/* bottom strip */
+		expose_covered(wid, old.origin.x, new.corner.y,
+				    old.corner.x, old.corner.y);
+	y0 = old.origin.y > new.origin.y ? old.origin.y : new.origin.y;
+	y1 = old.corner.y < new.corner.y ? old.corner.y : new.corner.y;
+	if ( old.origin.x < new.origin.x )		/* left strip */
+		expose_covered(wid, old.origin.x, y0, new.origin.x, y1);
+	if ( old.corner.x > new.corner.x )		/* right strip */
+		expose_covered(wid, new.corner.x, y0, old.corner.x, y1);
 }
 
 /* Send a window to the back (window-menu "Back", the opposite of "Front"). */
@@ -1652,10 +1767,12 @@ movewin(wid, nx, ny)
 	publish_all();
 	srvunlock();
 	sendev(wid, E_EXPOSE, 0, 0, wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
-	/* and everyone we were covering at the old spot repaints that area (see the
-	 * same call in killwin: an expose now carries a rect, so damage the engine's
-	 * update list happens to miss is damage nobody would repaint). */
-	expose_covered(wid, old.origin.x, old.origin.y, old.corner.x, old.corner.y);
+	/* and everyone under the part of the old spot we VACATED repaints it (see
+	 * the same call in killwin: an expose now carries a rect, so damage the
+	 * engine's update list happens to miss is damage nobody would repaint).
+	 * Only old minus new: whoever is under the still-covered intersection was
+	 * covered before and after and repaints nothing. */
+	expose_vacated(wid, old, wtbl[wid]->wn_Layer->rect);
 	redraw_icons();			/* moving off an icon must repaint it */
 }
 
@@ -1688,8 +1805,9 @@ resizewin(wid, cx, cy)
 	publish_all();
 	srvunlock();
 	sendev(wid, E_RESIZE, nw, nh, 0, 0);
-	/* a shrink uncovers part of the old rect: repaint whoever was under it */
-	expose_covered(wid, old.origin.x, old.origin.y, old.corner.x, old.corner.y);
+	/* a shrink uncovers the vacated strips of the old rect: repaint whoever
+	 * was under THOSE (a grow vacates nothing and exposes nothing) */
+	expose_vacated(wid, old, wtbl[wid]->wn_Layer->rect);
 	redraw_icons();			/* resizing off an icon must repaint it */
 }
 
@@ -1835,6 +1953,8 @@ char *base;
 				gfx_cursor_show();
 			}
 		}
+	publish_wins();		/* titles changed after mkwin's publish_all
+				 * (doconnect relabels last): republish */
 	srvunlock();
 }
 
@@ -2446,7 +2566,7 @@ char *label;
  * over it -- the flood-covers-the-menu bug) BEFORE taking the lock, so a
  * client that checks the flag while holding the lock sees it; take the lock
  * around the save+paint so any in-flight client primitive finishes first and
- * the box lands on top of it.  Hide the cursor BEFORE saving, or its XOR
+ * the box lands on top of it.  Hide the cursor BEFORE saving, or its
  * sprite is captured into the buffer and painted back on restore, leaving a
  * stray arrow.  Returns with the lock held and the cursor hidden -- the
  * caller paints, then closes the bracket itself (gfx_cursor_show +
@@ -2649,43 +2769,30 @@ char *msg, *b0, *b1, *b2;
 	return sel;
 }
 
-/* The desktop-menu "Switch to" dialog: a centred card showing every open
- * window as an ICON CELL -- the same 48px artwork the desktop icons at the
- * top of the screen use (srvicon, with the iconok/HR_DEFICON fallback) over
- * a small centred SHM_FICON label -- laid out in alt-tab-style rows that
- * wrap after SW_PERROW cells, above a Cancel button.  The cells track
- * exactly like srvdialog's buttons -- a left press inside a cell arms and
- * XOR-inverts it (the alt-tab highlight), dragging out disarms, and only a
- * release inside the armed cell commits -- so a slip of the mouse cannot
- * switch windows.  The chosen window is brought forward (restorewin if
- * minimised, else raisewin) only AFTER the dialog is taken down: both
- * repaint and sendev, neither of which may happen under the overlay freeze. */
-#define SW_CW		64	/* cell width == the desktop's ICONCW       */
-#define SW_PERROW	6	/* cells per row before wrapping            */
-#define SW_PADT		6	/* cell pad above the 48px artwork          */
-#define SW_LGAP		2	/* artwork <-> label gap (drawiconc's)      */
-#define SW_PADB		5	/* cell pad below the label                 */
-#define SW_LMAX		((SW_CW - 4) / 6)	/* label chars (sail is 6x8) */
-#define SW_CH		(SW_PADT + ICONW + SW_LGAP + 8 + SW_PADB)
+/* The desktop-menu "Switch to" dialog: a centred card listing every open
+ * window BY NAME -- one full-width SHM_FUI text row per window, above a
+ * Cancel button.  No icons: the 48px artwork lives on disk (srvicon opens
+ * /usr/hr/icons/<name> per call), and one file read per window under the
+ * overlay freeze is an unacceptable cost.  The rows track exactly like
+ * srvdialog's buttons -- a left press inside a row arms and XOR-inverts it
+ * (the alt-tab highlight), dragging out disarms, and only a release inside
+ * the armed row commits -- so a slip of the mouse cannot switch windows.
+ * The chosen window is brought forward (restorewin if minimised, else
+ * raisewin) only AFTER the dialog is taken down: both repaint and sendev,
+ * neither of which may happen under the overlay freeze. */
+#define SW_ROWPAD	3	/* text pad above/below a row's label */
 srvswitch()
 {
 	RECT box, card, rc[MAX_WINDOWS + 1];
-	char lab[MAX_WINDOWS][SW_LMAX + 1];
 	int wid[MAX_WINDOWS];
-	int nw, fw, i, w, boxw, boxh, btnw;
-	int ncol, nrow, gx0, ix, iy, nc;
+	int nw, fw, fh, rowh, i, w, lw, boxw, boxh, btnw;
 	int wpl, ry, sel;
 	int *buf;
 
 	nw = 0;
 	for ( i = 0; i < MAX_WINDOWS; i++ )
 		if ( wins[i].used )
-		{
-			wid[nw] = i;
-			strncpy(lab[nw], wins[i].title, SW_LMAX);
-			lab[nw][SW_LMAX] = '\0';
-			nw++;
-		}
+			wid[nw++] = i;
 	if ( nw == 0 )
 	{
 		srvdialog("No windows are open.", "OK", (char *)0, (char *)0);
@@ -2693,31 +2800,35 @@ srvswitch()
 	}
 
 	fw = hr_font(SHM_FUI)->cellw;
-	ncol = nw < SW_PERROW ? nw : SW_PERROW;
-	nrow = (nw + ncol - 1) / ncol;
+	fh = hr_font(SHM_FUI)->cellh;
+	rowh = fh + 2 * SW_ROWPAD;
 
-	/* box size: the cell grid or the Cancel button, whichever is wider */
-	w = ncol * SW_CW;
+	/* box size: the widest name row or the Cancel button, whichever wins */
+	w = 0;
+	for ( i = 0; i < nw; i++ )
+	{
+		lw = strlen(wins[wid[i]].title) * fw + 2 * DLG_BTNPAD;
+		if ( lw > w ) w = lw;
+	}
 	btnw = strlen("Cancel") * fw + 2 * DLG_BTNPAD;
 	if ( btnw + DLG_BSHAD > w ) w = btnw + DLG_BSHAD;
 	boxw = w + 2 * DLG_MARG;
-	boxh = DLG_MARG + nrow * SW_CH + DLG_GAPY + DLG_BTNH + DLG_BSHAD + DLG_MARG;
+	boxh = DLG_MARG + nw * rowh + DLG_GAPY + DLG_BTNH + DLG_BSHAD + DLG_MARG;
 
 	dlg_place(boxw, boxh, &box, &card);
 
-	/* cell rects tile the (centred) grid -- the whole cell is the click
+	/* row rects span the card's usable width -- the whole row is the click
 	 * target AND the invert highlight; rc[nw] is the Cancel button so one
-	 * dlg_bhit/dlg_binvert pass covers cells and button alike */
-	gx0 = box.origin.x + (boxw - ncol * SW_CW) / 2;
+	 * dlg_bhit/dlg_binvert pass covers rows and button alike */
 	ry = box.origin.y + DLG_MARG;
 	for ( i = 0; i < nw; i++ )
 	{
-		rc[i].origin.x = gx0 + (i % ncol) * SW_CW;
-		rc[i].origin.y = ry + (i / ncol) * SW_CH;
-		rc[i].corner.x = rc[i].origin.x + SW_CW;
-		rc[i].corner.y = rc[i].origin.y + SW_CH;
+		rc[i].origin.x = box.origin.x + DLG_MARG;
+		rc[i].origin.y = ry + i * rowh;
+		rc[i].corner.x = box.origin.x + boxw - DLG_MARG;
+		rc[i].corner.y = rc[i].origin.y + rowh;
 	}
-	ry += nrow * SW_CH;
+	ry += nw * rowh;
 	rc[nw].origin.x = box.origin.x + (boxw - btnw - DLG_BSHAD) / 2;
 	rc[nw].origin.y = ry + DLG_GAPY;
 	rc[nw].corner.x = rc[nw].origin.x + btnw;
@@ -2728,25 +2839,23 @@ srvswitch()
 	srvfill(card, 0, L_TRUE);			/* white body */
 	dlg_border(card);
 	dlg_shadow(box, WD_SHADOW);
-	/* each cell: the 48px artwork centred, its label centred beneath --
-	 * drawiconc's look, minus the desktop clipping (the card is all ours)
-	 * and minus the label plate (the card body is already white).  The
-	 * icon name needs no iconok fallback: doconnect stored one already. */
+	/* each row: the title centred (+1,+1: FUI glyphs sit high-left in the
+	 * cell).  Drawn straight from wins[]: titles are stable while the
+	 * dialog is up -- kills only happen in the main loop. */
 	for ( i = 0; i < nw; i++ )
 	{
-		ix = rc[i].origin.x + (SW_CW - ICONW) / 2;
-		iy = rc[i].origin.y + SW_PADT;
-		srvicon(ix, iy, wins[wid[i]].icon, card);
-		nc = strlen(lab[i]);
-		srvmenuglyphs(SHM_FICON,
-			      rc[i].origin.x + (SW_CW - nc * 6) / 2,
-			      iy + ICONW + SW_LGAP, lab[i], card);
+		lw = strlen(wins[wid[i]].title) * fw;
+		srvmenuglyphs(SHM_FUI,
+			      rc[i].origin.x +
+			      (rc[i].corner.x - rc[i].origin.x - lw) / 2 + 1,
+			      rc[i].origin.y + SW_ROWPAD + 1,
+			      wins[wid[i]].title, card);
 	}
 	dlg_button(rc[nw], "Cancel");
 	gfx_cursor_show();
 	srvunlock();		/* painted; clients stay frozen via overlay */
 
-	sel = dlg_track(rc, nw + 1);	/* nw cells + the Cancel button */
+	sel = dlg_track(rc, nw + 1);	/* nw rows + the Cancel button */
 	dlg_down(box, buf, wpl);
 
 	if ( sel >= 0 && sel < nw )
@@ -3206,7 +3315,7 @@ quitwm()
 			wins[w].used = 0;
 		}
 	if ( curfd >= 0 )
-		ioctl(curfd, CIOMSEOFF, (char *)0);	/* erase the XOR cursor */
+		ioctl(curfd, CIOMSEOFF, (char *)0);	/* erase the cursor */
 	if ( pumppid > 0 )
 		kill(pumppid, SIGKILL);
 	/* Clear the screen to black (the text console's background) while the
@@ -3999,7 +4108,7 @@ char **argv;
 	loaddriver();
 	loadpty();				/* pty pairs for the terminal windows */
 	/* A second driver fd (any minor) for cursor on/off; wire it into the
-	 * engine so blits hide the driver's XOR cursor and leave no trails. */
+	 * engine so blits hide the driver's cursor and leave no artifacts. */
 	curfd = open("/dev/dmgr", 2);
 	gfx_curhide_hook = srv_curhide;
 	gfx_curshow_hook = srv_curshow;
@@ -4041,7 +4150,12 @@ char **argv;
 		hr_surf(w)->seq = 0;
 		hr_surf(w)->mapped = 0;
 		hr_surf(w)->nvis = 0;
+		/* The window list too: publish_wins change-compares against it, and
+		 * a garbage-odd wl_seq would spin every reader (parity survives the
+		 * paired ++s, like the dialog surface below). */
+		hr_wlist()->wl_win[w].ww_used = 0;
 	  }
+	  hr_wlist()->wl_seq = 0;
 	}
 	hr_glob()->magic = HR_MAGIC;
 	/* The selection store lives in the same uninitialised tail RAM, so stamp it

@@ -1105,7 +1105,7 @@ char **argv;
 {
 	WMSG e;
 	struct stat sb;
-	int need, wasidle, i;
+	int need, i;
 	long t;
 
 	cellw = hr_font(SHM_FTERM)->cellw;
@@ -1139,15 +1139,17 @@ char **argv;
 	rescan();
 
 	invalidate();
+	need = 1;			/* flushed below, or by the first loop
+					 * pass if a server overlay is up now */
 	cl_refresh();
 	if ( cl_mapped() && !cl_frozen() )
+	{
 		flush();
+		need = 0;
+	}
 
 	signal(SIGALRM, tick);
 	alarm(5);
-
-	need = 0;
-	wasidle = 0;
 	for (;;)
 	{
 		hr_evwait(mywid);
@@ -1298,15 +1300,12 @@ char **argv;
 			}
 		}
 		cl_refresh();
-		if ( cl_frozen() || !cl_mapped() )
-			wasidle = 1;
-		else
+		if ( !cl_frozen() && cl_mapped() )
 		{
-			if ( wasidle )
+			if ( cl_dropped() )	/* a draw was lost against a freeze */
 			{
 				invalidate();
 				need = 1;
-				wasidle = 0;
 			}
 			if ( need )
 			{

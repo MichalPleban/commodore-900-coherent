@@ -7,6 +7,11 @@
 #
 # Run with GNU make (recipes use an sh-compatible shell + coreutils).
 
+# A failed recipe must not leave a half-made target behind: the .sl rules
+# in particular link and THEN stamp (mkslib.py), and an unstamped library
+# poisons every client link that considers it up to date.
+.DELETE_ON_ERROR:
+
 # ---------------------------------------------------------------------------
 # Toolchain
 # ---------------------------------------------------------------------------
@@ -65,6 +70,7 @@ BINDIR    = $(ROOT)/bin
 ETCDIR    = $(ROOT)/etc
 USRBINDIR = $(ROOT)/usr/bin
 USRLIBDIR = $(ROOT)/usr/lib
+GAMESDIR  = $(ROOT)/usr/games
 
 CMDS = $(UL)/cmd
 
@@ -119,6 +125,10 @@ LIBFS_OBJ := $(patsubst $(SRC)/%.c,$(OBJ)/%.o,$(libfs_c))
 CRT   = $(LIBDIR)/crts0.o
 DTOA  = $(LIBDIR)/dtoa.o
 LIBC  = $(LIBDIR)/libc.a
+# the shared C library (kernel LF_SLIB slot 0); build rule after the hr
+# section (it reuses SLCRT).  Commands link it via $(SLREF) in the `link'
+# define; the rescue set overrides back to static.
+LIBC_SL = $(LIBDIR)/libc.sl
 LIBM  = $(LIBDIR)/libm.a
 # the reference image keeps libmp.a in /usr/lib, not /lib
 LIBMP = $(USRLIBDIR)/libmp.a
@@ -216,15 +226,26 @@ $(LIBDIR)/libfs.a: $(LIBFS_OBJ)
 # binary shared-text so all instances -- and every fork -- reuse ONE in-core
 # copy of its text; the kernel keys the shared segment on the inode).  Safe
 # only for binaries whose SHRD is empty or genuinely read-only.
+# SLREF: the shared library reference.  Commands link against
+# /lib/libc.sl -- ld imports its whole export set as absolute addresses
+# (segment 0x34 text, segment 1 per-process data) and the trailing
+# static libc.a supplies only what the .sl omits (crypt,
+# getpwent/getgrent, getwd, getpass, profiling).  init loads the .sl at
+# boot from the path the kernel passes in its argument vector (icode in
+# md.s).  Deployed Aug 2026 (disk -39%; the resident ~25K holder is the
+# accepted price).  The RESCUE SET overrides below keep boot/repair
+# fully static: set SLREF empty there so a damaged or absent libc.sl
+# can never take down single-user or the repair tools.
+SLREF = $(LIBC_SL)
 define link
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(1) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(1) $(SLREF) $(LIBC)
 endef
 
 # --- single-file commands -> /bin ------------------------------------------
 BIN_CMDS := ac ar at bad banner basename c cal cat check chgrp chmod chown \
 	cmp col comm conv cp cpdir crypt date dd deroff df diff3 du echo file \
-	from head help join kill lc learn ln login look ls m4 mesg mkdir \
+	from head help join kill l lc learn ln login look ls m4 mesg mkdir \
 	msg mv newgrp nm od passwd pr prep prof pwd quot ranlib rev rm \
 	rmdir sa scat size sleep sort split strip stty su sum sync tail tar tee \
 	time touch tr tty typo uniq version wc who write yes
@@ -233,19 +254,48 @@ BIN_CMDS := ac ar at bad banner basename c cal cat check chgrp chmod chown \
 FS_CMDS := icheck dcheck ncheck
 
 # --- single-file commands -> /etc ------------------------------------------
-ETC_CMDS := accton clri cron getty init mkfs mknod mkproto reboot umount update wall
+ETC_CMDS := accton clri cron fdformat getty init mkfs mknod mkproto reboot umount update wall
 
 # system utilities that pull in kernel headers (struct proc, drvcon.h, mount.h).
 KERN_ETC_CMDS := load mount uload
 
+# --- single-file commands -> /usr/games ------------------------------------
+GAMES_CMDS := fortune moo
+
 BIN_TARGETS := $(addprefix $(BINDIR)/,$(BIN_CMDS))
 ETC_TARGETS := $(addprefix $(ETCDIR)/,$(ETC_CMDS))
 KERN_ETC_TARGETS := $(addprefix $(ETCDIR)/,$(KERN_ETC_CMDS))
+GAMES_TARGETS := $(addprefix $(GAMESDIR)/,$(GAMES_CMDS))
+
+# The static rescue set: bootable and repairable with no shared library.
+$(BINDIR)/sh $(BINDIR)/check $(BINDIR)/sync \
+$(BINDIR)/icheck $(BINDIR)/dcheck $(BINDIR)/ncheck \
+$(ETCDIR)/init $(ETCDIR)/clri $(ETCDIR)/mkfs $(ETCDIR)/mknod \
+$(ETCDIR)/reboot $(ETCDIR)/umount $(ETCDIR)/update \
+$(ETCDIR)/mount $(ETCDIR)/load $(ETCDIR)/uload: SLREF :=
+
+# Any libc.sl change must relink every shared client (the ABI rule: clients
+# bind absolute addresses).  Harmless extra prerequisite for the rescue set.
+$(BIN_TARGETS) $(ETC_TARGETS) $(KERN_ETC_TARGETS) $(GAMES_TARGETS) \
+$(BINDIR)/ps $(BINDIR)/mem $(BINDIR)/factor $(BINDIR)/units $(BINDIR)/mail \
+$(BINDIR)/icheck $(BINDIR)/dcheck $(BINDIR)/ncheck \
+$(USRLIBDIR)/atrun $(USRLIBDIR)/diff3 $(USRLIBDIR)/diffh $(USRLIBDIR)/lpd \
+$(USRLIBDIR)/spell $(USRBINDIR)/compress $(USRBINDIR)/kermit \
+$(BINDIR)/as $(BINDIR)/awk $(BINDIR)/bc $(BINDIR)/cu $(BINDIR)/dc \
+$(BINDIR)/diff $(BINDIR)/dump $(BINDIR)/dumpdate $(BINDIR)/dumpdir \
+$(BINDIR)/ed $(BINDIR)/egrep $(BINDIR)/enroll $(BINDIR)/expr $(BINDIR)/find \
+$(BINDIR)/grep $(BINDIR)/ld $(BINDIR)/lex $(BINDIR)/lpr $(BINDIR)/lpskip \
+$(BINDIR)/make $(BINDIR)/me $(BINDIR)/nroff $(BINDIR)/restor $(BINDIR)/sed \
+$(BINDIR)/sh $(BINDIR)/test $(BINDIR)/[ $(BINDIR)/tsort $(BINDIR)/xdecode \
+$(BINDIR)/xencode $(BINDIR)/yacc: $(LIBC_SL)
 
 $(BIN_TARGETS): $(BINDIR)/%: $(OBJ)/userland/cmd/%.o $(CRT) $(LIBC)
 	$(call link,$<)
 
 $(ETC_TARGETS): $(ETCDIR)/%: $(OBJ)/userland/cmd/%.o $(CRT) $(LIBC)
+	$(call link,$<)
+
+$(GAMES_TARGETS): $(GAMESDIR)/%: $(OBJ)/userland/cmd/%.o $(CRT) $(LIBC)
 	$(call link,$<)
 
 # (init embeds VERSION from <machine.h>; that -- like every other header in
@@ -522,7 +572,7 @@ $(BINDIR)/test $(BINDIR)/[: $(OBJ)/userland/cmd/test/y.tab.o $(CRT) $(LIBY) $(LI
 	$(call link,$(OBJ)/userland/cmd/test/y.tab.o $(LIBY))
 
 # Aggregate of every command the tree can currently build.
-CMD_TARGETS := $(BIN_TARGETS) $(ETC_TARGETS) $(KERN_ETC_TARGETS) \
+CMD_TARGETS := $(BIN_TARGETS) $(ETC_TARGETS) $(KERN_ETC_TARGETS) $(GAMES_TARGETS) \
 	$(addprefix $(BINDIR)/,$(FS_CMDS)) \
 	$(BINDIR)/factor $(BINDIR)/units $(BINDIR)/mail $(USRLIBDIR)/atrun $(USRLIBDIR)/diff3 \
 	$(BINDIR)/as $(BINDIR)/awk $(BINDIR)/bc $(BINDIR)/cu $(BINDIR)/dc \
@@ -956,6 +1006,7 @@ $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zview/zvpump.o \
 	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o \
 	$(HRGUIOBJ)/clgfx/hrsel.o $(HRGUIOBJ)/cmd/hrclip.o \
 	$(HRGUIOBJ)/clgfx/hrapp.o $(HRGUIOBJ)/clgfx/hrdlg.o \
+	$(HRGUIOBJ)/clgfx/hrwl.o \
 	$(HRGUIOBJ)/clgfx/hrsbar.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
 
 # clgfx.o: the client-side direct-render draw library (GUI.md Model A).  Clients
@@ -980,6 +1031,11 @@ HRLOCK := $(HRGUIOBJ)/clgfx/hrlock.o $(HRTAS)
 HRSEL := $(HRGUIOBJ)/clgfx/hrsel.o
 # NOT in CLGFX: a client that never touches the selection (zclock) should not
 # carry the store.  Consumers name $(HRSEL) explicitly.
+# hrwl.o: the published-window-list reader (shmem.h SHM_WINLIST) -- pure
+# seqlocked reads of the tail, no lock code at all.  Same rule as HRSEL:
+# named explicitly by consumers that enumerate windows; exported to every
+# shared client via the .sl below.  (The PUBLISHER is in zview itself.)
+HRWL := $(HRGUIOBJ)/clgfx/hrwl.o
 CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrapp.o $(HRLOCK)
 # hrdlg.o: the modal-dialog widget kit (inc/hrdlg.h).  Same rule as HRSEL --
 # NOT in CLGFX; a client with no dialogs should not carry the widget code.
@@ -989,13 +1045,13 @@ HRDLG := $(HRGUIOBJ)/clgfx/hrdlg.o
 # Same rule again: named explicitly by clients that scroll a view.
 HRSBAR := $(HRGUIOBJ)/clgfx/hrsbar.o
 
-# --- libhrgfx.sl: the shared library (kernel LF_SLIB, slot 0) ---
+# --- libhrgfx.sl: the shared gfx library (kernel LF_SLIB, slot 1) ---
 # The whole client-side gfx stack -- engine minus the server-only layer.o,
 # plus the clgfx layer, the selection store, the dialog kit, the scrollbar,
 # and globals.o -- linked ONCE as an LF_SHR image whose text (+ -S string
-# literals) sits at system segment 0x34 (mapped once for every process by
+# literals) sits at system segment 0x35 (mapped once for every process by
 # the kernel at load; see exec.c/slmap) and whose private half (blitter
-# templates, engine globals, commons) sits at segment 1, copied per process
+# templates, engine globals, commons) sits at segment 2, copied per process
 # from the holder's pristine template at exec.  Clients name the .sl on
 # their ld line: ld imports every global as an absolute address, so they
 # link NO gfx objects at all.  The trailing DTOA + libc bake in the libc
@@ -1018,11 +1074,41 @@ SHLIB := $(LIBDIR)/libhrgfx.sl
 # malloc, stays in its own data segment -- the two coexist).
 SLCRT := $(OBJ)/userland/lib/csu/slcrt.o
 SLGFX_OBJ := $(HRGFX_ASM) $(filter-out $(HRGUIOBJ)/gfx/layer.o,$(HRGFX_C)) \
-	$(HRGFX_GLOB) $(CLGFX) $(HRSEL) $(HRDLG) $(HRSBAR)
+	$(HRGFX_GLOB) $(CLGFX) $(HRSEL) $(HRDLG) $(HRSBAR) $(HRWL)
 
 $(SHLIB): $(SLCRT) $(SLGFX_OBJ) $(DTOA) $(LIBC) tools/mkslib.py
 	@mkdir -p $(dir $@)
-	$(LD) -n -X -R 0x34000000 -D 0x1000000 -o $@ $(SLCRT) $(SLGFX_OBJ) $(DTOA) $(LIBC)
+	$(LD) -n -X -R 0x35000000 -D 0x2000000 -o $@ $(SLCRT) $(SLGFX_OBJ) $(DTOA) $(LIBC)
+	$(PYTHON) tools/mkslib.py --slot 1 $@
+
+# --- libc.sl: the shared C library (kernel LF_SLIB, slot 0) ---
+# All of libc as one LF_SHR image: text+rodata at system segment 0x34
+# (mapped once for every process), data at hardware segment 1 (pristine
+# per-process template).  Excluded, and supplied by the trailing static
+# libc.a on every link line instead:
+#   sdtoa        - the "No floating point!" stub is meaningless in a shared
+#                  image (the one copy serves everyone, so the real dtefg
+#                  is always in -- shared clients get real %f for free);
+#                  the archive-order trick lives on in the static libc.a.
+#   _prof/monitor- profiled builds fall back to fully static links.
+#   _finish      - the no-stdio stub twin of finit.o's real flusher (the
+#                  same archive-order pair as sdtoa/dtefg): the shared
+#                  image always carries real stdio, so the real one wins.
+#   crypt getgrent getpwent getwd getpass - data-heavy leaf modules
+#                  (~3K of per-process buffers/tables) used by few
+#                  programs; excluding them shrinks the flat per-process
+#                  data copy every shared command pays.
+#   notify       - references the excluded getpwuid; its few users (mail)
+#                  pull it and getpwent together from the static libc.a.
+SLIBC_OMIT := gen/sdtoa.o crt/_prof.o gen/monitor.o gen/_finish.o \
+	gen/notify.o gen/crypt.o \
+	gen/getgrent.o gen/getpwent.o gen/getwd.o gen/getpass.o
+SLIBC_OBJ := $(SLCRT) \
+	$(filter-out $(addprefix $(OBJ)/userland/lib/libc/,$(SLIBC_OMIT)),$(LIBC_OBJ))
+
+$(LIBC_SL): $(SLIBC_OBJ) tools/mkslib.py
+	@mkdir -p $(dir $@)
+	$(LD) -n -X -R 0x34000000 -D 0x1000000 -o $@ $(SLIBC_OBJ)
 	$(PYTHON) tools/mkslib.py --slot 0 $@
 
 # zview owns the screen: links the engine (libhrgfx) + globals.o directly.
@@ -1236,16 +1322,18 @@ hrgui: $(HRGUI_TARGETS)
 # Files installed verbatim into the staging image because they have no
 # rebuildable source in this tree.  src/dist mirrors the target filesystem
 # layout, so each file drops straight into build/root/:
-#   bin/       cc,ccx wrappers + source-less binaries (db,nld,l), man script,
+#   bin/       cc,ccx wrappers + source-less binaries (db,nld), man script,
 #              true/false
-#   etc/       cpsys script, fdformat binary, boottime marker
+#   etc/       cpsys script, boottime marker
 #   lib/       prebuilt C toolchain passes cpp,cc0..cc3 + yacc skeleton
 #              yyparse.c, and the small-model runtime scrts0.o / slibc.a (no
 #              scrts0.s source and no small-model build wiring exist yet)
 #   etc/       system config/data: .profile,profile,group,passwd,rc,ttys,motd,
 #              news,newusr,logmsg,helpfile,helpindex,termcap, plus runtime-state
 #              seeds mtab,mnttab,utmp,ddate (see caveat below)
-#   usr/games/ fortune,moo binaries + rubik script + lib/ data (fortunes,rubik.m4)
+#   usr/games/ rubik script + lib/ data (fortunes,rubik.m4); fortune,moo are
+#              built from src/userland/cmd (decompiled from disasm/*.asm), as
+#              are /bin/l and /etc/fdformat
 #   usr/pub/   ascii chart
 #   usr/lib/   data/config with no compile step: units/binunits databases,
 #              lib.b (m4), crontab, make{macros,actions}, tmac.an/tmac.s (nroff)

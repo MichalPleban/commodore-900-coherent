@@ -486,7 +486,7 @@ main(argc, argv)
 char **argv;
 {
 	WMSG e;
-	int need, wasidle, i;
+	int need, i;
 
 	fcw = hr_font(SHM_FUI)->cellw;
 	fch = hr_font(SHM_FUI)->cellh;
@@ -501,16 +501,16 @@ char **argv;
 
 	clearall();
 
+	need = 1;			/* drawn below, or by the first loop
+					 * pass if a server overlay is up now */
 	cl_refresh();
 	if ( cl_mapped() && !cl_frozen() )
 	{
 		cl_begin();
 		drawall();
 		cl_end();
+		need = 0;
 	}
-
-	need = 0;
-	wasidle = 0;
 	for (;;)
 	{
 		hr_evwait(mywid);
@@ -584,15 +584,10 @@ char **argv;
 		if ( hr_evover(mywid) )
 			need = 1;
 		cl_refresh();
-		if ( cl_frozen() || !cl_mapped() )
-			wasidle = 1;
-		else
+		if ( !cl_frozen() && cl_mapped() )
 		{
-			if ( wasidle )
-			{
+			if ( cl_dropped() )	/* a draw was lost against a freeze */
 				need = 1;
-				wasidle = 0;
-			}
 			if ( need )
 			{
 				cl_begin();

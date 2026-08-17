@@ -29,6 +29,11 @@ extern int	cl_fullyvis();	/* 1 if content is a single unclipped rect        */
 extern int	cl_frozen();	/* 1 while a server menu/overlay is up: skip drawing */
 extern int	cl_refresh();	/* re-read the clip descriptor (seqlock)          */
 extern int	cl_gen();	/* clip-descriptor generation (changes on hide/show/raise/resize) */
+extern int	cl_snapclip();	/* snapshot the clip after a full repaint          */
+extern int	cl_uncovered();	/* 1 if the clip now shows area the cl_snapclip
+				   snapshot did not (covered-MORE returns 0)      */
+extern int	cl_dropped();	/* read+clear: a primitive was skipped while
+				   frozen/unmapped -> one full repaint is owed    */
 extern int	cl_dopen();	/* target the DIALOG surface (hrdlg.c uses these) */
 extern int	cl_dclose();	/* back to the window surface                     */
 

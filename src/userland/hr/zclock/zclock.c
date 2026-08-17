@@ -381,8 +381,6 @@ dosettings()
 	hr_dlgclose();
 }
 
-int	paintgen = -2;		/* clip generation of our last full repaint */
-
 repaint()
 {
 	if ( cl_frozen() )	/* a server menu/overlay is up: don't paint over it */
@@ -391,7 +389,7 @@ repaint()
 	drawface();
 	drawhands();
 	cl_end();
-	paintgen = cl_gen();	/* record what we painted against */
+	cl_snapclip();		/* record what this full repaint covered */
 }
 
 tick()
@@ -405,6 +403,7 @@ char **argv;
 {
 	WMSG e;
 	int n;
+	int needfull, ticked;
 
 	if ( getuid() == 0 )		/* only root's stime() works, so only */
 		me.ha_menu = HRM_SETTINGS;	/* root gets the menu entry   */
@@ -425,6 +424,8 @@ char **argv;
 	signal(SIGALRM, tick);
 	alarm(1);
 
+	needfull = 0;
+	ticked = 0;
 	for (;;)
 	{
 		/* Block on our event ring (shmem.h SHM_EVQ) -- no pipe, and no system
@@ -434,7 +435,7 @@ char **argv;
 		while ( hr_evget(hr_wid(), (short *)&e) )
 		{
 			if ( e.wm_type == E_EXPOSE )
-				repaint();
+				needfull = 1;
 			else if ( e.wm_type == E_QUIT )
 				exit(0);
 			else if ( e.wm_type == E_MENU &&
@@ -449,32 +450,46 @@ char **argv;
 				if ( cxrad < 8 ) cxrad = 8;
 				if ( cyrad < 8 ) cyrad = 8;
 				setpoints();
-				repaint();
+				needfull = 1;
 			}
 		}
 		if ( hr_evover(hr_wid()) )	/* we fell behind: assume the worst */
-			repaint();
+			needfull = 1;
 
 		if ( tickflag )
 		{
 			tickflag = 0;
-			/* Skip while a menu/overlay is up or we are unmapped (minimised); and
-			 * if the server has hidden/shown/raised/resized us since our last full
-			 * repaint (clip generation changed), do a FULL repaint rather than an
-			 * incremental drawhands over a stale-or-blank face. */
-			cl_refresh();
-			if ( cl_mapped() && !cl_frozen() )
-			{
-				if ( cl_gen() != paintgen )
-					repaint();
-				else
-				{
-					cl_begin();
-					drawhands();
-					cl_end();
-				}
-			}
+			ticked = 1;
 			alarm(1);
+		}
+
+		/* Draw or defer (while a menu/overlay is up or we are minimised,
+		 * everything keeps until we are drawable again).  A FULL repaint
+		 * happens only when damage arrived (expose/ring overflow), when a
+		 * draw of ours was dropped against a freeze (cl_dropped), or when
+		 * the clip UNCOVERED area our last full repaint did not cover
+		 * (cl_uncovered) -- the incremental hands may have been clipped
+		 * out there, so the face cannot be patched.  A raise elsewhere
+		 * that merely covers us MORE repaints nothing: the tighter clip
+		 * alone is enough (the old test repainted on ANY clip-generation
+		 * change, which made the clock flash on every restack anywhere).
+		 * Otherwise a tick just moves the hands. */
+		cl_refresh();
+		if ( cl_mapped() && !cl_frozen() )
+		{
+			if ( needfull || cl_dropped() || cl_uncovered() )
+			{
+				repaint();
+				needfull = 0;
+				ticked = 0;	/* repaint drew the hands too */
+			}
+			else if ( ticked )
+			{
+				cl_begin();
+				drawhands();
+				cl_end();
+				ticked = 0;
+			}
 		}
 	}
 }

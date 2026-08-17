@@ -15,10 +15,14 @@
  *     segments are exactly the free holes.  One click is 1 Kb here, so
  *     click counts are Kb directly.
  *   - a scrollable PROCESS list below: pid, user, in-core size, tty, state,
- *     cpu time and the command line.  The data is ps's: walk the process
- *     queue (procq) in the same arena snapshot, and fish each command line
- *     out of the process's own memory through /dev/mem (or /dev/swap when
- *     it is swapped out) via its u-area.
+ *     cpu time, the desktop window the process owns (if any) and the command
+ *     line.  The kernel data is ps's: walk the process queue (procq) in the
+ *     same arena snapshot, and fish each command line out of the process's
+ *     own memory through /dev/mem (or /dev/swap when it is swapped out) via
+ *     its u-area.  The WINDOW column is the desktop's own view of who is
+ *     who: the server-published window list in the shared VRAM tail
+ *     (shmem.h SHM_WINLIST, hr_winlist), matched to the walk by pid -- a
+ *     minimised window's title carries a trailing '*'.
  * The list has the common vertical scrollbar (hrsbar) on the LEFT edge;
  * the renderer is the zmail/zprint diff scheme, so a 3-second SIGALRM
  * refresh repaints only the cells that actually changed.
@@ -131,6 +135,7 @@ char	prtty[MAXP][6];
 char	prst[MAXP];
 long	prtim[MAXP];		/* utime+stime, HZ ticks                  */
 char	prcmd[MAXP][NCMD];
+char	prwin[MAXP][14];	/* window title + optional '*', or ""     */
 int	nproc;
 int	ptop;			/* first visible list row                 */
 
@@ -455,6 +460,34 @@ snap()
 		nproc++;
 	}
 
+	/* The WINDOW column: one seqlocked snapshot of the server's published
+	 * list, then match by pid.  No kernel walk -- hr_winlist reads the
+	 * shared tail directly (and answers -1 with no server, leaving every
+	 * field blank, so zmon still works started from a bare console). */
+	{
+		HRWIN wl[HRWL_N];
+		register int i, w, o;
+		int nwin;
+
+		nwin = hr_winlist(wl);
+		for ( i = 0; i < nproc; i++ )
+		{
+			prwin[i][0] = 0;
+			if ( nwin <= 0 )
+				continue;
+			for ( w = 0; w < HRWL_N; w++ )
+				if ( wl[w].ww_used && wl[w].ww_pid == prpid[i] )
+				{
+					for ( o = 0; o < 12 && wl[w].ww_title[o]; o++ )
+						prwin[i][o] = wl[w].ww_title[o];
+					if ( wl[w].ww_min )
+						prwin[i][o++] = '*';
+					prwin[i][o] = 0;
+					break;
+				}
+		}
+	}
+
 	mtotal = coretop - corebot;
 	mused = mshared = msaved = mstack = msyst = 0;
 	mnseg = mnshr = mnhole = 0;
@@ -507,7 +540,7 @@ snap()
 /* ------------------------------------------------------------------ */
 
 static char hdr[] =
-	"  PID USER      SIZE TTY  S  TIME  COMMAND";
+	"  PID USER      SIZE TTY  S  TIME  WINDOW        COMMAND";
 
 /* Text of view row r (cols cells, blank-padded). */
 static char *
@@ -546,9 +579,9 @@ vrow(r)
 		sprintf(tb, "%5ld", mn);
 	else
 		sprintf(tb, "%2ld:%02ld", mn, sec%60);
-	sprintf(lbuf, "%5d %-8.8s %s %-4.4s %c %s  %.63s",
+	sprintf(lbuf, "%5d %-8.8s %s %-4.4s %c %s  %-13.13s %.63s",
 		prpid[li], pruser[li], zb, prtty[li], prst[li], tb,
-		prcmd[li]);
+		prwin[li], prcmd[li]);
 	for ( i = 0; lbuf[i] && i < cols; i++ )
 		vbuf[i] = lbuf[i];
 	return vbuf;
@@ -773,7 +806,7 @@ main(argc, argv)
 char **argv;
 {
 	WMSG e;
-	int need, wasidle;
+	int need;
 
 	cellw = hr_font(SHM_FTERM)->cellw;
 	cellh = hr_font(SHM_FTERM)->cellh;
@@ -792,15 +825,17 @@ char **argv;
 	snap();
 
 	invalidate();
+	need = 1;			/* flushed below, or by the first loop
+					 * pass if a server overlay is up now */
 	cl_refresh();
 	if ( cl_mapped() && !cl_frozen() )
+	{
 		flush();
+		need = 0;
+	}
 
 	signal(SIGALRM, tick);
 	alarm(3);
-
-	need = 0;
-	wasidle = 0;
 	for (;;)
 	{
 		hr_evwait(mywid);
@@ -875,15 +910,12 @@ char **argv;
 			need = 1;
 		}
 		cl_refresh();
-		if ( cl_frozen() || !cl_mapped() )
-			wasidle = 1;
-		else
+		if ( !cl_frozen() && cl_mapped() )
 		{
-			if ( wasidle )
+			if ( cl_dropped() )	/* a draw was lost against a freeze */
 			{
 				invalidate();
 				need = 1;
-				wasidle = 0;
 			}
 			if ( need )
 			{

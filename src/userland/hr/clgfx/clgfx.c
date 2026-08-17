@@ -33,6 +33,25 @@ static int	lastseq = -1;		/* seqlock value of the last sync'd S   */
 static int	indlg;			/* 1 = primitives target the DIALOG     */
 					/* surface (hr_dlgsurf), not the window */
 
+/* Snapshot of the visible-region list at the client's last full repaint
+ * (cl_snapclip), against which cl_uncovered() decides whether a later clip
+ * change actually UNCOVERED anything.  A raise that only covers us MORE (or a
+ * restack that merely re-tiles the same visible area into different rects)
+ * must not cost a repaint -- only area that is visible now and was not
+ * visible then. */
+static HRRECT	snapvis[SHM_MAXVIS];
+static int	snapn;
+static int	snapvalid;
+
+/* Set when a primitive was SKIPPED because the window was frozen (server
+ * overlay up) or unmapped: whatever the caller was drawing never reached the
+ * screen, so one full repaint is owed when drawing is possible again.  This is
+ * the precise replacement for the apps' old "was frozen at any point -> assume
+ * the worst and repaint everything" flag, which made every timer-driven or
+ * busy client repaint in full after every menu/dialog even though the
+ * save-under had restored their pixels untouched. */
+static int	cldropped;
+
 /* Cursor sprite box (framebuffer coords), captured once per batch in cl_begin;
  * a blit hides the driver's XOR cursor only when it overlaps this. */
 static int	curbx0, curby0, curbx1, curby1;
@@ -121,6 +140,120 @@ cl_ch()		{ return S.ch; }
  * when nothing changed (cl_sync fast-paths on an unchanged, even seqlock). */
 cl_refresh()	{ cl_sync(); }
 cl_gen()	{ return lastseq; }
+
+/* Record the current visible-region list as "what my last full repaint
+ * covered".  Call right after completing a full repaint. */
+cl_snapclip()
+{
+	int i;
+
+	cl_sync();
+	snapn = S.mapped ? S.nvis : 0;
+	for ( i = 0; i < snapn; i++ )
+		snapvis[i] = S.vis[i];
+	snapvalid = 1;
+}
+
+/* Report (and clear) "a primitive was dropped": the caller tried to draw
+ * while frozen/unmapped, so the screen is missing content and one full
+ * repaint is owed once drawing is possible again. */
+cl_dropped()
+{
+	int was;
+
+	was = cldropped;
+	cldropped = 0;
+	return was;
+}
+
+#define FRAGMAX	32	/* worklist bound; overflow = conservative "uncovered" */
+
+/* Is rect r fully covered by the union of rects o[0..n-1]?  Subtract each o
+ * from a worklist of disjoint fragments of r; covered iff nothing survives.
+ * Exact, so a restack that re-tiles the same visible area into different
+ * rects (the layer engine's split order depends on the z-order) compares as
+ * covered.  Overflow of the fragment list returns 0 ("not covered"), which
+ * errs toward repainting. */
+static int
+cl_rcovered(r, o, n)
+HRRECT r;
+HRRECT *o;
+int n;
+{
+	HRRECT wk[FRAGMAX], nw[FRAGMAX], f, c;
+	int top, t2, i, j;
+
+	wk[0] = r;
+	top = 1;
+	for ( i = 0; i < n && top > 0; i++ )
+	{
+		c = o[i];
+		if ( c.x1 <= c.x0 || c.y1 <= c.y0 )
+			continue;
+		t2 = 0;
+		for ( j = 0; j < top; j++ )
+		{
+			f = wk[j];
+			if ( f.x0 >= c.x1 || f.x1 <= c.x0 ||
+			     f.y0 >= c.y1 || f.y1 <= c.y0 )
+			{			/* disjoint: fragment survives */
+				if ( t2 >= FRAGMAX ) return 0;
+				nw[t2++] = f;
+				continue;
+			}
+			/* peel the parts of f outside c; the overlap is covered */
+			if ( f.y0 < c.y0 )
+			{
+				if ( t2 >= FRAGMAX ) return 0;
+				nw[t2] = f;  nw[t2].y1 = c.y0;  t2++;
+				f.y0 = c.y0;
+			}
+			if ( f.y1 > c.y1 )
+			{
+				if ( t2 >= FRAGMAX ) return 0;
+				nw[t2] = f;  nw[t2].y0 = c.y1;  t2++;
+				f.y1 = c.y1;
+			}
+			if ( f.x0 < c.x0 )
+			{
+				if ( t2 >= FRAGMAX ) return 0;
+				nw[t2] = f;  nw[t2].x1 = c.x0;  t2++;
+			}
+			if ( f.x1 > c.x1 )
+			{
+				if ( t2 >= FRAGMAX ) return 0;
+				nw[t2] = f;  nw[t2].x0 = c.x1;  t2++;
+			}
+		}
+		for ( j = 0; j < t2; j++ )
+			wk[j] = nw[j];
+		top = t2;
+	}
+	return top == 0;
+}
+
+/* 1 if the CURRENT clip makes visible any area that the snapshot taken by
+ * cl_snapclip did not cover -- i.e. the window was genuinely UNCOVERED since
+ * the last full repaint.  Being covered MORE (a raise elsewhere) returns 0:
+ * that never needs a repaint, only tighter clipping. */
+cl_uncovered()
+{
+	int i;
+
+	cl_sync();
+	if ( !snapvalid )
+		return 1;
+	if ( !S.mapped )
+		return 0;		/* nothing visible = nothing uncovered */
+	for ( i = 0; i < S.nvis; i++ )
+	{
+		if ( S.vis[i].x1 <= S.vis[i].x0 || S.vis[i].y1 <= S.vis[i].y0 )
+			continue;
+		if ( !cl_rcovered(S.vis[i], snapvis, snapn) )
+			return 1;
+	}
+	return 0;
+}
 
 /* 1 while a transient overlay (pop-up menu / dialog) is on screen: clients must
  * skip drawing so they do not paint over it (it is not a layer, so the clip
@@ -317,6 +450,7 @@ char *s;
 			   (col + slen) * cellw, row * cellh + fh);
 	if ( !S.mapped || cl_frozen() )	/* window unmapped / a server overlay is up */
 	{
+		cldropped = 1;		/* content lost: a repaint is owed */
 		cl_pend(locked);
 		return;
 	}
@@ -356,6 +490,7 @@ char *s;
 	locked = cl_pbegin(cx, cy, cx + slen * fw, cy + fh);
 	if ( !S.mapped || cl_frozen() )
 	{
+		cldropped = 1;		/* content lost: a repaint is owed */
 		cl_pend(locked);
 		return;
 	}
@@ -439,6 +574,7 @@ cl_fillrect(cx0, cy0, cx1, cy1, val)
 	locked = cl_pbegin(cx0, cy0, cx1, cy1);
 	if ( !S.mapped || cl_frozen() )
 	{
+		cldropped = 1;		/* content lost: a repaint is owed */
 		cl_pend(locked);
 		return;
 	}
@@ -492,8 +628,9 @@ cl_line(x0, y0, x1, y1, mode)
 	bx0 = x0 < x1 ? x0 : x1;   bx1 = (x0 > x1 ? x0 : x1) + 1;
 	by0 = y0 < y1 ? y0 : y1;   by1 = (y0 > y1 ? y0 : y1) + 1;
 	locked = cl_pbegin(bx0, by0, bx1, by1);	/* cl_point runs inside this */
-	if ( cl_frozen() )		/* a server menu/overlay is up */
+	if ( !S.mapped || cl_frozen() )	/* window unmapped / a server overlay is up */
 	{
+		cldropped = 1;		/* content lost: a repaint is owed */
 		cl_pend(locked);
 		return;
 	}

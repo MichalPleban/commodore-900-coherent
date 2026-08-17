@@ -23,7 +23,9 @@
 /* Thumb geometry from the document model, into *typ (top, content px) and
  * *thp (height).  Proportional -- the thumb is to the trough as the page is
  * to the document -- floored at HRSB_MINTH so a long document still leaves
- * something to grab.  A document that fits entirely fills the trough. */
+ * something to grab.  A document that fits entirely fills the trough.
+ * NeXT-style layout: both arrow boxes sit at the BOTTOM of the bar, so the
+ * trough runs from just under the 1 px top cap down to the upper arrow. */
 static
 sbgeom(sb, typ, thp)
 HRSBAR *sb;
@@ -31,11 +33,11 @@ int *typ, *thp;
 {
 	int tr, h, scr;
 
-	tr = sb->sb_h - 2 * HRSB_W;		/* trough height          */
+	tr = sb->sb_h - 2 * HRSB_W - 1;		/* trough height          */
 	scr = sb->sb_total - sb->sb_page;	/* scrollable span, units */
 	if ( scr <= 0 || sb->sb_total <= 0 )
 	{
-		*typ = sb->sb_y + HRSB_W;
+		*typ = sb->sb_y + 1;
 		*thp = tr;
 		return 0;
 	}
@@ -43,7 +45,7 @@ int *typ, *thp;
 	if ( h < HRSB_MINTH ) h = HRSB_MINTH;
 	if ( h > tr ) h = tr;
 	/* pos maps over the leftover travel, so pos==scr puts it flush bottom */
-	*typ = sb->sb_y + HRSB_W + (int)((long)sb->sb_pos * (tr - h) / scr);
+	*typ = sb->sb_y + 1 + (int)((long)sb->sb_pos * (tr - h) / scr);
 	*thp = h;
 	return 0;
 }
@@ -96,14 +98,16 @@ HRSBAR *sb;
 		return 0;
 	if ( force )
 	{
-		sbbox(x, y, 1);
+		/* both arrows at the bottom, NeXT-style: up above down */
+		sbbox(x, y + h - 2 * HRSB_W, 1);
 		sbbox(x, y + h - HRSB_W, 0);
-		/* side rails, then the gray bed between them */
-		cl_fillrect(x, y + HRSB_W, x + 1, y + h - HRSB_W, 0);
-		cl_fillrect(x + HRSB_W - 1, y + HRSB_W,
-			    x + HRSB_W, y + h - HRSB_W, 0);
-		cl_fillrect(x + 1, y + HRSB_W,
-			    x + HRSB_W - 1, y + h - HRSB_W, 3);
+		/* top cap, side rails, then the gray bed between them */
+		cl_fillrect(x, y, x + HRSB_W, y + 1, 0);
+		cl_fillrect(x, y + 1, x + 1, y + h - 2 * HRSB_W, 0);
+		cl_fillrect(x + HRSB_W - 1, y + 1,
+			    x + HRSB_W, y + h - 2 * HRSB_W, 0);
+		cl_fillrect(x + 1, y + 1,
+			    x + HRSB_W - 1, y + h - 2 * HRSB_W, 3);
 	}
 	else	/* return the old thumb's pixels to the trough */
 		cl_fillrect(x + 1, sb->sb_ty,
@@ -136,10 +140,10 @@ HRSBAR *sb;
 
 	old = sb->sb_pos;
 	sbgeom(sb, &ty, &th);
-	if ( py < sb->sb_y + HRSB_W )
-		sb->sb_pos--;			/* up: toward the beginning */
-	else if ( py >= sb->sb_y + sb->sb_h - HRSB_W )
-		sb->sb_pos++;
+	if ( py >= sb->sb_y + sb->sb_h - HRSB_W )
+		sb->sb_pos++;			/* lower box of the pair: down */
+	else if ( py >= sb->sb_y + sb->sb_h - 2 * HRSB_W )
+		sb->sb_pos--;			/* upper box: toward the beginning */
 	else if ( py < ty )
 		sb->sb_pos -= sb->sb_page - 1;
 	else if ( py >= ty + th )
@@ -166,12 +170,12 @@ HRSBAR *sb;
 		return 0;
 	old = sb->sb_pos;
 	sbgeom(sb, &ty, &th);
-	tr = sb->sb_h - 2 * HRSB_W;
+	tr = sb->sb_h - 2 * HRSB_W - 1;
 	scr = sb->sb_total - sb->sb_page;
 	rng = tr - th;
 	if ( scr > 0 && rng > 0 )
 	{
-		p = (long)(py - sb->sb_grab - (sb->sb_y + HRSB_W));
+		p = (long)(py - sb->sb_grab - (sb->sb_y + 1));
 		p = (p * scr + rng / 2) / rng;
 		sb->sb_pos = (int)p;
 	}

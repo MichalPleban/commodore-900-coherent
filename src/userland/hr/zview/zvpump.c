@@ -17,12 +17,19 @@
 #include "smgr.h"
 #include "wire.h"
 
-/* the driver's default arrow cursor sprite (from the old smgr; zview keeps
- * its own copy for restoring the arrow after menu/drag cursors). */
-static int DEF_MOUSE[] = { 0xfffc, 0xfff8, 0xfff0, 0xffe0,
-			   0xffc0, 0xffc0, 0xffe0, 0xfff0,
-			   0xfff8, 0xfffc, 0xf3fe, 0xe1ff,
-			   0x80ff, 0x007f, 0x003e, 0x001c };
+/* the driver's default arrow cursor sprite (zview keeps its own copy for
+ * restoring the arrow after menu/drag cursors).  Two planes for CIOMOUSE:
+ * ink (1 = black) then the opacity mask (ink | white outline) -- keep in
+ * sync with zview.c DEF_MOUSE. */
+static int DEF_MOUSE[] = { 0x0000, 0x7ffe, 0x7ffc, 0x7ff8,
+			   0x7ff0, 0x7fe0, 0x7fe0, 0x7ff0,
+			   0x7ff8, 0x7ffc, 0x7ffe, 0x79ff,
+			   0x70ff, 0x407f, 0x003f, 0x001f,
+			   /* mask */
+			   0xffff, 0xffff, 0xffff, 0xfffe,
+			   0xfffc, 0xfff8, 0xfff8, 0xfffc,
+			   0xfffe, 0xffff, 0xffff, 0xffff,
+			   0xffff, 0xf9ff, 0xe0ff, 0x007f };
 
 /* Scancode -> ASCII, ported verbatim from the historical hi-res keyboard
  * message layer (kev.c SM_Keyboard, GUI.md 5.3), so the server gets real

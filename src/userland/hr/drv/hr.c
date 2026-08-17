@@ -141,23 +141,41 @@ struct evmgr {
 
 
 /* mouse cursor buffer
+ *
+ * The sprite is a proper two-plane cursor, not an XOR pattern: ms_buf is the
+ * INK (1 = black pixel), ms_msk the OPACITY (ink plus its white outline);
+ * everything outside the mask is transparent.  Drawing saves the framebuffer
+ * bytes under the cell into ms_sav and applies
+ *	screen = screen & ~mask | (mask & ~ink)
+ * (screen polarity: 1 = white), so the ink is solid black with a white rim
+ * that keeps it visible over black title bars; undrawing restores ms_sav.
  */
 struct mouse
 {
-	ulong	ms_buf[16]; 		/* mouse pattern buffer		*/
+	ulong	ms_buf[16]; 		/* ink pattern (1 = black)	*/
+	ulong	ms_msk[16];		/* opacity mask (ink | outline)	*/
 	int	ms_x,			/* last x position drawn	*/
 		ms_y,			/* last y position drawn	*/
 		ms_bit,			/* bit alignment of pat in buf	*/
 		ms_en;			/* cursor drawing enabled flag	*/
+	ulong	ms_sav[16];		/* background saved under cell	*/
 };
 
+/* default sprite: the zview arrow (DEF_MOUSE ink+outline), so the cursor is
+ * right even before any CIOMOUSE arrives */
 struct mouse mousebuf =
 {
 	{
-		0xffff0000L, 0xffff0000L, 0xffff0000L, 0xffff0000L,
-		0xffff0000L, 0xffff0000L, 0xffff0000L, 0xffff0000L,
-		0xffff0000L, 0xffff0000L, 0xffff0000L, 0xffff0000L,
-		0xffff0000L, 0xffff0000L, 0xffff0000L, 0xffff0000L
+		0x00000000L, 0x7ffe0000L, 0x7ffc0000L, 0x7ff80000L,
+		0x7ff00000L, 0x7fe00000L, 0x7fe00000L, 0x7ff00000L,
+		0x7ff80000L, 0x7ffc0000L, 0x7ffe0000L, 0x79ff0000L,
+		0x70ff0000L, 0x407f0000L, 0x003f0000L, 0x001f0000L
+	},
+	{
+		0xffff0000L, 0xffff0000L, 0xffff0000L, 0xfffe0000L,
+		0xfffc0000L, 0xfff80000L, 0xfff80000L, 0xfffc0000L,
+		0xfffe0000L, 0xffff0000L, 0xffff0000L, 0xffff0000L,
+		0xffff0000L, 0xf9ff0000L, 0xe0ff0000L, 0x007f0000L
 	},
 	0,
 	0,
@@ -506,7 +524,7 @@ int	*args;
 				d;
 	uint	*ip;
 	ulong	*lp;
-	static	 uint	mousepat[MOUSEHI];
+	static	 uint	mousepat[2*MOUSEHI];	/* ink plane, then mask plane */
 
 	self = minor( dev);
 
@@ -717,8 +735,8 @@ int	*args;
 	case CIOMSEON:
 		/* Any client may show/hide the cursor, not just the event manager:
 		 * the window server AND direct-render clients (which blit their own
-		 * content straight to VRAM) must bracket their blits to keep the XOR
-		 * cursor from smearing (cooperative single-user model). */
+		 * content straight to VRAM) must bracket their blits to keep the
+		 * cursor's save-under from smearing (cooperative single-user model). */
 		hrmseon();
 		return;
 	case CIOMSEOFF:
@@ -728,17 +746,23 @@ int	*args;
 		/* Any cursor-control client may set the sprite shape (not just the
 		 * event manager): the window server swaps in the move/resize "hand"
 		 * during a ghost-drag and restores the arrow after (same cooperative
-		 * single-user model as CIOMSEON/OFF above). */
+		 * single-user model as CIOMSEON/OFF above).  The argument is TWO
+		 * 16-word planes: ink (1 = black) followed by the opacity mask
+		 * (ink | its white outline) -- see struct mouse above. */
 		if ( mousebuf.ms_en )
 			hrudraw();
 		ukcopy(args, mousepat, sizeof(mousepat));
 		if ( !u.u_error )
 		{
 			mousebuf.ms_bit = 7;
-			ip = endof(mousepat) - 1;
-			lp = endof(mousebuf.ms_buf) - 1;
-			while ( ip >= mousepat )
-				*lp-- = ((ulong) *ip--) << 16;
+			ip = &mousepat[MOUSEHI];
+			lp = endof(mousebuf.ms_buf);
+			while ( ip > mousepat )
+				*--lp = ((ulong) *--ip) << 16;
+			ip = endof(mousepat);
+			lp = endof(mousebuf.ms_msk);
+			while ( ip > &mousepat[MOUSEHI] )
+				*--lp = ((ulong) *--ip) << 16;
 		}
 		if ( mousebuf.ms_en )
 			hrdraw(mouse.m_msg[2], mouse.m_msg[3]);
