@@ -48,6 +48,10 @@
 #define WT_NORELOC     0x04
 #define WT_NOSIZE      0x08
 #define WT_OUTPUT      0x10
+#define WT_NODECOR     0x20	/* undecorated window (wire.h HRF_NODECOR):
+				 * outline() draws nothing for it -- no frame,
+				 * no title bar, no drop shadow -- and the
+				 * content rect is the whole layer rect */
 
 #define WT_FULLY_VIS	0x01
 #define WT_CURSOR_ON	0x02

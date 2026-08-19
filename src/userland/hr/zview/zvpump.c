@@ -236,7 +236,10 @@ main()
 			if ( a < 0 )
 				continue;	/* release / modifier / dead key */
 			c.wm_arg[0] = IN_KEY;
-			if ( a == HRK_F10 )
+			if ( (kbshift & KB_ALS) && a >= HRK_F1 && a <= HRK_F5 )
+				a += HRK_ALTFN;	/* Alt+F1..F5: window-op
+						 * shortcuts (wire.h HRK_AF*) */
+			else if ( a == HRK_F10 )
 			{		/* F10 = the MicroEMACS quit chord ^X ^C
 				 * (see the keymap comment above) */
 				c.wm_arg[1] = 'X' & 0x1f;

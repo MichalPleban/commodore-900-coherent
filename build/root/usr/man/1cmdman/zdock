@@ -1,0 +1,83 @@
+
+
+zzddoocckk                                                       zzddoocckk
+
+
+
+NNAAMMEE
+     zdock - desktop dock (icon bar)
+
+SSYYNNOOPPSSIISS
+     zzddoocckk &
+
+DDEESSCCRRIIPPTTIIOONN
+     zzddoocckk is the dock of the zzvviieeww desktop: an undecorated bar
+     along the top of the screen showing one icon per application
+     of the catalog /uussrr/hhrr/eettcc/aappppss. It is the desktop's _s_h_e_l_l
+     in the old kernel-and-shell sense: the window server manages
+     windows and nothing else, and what the desktop offers - the
+     icons, launching, switching - lives in this ordinary,
+     replaceable program, started from the desktop start-up
+     script /uussrr/hhrr/eettcc/rrcc like any other resident application.
+     The desktop survives without it; the server's right-click
+     menu remains as the fallback launcher.
+
+     Every icon is always visible.  Its look tells the ap-
+     plication's state:
+
+     uupp   the picture sits high in the bar with the application's
+          name beneath - nothing is running.
+
+     pprreesssseedd
+          the picture dropped well down in the bar, no name -
+          like a held-down key: the application has at least one
+          window (possibly hidden), or a launch is in flight.
+
+     Clicks follow one convention:
+
+     lleefftt cclliicckk
+          launches the application when none is running, and
+          otherwise switches to it - the server raises the ap-
+          plication's topmost window, restoring a hidden one if
+          need be.
+
+     mmiiddddllee cclliicckk
+          on a multi-instance application (multi = 1 in the
+          catalog) starts _a_n_o_t_h_e_r copy.  On a single-instance ap-
+          plication it acts like a left click.
+
+     A launched window opens at the X,Y the catalog gives the
+     entry (passed to the application as -PP XX,YY), or wherever the
+     server places it when the entry names none.  While a launch
+     is in flight the icon is already pressed and further clicks
+     are ignored, so a double click starts one copy, not two.
+
+FFIILLEESS
+                  /usr/hr/etc/apps      application catalog (see zview)
+                  /usr/hr/icons/*.icn   icon artwork; icon0.icn is the fallback
+
+SSEEEE AALLSSOO
+     zzvviieeww
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+zzddoocckk                                                       zzddoocckk
+
+
+
+NNOOTTEESS
+     The bar is an ordinary window: other windows may cover it,
+     and a left click on it raises it again.  It cannot be hid-
+     den, moved or resized, takes no keyboard focus, and does not
+     appear in the desktop menu's SSwwiittcchh ttoo...  list.
+
+     The dock matches windows to catalog entries by window title:
+     an application's declared title must equal its catalog name
+     (the convention throughout the shipped catalog), or its icon
+     will not read as running.  The state of the bar follows the
+     desktop within about two seconds.

@@ -344,33 +344,56 @@ baddest( )
  * hrmouse, CIOMOUSE, the evmgr save/restore - already depend on.) */
 int	mshide;
 
-/* The hrgui shared VRAM tail (userland shmem.h: HRTAIL 0x3b009000).  The driver
+/* The hrgui shared-data segment (userland shmem.h: HRTAIL 0x38000000, the
+ * GDS segment machine.h defines and the console driver maps).  The driver
  * cannot include that header, so mirror the fields it needs at their fixed
  * absolute addresses -- keep in sync with shmem.h:
  *   HRGLOB_CURX/Y = published so direct-render clients know exactly where the
  *                sprite is and hide it under overlapping blits (SHM_GLOB 0x3000,
  *                fields at +2/+4 after `magic').
- * (The old drawing-lock word at 0x3b00c800 is gone: the lock is now the kernel
- * mutex `hrlocked' below, which hrmouse reads directly to defer the cursor.) */
-#define HRGLOB_CURX	(*(short *)0x3b00c002L)		/* 0x3b009000+0x3000+2 */
-#define HRGLOB_CURY	(*(short *)0x3b00c004L)		/* +4                  */
+ * (The old drawing-lock word at HRTAIL+0x3800 is gone: the lock is now the
+ * kernel mutex `hrlocked' below, which hrmouse reads directly to defer the
+ * cursor.) */
+#define HRGLOB_CURX	(*(short *)0x38003002L)		/* 0x38000000+0x3000+2 */
+#define HRGLOB_CURY	(*(short *)0x38003004L)		/* +4                  */
 
 /* Drawing-lock futex state.  The lock word, blocked-waiter count and owner pid
- * all live in the shared VRAM tail (mirror shmem.h SHM_LOCK/WAIT/OWNER at their
- * fixed absolute addresses) so the uncontended fast path is pure userland
+ * all live in the shared-data segment (mirror shmem.h SHM_LOCK/WAIT/OWNER at
+ * their fixed absolute addresses) so the uncontended fast path is pure userland
  * (hrlock.c TSETs the word, no syscall).  The kernel runs only the slow path
  * (hrlockwait/hrlockwake below) and the dead-owner watchdog.  hrmouse reads
  * HRFUTEX to defer the async cursor while a draw is in flight. */
-#define HRFUTEX	(*(short *)0x3b00c800L)	/* 0x3b009000+0x3800: 0 free/0xFFFF held */
-#define HRWAIT	(*(short *)0x3b00c802L)	/* +0x3802: blocked-waiter count         */
-#define HROWNER	(*(short *)0x3b00c804L)	/* +0x3804: pid of current holder        */
+#define HRFUTEX	(*(short *)0x38003800L)	/* 0x38000000+0x3800: 0 free/0xFFFF held */
+#define HRWAIT	(*(short *)0x38003802L)	/* +0x3802: blocked-waiter count         */
+#define HROWNER	(*(short *)0x38003804L)	/* +0x3804: pid of current holder        */
+
+/* Per-window "drawing lock-free now" flags (shmem.h SHM_INDRAW 0x3820, one byte
+ * per window, MAX_WINDOWS = 16).  A topmost fully-visible client blits with one
+ * of these raised INSTEAD of the futex, so the cursor must be deferred for them
+ * exactly as for a lock holder -- else the sprite can land inside the client's
+ * in-flight blit and the next move's save-under restore stomps its pixels. */
+#define HRINDRAW	((char *)0x38003820L)
+#define HRINDRAW_N	16
+
+static int
+hrindraw()
+{
+	register char	*p;
+	register int	n;
+
+	p = HRINDRAW;
+	for ( n = HRINDRAW_N; n; n-- )
+		if ( *p++ )
+			return 1;
+	return 0;
+}
 
 /* Per-window event rings (shmem.h SHM_EVQ 0x4200, HREVQ = 264 bytes: head,
  * tail, wait, over, then EVQ_SLOTS*8 words).  The events themselves move in
  * userland with no system call; the kernel only parks a client whose ring is
  * empty and wakes it when the server queues something.  Same shape as the
  * drawing-lock futex above -- keep the addresses in sync with shmem.h. */
-#define HREVQ_BASE	0x3b00d200L	/* 0x3b009000 + 0x4200 */
+#define HREVQ_BASE	0x38004200L	/* 0x38000000 + 0x4200 */
 #define HREVQ_SIZE	264
 #define HREVQ_N		17
 #define evq(i)		((short *)(HREVQ_BASE + (long)(i) * HREVQ_SIZE))
@@ -494,8 +517,10 @@ hrmouse( )
 	 * the "painting where the cursor is" case the client hides for -- so at worst
 	 * a brief flicker there (the save-under restore may put back a stale patch,
 	 * healed by the very next redraw), never a frozen pointer.  hrdraw publishes
-	 * the drawn position to the tail so clients hide the sprite accurately. */
-	if (mspend && (HRFUTEX == 0 || ++msdefer >= 4))
+	 * the drawn position to the tail so clients hide the sprite accurately.
+	 * A raised SHM_INDRAW flag defers exactly like a held lock: it is the
+	 * topmost client's lock-free equivalent (clgfx cl_pbegin fast path). */
+	if (mspend && ((HRFUTEX == 0 && !hrindraw()) || ++msdefer >= 4))
 	{
 		hrudraw();			/* erase at the old drawn position */
 		hrdraw(mouse.m_msg[2], mouse.m_msg[3]);	/* draw at the latest position */

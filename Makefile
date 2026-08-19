@@ -1002,7 +1002,8 @@ $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zview/zvpump.o \
 	$(HRGUIOBJ)/zedit/zedit.o $(HRGUIOBJ)/zmail/zmail.o \
 	$(HRGUIOBJ)/zprint/zprint.o $(HRGUIOBJ)/zcalc/zcalc.o \
 	$(HRGUIOBJ)/zman/zman.o $(HRGUIOBJ)/zfile/zfile.o \
-	$(HRGUIOBJ)/zpuzzle/zpuzzle.o \
+	$(HRGUIOBJ)/zpuzzle/zpuzzle.o $(HRGUIOBJ)/zdock/zdock.o \
+	$(HRGUIOBJ)/zmaze/zmaze.o $(HRGUIOBJ)/zmaze/zmcore.o \
 	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o \
 	$(HRGUIOBJ)/clgfx/hrsel.o $(HRGUIOBJ)/cmd/hrclip.o \
 	$(HRGUIOBJ)/clgfx/hrapp.o $(HRGUIOBJ)/clgfx/hrdlg.o \
@@ -1036,7 +1037,8 @@ HRSEL := $(HRGUIOBJ)/clgfx/hrsel.o
 # named explicitly by consumers that enumerate windows; exported to every
 # shared client via the .sl below.  (The PUBLISHER is in zview itself.)
 HRWL := $(HRGUIOBJ)/clgfx/hrwl.o
-CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrapp.o $(HRLOCK)
+CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/clrow.o \
+	$(HRGUIOBJ)/clgfx/hrapp.o $(HRLOCK)
 # hrdlg.o: the modal-dialog widget kit (inc/hrdlg.h).  Same rule as HRSEL --
 # NOT in CLGFX; a client with no dialogs should not carry the widget code.
 HRDLG := $(HRGUIOBJ)/clgfx/hrdlg.o
@@ -1228,6 +1230,27 @@ $(HRGUIBIN)/zpuzzle: $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(SHLIB) $(LIBC)
 
+# zmaze: Wolfenstein-style raycast maze in a fixed 320x200 window.  The
+# render core (zmcore.c) never divides -- tables + the zmaze_a.s asm inner
+# loops (DDA, edge compositor, dither fills; r0-r5 scratch ABI) -- and the
+# frame is presented with cl_blit (ldir rows when frontmost + word-aligned).
+$(HRGUIBIN)/zmaze: LDNFLAGS := -n
+$(HRGUIBIN)/zmaze: $(HRGUIOBJ)/zmaze/zmaze.o $(HRGUIOBJ)/zmaze/zmcore.o \
+		$(HRGUIOBJ)/zmaze/zmaze_a.o $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zmaze/zmaze.o \
+		$(HRGUIOBJ)/zmaze/zmcore.o $(HRGUIOBJ)/zmaze/zmaze_a.o \
+		$(SHLIB) $(LIBC)
+
+# zdock: the dock -- the desktop's separate "shell" (icon bar along the top,
+# app launching/switching).  An ordinary client with an UNDECORATED window
+# (HRF_NODECOR), started from the desktop rc; the server draws no icons of
+# its own any more.  clgfx + the window-list reader via the shared library.
+$(HRGUIBIN)/zdock: LDNFLAGS := -n
+$(HRGUIBIN)/zdock: $(HRGUIOBJ)/zdock/zdock.o $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zdock/zdock.o $(SHLIB) $(LIBC)
+
 # zfile: direct-render file manager -- an ls -l listing of one directory with
 # open/copy/move/delete/mkdir through the dialog kit.  Launched executables
 # inherit the command pipe, so any +x binary becomes a launchable GUI app.
@@ -1277,7 +1300,7 @@ $(ROOT)/usr/hr/etc/rc: src/userland/hr/etc/rc
 	@mkdir -p $(dir $@)
 	cp $< $@
 
-# desktop icons (.icn) zview blits for minimised windows (src -> staging image).
+# desktop icons (.icn) the dock (zdock) blits in its bar (src -> staging image).
 HRGUIICONS := $(patsubst src/userland/hr/icons/%,$(ROOT)/usr/hr/icons/%,\
 	$(wildcard src/userland/hr/icons/*.icn))
 $(ROOT)/usr/hr/icons/%: src/userland/hr/icons/%
@@ -1307,7 +1330,7 @@ HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(SHLIB) $(HRGUIBIN)/gfxtest $(HRGUIBI
 	$(HRGUIBIN)/zvpump $(HRGUIBIN)/zvwatch $(HRGUIBIN)/zclock \
 	$(HRGUIBIN)/zdlg $(HRGUIBIN)/zedit $(HRGUIBIN)/zmail $(HRGUIBIN)/zprint \
 	$(HRGUIBIN)/zmon $(HRGUIBIN)/zcalc $(HRGUIBIN)/zman $(HRGUIBIN)/zfile \
-	$(HRGUIBIN)/zpuzzle \
+	$(HRGUIBIN)/zpuzzle $(HRGUIBIN)/zmaze $(HRGUIBIN)/zdock \
 	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIBIN)/hrclip \
 	$(HRGUIFONTS) \
 	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/rc $(HRGUIICONS)

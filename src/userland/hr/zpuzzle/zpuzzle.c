@@ -35,6 +35,9 @@ int	fcw, fch;		/* UI-font cell                           */
 int	contw, conth;		/* granted content size, px               */
 
 int	board[NCELL];		/* tile numbers, 0 = the gap              */
+char	dirty[NCELL];		/* cells changed since the last draw: a   */
+				/* move repaints ONLY these + the counter,*/
+				/* not the whole window                   */
 int	gr, gc;			/* where the gap is                       */
 int	moves;
 int	won;			/* 1 = solved: board frozen until New     */
@@ -82,6 +85,8 @@ newgame()
 			gc = tc;
 		}
 	} while ( issolved() );
+	for ( i = 0; i < NCELL; i++ )
+		dirty[i] = 1;		/* every cell may have changed */
 	moves = 0;
 	won = 0;
 	return 0;
@@ -106,6 +111,8 @@ moveto(r, c)
 		{
 			board[gr * N + gc] = board[gr * N + gc + d];
 			board[gr * N + gc + d] = 0;
+			dirty[gr * N + gc] = 1;
+			dirty[gr * N + gc + d] = 1;
 			gc += d;
 			moves++;
 		}
@@ -117,6 +124,8 @@ moveto(r, c)
 		{
 			board[gr * N + gc] = board[(gr + d) * N + gc];
 			board[(gr + d) * N + gc] = 0;
+			dirty[gr * N + gc] = 1;
+			dirty[(gr + d) * N + gc] = 1;
 			gr += d;
 			moves++;
 		}
@@ -184,6 +193,38 @@ drawall()
 		for ( c = 0; c < N; c++ )
 			drawcell(r, c);
 	drawstat();
+	for ( r = 0; r < NCELL; r++ )
+		dirty[r] = 0;
+	return 0;
+}
+
+/* Repaint only the cells a move changed, plus the move counter.  Every cell
+ * paint is self-contained (drawcell fills its whole tile square), so nothing
+ * outside the dirty cells is touched -- no whole-window flash per move. */
+static
+drawdirty()
+{
+	register int i;
+
+	for ( i = 0; i < NCELL; i++ )
+		if ( dirty[i] )
+		{
+			drawcell(i / N, i % N);
+			dirty[i] = 0;
+		}
+	drawstat();
+	return 0;
+}
+
+/* 1 if any cell awaits a repaint. */
+static
+anydirty()
+{
+	register int i;
+
+	for ( i = 0; i < NCELL; i++ )
+		if ( dirty[i] )
+			return 1;
 	return 0;
 }
 
@@ -258,8 +299,7 @@ char **argv;
 				break;
 
 			case E_KEY:
-				if ( dokey(e.wm_arg[0]) )
-					need = 1;
+				dokey(e.wm_arg[0]);	/* marks moved cells dirty */
 				break;
 
 			case E_BUTTON:
@@ -268,18 +308,14 @@ char **argv;
 					r = (e.wm_arg[1] - MARG) / TS;
 					c = (e.wm_arg[0] - MARG) / TS;
 					if ( e.wm_arg[0] >= MARG &&
-					     e.wm_arg[1] >= MARG &&
-					     moveto(r, c) )
-						need = 1;
+					     e.wm_arg[1] >= MARG )
+						moveto(r, c);	/* marks dirty */
 				}
 				break;
 
 			case E_MENU:
 				if ( e.wm_arg[0] == HRM_NEW )
-				{
-					newgame();
-					need = 1;
-				}
+					newgame();	/* marks all cells dirty */
 				break;
 
 			case E_QUIT:
@@ -299,6 +335,12 @@ char **argv;
 				drawall();
 				cl_end();
 				need = 0;
+			}
+			else if ( anydirty() )	/* a move: just the changed cells */
+			{
+				cl_begin();
+				drawdirty();
+				cl_end();
 			}
 		}
 	}

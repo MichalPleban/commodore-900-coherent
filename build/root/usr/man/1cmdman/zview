@@ -15,18 +15,20 @@ DDEESSCCRRIIPPTTIIOONN
      on the hi-res (bitmap) display.  It loads the display driver
      /ddrrvv/hhrr and the pseudo-terminal driver /ddrrvv/ppttyy, takes over
      the screen and keyboard, loads the fonts, reads the applica-
-     tion catalog, puts an icon on the desktop for each catalog
-     entry, and runs the desktop start-up script.  It takes no
-     arguments.  At boot, /eettcc/rrcc starts it when the file
-     /eettcc/wwgguuii exists - create that file to enable the GUI; it
-     can equally be started by hand from the console: zzvviieeww &.
+     tion catalog, and runs the desktop start-up script - which
+     normally starts the dock zzddoocckk, the icon bar along the top
+     of the screen.  The server itself draws no icons: it manages
+     windows, the way a kernel manages processes, and leaves the
+     desktop's furnishing to the dock, its replaceable shell.  It
+     takes no arguments.  At boot, /eettcc/rrcc starts it when the
+     file /eettcc/wwgguuii exists - create that file to enable the GUI;
+     it can equally be started by hand from the console: zzvviieeww &.
 
-     The desktop shows icons at the top left: one placeholder per
-     catalog application (no process exists behind it - clicking
-     it launches the program) and one icon per hidden window
-     (marked with a corner badge; clicking it restores the win-
-     dow).  Every window has a 3-button mouse and follows the
-     same conventions:
+     The dock shows one icon per catalog application, always -
+     see zzddoocckk for its conventions (left click launches or
+     switches, middle click starts another copy of a multi-
+     instance application).  Every window has a 3-button mouse
+     and follows the same conventions:
 
      mmeennuuss
           pop up under the rriigghhtt button and work by press-and-
@@ -56,9 +58,7 @@ DDEESSCCRRIIPPTTIIOONN
           a left click anywhere on a window brings it to the
           front and gives it the keyboard; FFrroonntt and BBaacckk restack
           it from the menu.  Every key goes to the focused (most
-          recently raised) window - there are no desktop keyboard
-          shortcuts.
-
+          recently raised) window, except the AALLTT window
 
 
 COHERENT Command Manual                                    Page 1
@@ -69,6 +69,8 @@ COHERENT Command Manual                                    Page 1
 zzvviieeww                                                       zzvviieeww
 
 
+
+          sshhoorrttccuuttss below.
 
      mmoovviinngg
           drag the title bar directly with the left button.
@@ -85,9 +87,20 @@ zzvviieeww                                                       zzvviie
           a 48x48 minimum.
 
      hhiiddiinngg
-          HHiiddee takes the window off the screen and leaves a
-          desktop icon; clicking the icon puts the window back
-          exactly where it was.
+          HHiiddee takes the window off the screen without closing
+          it; the dock's pressed icon (left click) or the desktop
+          menu's SSwwiittcchh ttoo...  puts it back exactly where it was.
+
+     kkeeyybbooaarrdd sshhoorrttccuuttss
+          the common window operations are also on AALLTT and a
+          function key, acting on the focused window: AALLTT+FF11
+          Move, AALLTT+FF22 Stretch (resizable windows only), AALLTT+FF33
+          Back, AALLTT+FF44 Hide, and AALLTT+FF55 Quit (confirmed where the
+          menu entry would be).  Move and Stretch start the same
+          grab-and-drag as their menu entries: press the left
+          button to grab, drag the outline, release to commit.
+          These keys belong to the desktop - the application
+          never sees them.
 
 CCOOPPYY AANNDD PPAASSTTEE
      Text moves between windows in two independent ways.
@@ -112,19 +125,6 @@ CCOOPPYY AANNDD PPAASSTTEE
      store: it survives further selections and is explicit -
      nothing reaches the clipboard until a Cut or Copy.  In a
      terminal window, CCooppyy puts the current selection on the
-     clipboard and PPaassttee types the clipboard to the shell; in the
-     editor, Cut/Copy/Paste act on the selected text.  The two
-     stores can hold different text at the same time.
-
-OOPPTTIIOONNSS
-     zzvviieeww itself takes no options, but every GUI application ac-
-     cepts these, consumed before its own arguments:
-
-                -TT _t_i_t_l_e      window title
-                -II _f_i_l_e.iiccnn   icon (under /usr/hr/icons) when hidden
-                -SS _Wxx_H        content size in pixels (resizable
-                              applications only)
-                -PP _X,_Y        window position in screen pixels
 
 
 COHERENT Command Manual                                    Page 2
@@ -136,11 +136,26 @@ zzvviieeww                                                       zzvviie
 
 
 
-                -HH            start hidden, as a desktop icon
+     cclliippbbooaarrdd and PPaassttee types the clipboard to the shell; in the
+     editor, Cut/Copy/Paste act on the selected text.  The two
+     stores can hold different text at the same time.
 
-     The one global key chord lives in the display driver:
-     AALLTT+CCTTRRLL+HHEELLPP forcibly unloads it and shuts the desktop down
-     - the emergency exit for a hung screen.
+OOPPTTIIOONNSS
+     zzvviieeww itself takes no options, but every GUI application ac-
+     cepts these, consumed before its own arguments:
+
+                -TT _t_i_t_l_e      window title
+                -II _f_i_l_e.iiccnn   icon (accepted and currently ignored:
+                              the dock draws the catalog's icons)
+                -SS _Wxx_H        content size in pixels (resizable
+                              applications only)
+                -PP _X,_Y        window position in screen pixels
+                -HH            start hidden
+
+     One further key chord lives in the display driver itself, so
+     it works even when the server is hung: AALLTT+CCTTRRLL+HHEELLPP for-
+     cibly unloads the driver and shuts the desktop down - the
+     emergency exit for a hung screen.
 
 FFIILLEESS
                   /etc/wgui             if present, rc starts the GUI
@@ -151,16 +166,18 @@ FFIILLEESS
                   /drv/hr, /drv/pty     drivers, loaded at start-up
                   /wscrash              crash status of a dead server
 
-     Each aappppss line reads _n_a_m_e:_p_a_t_h:_m_u_l_t_i:_i_c_o_n:_X,_Y - menu label,
-     program, whether many copies may run (1) or one (0), the
-     placeholder icon, and where a launched window goes; the last
-     two fields are optional and # starts a comment.  The rrcc
-     script runs at desktop start-up for anything that should be
-     resident from the beginning; each command must end in &.
+     Each aappppss line reads _n_a_m_e:_p_a_t_h:_m_u_l_t_i:_i_c_o_n:_X,_Y - menu and
+     icon label (which must equal the application's declared
+     title), program, whether many copies may run (1) or one (0),
+     the dock icon, and where a launched window goes; the last
+     two fields belong to the dock and are optional, and # starts
+     a comment.  The rrcc script runs at desktop start-up; it
+     starts the dock and anything else that should be resident
+     from the beginning; each command must end in &.
 
 SSEEEE AALLSSOO
-     zztteerrmm, zzeeddiitt, zzffiillee, zzmmaaiill, zzmmaann, zzccaallcc, zzpprriinntt, zzmmoonn,
-     zzcclloocckk, zzppuuzzzzllee
+     zzddoocckk, zztteerrmm, zzeeddiitt, zzffiillee, zzmmaaiill, zzmmaann, zzccaallcc, zzpprriinntt,
+     zzmmoonn, zzcclloocckk, zzppuuzzzzllee
 
 DDIIAAGGNNOOSSTTIICCSS
      `zview: no hi-res display on this machine'; `zview: a window
@@ -173,7 +190,17 @@ DDIIAAGGNNOOSSTTIICCSS
 NNOOTTEESS
      At most 16 windows can be open and the catalog holds at most
      12 applications.  The screen is 1024x800 pixels; windows are
-     clamped to it.  Applications are best launched from icons,
-     the desktop menu or the aappppss catalog rather than made resi-
-     dent in rrcc: a placeholder icon costs no memory until it is
-     clicked.
+     clamped to it.  Applications are best launched from the dock
+
+
+COHERENT Command Manual                                    Page 3
+
+
+
+
+zzvviieeww                                                       zzvviieeww
+
+
+
+     oorr the desktop menu rather than made resident in rrcc: a dock
+     icon costs no memory until it is clicked.

@@ -46,5 +46,10 @@ extern int	cl_fillrect();	/* cl_fillrect(cx0,cy0,cx1,cy1, val) content px;
 				   val 0=black 1=white 2=invert 3=50% gray       */
 extern int	cl_point();	/* cl_point(cx,cy, val)                           */
 extern int	cl_line();	/* cl_line(cx0,cy0,cx1,cy1, val)                  */
+extern int	cl_blit();	/* cl_blit(cx0,cy0,cx1,cy1, src, swpr): blit a
+				   client 1bpp image (int rows, swpr words/row,
+				   word 0 = (cx0,cy0)) into the content rect;
+				   ldir rows when fully visible + word-aligned,
+				   engine bitblt per visible rect otherwise     */
 
 #endif /* CLGFX_H */

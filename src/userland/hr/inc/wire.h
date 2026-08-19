@@ -66,6 +66,14 @@ typedef struct {
 #define C_SELOWN	12		/* "I now own the selection" (see below) */
 #define C_DLGOPEN	13		/* an HRDLGO record, see below           */
 #define C_DLGCLOSE	14		/* close my dialog overlay               */
+#define C_ACTIVATE	15		/* arg0 = a window id: bring that
+					 * window's APPLICATION forward -- the
+					 * server raises the topmost visible
+					 * window sharing its title base, or
+					 * restores the named one when every
+					 * window of the app is hidden.  Sent
+					 * by the dock (zdock); wm_wid is the
+					 * sender's own window as usual.       */
 
 /* C_INPUT kinds (wm_arg[0]) */
 #define IN_KEY		0		/* arg1 = ascii                        */
@@ -113,6 +121,14 @@ typedef struct {
 #define HRF_CONFIRM	0x0008		/* window-menu Quit asks "really quit?"  */
 					/* first (srvdialog) -- for an app whose */
 					/* window holds live state (a shell)     */
+#define HRF_NODECOR	0x0010		/* NO decoration: no title bar, no frame,*/
+					/* no drop shadow -- the content is the  */
+					/* whole window rect.  For desktop       */
+					/* furniture (the zdock icon bar): such  */
+					/* a window never takes keyboard focus,  */
+					/* right-click over it opens the DESKTOP */
+					/* menu, and it is left out of the       */
+					/* "Switch to" list.                     */
 
 /* ---- the dialog-open record (client -> server, C_DLGOPEN) ----------------- *
  * A connected client asks for a MODAL DIALOG OVERLAY: the server saves the
@@ -198,6 +214,17 @@ typedef struct {
 #define HRK_POPPUSH	0x8d		/* F13 */
 #define HRK_SCRPRT	0x8e		/* F14 */
 #define HRK_STOP	0x8f		/* F15 */
+
+/* Alt+F1..Alt+F5: the window-operation shortcuts (Move, Stretch, Back, Hide,
+ * Quit on the focused window -- the same order the window menu lists them).
+ * zvpump adds HRK_ALTFN to HRK_F1..F5 when Alt is held; the SERVER acts on
+ * the result itself and never forwards it, so no client ever sees one of
+ * these -- they are named here only because producer (zvpump) and consumer
+ * (zview) share this header.  Alt+F6..F15 stay bare on purpose: nothing is
+ * bound to them, and eating them would cost clients keys for no gain. */
+#define HRK_ALTFN	0x10		/* Alt's offset on HRK_F1..HRK_F5 */
+#define HRK_AF1		(HRK_F1+HRK_ALTFN)	/* 0x91  Move            */
+#define HRK_AF5		(HRK_F5+HRK_ALTFN)	/* 0x95  Quit            */
 
 /* ---- pointer events (the selection gesture) ------------------------------- *
  * Coordinates are CONTENT-relative, like everything else a client sees.  Button

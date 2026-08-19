@@ -850,6 +850,17 @@ spawnsh()
 		return -1;
 	if ( pid == 0 )
 	{
+		/* Give the shell a clean signal slate, the way login(1) does for a
+		 * real terminal.  This process rode in on SIG_IGN for these: the
+		 * desktop reaches us through the boot shell's `&' (sh ignores
+		 * INT/QUIT in background children, and exec preserves SIG_IGN) --
+		 * and a Bourne shell deliberately KEEPS inherited-ignored signals
+		 * ignored in every child it forks, foreground included.  Without
+		 * this reset nothing run from this shell could ever be stopped
+		 * with ^C. */
+		signal(SIGINT, SIG_DFL);
+		signal(SIGQUIT, SIG_DFL);
+		signal(SIGHUP, SIG_DFL);
 		s = open(sname, 2);		/* claims the pty as ctty */
 		if ( s < 0 )
 			muxfail();	/* slave never opened -> no EOF would come */

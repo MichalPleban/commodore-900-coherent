@@ -1220,3 +1220,19 @@ After each of the following, the next argument is a number to reset table size:
 yes -- print infinitely many responses
 Usage:	yes [ answer ]
 The default 'answer' is 'y'.
+#zdock
+zdock -- desktop dock (icon bar)
+Usage:	zdock &
+Started by the desktop rc script; one icon per catalog application.
+Left click launches an app, or switches to its topmost window;
+middle click starts another copy of a multi application.
+#zmaze
+zmaze -- GUI maze crawler
+Usage:	zmaze [ options ]
+A first-person walk through a walled maze, under the zview desktop.
+Keys:
+	w/s	walk forward/backward (also up/down arrows)
+	a/d	turn left/right (also left/right arrows)
+	F11	help window
+	q	quit
+A middle click replays the selection as keystrokes.

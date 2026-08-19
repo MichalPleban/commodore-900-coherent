@@ -1,0 +1,78 @@
+.TH zdock "" "Command"
+.SH NAME
+zdock \- desktop dock (icon bar)
+.SH SYNOPSIS
+\fBzdock &\fR
+.SH DESCRIPTION
+.HS
+zdock -- desktop dock (icon bar)
+Usage:	zdock &
+Started by the desktop rc script; one icon per catalog application.
+Left click launches an app, or switches to its topmost window;
+middle click starts another copy of a multi application.
+.HE
+.B zdock
+is the dock of the
+.B zview
+desktop: an undecorated bar along the top of the screen showing one
+icon per application of the catalog
+.BR /usr/hr/etc/apps .
+It is the desktop's
+.I shell
+in the old kernel-and-shell sense: the window server manages windows
+and nothing else, and what the desktop offers \- the icons, launching,
+switching \- lives in this ordinary, replaceable program, started from
+the desktop start-up script
+.B /usr/hr/etc/rc
+like any other resident application.
+The desktop survives without it; the server's right-click menu remains
+as the fallback launcher.
+.PP
+Every icon is always visible.
+Its look tells the application's state:
+.IP \fBup\fR
+the picture sits high in the bar with the application's name beneath
+\- nothing is running.
+.IP \fBpressed\fR
+the picture dropped well down in the bar, no name \- like a held-down
+key: the application has at least one window (possibly hidden), or a
+launch is in flight.
+.PP
+Clicks follow one convention:
+.IP "\fBleft click\fR"
+launches the application when none is running, and otherwise switches
+to it \- the server raises the application's topmost window, restoring
+a hidden one if need be.
+.IP "\fBmiddle click\fR"
+on a multi-instance application (multi = 1 in the catalog) starts
+.I another
+copy.
+On a single-instance application it acts like a left click.
+.PP
+A launched window opens at the X,Y the catalog gives the entry (passed
+to the application as
+.BR "\-P X,Y" ),
+or wherever the server places it when the entry names none.
+While a launch is in flight the icon is already pressed and further
+clicks are ignored, so a double click starts one copy, not two.
+.SH FILES
+.DS
+.ta 8n 30n
+	/usr/hr/etc/apps	application catalog (see zview)
+	/usr/hr/icons/*.icn	icon artwork; icon0.icn is the fallback
+.DE
+.SH "SEE ALSO"
+.B zview
+.SH NOTES
+The bar is an ordinary window: other windows may cover it, and a left
+click on it raises it again.
+It cannot be hidden, moved or resized, takes no keyboard focus, and
+does not appear in the desktop menu's
+.B "Switch to..."
+list.
+.PP
+The dock matches windows to catalog entries by window title: an
+application's declared title must equal its catalog name (the
+convention throughout the shipped catalog), or its icon will not read
+as running.
+The state of the bar follows the desktop within about two seconds.

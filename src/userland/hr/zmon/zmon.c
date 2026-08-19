@@ -150,6 +150,9 @@ int	mnseg, mnshr, mnhole;		/* segment / shared / hole counts   */
 /* ---- rendering (the zmail/zprint diff scheme) ---- */
 char	disp[MAXROWS][MAXCOLS];	/* what is on screen; 0 = needs paint     */
 int	chromedirty = 1;	/* 1 = repaint memory pane + header       */
+int	memdirty;		/* 1 = the figures changed: redraw only   */
+				/* the value lines + bar fill, no backfill */
+int	lastuw = -1;		/* bar fill width on screen; -1 = unknown */
 HRSBAR	sbl;
 int	sblforce = 1;
 int	pollflag;		/* SIGALRM: time to resample              */
@@ -604,31 +607,59 @@ invalidate()
 /* the memory pane + list header (the "chrome")                       */
 /* ------------------------------------------------------------------ */
 
+/* Pad string t with trailing blanks to n characters (caller's buffer must
+ * hold n+1).  A padded line printed with cl_ptext overwrites the whole band
+ * of glyph cells opaquely, so the previous text vanishes under it WITHOUT a
+ * white backfill first -- no flash on the 3-second tick. */
 static
-drawmem()
+padline(t, n)
+char *t;
 {
-	char t[120];
+	register int i;
+
+	for ( i = 0; t[i]; i++ )
+		;
+	while ( i < n )
+		t[i++] = ' ';
+	t[i] = 0;
+}
+
+/* The value lines and the bar FILL -- everything a resample can change.
+ * Text is printed padded to the pane width (opaque glyph cells, see padline);
+ * the bar repaints only the strip between the old and new fill widths.  The
+ * static chrome (pane background, bar border, header, rules) is drawmem's and
+ * is not touched here, so a tick never flashes the pane white. */
+static
+drawvals()
+{
+	char t[132];
 	register int bx0, bx1, uw;
+	int tw, gw;
 
-	cl_fillrect(0, 0, contw, MEMH - 1, 1);
-	cl_fillrect(0, MEMH - 1, contw, MEMH, 0);
-
+	tw = (contw - 2 * MBARX) / 9;		/* title cells (9x16 FUI)     */
+	gw = (contw - 2 * MBARX) / 8;		/* breakdown cells (8x15 term) */
+	if ( tw > 128 ) tw = 128;
+	if ( gw > 128 ) gw = 128;
 	if ( kfd < 0 )
 	{
-		cl_ptext(SHM_FUI, MBARX, MEMT1Y, "Memory: no data");
-		if ( errmsg[0] )
-			cl_ptext(SHM_FTERM, MBARX, MEMT2Y, errmsg);
+		strcpy(t, "Memory: no data");
+		padline(t, tw);
+		cl_ptext(SHM_FUI, MBARX, MEMT1Y, t);
+		strcpy(t, errmsg);
+		padline(t, gw);
+		cl_ptext(SHM_FTERM, MBARX, MEMT2Y, t);
 	}
 	else
 	{
 		sprintf(t, "Memory: %uK of %uK used,  %uK free,  %d processes",
 			mused, mtotal, mfree, nproc);
+		padline(t, tw);
 		cl_ptext(SHM_FUI, MBARX, MEMT1Y, t);
 		/* mem's figures, as a grid of label/value columns: every value
 		 * is a right-justified %5u at the same offset in its column, so
-		 * the numbers line up under each other tick after tick.  machine
-		 * and used are NOT here: the totals line and the bar already
-		 * show them. */
+		 * the numbers line up under each other tick after tick (fixed
+		 * width, so they need no padding).  machine and used are NOT
+		 * here: the totals line and the bar already show them. */
 		sprintf(t, "kernel   %5uK   segments %5u    shared   %5uK   free     %5uK",
 			mkern, mnseg, mshared, mfree);
 		cl_ptext(SHM_FTERM, MBARX, MEMT2Y, t);
@@ -640,20 +671,47 @@ drawmem()
 		cl_ptext(SHM_FTERM, MBARX, MEMT4Y, t);
 	}
 
-	/* the bar: 1px border, used filled black from the left */
+	/* the bar fill, black from the left: paint only the delta strip */
 	bx0 = MBARX;
 	bx1 = contw - MBARX;
 	if ( bx1 <= bx0 + 2 )
 		return 0;
-	cl_fillrect(bx0, MBARY0, bx1, MBARY0 + 1, 0);
-	cl_fillrect(bx0, MBARY1 - 1, bx1, MBARY1, 0);
-	cl_fillrect(bx0, MBARY0, bx0 + 1, MBARY1, 0);
-	cl_fillrect(bx1 - 1, MBARY0, bx1, MBARY1, 0);
 	uw = 0;
 	if ( mtotal != 0 )
 		uw = (long)(bx1 - bx0 - 2) * mused / mtotal;
-	if ( uw > 0 )
-		cl_fillrect(bx0 + 1, MBARY0 + 1, bx0 + 1 + uw, MBARY1 - 1, 0);
+	if ( lastuw < 0 )		/* fresh interior (after drawmem) */
+	{
+		if ( uw > 0 )
+			cl_fillrect(bx0 + 1, MBARY0 + 1, bx0 + 1 + uw, MBARY1 - 1, 0);
+	}
+	else if ( uw > lastuw )
+		cl_fillrect(bx0 + 1 + lastuw, MBARY0 + 1, bx0 + 1 + uw, MBARY1 - 1, 0);
+	else if ( uw < lastuw )
+		cl_fillrect(bx0 + 1 + uw, MBARY0 + 1, bx0 + 1 + lastuw, MBARY1 - 1, 1);
+	lastuw = uw;
+	return 0;
+}
+
+static
+drawmem()
+{
+	register int bx0, bx1;
+
+	cl_fillrect(0, 0, contw, MEMH - 1, 1);
+	cl_fillrect(0, MEMH - 1, contw, MEMH, 0);
+
+	/* the bar's 1px border; its fill and all the text are drawvals()'s */
+	bx0 = MBARX;
+	bx1 = contw - MBARX;
+	if ( bx1 > bx0 + 2 )
+	{
+		cl_fillrect(bx0, MBARY0, bx1, MBARY0 + 1, 0);
+		cl_fillrect(bx0, MBARY1 - 1, bx1, MBARY1, 0);
+		cl_fillrect(bx0, MBARY0, bx0 + 1, MBARY1, 0);
+		cl_fillrect(bx1 - 1, MBARY0, bx1, MBARY1, 0);
+	}
+	lastuw = -1;			/* interior is freshly white */
+	drawvals();
 
 	/* the list header, in the list's own font and alignment.  The band is
 	 * backfilled first: cl_ptext repaints only its own glyph cells, so the
@@ -722,6 +780,12 @@ flush()
 	{
 		drawmem();
 		chromedirty = 0;
+		memdirty = 0;
+	}
+	else if ( memdirty )
+	{
+		drawvals();	/* padded lines + bar delta: no white flash */
+		memdirty = 0;
 	}
 	for ( r = 0; r < lrows; r++ )
 	{
@@ -906,7 +970,7 @@ char **argv;
 		{
 			pollflag = 0;
 			if ( snap() )
-				chromedirty = 1;
+				memdirty = 1;	/* values only: no pane backfill */
 			need = 1;
 		}
 		cl_refresh();

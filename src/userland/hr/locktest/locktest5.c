@@ -23,7 +23,7 @@
 extern int	hr_lock();
 extern int	hr_unlock();
 
-#define TAIL	0x3b009000L
+#define TAIL	0x38000000L
 #define FUTEXP	((short *)(TAIL + 0x3800))	/* the lock word itself          */
 #define DIAGL	((short *)(TAIL + 0x3840))	/* driver slow-path lock count   */
 #define DIAGU	((short *)(TAIL + 0x3842))	/* driver slow-path unlock count */

@@ -73,6 +73,14 @@ commodore()
 	 */
 	pfix(BMS, BMPHYS);
 	pfix(BMS+1, BMPHYS+0x00010000L);
+	/*
+	 * GUI shared data segment: attribute and 28K limit come from the
+	 * boot tables (md.s sattr/slen).  Point it at undecoded bus for
+	 * now (reads garbage, like the bitmap on a card-less machine);
+	 * the video console driver that knows the card remaps it onto the
+	 * card's spare RAM (hrtty portst).
+	 */
+	pfix(GDS, BMPHYS+0x00009000L);
 }
 
 /*

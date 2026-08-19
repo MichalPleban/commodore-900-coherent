@@ -1,0 +1,58 @@
+
+
+zzmmaazzee                                                       zzmmaazzee
+
+
+
+NNAAMMEE
+     zmaze - GUI maze crawler
+
+SSYYNNOOPPSSIISS
+     zzmmaazzee [_o_p_t_i_o_n_s]
+
+DDEESSCCRRIIPPTTIIOONN
+     zzmmaazzee draws a first-person view of a walled maze and lets
+     you walk it: walls stand full height around you, shown in
+     perspective and dithered lighter the closer they are.  Find
+     your way around; there is nothing to collect and no monster
+     to meet - the walk itself is the game.  It must be run under
+     the zzvviieeww desktop and accepts the standard window _o_p_t_i_o_n_s of
+     GUI applications; see zzvviieeww.
+
+     Movement is by keyboard, a step or a turn at a time; held
+     keys repeat, which makes the motion continuous:
+
+              ww, _u_p _a_r_r_o_w       walk forward
+              ss, _d_o_w_n _a_r_r_o_w     walk backward
+              aa, _l_e_f_t _a_r_r_o_w     turn left
+              dd, _r_i_g_h_t _a_r_r_o_w    turn right
+              FF1111               the help window (also the menu's Help entry)
+              qq                 quit (also the menu's Quit entry)
+
+     Each step is a quarter of a maze cell; each turn is a six-
+     teenth of a full circle, so sixteen presses of dd face you
+     back the way you came.  You cannot walk through walls: a
+     blocked step slides along the wall instead, which helps in
+     tight corners.
+
+     A middle click on the window replays the current selection
+     as keystrokes, one character per key.  Select a string of
+     movement letters anywhere - or load one with hhrrcclliipp - and
+     middle-click the maze to walk the recorded route.
+
+SSEEEE AALLSSOO
+     zzvviieeww
+
+NNOOTTEESS
+     Distance is shown by dither: near walls are light, far walls
+     dark, and walls faced head-on are one shade lighter than
+     walls seen along their length.  If the whole view turns a
+     single even gray, you are standing with your nose against a
+     wall - turn with aa or dd and the maze comes back.
+
+     The window has a fixed size (the -SS option is ignored).  The
+     rr key switches between the two renderers the program carries
+     - wall projection from a BSP tree (the default) and column
+     raycasting - which draw the same scene and differ only in
+     speed; it exists for comparing the two and is not needed for
+     play.

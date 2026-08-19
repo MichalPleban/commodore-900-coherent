@@ -265,17 +265,20 @@ vmaps_:
 / Segment 30 code is code size of coherent, system only
 / Segment 31 data is full 64K, system only
 / Segments 32 and 33 are clist and buffer-mapped segments
-/ Segments 34..38 are CPU inhibited at boot; 34+ become the shared
+/ Segments 34..37 are CPU inhibited at boot; 34+ become the shared
 / library text segments (user read-only) when a library is loaded (slmap)
+/ Segment 38 (GDS) is the GUI shared data segment, 28K, accessible to
+/ everyone; commodore_ points it at a harmless default and the video
+/ console driver repoints it to the card's spare RAM (hrtty portst_)
 / Segment 39 is the Western Digital Disc Mailbox and buffers
 / Segments 3A and 3B are accessible to everyone for the bitmap
 / Segments 3C, 3D, 3E are extra and overlay segments, full 64K, system only
 / Segment 3F stack is 2K, system only
 / Other segments are CPU inhibited.
 sattr:	.byte	0x02, 0x02, 0x02, 0x02, 0x04, 0x04, 0x04, 0x04
-	.byte	0x04, 0x02, 0x00, 0x00, 0x02, 0x02, 0x02, 0x02
+	.byte	0x00, 0x02, 0x00, 0x00, 0x02, 0x02, 0x02, 0x02
 slen:	.byte	      0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00
-	.byte	0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x07
+	.byte	0x6F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x07
 	.even
 
 	.globl	u_
@@ -1061,7 +1064,7 @@ pfix_:
 
 / Set up a whole descriptor (base, limit and attribute) for a shared
 / library segment.  Like pfix, but pfix writes only the base and leaves
-/ the boot-time attribute (CPU inhibit for segments 0x34..0x38) alone.
+/ the boot-time attribute (CPU inhibit for segments 0x34..0x37) alone.
 / Descriptors at or above 0x30 are never touched by loadmmu, so a
 / mapping made here holds for every process until changed again.
 /

@@ -1,0 +1,69 @@
+.TH zmaze "" "Command"
+.SH NAME
+zmaze \- GUI maze crawler
+.SH SYNOPSIS
+\fBzmaze [\fIoptions\fB]\fR
+.SH DESCRIPTION
+.HS
+zmaze -- GUI maze crawler
+Usage:	zmaze [ options ]
+Keys:	w/s or up/down walk, a/d or left/right turn, F11 help, q quit
+.HE
+.B zmaze
+draws a first-person view of a walled maze and lets you walk it:
+walls stand full height around you, shown in perspective and dithered
+lighter the closer they are.
+Find your way around; there is nothing to collect and no monster to
+meet \- the walk itself is the game.
+It must be run under the
+.B zview
+desktop and accepts the standard window
+.I options
+of GUI applications; see
+.BR zview .
+.PP
+Movement is by keyboard, a step or a turn at a time; held keys repeat,
+which makes the motion continuous:
+.DS
+.ta 4n 22n
+	\fBw\fR, \fIup arrow\fR	walk forward
+	\fBs\fR, \fIdown arrow\fR	walk backward
+	\fBa\fR, \fIleft arrow\fR	turn left
+	\fBd\fR, \fIright arrow\fR	turn right
+	\fBF11\fR	the help window (also the menu's Help entry)
+	\fBq\fR	quit (also the menu's Quit entry)
+.DE
+Each step is a quarter of a maze cell; each turn is a sixteenth of a
+full circle, so sixteen presses of
+.B d
+face you back the way you came.
+You cannot walk through walls: a blocked step slides along the wall
+instead, which helps in tight corners.
+.PP
+A middle click on the window replays the current selection as
+keystrokes, one character per key.
+Select a string of movement letters anywhere \- or load one with
+.B hrclip
+\- and middle-click the maze to walk the recorded route.
+.SH "SEE ALSO"
+.B zview
+.SH NOTES
+Distance is shown by dither: near walls are light, far walls dark,
+and walls faced head-on are one shade lighter than walls seen along
+their length.
+If the whole view turns a single even gray, you are standing with
+your nose against a wall \- turn with
+.B a
+or
+.B d
+and the maze comes back.
+.PP
+The window has a fixed size (the
+.B \-S
+option is ignored).
+The
+.B r
+key switches between the two renderers the program carries \- wall
+projection from a BSP tree (the default) and column raycasting \- which
+draw the same scene and differ only in speed; it exists for comparing
+the two and is not needed for play.

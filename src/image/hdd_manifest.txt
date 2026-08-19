@@ -223,6 +223,7 @@ f	/usr/include/ctype.h	644	0	0
 f	/usr/include/dir.h	644	0	0
 f	/usr/include/errno.h	644	0	0
 f	/usr/include/fblk.h	644	0	0
+f	/usr/include/fdioctl.h	644	0	0
 f	/usr/include/filsys.h	644	0	0
 f	/usr/include/fperr.h	644	0	0
 f	/usr/include/grp.h	644	0	0
@@ -421,6 +422,7 @@ f	/usr/man/1cmdman/yacc	644	0	1
 f	/usr/man/1cmdman/yes	644	0	1
 f	/usr/man/1cmdman/zcalc	644	0	1
 f	/usr/man/1cmdman/zclock	644	0	1
+f	/usr/man/1cmdman/zdock	644	0	1
 f	/usr/man/1cmdman/zedit	644	0	1
 f	/usr/man/1cmdman/zfile	644	0	1
 f	/usr/man/1cmdman/zmail	644	0	1
@@ -428,6 +430,7 @@ f	/usr/man/1cmdman/zman	644	0	1
 f	/usr/man/1cmdman/zmon	644	0	1
 f	/usr/man/1cmdman/zprint	644	0	1
 f	/usr/man/1cmdman/zpuzzle	644	0	1
+f	/usr/man/1cmdman/zmaze	644	0	1
 f	/usr/man/1cmdman/zterm	644	0	1
 f	/usr/man/1cmdman/zview	644	0	1
 f	/usr/man/8cmdman/Ncron	644	0	1
@@ -476,6 +479,7 @@ f	/usr/hr/icons/calc.icn	644	0	1
 f	/usr/hr/icons/man.icn	644	0	1
 f	/usr/hr/icons/file.icn	644	0	1
 f	/usr/hr/icons/puzzle.icn	644	0	1
+f	/usr/hr/icons/maze.icn	644	0	1
 f	/usr/hr/icons/icon0.icn	644	0	1
 f	/usr/hr/icons/icon1.icn	644	0	1
 f	/usr/hr/icons/icon2.icn	644	0	1
@@ -510,6 +514,8 @@ f	/usr/hr/bin/zcalc	755	0	1
 f	/usr/hr/bin/zman	755	0	1
 f	/usr/hr/bin/zfile	755	0	1
 f	/usr/hr/bin/zpuzzle	755	0	1
+f	/usr/hr/bin/zmaze	755	0	1
+f	/usr/hr/bin/zdock	755	0	1
 f	/usr/hr/bin/ptytest	755	0	1
 f	/usr/hr/bin/zterm	755	0	1
 f	/usr/hr/bin/hrpump	755	0	1

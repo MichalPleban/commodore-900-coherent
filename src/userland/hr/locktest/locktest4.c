@@ -20,7 +20,7 @@
 extern int	hr_lock();
 extern int	hr_unlock();
 
-#define TAIL	0x3b009000L
+#define TAIL	0x38000000L
 #define COUNTP	((long  *)(TAIL + 0x3820))
 #define OWNERP	((short *)(TAIL + 0x3824))
 #define VIOLP	((short *)(TAIL + 0x3826))

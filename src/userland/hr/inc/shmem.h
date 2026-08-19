@@ -1,11 +1,17 @@
 /*
- * shmem.h - hrgui shared VRAM-tail layout (GUI.md sec 1.3 / 2.9 / 3.6).
+ * shmem.h - hrgui shared-data segment layout (GUI.md sec 1.3 / 2.9 / 3.6).
  *
- * The framebuffer card decodes 128 KB but the visible 1024x800 1bpp bitmap uses
- * only 100 KB; the tail of segment 0x3B (offsets 0x9000..0xFFFF, 28 KB) is real
- * RAM mapped USER-ACCESSIBLE into every process (attribute 0x00, exactly like
- * the bitmap itself -- GUI.md sec 1.2), so it is the one shared memory this V7
- * kernel has.  hrgui uses it for READ-MOSTLY shared data only:
+ * The shared GUI data lives in its OWN MMU segment, GDS = 0x38 (kernel
+ * machine.h), 28 KB, mapped USER-ACCESSIBLE into every process (attribute
+ * 0x00, exactly like the bitmap segments -- GUI.md sec 1.2), so it is the one
+ * shared memory this V7 kernel has.  WHERE it sits physically is a video-card
+ * property that userland never sees: on the hi-res card it is the spare tail
+ * of the framebuffer RAM (the card decodes 128 KB, the visible 1024x800 1bpp
+ * bitmap uses only 100 KB, so phys 0x3F9000..0x3FFFFF is free), and the
+ * card's console driver points GDS there at init (hrtty portst_); a different
+ * card's driver maps whatever spare RAM it has instead.  Everything here is
+ * addressed as HRTAIL + offset, i.e. offset 0 of segment 0x38.
+ * hrgui uses it for READ-MOSTLY shared data only:
  *   - the system font(s), loaded once by the server from /usr/hr/fonts/*.hf, so
  *     the server AND every direct-render client blit glyphs from a single copy
  *     with no relink and no kernel trap;
@@ -19,7 +25,7 @@
 #ifndef HRSHMEM_H
 #define HRSHMEM_H
 
-#define HRTAIL		((char *)0x3b009000L)	/* base of the 28 KB free tail */
+#define HRTAIL		((char *)0x38000000L)	/* GDS segment, 28 KB shared */
 #define HRTAILSZ	0x7000
 
 /* ---- system fonts (server loads a .hf file into each slot) ---------------- *
@@ -136,7 +142,10 @@ extern int	hr_unlock();		/* release it                              */
  * Single writer per byte, so no atomic is needed (this V7 CPU has only TSET).
  * Reached through hr_setdraw/hr_getdraw (hrlock.c) so the store doubles as the
  * ordering barrier before the client reads `stacking' and the server's repeated
- * load in the drain loop cannot be hoisted -- this K&R compiler has no volatile. */
+ * load in the drain loop cannot be hoisted -- this K&R compiler has no volatile.
+ * The kernel hr driver ALSO mirrors this address (hr2.c HRINDRAW): hrmouse
+ * defers the async cursor redraw while any flag is raised, exactly as it does
+ * for a held SHM_LOCK -- keep in sync like the lock words above. */
 #define SHM_INDRAW	0x3820		/* MAX_WINDOWS bytes: per-window "drawing now" */
 extern int	hr_setdraw();		/* client: set/clear its fast-path flag  */
 extern int	hr_getdraw();		/* server: read a window's flag (drain)  */

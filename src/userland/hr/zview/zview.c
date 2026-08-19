@@ -18,11 +18,12 @@
  * repaints (redraw-on-expose, GUI.md sec 2.10).
  *
  * Nothing about the desktop's contents is compiled in: the catalog
- * /usr/hr/etc/apps (loadapps) names what the right-click desktop menu offers
- * AND which entries get a start-up placeholder icon -- an icon with no process
- * behind it that launches the app when clicked (placesync/drawplace) -- and
- * the shell script /usr/hr/etc/rc (runrc) starts anything the user wants
- * resident from power-on.  An app declares its own window when it connects
+ * /usr/hr/etc/apps (loadapps) names what the right-click desktop menu offers,
+ * and the shell script /usr/hr/etc/rc (runrc) starts anything the user wants
+ * resident from power-on -- normally at least the dock (zdock), the separate
+ * "shell" of this desktop: the server manages windows, the dock manages the
+ * icon bar and app launching, and either survives without the other (the
+ * kernel-and-shell split).  An app declares its own window when it connects
  * (wire.h HRCONN), and may be started either by us or straight from a shell.
  */
 #include <stdio.h>
@@ -51,17 +52,19 @@ extern RECT	gfx_uprect;	/* damage rect that goes with a WM_UPDATE */
 struct win {
 	int	used;
 	int	pid;		/* client process               */
-	int	min;		/* 1 if minimised to a desktop icon */
-	int	islot;		/* desktop-icon slot while minimised */
-	int	sx, sy, sw, sh;	/* saved geometry while minimised */
-	WSTRUCT	*wp;		/* stashed WSTRUCT while minimised (out of wtbl) */
+	int	min;		/* 1 if hidden (no layer; no on-screen trace --
+				 * the dock's pressed icon and the "Switch to"
+				 * dialog are the ways back) */
+	int	sx, sy, sw, sh;	/* saved geometry while hidden */
+	WSTRUCT	*wp;		/* stashed WSTRUCT while hidden (out of wtbl) */
 	char	title[24];	/* displayed title (base, plus " #N" if duplicated) */
 	char	base[16];	/* app name, before any #N suffix */
 	int	inst;		/* stable instance number among same-base windows */
-	char	icon[40];	/* .icn file for the desktop icon */
 	int	appi;		/* catalog entry it was launched from (-1 unknown) */
 	int	stretch;	/* 1 = the client allows the user to resize it */
 	int	confirm;	/* 1 = window-menu Quit asks first (HRF_CONFIRM) */
+	int	nodecor;	/* 1 = undecorated (HRF_NODECOR): no chrome,   */
+				/* no focus, no window menu, not in Switch to  */
 	int	menu;		/* HRM_* the client wants in its window menu */
 	int	ourkid;		/* 1 = we forked this client (launchapp), so  */
 				/* its corpse is OURS to reap (see deadpool)  */
@@ -72,24 +75,13 @@ int	cmdwr;			/* write end kept so children can inherit it    */
 
 /* Launchable applications, read from /usr/hr/etc/apps at startup (GUI.md: a
  * data-driven launcher menu so new software installs without recompiling the
- * server).  One line per app: name:execpath:multi:icon:X,Y (the last two
- * optional).  The catalog says only what the SERVER has to decide -- what the
- * launcher menu reads and whether a second copy may be started; the window's
- * title, size, icon and flags belong to the application and reach us in its
- * C_CONNECT (wire.h), so an app can also be run with a bare argv from a shell.
- *
- * An entry with an `icon' field additionally gets a PLACEHOLDER icon on the
- * desktop: it is drawn like a minimised window's icon (minus the live-process
- * badge, drawiconc) but NO process exists behind it -- clicking it launches
- * the program (at X,Y if given).
- * This replaced starting every app from the rc script minimised with -H,
- * which held a whole resident process per icon on a machine where memory is
- * the scarce thing.  A single-instance entry's placeholder leaves the desktop
- * while its window is open and comes back when it closes (placesync); a
- * multi-instance entry's is permanent, labelled "New <name>", and every click
- * starts a fresh copy.  The placeholder icon is named HERE, not by the app,
- * because it must exist before the app does; once the app connects, its own
- * declared artwork wins for the real minimised icon.
+ * server).  One line per app: name:execpath:multi:icon:X,Y.  The catalog says
+ * only what the SERVER has to decide -- what the launcher menu reads and
+ * whether a second copy may be started; the window's title, size, icon and
+ * flags belong to the application and reach us in its C_CONNECT (wire.h), so
+ * an app can also be run with a bare argv from a shell.  The icon and X,Y
+ * fields are the DOCK's (zdock reads this same file for its icon bar) -- the
+ * server parses only the first three and ignores the rest.
  *
  * The table is fixed-size bss (no heap) and the strings are filled at
  * runtime, so nothing here bloats the near-full data segment. */
@@ -98,11 +90,6 @@ struct app {
 	char	name[16];	/* menu label                                     */
 	char	path[40];	/* executable                                     */
 	int	multi;		/* 1 = allow many instances; 0 = single (re-raise) */
-	char	icon[20];	/* placeholder .icn; "" = no placeholder icon     */
-	int	px, py;		/* window origin for a placeholder launch, -1 =   */
-				/* none given (window opens where the click was)  */
-	int	show;		/* 1 = placeholder icon currently on the desktop  */
-	int	islot;		/* its desktop-icon slot while shown              */
 } apps[MAX_APPS];
 int	napps;
 
@@ -224,7 +211,7 @@ int	pumppid = -1;		/* the input-pump child (killed on WM quit) */
 /* Reference-counted so nested hide/show compose (the driver's cursor flag is a
  * plain boolean): only the OUTERMOST hide actually removes the cursor and
  * the outermost show restores it, so a top-level op can bracket a whole blit
- * sequence even though inner helpers (outline, drawicon, bitblt) bracket too. */
+ * sequence even though inner helpers (outline, bitblt) bracket too. */
 int	curdepth;
 srv_curhide()
 {
@@ -745,16 +732,26 @@ RECT r;
 	/* Logical (0,0) must map to the CONTENT origin (below the title bar), not
 	 * the layer corner: gkToGlobal() adds the layer rect origin, so bias the
 	 * logical origin by the content inset.  Otherwise a client (e.g. the clock)
-	 * draws from the window corner and the title bar overlaps its top. */
-	gkLorigin.x = -WD_BORDER;
-	gkLorigin.y = -WD_TITLEH;
+	 * draws from the window corner and the title bar overlaps its top.
+	 * An undecorated window (HRF_NODECOR) has no inset: its content IS the
+	 * layer rect, so the logical origin stays at the corner. */
+	if ( wins[wid].nodecor )
+	{
+		gkLorigin.x = 0;
+		gkLorigin.y = 0;
+	}
+	else
+	{
+		gkLorigin.x = -WD_BORDER;
+		gkLorigin.y = -WD_TITLEH;
+	}
 	gkCrect = r;
 	gkPsize.x = r.corner.x - r.origin.x;
 	gkPsize.y = r.corner.y - r.origin.y;
 	gkWmgr = SMGR;
 	gkEvmask = DEF_EVMASK;
 	gkFlags = WT_FULLY_VIS;
-	gkType = WT_OUTPUT;
+	gkType = wins[wid].nodecor ? (WT_OUTPUT | WT_NODECOR) : WT_OUTPUT;
 	gk.wn_ascii = (int *)NULL;
 	rstgraph();
 	gkDp = r.origin;
@@ -793,11 +790,15 @@ RECT r;
 	*wtbl[wid] = gk;
 	outline(wid);				/* frame + shadow + title bar */
 	srvtitle(wid);				/* title text */
-	/* content: below the title bar, inside the frame, clear of the shadow */
-	gkCrect.origin.x = r.origin.x + WD_BORDER;
-	gkCrect.origin.y = r.origin.y + WD_TITLEH;
-	gkCrect.corner.x = r.corner.x - WD_SHADOW - WD_BORDER;
-	gkCrect.corner.y = r.corner.y - WD_SHADOW - WD_BORDER;
+	/* content: below the title bar, inside the frame, clear of the shadow --
+	 * or, undecorated, the whole layer rect (gkCrect is already r). */
+	if ( !wins[wid].nodecor )
+	{
+		gkCrect.origin.x = r.origin.x + WD_BORDER;
+		gkCrect.origin.y = r.origin.y + WD_TITLEH;
+		gkCrect.corner.x = r.corner.x - WD_SHADOW - WD_BORDER;
+		gkCrect.corner.y = r.corner.y - WD_SHADOW - WD_BORDER;
+	}
 	*wtbl[wid] = gk;
 	publish_all();				/* clip descriptors for direct-render */
 	srvunlock();
@@ -839,8 +840,6 @@ killwin(wid)
 	srvlogn("killwin ", wid);
 	strcpy(base, wins[wid].base);
 	gfx_cursor_hide();
-	if ( wins[wid].min )
-		drawicon(wid, 0);		/* erase its desktop icon */
 	hadr = 0;
 	if ( wtbl[wid] )
 	{
@@ -868,9 +867,6 @@ killwin(wid)
 	if ( hadr )
 		expose_covered(wid, old.origin.x, old.origin.y,
 				    old.corner.x, old.corner.y);
-	redraw_icons();				/* closing a window may uncover icons */
-	placesync();		/* last window of a single-instance app gone: its
-				 * placeholder icon returns to the desktop */
 }
 
 /* Raise a window to the front (click-to-raise / demo cycling). */
@@ -891,7 +887,8 @@ raisewin(wid)
 	 * why a drag began with the whole terminal flashing through a repaint.
 	 * publish_all() is skipped for the same reason: a clip descriptor cannot
 	 * have changed if the z-order did not. */
-	focuswid = wid;				/* raised window takes the keyboard */
+	if ( !wins[wid].nodecor )	/* desktop furniture never takes keys */
+		focuswid = wid;		/* raised window takes the keyboard */
 	if ( wtbl[wid]->wn_Layer == DM_frontmost )
 		return;
 	srvlock();
@@ -1032,7 +1029,6 @@ backwin(wid)
 	/* windows that were under this one are now on top of it -> repaint the
 	 * area it used to cover. */
 	expose_covered(wid, r.origin.x, r.origin.y, r.corner.x, r.corner.y);
-	redraw_icons();			/* this window may now cover/uncover icons */
 }
 
 /* ------------------------------------------------------------------ */
@@ -1110,27 +1106,12 @@ startpump()
 /* window interaction (move / resize / minimise / raise)              */
 /* ------------------------------------------------------------------ */
 
-/* Hidden windows iconify to icons on the desktop (period-authentic: no dock).
- * Icons start at the TOP-LEFT of the desktop and pack left-to-right (lowest free
- * slot); each is a 48x48 .icn glyph with the window title beneath.  A row holds
- * ICONPR of them and further slots wrap onto the next row down, so the desktop
- * takes as many rows as the minimised windows need. */
-#define ICONW	48			/* icon glyph size */
-#define ICONLH	11			/* label height: 1px gap under the icon + a
-					 * white plate of 1px pad + sail 6x8 + 1px pad */
-#define ICONPAD	8			/* cell margin around the 48px glyph */
-#define ICONCW	(ICONW + 2 * ICONPAD)	/* per-icon cell width == column pitch */
-#define ICONCH	(ICONW + ICONLH + 8)	/* per-icon cell height == row pitch */
-#define ICONLMAX ((ICONCW - 2) / 6)	/* label chars that fit (sail is 6 wide) */
-#define ICONX0	12			/* left margin of the icon field */
-#define ICONY0	12			/* top margin of the icon field */
-#define ICONPR	((XMAX - 2 * ICONX0) / ICONCW)	/* icons per row */
-#define iconx(slot) (ICONX0 + ((slot) % ICONPR) * ICONCW)
-#define icony(slot) (ICONY0 + ((slot) / ICONPR) * ICONCH)
-
-/* Fallback artwork when an icon is not installed (see iconok below). */
-#define HR_DEFICON	"icon0.icn"
-
+/* Hiding a window keeps NO trace on the desktop: the layer is torn down and
+ * the pixels are gone until the window is restored -- through the dock's
+ * pressed icon (zdock sends C_ACTIVATE) or the desktop menu's "Switch to"
+ * dialog.  The desktop-icon field the server used to draw here (minimised
+ * windows + app placeholders) moved wholesale into zdock, the desktop's
+ * separate "shell". */
 extern int	*texture[];
 extern int	words_between();
 
@@ -1286,6 +1267,8 @@ srvtitle(wid)
 	RECT r, bar;
 	int bx1, ty;
 
+	if ( wins[wid].nodecor )
+		return;				/* no bar to write a title on */
 	r = gkLayer->rect;					/* outer (with shadow) */
 	bx1 = r.corner.x - WD_SHADOW - 1;			/* inside the frame */
 	if ( wins[wid].title[0] )
@@ -1316,298 +1299,6 @@ srverase(col, row, ncol, nrow)
 	if ( x1 > gkCrect.corner.x ) x1 = gkCrect.corner.x;
 	if ( y1 > gkCrect.corner.y ) y1 = gkCrect.corner.y;
 	srvrect(x0, y0, x1, y1, L_TRUE);
-}
-
-/* Blit an external icon file /usr/hr/icons/<name> (the installable .icn format:
- * word0=width, word1=height, then 1bpp rows) at absolute (px,ptop).  Loaded into
- * a stack buffer -- no persistent memory, and the artwork lives on disk so new
- * apps ship their own icon (GUI.md).  Blitted L_NSRC so the file's white-on-black
- * strokes render as black-on-white (a clean button), matching the font path. */
-srvicon(px, ptop, name, clip)
-char *name;
-RECT clip;
-{
-	int buf[48 * 3 + 4];		/* header + up to 48x48 (3 words/row) */
-	char path[64];
-	BLTSTRUCT blt;
-	BITMAP src;
-	int fd, nb, w, h;
-
-	strcpy(path, "/usr/hr/icons/");
-	strcat(path, name);
-	fd = open(path, 0);
-	if ( fd < 0 )
-		return;
-	nb = read(fd, buf, sizeof(buf));
-	close(fd);
-	if ( nb < 4 )
-		return;
-	w = buf[0];  h = buf[1];		/* big-endian words == Z8001 ints */
-	if ( w <= 0 || w > 48 || h <= 0 || h > 48 )
-		return;
-	src.base = &buf[2];
-	src.width = 16 * words_between(0, w);
-	src.rect.origin.x = 0;   src.rect.origin.y = 0;
-	src.rect.corner.x = w;   src.rect.corner.y = h;
-	blt.src = &src;
-	blt.dst = &display;
-	blt.dr.origin.x = px;      blt.dr.origin.y = ptop;
-	blt.dr.corner.x = px + w;  blt.dr.corner.y = ptop + h;
-	/* clip the blit to the caller's rect (the icon's visible desktop piece) */
-	if ( blt.dr.origin.x < clip.origin.x ) blt.dr.origin.x = clip.origin.x;
-	if ( blt.dr.origin.y < clip.origin.y ) blt.dr.origin.y = clip.origin.y;
-	if ( blt.dr.corner.x > clip.corner.x ) blt.dr.corner.x = clip.corner.x;
-	if ( blt.dr.corner.y > clip.corner.y ) blt.dr.corner.y = clip.corner.y;
-	if ( blt.dr.corner.x <= blt.dr.origin.x || blt.dr.corner.y <= blt.dr.origin.y )
-		return;
-	blt.sp.x = blt.dr.origin.x - px;	/* matching source offset */
-	blt.sp.y = blt.dr.origin.y - ptop;
-	blt.op = L_NSRC;
-	blt.pat = texture[0];
-	bitblt(&blt, 1, 0);
-}
-
-/* Lowest desktop-icon slot not currently occupied by a minimised window or by
- * an app placeholder -- the two kinds share the one icon field. */
-iconslot()
-{
-	int s, w, used;
-
-	for ( s = 0; s < MAX_WINDOWS; s++ )
-	{
-		used = 0;
-		for ( w = 0; w < MAX_WINDOWS; w++ )
-			if ( wins[w].used && wins[w].min && wins[w].islot == s )
-			{
-				used = 1;
-				break;
-			}
-		for ( w = 0; w < napps && !used; w++ )
-			if ( apps[w].show && apps[w].islot == s )
-				used = 1;
-		if ( !used )
-			return s;
-	}
-	return 0;
-}
-
-/* The parts of A not covered by B (A minus B): 0..4 sub-rects into out[].
- * If they do not overlap, out[0]=A (one rect). */
-static int
-rect_minus(A, B, out)
-RECT A, B, out[];
-{
-	int n;
-	RECT ix;
-
-	ix.origin.x = A.origin.x > B.origin.x ? A.origin.x : B.origin.x;
-	ix.origin.y = A.origin.y > B.origin.y ? A.origin.y : B.origin.y;
-	ix.corner.x = A.corner.x < B.corner.x ? A.corner.x : B.corner.x;
-	ix.corner.y = A.corner.y < B.corner.y ? A.corner.y : B.corner.y;
-	if ( ix.corner.x <= ix.origin.x || ix.corner.y <= ix.origin.y ) {
-		out[0] = A;			/* no overlap: A is whole */
-		return 1;
-	}
-	n = 0;
-	if ( A.origin.y < ix.origin.y ) {	/* strip above B */
-		out[n].origin.x = A.origin.x;   out[n].origin.y = A.origin.y;
-		out[n].corner.x = A.corner.x;   out[n].corner.y = ix.origin.y;  n++;
-	}
-	if ( A.corner.y > ix.corner.y ) {	/* strip below B */
-		out[n].origin.x = A.origin.x;   out[n].origin.y = ix.corner.y;
-		out[n].corner.x = A.corner.x;   out[n].corner.y = A.corner.y;   n++;
-	}
-	if ( A.origin.x < ix.origin.x ) {	/* strip left of B (middle band) */
-		out[n].origin.x = A.origin.x;   out[n].origin.y = ix.origin.y;
-		out[n].corner.x = ix.origin.x;  out[n].corner.y = ix.corner.y;  n++;
-	}
-	if ( A.corner.x > ix.corner.x ) {	/* strip right of B */
-		out[n].origin.x = ix.corner.x;  out[n].origin.y = ix.origin.y;
-		out[n].corner.x = A.corner.x;   out[n].corner.y = ix.corner.y;  n++;
-	}
-	return n;
-}
-
-/* Visible sub-rects of `cell' -- the parts not covered by any live window --
- * into out[] (up to max).  This is how an icon (which is NOT a layer) gets
- * clipped to the bare desktop, so a partially-covered icon shows its visible
- * part and a fully-covered one shows nothing. */
-#define ICONRB	24
-static int
-desktop_rects(cell, out, max)
-RECT cell, out[];
-{
-	RECT work[ICONRB], next[ICONRB], pieces[4];
-	LAYER *lp;
-	int nw, nn, w, i, k, np;
-
-	nw = 0;
-	work[nw++] = cell;
-	for ( w = 0; w < MAX_WINDOWS && nw; w++ ) {
-		if ( !(wins[w].used && !wins[w].min && wtbl[w] &&
-		       (lp = wtbl[w]->wn_Layer)) )
-			continue;
-		nn = 0;
-		for ( i = 0; i < nw; i++ ) {
-			np = rect_minus(work[i], lp->rect, pieces);
-			for ( k = 0; k < np && nn < ICONRB; k++ )
-				next[nn++] = pieces[k];
-		}
-		for ( i = 0; i < nn; i++ )
-			work[i] = next[i];
-		nw = nn;
-	}
-	for ( i = 0; i < nw && i < max; i++ )
-		out[i] = work[i];
-	return (nw < max) ? nw : max;
-}
-
-/* Core icon-cell painter: draw (on) or erase (off) the 48px artwork `iname' +
- * text `label' in desktop-icon slot `slot', CLIPPED to the parts of its cell
- * not covered by any window -- icons are not layers, so we clip them to the
- * bare desktop ourselves (a partially covered icon shows its visible piece; a
- * fully covered one shows nothing, and moving a window off it makes it
- * reappear via redraw_icons).  Shared by a minimised window's icon (drawicon,
- * live=1) and an app placeholder's (drawplace, live=0): a LIVE icon has a
- * running process behind it and carries a marker -- a small black square badge
- * in the glyph's bottom-right corner -- so it reads apart from a placeholder,
- * which looks the same but starts a fresh process when clicked. */
-drawiconc(slot, iname, label, on, live)
-char *iname, *label;
-{
-	RECT cell, plate, badge, vr[ICONRB], lc;
-	HRFONT *f;
-	char lab[ICONLMAX + 1];
-	int x, y, nvr, i, lx, ly, nc;
-
-	x = iconx(slot);
-	y = icony(slot);
-	cell.origin.x = x - ICONPAD;             cell.origin.y = y - 2;
-	cell.corner.x = x + ICONW + ICONPAD;     cell.corner.y = y + ICONW + ICONLH + 2;
-	/* The label is black-on-white; the glyph cells alone would butt straight
-	 * against the (also white) icon artwork and read as one blob.  So sit the
-	 * text 2px below the icon and paint a white plate one pixel bigger than the
-	 * text on every side: 1px of bare desktop separates plate from icon, and
-	 * 1px of white pads the glyphs inside the plate.  The label is centred under
-	 * the glyph and truncated to what the cell holds. */
-	f = hr_font(SHM_FICON);
-	nc = strlen(label);
-	if ( nc > ICONLMAX )
-		nc = ICONLMAX;
-	strncpy(lab, label, nc);
-	lab[nc] = '\0';
-	lx = x + (ICONW - nc * f->cellw) / 2;
-	ly = y + ICONW + 2;
-	plate.origin.x = lx - 1;           plate.origin.y = ly - 1;
-	plate.corner.x = lx + nc * f->cellw + 1;
-	plate.corner.y = ly + f->cellh + 1;
-	/* The live marker: a 6x6 black square inside a 10x10 white surround at the
-	 * glyph's bottom-right corner.  The white ring keeps it readable even where
-	 * the artwork's own strokes reach the corner. */
-	badge.origin.x = x + ICONW - 10;   badge.origin.y = y + ICONW - 10;
-	badge.corner.x = x + ICONW;        badge.corner.y = y + ICONW;
-	nvr = desktop_rects(cell, vr, ICONRB);
-	gfx_cursor_hide();
-	for ( i = 0; i < nvr; i++ ) {
-		srvfill(vr[i], 10, L_TRUE);		/* clear this visible piece */
-		if ( !on )
-			continue;
-		srvicon(x, y, iname, vr[i]);	/* app icon, clipped */
-		if ( live ) {
-			lc = R_Intersection(badge, vr[i]);
-			if ( !R_null(lc) )
-				srvfill(lc, 0, L_TRUE);	/* white surround */
-			lc.origin.x = badge.origin.x + 2;  lc.origin.y = badge.origin.y + 2;
-			lc.corner.x = badge.corner.x - 2;  lc.corner.y = badge.corner.y - 2;
-			lc = R_Intersection(lc, vr[i]);
-			if ( !R_null(lc) )
-				srvfill(lc, 0, L_FALSE);	/* black square */
-		}
-		if ( nc <= 0 )
-			continue;
-		lc = R_Intersection(plate, vr[i]);
-		if ( !R_null(lc) ) {
-			srvfill(lc, 0, L_TRUE);		/* white plate under the text */
-			srvmenuglyphs(SHM_FICON, lx, ly, lab, lc);
-		}
-	}
-	gfx_cursor_show();
-}
-
-/* A minimised window's desktop icon: artwork from its connect record, label =
- * its (possibly "#N"-suffixed) title. */
-drawicon(wid, on)
-{
-	drawiconc(wins[wid].islot, wins[wid].icon, wins[wid].title, on, 1);
-}
-
-/* Catalog entry `ai's placeholder icon.  A multi-instance entry is labelled
- * "New <name>" -- clicking it always starts a FRESH copy, and the label is
- * what tells the user so (a plain "Shell" icon would read as one particular
- * shell); a single-instance entry just shows its name, since its placeholder
- * and its minimised window are never on screen together. */
-drawplace(ai, on)
-{
-	char lab[24];
-
-	if ( apps[ai].multi )
-		sprintf(lab, "New %s", apps[ai].name);
-	else
-		strcpy(lab, apps[ai].name);
-	drawiconc(apps[ai].islot, apps[ai].icon, lab, on, 0);
-}
-
-/* Repaint every minimised window's icon.  The engine never repaints icons (they
- * are not layers), so a window moving off one would leave the desktop bare
- * there; call this after any op that can change bottom-of-screen coverage.  Each
- * icon is clipped to the bare desktop by drawicon, so covered parts are left to
- * the window on top. */
-redraw_icons()
-{
-	int w;
-
-	srvlock();
-	for ( w = 0; w < MAX_WINDOWS; w++ )
-		if ( wins[w].used && wins[w].min )
-			drawicon(w, 1);
-	for ( w = 0; w < napps; w++ )
-		if ( apps[w].show )
-			drawplace(w, 1);
-	srvunlock();
-}
-
-/* Recompute which catalog entries should be showing a placeholder icon and
- * draw/erase the deltas.  Visible = has artwork AND (multi-instance, or no
- * live window launched from that entry).  Called at startup (everything
- * shows), after a connect (a single-instance app now has its window: its
- * placeholder comes off) and after a window teardown (the last window of a
- * single-instance app closed: its placeholder returns) -- so from the user's
- * side the app seems to minimise itself back to its icon, but the process and
- * its memory are gone. */
-placesync()
-{
-	int i, vis;
-
-	srvlock();
-	for ( i = 0; i < napps; i++ )
-	{
-		if ( !apps[i].icon[0] )
-			continue;
-		vis = apps[i].multi || appwindow(i) < 0;
-		if ( vis && !apps[i].show )
-		{
-			apps[i].islot = iconslot();
-			apps[i].show = 1;
-			drawplace(i, 1);
-		}
-		else if ( !vis && apps[i].show )
-		{
-			drawplace(i, 0);
-			apps[i].show = 0;
-			apps[i].islot = -1;
-		}
-	}
-	srvunlock();
 }
 
 /* Rebuild window `wid's layer at rectangle r (used to restore a minimised
@@ -1645,17 +1336,21 @@ RECT r;
 	*wtbl[wid] = gk;
 	outline(wid);
 	srvtitle(wid);
-	gkCrect.origin.x = r.origin.x + WD_BORDER;
-	gkCrect.origin.y = r.origin.y + WD_TITLEH;
-	gkCrect.corner.x = r.corner.x - WD_SHADOW - WD_BORDER;
-	gkCrect.corner.y = r.corner.y - WD_SHADOW - WD_BORDER;
+	if ( !wins[wid].nodecor )
+	{
+		gkCrect.origin.x = r.origin.x + WD_BORDER;
+		gkCrect.origin.y = r.origin.y + WD_TITLEH;
+		gkCrect.corner.x = r.corner.x - WD_SHADOW - WD_BORDER;
+		gkCrect.corner.y = r.corner.y - WD_SHADOW - WD_BORDER;
+	}
 	*wtbl[wid] = gk;
 	return 1;
 }
 
 minwin(wid)
 {
-	if ( !wins[wid].used || wins[wid].min || !wtbl[wid] )
+	if ( !wins[wid].used || wins[wid].min || !wtbl[wid] ||
+	     wins[wid].nodecor )	/* desktop furniture cannot be hidden */
 		return;
 	srvlock();
 	srvlogn("minwin ", wid);
@@ -1675,9 +1370,7 @@ minwin(wid)
 	*wtbl[wid] = gk;
 	wins[wid].wp = wtbl[wid];
 	wtbl[wid] = (WSTRUCT *)NULL;
-	wins[wid].islot = iconslot();
 	wins[wid].min = 1;
-	drawicon(wid, 1);			/* clips itself to the bare desktop */
 	gfx_cursor_show();
 	publish_all();				/* this window unmapped; others uncovered */
 	srvunlock();
@@ -1688,8 +1381,6 @@ minwin(wid)
 	 * the E_EXPOSE (a covered clock came back with only its hands, no face). */
 	expose_covered(wid, wins[wid].sx, wins[wid].sy,
 		       wins[wid].sx + wins[wid].sw, wins[wid].sy + wins[wid].sh);
-	/* Minimising this window may have uncovered OTHER windows' icons. */
-	redraw_icons();
 }
 
 restorewin(wid)
@@ -1700,17 +1391,14 @@ restorewin(wid)
 		return;
 	srvlock();
 	gfx_cursor_hide();
-	drawicon(wid, 0);
 	wtbl[wid] = wins[wid].wp;	/* put the WSTRUCT back into the table */
 	r.origin.x = wins[wid].sx;  r.origin.y = wins[wid].sy;
 	r.corner.x = wins[wid].sx + wins[wid].sw;
 	r.corner.y = wins[wid].sy + wins[wid].sh;
 	if ( !relayout(wid, r) )
 	{
-		/* Out of memory: stay minimised, redraw the icon we erased.
-		 * Nothing else changed -- all-or-nothing. */
+		/* Out of memory: stay hidden.  Nothing changed -- all-or-nothing. */
 		wtbl[wid] = (WSTRUCT *)NULL;
-		drawicon(wid, 1);
 		gfx_cursor_show();
 		srvunlock();
 		return;
@@ -1720,7 +1408,6 @@ restorewin(wid)
 	publish_all();
 	srvunlock();
 	sendev(wid, E_EXPOSE, 0, 0, wtbl[wid]->wn_Psize.x, wtbl[wid]->wn_Psize.y);
-	redraw_icons();			/* the freed icon slot / new window coverage */
 }
 
 /* Redraw a window's decoration (frame + stepped shadow + title bar).  Needed
@@ -1730,7 +1417,7 @@ restorewin(wid)
  * redrawn over the revealed window). */
 redecorate(wid)
 {
-	if ( !wtbl[wid] || !wtbl[wid]->wn_Layer )
+	if ( !wtbl[wid] || !wtbl[wid]->wn_Layer || wins[wid].nodecor )
 		return;
 	srvlock();
 	LOADW(wid);
@@ -1773,7 +1460,6 @@ movewin(wid, nx, ny)
 	 * Only old minus new: whoever is under the still-covered intersection was
 	 * covered before and after and repaints nothing. */
 	expose_vacated(wid, old, wtbl[wid]->wn_Layer->rect);
-	redraw_icons();			/* moving off an icon must repaint it */
 }
 
 /* Resize window wid so its outer corner is (cx,cy).  Only for a client that
@@ -1808,7 +1494,6 @@ resizewin(wid, cx, cy)
 	/* a shrink uncovers the vacated strips of the old rect: repaint whoever
 	 * was under THOSE (a grow vacates nothing and exposes nothing) */
 	expose_vacated(wid, old, wtbl[wid]->wn_Layer->rect);
-	redraw_icons();			/* resizing off an icon must repaint it */
 }
 
 /* ------------------------------------------------------------------ */
@@ -1816,17 +1501,16 @@ resizewin(wid, cx, cy)
 /* ------------------------------------------------------------------ */
 
 /* Read /usr/hr/etc/apps into apps[].  One line per app:
- * name:execpath:multi:icon:X,Y  -- the last two optional ('#'/blank lines
- * skipped).  `icon' makes the entry a desktop placeholder (struct app above);
- * artwork that is not installed falls back to the generic icon, like a
- * client's connect record does. */
+ * name:execpath:multi:icon:X,Y ('#'/blank lines skipped).  Only the first
+ * three fields are the server's (the launcher menu); icon and X,Y belong to
+ * the dock (zdock reads the same file) and are ignored here. */
 /* One catalog line -> an apps[] entry (comment/blank/overlong-comment lines
  * come through here too and are skipped). */
 static
 appline(p)
 char *p;
 {
-	char *fld[5];
+	char *fld[3];
 	char *f;
 	int nf;
 
@@ -1835,7 +1519,7 @@ char *p;
 	nf = 0;
 	fld[nf++] = p;
 	f = p;
-	while ( nf < 5 )
+	while ( nf < 3 )
 	{
 		while ( *f && *f != ':' )
 			f++;
@@ -1852,25 +1536,6 @@ char *p;
 		strncpy(a->name, fld[0], sizeof(a->name) - 1);
 		strncpy(a->path, fld[1], sizeof(a->path) - 1);
 		a->multi = (nf > 2) ? atoi(fld[2]) : 0;
-		a->px = a->py = -1;
-		a->show = 0;
-		a->islot = -1;
-		if ( nf > 3 && fld[3][0] )
-			strncpy(a->icon,
-				iconok(fld[3]) ? fld[3] : HR_DEFICON,
-				sizeof(a->icon) - 1);
-		if ( nf > 4 )
-		{
-			char *q;
-
-			a->px = atoi(fld[4]);
-			for ( q = fld[4]; *q && *q != ','; q++ )
-				;
-			if ( *q )
-				a->py = atoi(q + 1);
-			if ( a->px < 0 || a->py < 0 )
-				a->px = a->py = -1;
-		}
 	}
 }
 
@@ -1943,7 +1608,8 @@ char *base;
 		{
 			setwintitle(w);
 			if ( wins[w].min )
-				drawicon(w, 1);			/* redraw icon label */
+				;	/* hidden: nothing on screen to relabel;
+					 * the published list below carries it */
 			else if ( wtbl[w] )
 			{
 				gk = *wtbl[w];			/* repaint decoration */
@@ -2019,6 +1685,14 @@ launchapp(ai, x, y)
 	pid = fork();
 	if ( pid == 0 )
 	{
+		/* Clean signal slate, like zterm gives its shell (spawnsh): the
+		 * server itself rode in on SIG_IGN for these (the boot shell's `&'
+		 * ignores INT/QUIT in background children, and exec preserves
+		 * SIG_IGN), so without this a `kill -2' at an app we forked would
+		 * be silently ignored. */
+		signal(SIGINT, SIG_DFL);
+		signal(SIGQUIT, SIG_DFL);
+		signal(SIGHUP, SIG_DFL);
 		dup2(cmdwr, HR_CMDFD);
 		{ int f; for ( f = 5; f < 20; f++ ) close(f); }
 		execl(a->path, a->name, (char *)0);
@@ -2066,33 +1740,12 @@ runrc()
 	return pid;
 }
 
-/* Is `name' an installed icon?  A client may ask for artwork that was never
- * shipped (or ask for none at all); rather than leave a minimised window with a
- * bare label, fall back to the generic application icon (HR_DEFICON) -- and if
- * even that is missing, to nothing, which drawiconc already tolerates. */
-iconok(name)
-char *name;
-{
-	char path[64];
-	int fd;
-
-	if ( !name || !*name )
-		return 0;
-	if ( strlen(name) > sizeof(path) - 16 )
-		return 0;
-	strcpy(path, "/usr/hr/icons/");
-	strcat(path, name);
-	if ( (fd = open(path, 0)) < 0 )
-		return 0;
-	close(fd);
-	return 1;
-}
-
 /* Where to put a window nobody placed: an app started from a shell names no
  * position unless it was given -P, so step them down the desktop the way every
- * window manager has since. */
+ * window manager has since.  CASC_Y0 clears the dock strip zdock keeps along
+ * the top of the screen, so an unplaced window does not open underneath it. */
 #define CASC_X0		64
-#define CASC_Y0		48
+#define CASC_Y0		80
 #define CASC_STEP	28
 #define CASC_MAX	8
 int	cascade;
@@ -2151,14 +1804,25 @@ HRCONN *hc;
 		return;
 	}
 
-	/* Fit the requested content size, then the whole window, on the screen. */
+	/* Fit the requested content size, then the whole window, on the screen.
+	 * An undecorated window has no chrome: frame size == content size. */
 	cw = hc->hc_w;  ch = hc->hc_h;
 	if ( cw < 16 ) cw = 16;
 	if ( ch < 16 ) ch = 16;
-	ww = cw + 2 * WD_BORDER + WD_SHADOW;
-	hh = ch + WD_TITLEH + WD_BORDER + WD_SHADOW;
-	if ( ww > XMAX ) { ww = XMAX; cw = ww - 2 * WD_BORDER - WD_SHADOW; }
-	if ( hh > YMAX ) { hh = YMAX; ch = hh - WD_TITLEH - WD_BORDER - WD_SHADOW; }
+	if ( hc->hc_flags & HRF_NODECOR )
+	{
+		if ( cw > XMAX ) cw = XMAX;
+		if ( ch > YMAX ) ch = YMAX;
+		ww = cw;
+		hh = ch;
+	}
+	else
+	{
+		ww = cw + 2 * WD_BORDER + WD_SHADOW;
+		hh = ch + WD_TITLEH + WD_BORDER + WD_SHADOW;
+		if ( ww > XMAX ) { ww = XMAX; cw = ww - 2 * WD_BORDER - WD_SHADOW; }
+		if ( hh > YMAX ) { hh = YMAX; ch = hh - WD_TITLEH - WD_BORDER - WD_SHADOW; }
+	}
 	if ( x + ww > XMAX ) x = XMAX - ww;
 	if ( y + hh > YMAX ) y = YMAX - hh;
 	if ( x < 0 ) x = 0;
@@ -2169,11 +1833,10 @@ HRCONN *hc;
 	strncpy(wins[wid].base, hc->hc_title, sizeof(wins[wid].base) - 1);
 	wins[wid].base[sizeof(wins[wid].base) - 1] = 0;
 	strcpy(wins[wid].title, wins[wid].base);
-	strcpy(wins[wid].icon,
-	       iconok(hc->hc_icon) ? hc->hc_icon : HR_DEFICON);
 	wins[wid].appi = ai;
 	wins[wid].stretch = (hc->hc_flags & HRF_STRETCH) != 0;
 	wins[wid].confirm = (hc->hc_flags & HRF_CONFIRM) != 0;
+	wins[wid].nodecor = (hc->hc_flags & HRF_NODECOR) != 0;
 	wins[wid].menu = hc->hc_menu & HRM_ALL;	/* its own window-menu entries */
 	wins[wid].pid = hc->hc_pid;
 	wins[wid].ourkid = (p >= 0);	/* forked by launchapp: reap it when it dies */
@@ -2204,20 +1867,15 @@ HRCONN *hc;
 		wins[wid].inst = hi + 1;
 	}
 	relabel(wins[wid].base);
-	/* A single-instance app now has its window: its placeholder icon (if it
-	 * had one) comes off the desktop.  Done BEFORE a -H minimise below picks
-	 * an icon slot, so the slot the placeholder frees is the lowest one again
-	 * and the minimised icon lands where the placeholder sat. */
-	placesync();
 
 	/* The granted content size, read out BEFORE anything else can happen to the
 	 * window: -H takes wtbl[wid] away (minwin stashes the WSTRUCT). */
 	cw = wtbl[wid]->wn_Crect.corner.x - wtbl[wid]->wn_Crect.origin.x;
 	ch = wtbl[wid]->wn_Crect.corner.y - wtbl[wid]->wn_Crect.origin.y;
 	if ( hc->hc_flags & HRF_MIN )
-		minwin(wid);		/* -H: straight to a desktop icon, and it */
-					/* does not take the keyboard either      */
-	else
+		minwin(wid);		/* -H: open hidden, and it does not */
+					/* take the keyboard either         */
+	else if ( !wins[wid].nodecor )	/* desktop furniture never takes keys */
 		focuswid = wid;
 	/* The window exists and its clip descriptor is published: hand the client
 	 * its id and the content size it really got.  A minimised window is
@@ -2771,9 +2429,9 @@ char *msg, *b0, *b1, *b2;
 
 /* The desktop-menu "Switch to" dialog: a centred card listing every open
  * window BY NAME -- one full-width SHM_FUI text row per window, above a
- * Cancel button.  No icons: the 48px artwork lives on disk (srvicon opens
- * /usr/hr/icons/<name> per call), and one file read per window under the
- * overlay freeze is an unacceptable cost.  The rows track exactly like
+ * Cancel button.  No icons: the 48px artwork lives on disk, and a file read
+ * per window under the overlay freeze is an unacceptable cost.  The rows
+ * track exactly like
  * srvdialog's buttons -- a left press inside a row arms and XOR-inverts it
  * (the alt-tab highlight), dragging out disarms, and only a release inside
  * the armed row commits -- so a slip of the mouse cannot switch windows.
@@ -2791,8 +2449,8 @@ srvswitch()
 
 	nw = 0;
 	for ( i = 0; i < MAX_WINDOWS; i++ )
-		if ( wins[i].used )
-			wid[nw++] = i;
+		if ( wins[i].used && !wins[i].nodecor )	/* not the dock: it is */
+			wid[nw++] = i;			/* furniture, not a task */
 	if ( nw == 0 )
 	{
 		srvdialog("No windows are open.", "OK", (char *)0, (char *)0);
@@ -2976,11 +2634,8 @@ dlgclose()
 	 * whatever the box covered the hard way. */
 	sendev(w, E_EXPOSE, 0, 0, hr_surf(w)->cw, hr_surf(w)->ch);
 	if ( !saved )
-	{
 		expose_covered(-1, dlgbox.origin.x, dlgbox.origin.y,
 			       dlgbox.corner.x, dlgbox.corner.y);
-		redraw_icons();		/* the box may have covered desktop icons */
-	}
 	/* C_BYEs deferred while the box was up (killwin repaints): honour them. */
 	while ( dlgbye )
 		for ( yy = 0; yy < MAX_WINDOWS; yy++ )
@@ -3345,17 +3000,59 @@ quitwm()
 	exit(0);
 }
 
-/* Find a live window launched from catalog entry `ai', or -1.  Matched by the
- * entry it came from, not by title: the title is the application's to choose
- * and need not be the launcher label. */
+/* Find a live window of catalog entry `ai', or -1.  Matched by the entry it
+ * was launched from when we forked it -- OR by title base, because most
+ * instances are not ours any more: the dock (zdock) forks apps itself, and
+ * the rc script always did, and their windows carry appi -1.  The catalog
+ * name doubles as the app's declared title throughout /usr/hr/etc/apps, so
+ * the base match is what keeps the menu's single-instance re-raise working
+ * whoever started the app. */
 appwindow(ai)
 {
 	int w;
 
 	for ( w = 0; w < MAX_WINDOWS; w++ )
-		if ( wins[w].used && wins[w].appi == ai )
+		if ( wins[w].used &&
+		     (wins[w].appi == ai ||
+		      !strcmp(wins[w].base, apps[ai].name)) )
 			return w;
 	return -1;
+}
+
+/* C_ACTIVATE: bring the APPLICATION owning window `t' forward.  Raise the
+ * topmost visible window sharing t's title base (depth = how many layers sit
+ * in front of it); when every window of the app is hidden, restore the named
+ * one.  This is the dock's one verb: zdock knows which windows belong to an
+ * app (the shared window list), but only the server knows the z-order. */
+activate(t)
+{
+	LAYER *fp;
+	int w, d, best, bestd;
+
+	if ( t < 0 || t >= MAX_WINDOWS || !wins[t].used )
+		return;
+	best = -1;
+	bestd = 32767;
+	for ( w = 0; w < MAX_WINDOWS; w++ )
+	{
+		if ( !wins[w].used || wins[w].min || !wtbl[w] ||
+		     !wtbl[w]->wn_Layer ||
+		     strcmp(wins[w].base, wins[t].base) )
+			continue;
+		d = 0;
+		for ( fp = ((LAYER *)wtbl[w]->wn_Layer)->front;
+		      fp != (LAYER *)NULL; fp = fp->front )
+			d++;
+		if ( d < bestd )
+		{
+			bestd = d;
+			best = w;
+		}
+	}
+	if ( best >= 0 )
+		raisewin(best);
+	else if ( wins[t].min )
+		restorewin(t);
 }
 
 /* Reap the window of a client that DIED without saying C_BYE.  A SIGSEGV'd
@@ -3517,12 +3214,19 @@ winmenu(w, x, y)
 		sendev(w, E_MENU, 1 << (-sel - 1), 0, 0, 0);
 		return;
 	}
-	if ( sel == 0 )      ghostdrag(w, 1);
-	else if ( sel == 1 ) ghostdrag(w, 2);
-	else if ( sel == 2 ) raisewin(w);
-	else if ( sel == 3 ) backwin(w);
-	else if ( sel == 4 ) minwin(w);
-	else if ( sel == 5 )
+	winop(w, sel);
+}
+
+/* Perform window operation `op' -- an index into g_winitems -- on window w.
+ * Shared by the window menu above and the Alt+F1..F5 shortcuts (docmd). */
+winop(w, op)
+{
+	if ( op == 0 )      ghostdrag(w, 1);
+	else if ( op == 1 ) ghostdrag(w, 2);
+	else if ( op == 2 ) raisewin(w);
+	else if ( op == 3 ) backwin(w);
+	else if ( op == 4 ) minwin(w);
+	else if ( op == 5 )
 	{
 		/* An app that declared HRF_CONFIRM holds live state behind this
 		 * window (a shell with running jobs), so ask first. */
@@ -3538,24 +3242,10 @@ winmenu(w, x, y)
 	}
 }
 
-/* Is the pointer (mx,my) on desktop-icon slot `slot'?  One test for both icon
- * kinds (minimised windows and app placeholders), pulled out of handlebtn --
- * icons may occupy several rows, so each one's own cell is tested rather than
- * a single row band. */
-static
-iconhit(slot)
-{
-	return mx >= iconx(slot) - ICONPAD &&
-	       mx <  iconx(slot) + ICONW + ICONPAD &&
-	       my >= icony(slot) - 2 &&
-	       my <  icony(slot) + ICONW + ICONLH + 2;
-}
-
 /* A pointer button changed.  Right = pop up the desktop (launcher) or window
  * menu; left = click-to-raise, and inside a window's content it also starts the
  * pointer grab that carries the selection gesture to the client; middle = paste
- * into the window under the pointer.  A click on a dock icon restores that
- * window (temporary until the desktop-icon phase).
+ * into the window under the pointer.
  *
  * Unlike before, RELEASES are seen here too -- a grab has to end somewhere, and
  * the client needs the release to know the drag finished.  Everything that acted
@@ -3597,50 +3287,6 @@ WMSG *c;
 	if ( !(changed & down) )		/* otherwise act only on a fresh press */
 		return;
 
-	/* a minimised-window desktop icon? restore it.  Icons may occupy several
-	 * rows, so test each one's own cell rather than a single row band. */
-	{
-		for ( w = 0; w < MAX_WINDOWS; w++ )
-			if ( wins[w].used && wins[w].min &&
-			     iconhit(wins[w].islot) )
-			{
-				restorewin(w);
-				return;
-			}
-	}
-
-	/* an app placeholder icon? launch that catalog entry -- the whole point
-	 * of a placeholder is that no process exists until this click.  The
-	 * window goes to the catalog's X,Y if given, else it opens at the click.
-	 * While a launch is pending (forked, no C_CONNECT yet) further clicks do
-	 * nothing, so a double-click does not start two copies -- for a multi
-	 * entry too: an INTENDED second copy is a second click a moment later.
-	 * The single-instance live-window case is only reachable for an app
-	 * started outside the catalog (its window has appi -1, so the
-	 * placeholder stayed); surface that window rather than duplicate it,
-	 * like the desktop menu does. */
-	{
-		int i;
-
-		for ( i = 0; i < napps; i++ )
-			if ( apps[i].show &&
-			     iconhit(apps[i].islot) )
-			{
-				if ( !apps[i].multi && (w = appwindow(i)) >= 0 )
-				{
-					if ( wins[w].min )
-						restorewin(w);
-					else
-						raisewin(w);
-				}
-				else if ( !apppending(i) )
-					launchapp(i,
-					    apps[i].px >= 0 ? apps[i].px : mx,
-					    apps[i].px >= 0 ? apps[i].py : my);
-				return;
-			}
-	}
-
 	if ( changed & down & SM_RGHT )		/* RIGHT: menus */
 	{
 		/* A menu runs its own nested getcmd() loop and swallows everything,
@@ -3654,10 +3300,11 @@ WMSG *c;
 			lastgx = lastgy = -1;
 		}
 		w = who_top_at(p);
-		if ( w >= 0 && w < MAX_WINDOWS && wins[w].used )
-			winmenu(w, mx, my);
-		else
-			deskmenu(mx, my);
+		if ( w >= 0 && w < MAX_WINDOWS && wins[w].used &&
+		     !wins[w].nodecor )		/* the dock has no window menu: */
+			winmenu(w, mx, my);	/* over it, right-click is the  */
+		else				/* desktop menu, like the bare  */
+			deskmenu(mx, my);	/* desktop it furnishes         */
 		return;
 	}
 	if ( changed & down & SM_MID )		/* MIDDLE: paste */
@@ -3665,8 +3312,21 @@ WMSG *c;
 		/* Into the window under the pointer, and deliberately WITHOUT
 		 * raising it: select in one window, paste into another without
 		 * restacking either.  The event carries only the position; the
-		 * client reads the bytes from the shared store itself. */
+		 * client reads the bytes from the shared store itself.
+		 *
+		 * An UNDECORATED window gets the raw button instead: there is no
+		 * text to paste into desktop furniture, and the dock's convention
+		 * needs the middle click as a gesture of its own (launch another
+		 * copy of a multi app).  No grab and no E_SELCLEAR -- the
+		 * selection is not consumed by a click that pastes nothing. */
 		w = who_top_at(p);
+		if ( w >= 0 && w < MAX_WINDOWS && wins[w].used &&
+		     wins[w].nodecor )
+		{
+			if ( toclient(w, mx, my, &cx, &cy) )
+				sendev(w, E_BUTTON, cx, cy, down, changed);
+			return;
+		}
 		if ( toclient(w, mx, my, &cx, &cy) )
 		{
 			sendev(w, E_PASTE, cx, cy, 0, 0);
@@ -3703,8 +3363,11 @@ WMSG *c;
 			/* ... and a press on the TITLE BAR picks the window up: drag
 			 * to move it, release to drop it (titledrag).  who_top_at()
 			 * already put (mx,my) inside the layer rect, so the bar is
-			 * just the top strip clear of the right shadow margin. */
-			else if ( !wins[w].min && wtbl[w] && wtbl[w]->wn_Layer &&
+			 * just the top strip clear of the right shadow margin.  An
+			 * undecorated window has no bar -- its whole rect is content,
+			 * so toclient() above already took every press on it. */
+			else if ( !wins[w].min && !wins[w].nodecor &&
+				  wtbl[w] && wtbl[w]->wn_Layer &&
 				  my < wtbl[w]->wn_Layer->rect.origin.y + WD_TITLEH &&
 				  mx < wtbl[w]->wn_Layer->rect.corner.x - WD_SHADOW )
 				titledrag(w);
@@ -3841,10 +3504,31 @@ WMSG *c;
 			handlebtn(c);
 		else if ( c->wm_arg[0] == IN_KEY )
 		{
+			int k = c->wm_arg[1];
+
+			if ( focuswid < 0 || focuswid >= MAX_WINDOWS ||
+			     !wins[focuswid].used )
+				return;
+			/* Alt+F1..F5: the window-operation shortcuts, on the
+			 * focused window -- the one the keystroke would have
+			 * reached.  Server-only (never forwarded, so a client
+			 * cannot shadow Alt+F5).  Ignored while the focus is
+			 * stale on a window Hide just unmapped, and Stretch
+			 * (like its menu entry) needs the client's HRF_STRETCH. */
+			if ( k >= HRK_AF1 && k <= HRK_AF5 )
+			{
+				static char afop[] = { 0, 1, 3, 4, 5 };
+					     /* Move Stretch Back Hide Quit */
+
+				if ( !wins[focuswid].min &&
+				     !wins[focuswid].nodecor &&
+				     (k != HRK_F2 + HRK_ALTFN ||
+				      wins[focuswid].stretch) )
+					winop(focuswid, afop[k - HRK_AF1]);
+				return;
+			}
 			/* route the keystroke to the focused window's client */
-			if ( focuswid >= 0 && focuswid < MAX_WINDOWS &&
-			     wins[focuswid].used )
-				sendev(focuswid, E_KEY, c->wm_arg[1], 0, 0, 0);
+			sendev(focuswid, E_KEY, k, 0, 0, 0);
 		}
 		return;
 	}
@@ -3867,6 +3551,16 @@ WMSG *c;
 	{
 		if ( wid == dlgwid )	/* only the owner may close it */
 			dlgclose();
+		return;
+	}
+	/* The dock asks for an application to be brought forward (wire.h).
+	 * Dropped while a dialog overlay is up: activate restacks and repaints,
+	 * which must not land on a box that is not a layer -- and the desktop
+	 * is system-modal then anyway. */
+	if ( c->wm_type == C_ACTIVATE )
+	{
+		if ( dlgwid < 0 )
+			activate(c->wm_arg[0]);
 		return;
 	}
 	if ( c->wm_type == C_BYE )
@@ -4180,13 +3874,12 @@ char **argv;
 	pumppid = startpump();
 
 	/* Load the launchable-app catalog (/usr/hr/etc/apps) -- what the right-click
-	 * desktop menu offers -- and put up the placeholder icons of every entry
-	 * that names one: the start-up desktop is a row of icons with NOTHING
-	 * running behind them, and an app is only launched (and only then takes
-	 * memory) when its icon is clicked.  The rc script still runs for anything
-	 * the user wants genuinely resident from power-on. */
+	 * desktop menu offers.  The desktop's icon bar is NOT ours: the rc script
+	 * starts the dock (zdock), a plain client with an undecorated window, which
+	 * reads the same catalog and draws every entry's icon itself -- the
+	 * kernel-and-shell split.  The menu here stays as the fallback launcher,
+	 * so a desktop whose dock has died can still start things (or quit). */
 	loadapps();
-	placesync();
 	deadadd(runrc());	/* the rc shell exits when the script ends: reap it */
 
 	for (;;)

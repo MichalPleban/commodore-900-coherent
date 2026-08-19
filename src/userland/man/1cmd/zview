@@ -20,8 +20,13 @@ It loads the display driver
 and the pseudo-terminal driver
 .BR /drv/pty ,
 takes over the screen and keyboard, loads the fonts, reads the
-application catalog, puts an icon on the desktop for each catalog
-entry, and runs the desktop start-up script.
+application catalog, and runs the desktop start-up script \- which
+normally starts the dock
+.BR zdock ,
+the icon bar along the top of the screen.
+The server itself draws no icons: it manages windows, the way a
+kernel manages processes, and leaves the desktop's furnishing to the
+dock, its replaceable shell.
 It takes no arguments.
 At boot,
 .B /etc/rc
@@ -31,10 +36,10 @@ exists \- create that file to enable the GUI; it can equally be
 started by hand from the console:
 .BR "zview &" .
 .PP
-The desktop shows icons at the top left: one placeholder per catalog
-application (no process exists behind it \- clicking it launches the
-program) and one icon per hidden window (marked with a corner badge;
-clicking it restores the window).
+The dock shows one icon per catalog application, always \- see
+.B zdock
+for its conventions (left click launches or switches, middle click
+starts another copy of a multi-instance application).
 Every window has a 3-button mouse and follows the same conventions:
 .IP \fBmenus\fR
 pop up under the
@@ -82,8 +87,10 @@ the keyboard;
 and
 .B Back
 restack it from the menu.
-Every key goes to the focused (most recently raised) window \- there
-are no desktop keyboard shortcuts.
+Every key goes to the focused (most recently raised) window, except
+the
+.B ALT
+window shortcuts below.
 .IP \fBmoving\fR
 drag the title bar directly with the left button.
 Alternatively pick
@@ -100,8 +107,27 @@ application is told its new size.
 Windows are clamped to the screen and to a 48x48 minimum.
 .IP \fBhiding\fR
 .B Hide
-takes the window off the screen and leaves a desktop icon; clicking
-the icon puts the window back exactly where it was.
+takes the window off the screen without closing it; the dock's
+pressed icon (left click) or the desktop menu's
+.B "Switch to..."
+puts it back exactly where it was.
+.IP "\fBkeyboard shortcuts\fR"
+the common window operations are also on
+.B ALT
+and a function key, acting on the focused window:
+.B ALT+F1
+Move,
+.B ALT+F2
+Stretch (resizable windows only),
+.B ALT+F3
+Back,
+.B ALT+F4
+Hide, and
+.B ALT+F5
+Quit (confirmed where the menu entry would be).
+Move and Stretch start the same grab-and-drag as their menu entries:
+press the left button to grab, drag the outline, release to commit.
+These keys belong to the desktop \- the application never sees them.
 .SH "COPY AND PASTE"
 Text moves between windows in two independent ways.
 .PP
@@ -152,16 +178,18 @@ consumed before its own arguments:
 .DS
 .ta 6n 20n
 	\fB\-T \fItitle\fR	window title
-	\fB\-I \fIfile\fB.icn\fR	icon (under /usr/hr/icons) when hidden
+	\fB\-I \fIfile\fB.icn\fR	icon (accepted and currently ignored:
+		the dock draws the catalog's icons)
 	\fB\-S \fIW\fBx\fIH\fR	content size in pixels (resizable
 		applications only)
 	\fB\-P \fIX\fB,\fIY\fR	window position in screen pixels
-	\fB\-H\fR	start hidden, as a desktop icon
+	\fB\-H\fR	start hidden
 .DE
-The one global key chord lives in the display driver:
+One further key chord lives in the display driver itself, so it works
+even when the server is hung:
 .B ALT+CTRL+HELP
-forcibly unloads it and shuts the desktop down \- the emergency exit
-for a hung screen.
+forcibly unloads the driver and shuts the desktop down \- the
+emergency exit for a hung screen.
 .SH FILES
 .DS
 .ta 8n 30n
@@ -177,17 +205,19 @@ Each
 .B apps
 line reads
 \fIname\fB:\fIpath\fB:\fImulti\fB:\fIicon\fB:\fIX\fB,\fIY\fR
-\- menu label, program, whether many copies may run (1) or one (0),
-the placeholder icon, and where a launched window goes; the last two
-fields are optional and
+\- menu and icon label (which must equal the application's declared
+title), program, whether many copies may run (1) or one (0), the dock
+icon, and where a launched window goes; the last two fields belong to
+the dock and are optional, and
 .B #
 starts a comment.
 The
 .B rc
-script runs at desktop start-up for anything that should be resident
-from the beginning; each command must end in
+script runs at desktop start-up; it starts the dock and anything else
+that should be resident from the beginning; each command must end in
 .BR & .
 .SH "SEE ALSO"
+.BR zdock ,
 .BR zterm ,
 .BR zedit ,
 .BR zfile ,
@@ -210,8 +240,7 @@ restores the text console, and reports
 At most 16 windows can be open and the catalog holds at most 12
 applications.
 The screen is 1024x800 pixels; windows are clamped to it.
-Applications are best launched from icons, the desktop menu or the
-.B apps
-catalog rather than made resident in
+Applications are best launched from the dock or the desktop menu
+rather than made resident in
 .BR rc :
-a placeholder icon costs no memory until it is clicked.
+a dock icon costs no memory until it is clicked.

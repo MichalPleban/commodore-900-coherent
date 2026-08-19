@@ -1,5 +1,12 @@
 Version 0.9.0 (11 August 2026):
+- Added keyboard shortcuts for the common window operations, acting on the focused window: Alt+F1 Move, Alt+F2 Stretch, Alt+F3 Back, Alt+F4 Hide, Alt+F5 Quit.
+- Ctrl+C now stops a foreground program run from a GUI terminal: zterm gives its shell a clean signal slate (like login), where before the shell inherited SIGINT/SIGQUIT ignored from the desktop's background start-up and passed that on to every command it ran. Apps launched from the dock or desktop menu get the same clean slate, so kill -2 works on them too.
+- The desktop is split kernel-and-shell style: zview now manages only windows, and a new separate application -- the dock, zdock, started from the desktop rc -- owns the icon bar along the top of the screen, launching and switching. The desktop survives without it (the right-click menu remains the fallback launcher).
+- Dock icons are always visible: a running app's icon draws pressed (lowered, no name) instead of disappearing, and the "New <name>" placeholder labels are gone. Left click launches an app or switches to its topmost window; middle click on a multi app starts another copy.
+- Windows can be undecorated (HRF_NODECOR: no title bar, frame or shadow) -- what the dock's bar uses; a new C_ACTIVATE request lets a client ask the server to bring an application's topmost window forward.
+- The GUI shared data area now has its own MMU segment (0x38) instead of being addressed through the tail of the second framebuffer segment; the video console driver maps it to wherever the card's spare RAM physically sits, so a different video card no longer requires relinking GUI clients.
 - Four more source-less binaries (l, fdformat, fortune, moo) were decompiled from disassembly and are now built from source like everything else.
+- Revived the wd driver's floppy-format ioctl (disabled since its 1985 "needs work" state), so /etc/fdformat actually formats a floppy again; the missing <fdioctl.h> was recreated.
 - The mouse cursor is now drawn as a proper opaque sprite (black ink with a white outline) instead of the old XOR pattern, so it stays visible over black window titles and no longer inverts what is under it.
 - The window server now publishes the window list (id, pid, title, minimised state) in shared memory, so any client can enumerate the desktop (hr_winlist).
 - The Monitor's process list gained a WINDOW column: the desktop window each process owns, read from the shared window list (a minimised window's title carries a trailing *).

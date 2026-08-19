@@ -52,10 +52,30 @@ static int	snapvalid;
  * save-under had restored their pixels untouched. */
 static int	cldropped;
 
-/* Cursor sprite box (framebuffer coords), captured once per batch in cl_begin;
- * a blit hides the driver's XOR cursor only when it overlaps this. */
+/* Cursor sprite box (framebuffer coords), captured once per primitive in
+ * cl_pbegin; a blit hides the driver's cursor only when it overlaps this. */
 static int	curbx0, curby0, curbx1, curby1;
 static int	cureligible;		/* 1 = we may hide the driver cursor    */
+
+/* The box must cover the driver's SAVE-UNDER footprint, not just the sprite:
+ * hrshow (drv/hr2.c) saves and restores THREE BYTES per row starting at the
+ * byte boundary (x & ~7) -- a 24x16 cell.  A blit that repaints any pixel of
+ * that cell without hiding the cursor gets it stomped back to the pre-blit
+ * pixels on the next cursor move (the restore is byte-blind) -- the "part of
+ * the border goes missing after moving the mouse" bug.  Pad by 8px around the
+ * cell: the published position can lag/lead the drawn sprite by a tick or two
+ * (the server publishes the input position, the driver the drawn one). */
+static
+cl_curbox()
+{
+	register HRGLOB *g;
+	register int x0;
+
+	g = hr_glob();
+	x0 = g->curx & ~0x7;
+	curbx0 = x0 - 8;         curby0 = g->cury - 8;
+	curbx1 = x0 + 24 + 8;    curby1 = g->cury + 16 + 8;
+}
 
 /* VRAM word address of pixel (x,y), spanning the 512-line SEG0/SEG1 split --
  * a local copy of the engine's screen_addr so clgfx needs no layer.o. */
@@ -330,10 +350,7 @@ cl_pbegin(cx0, cy0, cx1, cy1)
 	 * draws off its pty mux); hrlock.c hr_evwait catches the rest. */
 	if ( g->magic != HR_MAGIC )
 		exit(1);
-	/* 16x16 sprite from the hotspot, padded 1px so a blit that just grazes it
-	 * still hides it (a shown cursor XOR-clipped by a blit leaves a stray arrow). */
-	curbx0 = g->curx - 1;   curby0 = g->cury - 1;
-	curbx1 = g->curx + 17;  curby1 = g->cury + 17;
+	cl_curbox();			/* save-under footprint box, padded */
 	bx0 = S.ox + cx0;  by0 = S.oy + cy0;
 	bx1 = S.ox + cx1;  by1 = S.oy + cy1;
 	/* Candidate for the lock-free fast path: fully visible, no menu overlay, and
@@ -348,12 +365,16 @@ cl_pbegin(cx0, cy0, cx1, cy1)
 		 * With the flag held the server cannot restack (it drains on us), so the
 		 * clip we re-sync here is pinned for the whole primitive; it clears in
 		 * cl_pend.  (hr_setdraw is an extern call: it orders the store before the
-		 * stacking read.) */
+		 * stacking read.)  The driver also defers cursor redraws while the flag
+		 * is up (hr2.c hrmouse), so re-checking the cursor box AFTER raising it
+		 * pins the sprite clear of this primitive for its whole duration. */
 		hr_setdraw(mywid, 1);
 		if ( !g->stacking )
 		{
 			cl_sync();		/* clip now pinned -- server will drain on us */
-			if ( S.mapped && cl_fullyvis() )
+			cl_curbox();		/* sprite may have moved since the first test */
+			if ( S.mapped && cl_fullyvis() &&
+			     !(bx0 < curbx1 && bx1 > curbx0 && by0 < curby1 && by1 > curby0) )
 			{
 				curhid = 0;
 				cureligible = 0;	/* fast path never touches the cursor */
@@ -364,6 +385,9 @@ cl_pbegin(cx0, cy0, cx1, cy1)
 	}
 	hr_lock(hr_lockw());
 	cl_sync();			/* clip now guaranteed stable for this primitive */
+	cl_curbox();			/* re-capture UNDER the lock: the sprite may have
+					 * moved while we blocked acquiring it, and the
+					 * driver defers cursor redraws while it is held */
 	curhid = 0;
 	cureligible = ( hrfd >= 0 );
 	return 1;
@@ -589,6 +613,79 @@ cl_erase(col, row, ncol, nrow, cellw, cellh)
 {
 	cl_fillrect(col * cellw, row * cellh,
 		    (col + ncol) * cellw, (row + nrow) * cellh, 1);
+}
+
+extern cl_ldrow();	/* clrow.s: one word-ldir row copy */
+
+/* Blit a client-rendered 1bpp image into the content rect (cx0,cy0)-
+ * (cx1,cy1): src is int-aligned, swpr words per row, and its first word
+ * maps to (cx0,cy0).  Clipped to the visible regions like every other
+ * primitive.  Two paths per visible rect:
+ *
+ *  - the clipped rect spans the full image width, the screen destination
+ *    is word-aligned and the image is a whole number of words wide: one
+ *    ldir per row (cl_ldrow).  A key-driven client (zmaze) normally
+ *    redraws while frontmost and fully visible, so this unclipped copy is
+ *    its steady state -- and the per-row destination addresses are
+ *    recomputed from the CURRENT S.ox/S.oy every call, so a window move
+ *    just changes where the rows land (including across the 512-line
+ *    SEG0/SEG1 split, which cl_scraddr resolves per row).
+ *
+ *  - anything else (partial cover, unaligned x after a move): the engine
+ *    bitblt, which shifts and masks per visible rect.
+ */
+cl_blit(cx0, cy0, cx1, cy1, src, swpr)
+int *src;
+{
+	BLTSTRUCT blt;
+	BITMAP sb;
+	int i, locked, bx0, by0, bx1, by1;
+	int x0, y0, x1, y1, nw;
+	register int y;
+	register int *sp;
+
+	locked = cl_pbegin(cx0, cy0, cx1, cy1);
+	if ( !S.mapped || cl_frozen() )
+	{
+		cldropped = 1;		/* content lost: a repaint is owed */
+		cl_pend(locked);
+		return;
+	}
+	bx0 = S.ox + cx0;  by0 = S.oy + cy0;
+	bx1 = S.ox + cx1;  by1 = S.oy + cy1;
+	for ( i = 0; i < S.nvis; i++ )
+	{
+		x0 = bx0;  y0 = by0;  x1 = bx1;  y1 = by1;
+		if ( x0 < S.vis[i].x0 ) x0 = S.vis[i].x0;
+		if ( y0 < S.vis[i].y0 ) y0 = S.vis[i].y0;
+		if ( x1 > S.vis[i].x1 ) x1 = S.vis[i].x1;
+		if ( y1 > S.vis[i].y1 ) y1 = S.vis[i].y1;
+		if ( x1 <= x0 || y1 <= y0 )
+			continue;
+		cl_hidecur(x0, y0, x1, y1);
+		if ( x0 == bx0 && x1 == bx1 &&
+		     !(bx0 & 15) && !((bx1 - bx0) & 15) )
+		{
+			nw = (bx1 - bx0) >> 4;
+			sp = src + (y0 - by0) * swpr;
+			for ( y = y0; y < y1; y++, sp += swpr )
+				cl_ldrow(cl_scraddr(bx0, y), sp, nw);
+			continue;
+		}
+		sb.base = src;
+		sb.width = swpr << 4;
+		sb.rect.origin.x = 0;  sb.rect.origin.y = 0;
+		sb.rect.corner.x = cx1 - cx0;  sb.rect.corner.y = cy1 - cy0;
+		blt.src = &sb;
+		blt.dst = &cldisp;
+		blt.op = L_SRC;
+		blt.pat = texture[0];
+		blt.dr.origin.x = x0;  blt.dr.origin.y = y0;
+		blt.dr.corner.x = x1;  blt.dr.corner.y = y1;
+		blt.sp.x = x0 - bx0;  blt.sp.y = y0 - by0;
+		bitblt(&blt, 1, 0);
+	}
+	cl_pend(locked);
 }
 
 /* NB: there is deliberately no VRAM block-copy scroll here.  The terminal

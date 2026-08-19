@@ -21,7 +21,7 @@
 #include	<stat.h>
 #include	<uproc.h>
 #include	<errno.h>
-//#include	<fdioctl.h>
+#include	<fdioctl.h>
 
 int	wdload();
 int	wduload();
@@ -659,7 +659,7 @@ char *vec;
 		u.u_error = ENODEV;
 		return;
 	}
-/*	if (com != FDFORMAT) */ {
+	if (com != FDFORMAT) {
 		u.u_error = EINVAL;
 		return;
 	}

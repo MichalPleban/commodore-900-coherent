@@ -726,6 +726,8 @@ register int i;
 	RECT r, card, e;
 	int k;
 
+	if ( wtbl[i]->wn_Type & WT_NODECOR )
+		return;			/* undecorated: the content is all there is */
 	lp = wtbl[i]->wn_Layer;
 	r = lp->rect;
 	card = r;

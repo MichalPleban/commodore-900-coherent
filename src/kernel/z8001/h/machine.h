@@ -44,13 +44,15 @@
 #define	DS	0x31		/* System data segment */
 #define	CLS	0x32		/* Clist mapping segment */
 #define	BFS	0x33		/* Buffer mapping segment */
+#define	GDS	0x38		/* GUI shared data segment (hrgui tail) */
 #define	WDS	0x39		/* Western Digital hard disc segment */
 #define	BMS	0x3A		/* Bitmap segment 0, segment 1 is 0x3B */
 #define	DBS	0x3C		/* DDT segment - no one else touch */
 #define	ES	0x3D		/* Extra segment */
 #define	OS	0x3E		/* System overlay segment */
 #define	SS	0x3F		/* System stack/U-area segment */
-#define	SLS0	0x34		/* First shared library text segment */
+#define	SLS0	0x34		/* First shared library text segment
+				   (can grow to 0x37 at most: 0x38 is GDS) */
 #define	USTACK	0x00		/* User stack */
 #define	USEG	0x03		/* Start of user segments */
 #define	BMPHYS	0x00FF0000L	/* Physical (paddr_t) of bitmap */

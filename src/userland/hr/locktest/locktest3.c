@@ -6,7 +6,7 @@
  */
 #include <stdio.h>
 
-#define TAIL	0x3b009000L
+#define TAIL	0x38000000L
 #define LOCKW	((short *)(TAIL + 0x3800))
 #define COUNTP	((long  *)(TAIL + 0x3820))
 #define OWNERP	((short *)(TAIL + 0x3824))
