@@ -13,14 +13,26 @@ SSYYNNOOPPSSIISS
 DDEESSCCRRIIPPTTIIOONN
      zzddoocckk is the dock of the zzvviieeww desktop: an undecorated bar
      along the top of the screen showing one icon per application
-     of the catalog /uussrr/hhrr/eettcc/aappppss. It is the desktop's _s_h_e_l_l
-     in the old kernel-and-shell sense: the window server manages
-     windows and nothing else, and what the desktop offers - the
-     icons, launching, switching - lives in this ordinary,
-     replaceable program, started from the desktop start-up
-     script /uussrr/hhrr/eettcc/rrcc like any other resident application.
-     The desktop survives without it; the server's right-click
-     menu remains as the fallback launcher.
+     of the dock's own catalog /uussrr/hhrr/eettcc/ddoocckk. It is the
+     desktop's _s_h_e_l_l in the old kernel-and-shell sense: the win-
+     dow server manages windows and nothing else, and what the
+     desktop offers - the icons, launching, switching - lives in
+     this ordinary, replaceable program, started from the desktop
+     start-up script /uussrr/hhrr/eettcc/rrcc like any other resident ap-
+     plication.  The desktop survives without it; the server's
+     right-click menu remains as the fallback launcher.  The menu
+     reads a separate catalog (/uussrr/hhrr/eettcc/aappppss see zzvviieeww), so
+     the dock's icons and the menu's entries are independent
+     lists.
+
+     Each ddoocckk line reads _n_a_m_e:_p_a_t_h:_m_u_l_t_i:_i_c_o_n:_X,_Y:_a_r_g_s - icon
+     label (which must equal the application's declared title),
+     program, whether many copies may run (1) or one (0), the
+     icon file under /uussrr/hhrr/iiccoonnss, where a launched window goes,
+     and extra command-line arguments (blank-separated) passed to
+     the program at launch; all fields past the program are
+     optional, and # starts a comment.  A line starting with @
+     declares a widget instead - see WIDGETS below.
 
      Every icon is always visible.  Its look tells the ap-
      plication's state:
@@ -47,18 +59,6 @@ DDEESSCCRRIIPPTTIIOONN
           plication it acts like a left click.
 
      A launched window opens at the X,Y the catalog gives the
-     entry (passed to the application as -PP XX,YY), or wherever the
-     server places it when the entry names none.  While a launch
-     is in flight the icon is already pressed and further clicks
-     are ignored, so a double click starts one copy, not two.
-
-FFIILLEESS
-                  /usr/hr/etc/apps      application catalog (see zview)
-                  /usr/hr/icons/*.icn   icon artwork; icon0.icn is the fallback
-
-SSEEEE AALLSSOO
-     zzvviieeww
-
 
 
 COHERENT Command Manual                                    Page 1
@@ -70,6 +70,43 @@ zzddoocckk                                                       zzddooc
 
 
 
+     eennttrryy (passed to the application as -PP XX,YY), or wherever the
+     server places it when the entry names none.  While a launch
+     is in flight the icon is already pressed and further clicks
+     are ignored, so a double click starts one copy, not two.
+
+WWIIDDGGEETTSS
+     A catalog line @_n_a_m_e:_p_a_t_h[:_c_l_i_c_k][:_a_r_g_s] declares a _w_i_d_g_e_t:
+     a small resident program the dock starts itself, drawing
+     live content - the time of day, free memory - in an icon-
+     sized cell at the _r_i_g_h_t end of the bar (the first @ line
+     takes the rightmost cell; at most four).  The widget draws
+     _i_n_s_i_d_e the dock's own window, clipped exactly as the dock
+     is, so it can never paint outside its cell; it has no icon
+     and does not appear in the window list.  The dock restarts a
+     widget that dies - a few times, then gives up and leaves the
+     cell blank - and takes its widgets with it when it exits.
+
+     The _c_l_i_c_k field makes the cell a button.  _T_i_t_l_e=_p_a_t_h gives a
+     left click on the cell the dock-icon verb for that applica-
+     tion: switch to it when it runs, launch it when it does not
+     - so the application's own icon can be taken off the bar
+     (the shipped catalog wires the time cell to zzcclloocckk and the
+     memory cell to zzmmoonn). A click value of * opens the server's
+     SSwwiittcchh ttoo...  dialog (the shipped program-count cell), the
+     same dialog the desktop menu offers.
+
+     The shipped widgets are zzwwcclloocckk, zzwwmmeemm and zzwwwwiinn; they are
+     started with a private -WW contract on the command line and
+     are not meant to be run by hand.
+
+FFIILLEESS
+                  /usr/hr/etc/dock      dock catalog
+                  /usr/hr/icons/*.icn   icon artwork; icon0.icn is the fallback
+
+SSEEEE AALLSSOO
+     zzvviieeww
+
 NNOOTTEESS
      The bar is an ordinary window: other windows may cover it,
      and a left click on it raises it again.  It cannot be hid-
@@ -80,4 +117,7 @@ NNOOTTEESS
      an application's declared title must equal its catalog name
      (the convention throughout the shipped catalog), or its icon
      will not read as running.  The state of the bar follows the
-     desktop within about two seconds.
+     desktop immediately: the server notifies the dock the moment
+     the window list changes.  (A launch that dies before it
+     makes a window is noticed by a slower fallback poll, so its
+     icon may stay pressed for a couple of seconds.)

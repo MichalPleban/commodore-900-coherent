@@ -1,0 +1,38 @@
+
+
+zzwwwwiinn                                                       zzwwwwiinn
+
+
+
+NNAAMMEE
+     zwwin - dock widget: running-program count
+
+SSYYNNOOPPSSIISS
+     started by zzddoocckk (catalog line
+     @PPrrooggrraammss:/uussrr/hhrr/bbiinn/zzwwwwiinn:*)
+
+DDEESSCCRRIIPPTTIIOONN
+     zzwwwwiinn is a widget of the zzddoocckk bar: a small resident program
+     the dock starts from an @ line of its catalog, showing how
+     many programs are on the desktop (distinct window-owning
+     clients - an application with two windows counts once, and
+     the dock bar itself not at all) in an icon-sized cell at the
+     right end of the bar.  The count comes from the server-
+     published window list, the same list zzmmoonn shows a column of,
+     and follows the desktop within a second.
+
+     It draws inside the dock's own window under the dock's clip-
+     ping, owns no window of its own, and takes no input itself;
+     a left click on the cell is the dock's, and the shipped
+     catalog wires it (the * click verb) to the server's SSwwiittcchh
+     ttoo...  dialog - the same window list the desktop menu of-
+     fers.  It exits by itself when the dock goes away.
+
+SSEEEE AALLSSOO
+     zzddoocckk , zzvviieeww , zzmmoonn
+
+NNOOTTEESS
+     Not meant to be run from a shell: it needs the cell contract
+     (-WW that only zzddoocckk supplies, and exits at once without it.
+     Minimised (hidden) windows still belong to running programs
+     and are counted.

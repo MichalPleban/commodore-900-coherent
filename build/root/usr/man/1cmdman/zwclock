@@ -1,0 +1,35 @@
+
+
+zzwwcclloocckk                                                   zzwwcclloocckk
+
+
+
+NNAAMMEE
+     zwclock - dock widget: time of day
+
+SSYYNNOOPPSSIISS
+     started by zzddoocckk (catalog line @TTiimmee:/uussrr/hhrr/bbiinn/zzwwcclloocckk)
+
+DDEESSCCRRIIPPTTIIOONN
+     zzwwcclloocckk is a widget of the zzddoocckk bar: a small resident
+     program the dock starts from an @ line of its catalog,
+     showing the time of day (HHHH :MMMM with the weekday and day of
+     the month beneath, in an icon-sized cell at the right end of
+     the bar.  It redraws once a second, so the display follows
+     the clock (and the dock's own repaints) immediately.
+
+     It draws inside the dock's own window under the dock's clip-
+     ping, owns no window of its own, and takes no input itself;
+     a left click on the cell is the dock's, and the shipped
+     catalog wires it to the full zzcclloocckk application (switch to
+     it when it runs, launch it when it does not), so the Clock
+     icon need not sit on the bar.  It exits by itself when the
+     dock goes away.
+
+SSEEEE AALLSSOO
+     zzddoocckk , zzvviieeww , zzcclloocckk , ddaattee
+
+NNOOTTEESS
+     Not meant to be run from a shell: it needs the cell contract
+     (-WW that only zzddoocckk supplies, and exits at once without it.
+     For a clock in a window of its own, see zzcclloocckk.

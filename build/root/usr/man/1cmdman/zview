@@ -159,21 +159,25 @@ OOPPTTIIOONNSS
 
 FFIILLEESS
                   /etc/wgui             if present, rc starts the GUI
-                  /usr/hr/etc/apps      application catalog
+                  /usr/hr/etc/apps      launcher-menu catalog
+                  /usr/hr/etc/dock      the dock's catalog (see zdock)
                   /usr/hr/etc/rc        desktop start-up script
                   /usr/hr/icons/*.icn   icons
                   /usr/hr/fonts/*.hf    fonts
                   /drv/hr, /drv/pty     drivers, loaded at start-up
                   /wscrash              crash status of a dead server
 
-     Each aappppss line reads _n_a_m_e:_p_a_t_h:_m_u_l_t_i:_i_c_o_n:_X,_Y - menu and
-     icon label (which must equal the application's declared
-     title), program, whether many copies may run (1) or one (0),
-     the dock icon, and where a launched window goes; the last
-     two fields belong to the dock and are optional, and # starts
-     a comment.  The rrcc script runs at desktop start-up; it
-     starts the dock and anything else that should be resident
-     from the beginning; each command must end in &.
+     Each aappppss line reads _n_a_m_e:_p_a_t_h:_m_u_l_t_i:_a_r_g_s - menu label
+     (which must equal the application's declared title),
+     program, whether many copies may run (1) or one (0), and ex-
+     tra command-line arguments (blank-separated) passed to the
+     program at launch; the last two fields are optional, and #
+     starts a comment.  The dock's icon bar is configured
+     separately, in /uussrr/hhrr/eettcc/ddoocckk (see zzddoocckk), so the menu and
+     the dock are independent lists.  The rrcc script runs at
+     desktop start-up; it starts the dock and anything else that
+     should be resident from the beginning; each command must end
+     in &.
 
 SSEEEE AALLSSOO
      zzddoocckk, zztteerrmm, zzeeddiitt, zzffiillee, zzmmaaiill, zzmmaann, zzccaallcc, zzpprriinntt,
@@ -187,10 +191,6 @@ DDIIAAGGNNOOSSTTIICCSS
      text console, and reports `zview: server died -- screen and
      keyboard restored'.
 
-NNOOTTEESS
-     At most 16 windows can be open and the catalog holds at most
-     12 applications.  The screen is 1024x800 pixels; windows are
-     clamped to it.  Applications are best launched from the dock
 
 
 COHERENT Command Manual                                    Page 3
@@ -202,5 +202,9 @@ zzvviieeww                                                       zzvviie
 
 
 
-     oorr the desktop menu rather than made resident in rrcc: a dock
+NNOOTTEESS
+     At most 16 windows can be open and the catalog holds at most
+     12 applications.  The screen is 1024x800 pixels; windows are
+     clamped to it.  Applications are best launched from the dock
+     or the desktop menu rather than made resident in rrcc: a dock
      icon costs no memory until it is clicked.

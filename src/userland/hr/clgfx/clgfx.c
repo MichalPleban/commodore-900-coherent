@@ -33,6 +33,15 @@ static int	lastseq = -1;		/* seqlock value of the last sync'd S   */
 static int	indlg;			/* 1 = primitives target the DIALOG     */
 					/* surface (hr_dlgsurf), not the window */
 
+/* Widget sub-surface mode (cl_subinit): this process draws inside a CELL of
+ * ANOTHER window (the dock bar).  cl_sync then reads the HOST's descriptor and
+ * intersects its visible rects with the cell, so every primitive clips as if
+ * the cell were this client's whole content -- with NO new server state.  The
+ * cell rect is kept in HOST-CONTENT coords and mapped through the host's
+ * current ox/oy on every sync (never cached in fb coords). */
+static int	subon;			/* 1 = sub-surface (widget) mode        */
+static int	subx0, suby0, subx1, suby1;	/* cell rect, host-content coords */
+
 /* Snapshot of the visible-region list at the client's last full repaint
  * (cl_snapclip), against which cl_uncovered() decides whether a later clip
  * change actually UNCOVERED anything.  A raise that only covers us MORE (or a
@@ -145,7 +154,57 @@ cl_sync()
 			S.vis[i] = sp->vis[i];
 		s2 = sp->seq;
 	} while ( (s1 & 1) || s1 != s2 );
+	if ( subon )
+	{
+		/* Widget mode: S holds the HOST's descriptor -- clamp every
+		 * visible rect to the cell (fb coords derived from the host's
+		 * CURRENT origin, so a host move re-derives them), then present
+		 * the cell itself as the content rect.  Runs once per fresh
+		 * copy; the even-seq fast path above returns this transformed
+		 * snapshot unchanged. */
+		HRRECT r;
+		int fx0, fy0, fx1, fy1, n;
+
+		fx0 = S.ox + subx0;  fy0 = S.oy + suby0;
+		fx1 = S.ox + subx1;  fy1 = S.oy + suby1;
+		n = 0;
+		for ( i = 0; i < S.nvis; i++ )
+		{
+			r = S.vis[i];
+			if ( r.x0 < fx0 ) r.x0 = fx0;
+			if ( r.y0 < fy0 ) r.y0 = fy0;
+			if ( r.x1 > fx1 ) r.x1 = fx1;
+			if ( r.y1 > fy1 ) r.y1 = fy1;
+			if ( r.x1 > r.x0 && r.y1 > r.y0 )
+				S.vis[n++] = r;
+		}
+		S.nvis = n;
+		S.ox = fx0;  S.oy = fy0;
+		S.cw = subx1 - subx0;  S.ch = suby1 - suby0;
+	}
 	lastseq = s1;
+}
+
+/* One-time setup for a WIDGET: a windowless process that draws inside the
+ * host-content cell (x0,y0)-(x1,y1) of window hostwid (the dock bar).  Like
+ * cl_init but WITHOUT hr_setdraw: the SHM_INDRAW byte is the HOST's (single
+ * writer per byte, shmem.h) -- and cl_pbegin never takes the lock-free fast
+ * path in sub mode for the same reason, so the flag is never needed.  The
+ * primitives then see local coords with (0,0) = the cell corner.
+ * cl_dopen/cl_dclose are undefined in sub mode (widgets have no dialogs). */
+cl_subinit(hostwid, x0, y0, x1, y1)
+{
+	mywid = hostwid;
+	subon = 1;
+	subx0 = x0;  suby0 = y0;
+	subx1 = x1;  suby1 = y1;
+	lastseq = -1;
+	cldisp.base = (int *)0x3a000000L;	/* SEG0, offset 0 */
+	cldisp.rect.origin.x = 0;  cldisp.rect.origin.y = 0;
+	cldisp.rect.corner.x = XMAXP;  cldisp.rect.corner.y = YMAXP;
+	cldisp.width = XMAXP;
+	hrfd = open("/dev/dmgr", 2);		/* for cursor on/off (any node) */
+	cl_sync();
 }
 
 cl_mapped()	{ return S.mapped; }
@@ -354,8 +413,10 @@ cl_pbegin(cx0, cy0, cx1, cy1)
 	bx0 = S.ox + cx0;  by0 = S.oy + cy0;
 	bx1 = S.ox + cx1;  by1 = S.oy + cy1;
 	/* Candidate for the lock-free fast path: fully visible, no menu overlay, and
-	 * clear of the cursor sprite. */
-	if ( S.mapped && !g->overlay && cl_fullyvis() &&
+	 * clear of the cursor sprite.  Never in sub-surface (widget) mode: the
+	 * SHM_INDRAW byte it would raise belongs to the HOST window's client
+	 * (single writer per byte) -- widgets always take the real lock. */
+	if ( !subon && S.mapped && !g->overlay && cl_fullyvis() &&
 	     !(bx0 < curbx1 && bx1 > curbx0 && by0 < curby1 && by1 > curby0) )
 	{
 		/* Dekker handshake with the server's srvlock (which sets `stacking'

@@ -3,7 +3,7 @@
 : "have # comments.)"
 :
 : "The dock (zdock) is the desktop's 'shell': it draws the icon bar along"
-: "the top of the screen from /usr/hr/etc/apps and launches/switches apps."
+: "the top of the screen from /usr/hr/etc/dock and launches/switches apps."
 : "The server itself draws no icons -- without the dock the desktop still"
 : "runs, with the right-click menu as the only launcher."
 :

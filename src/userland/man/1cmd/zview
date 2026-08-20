@@ -194,7 +194,8 @@ emergency exit for a hung screen.
 .DS
 .ta 8n 30n
 	/etc/wgui	if present, rc starts the GUI
-	/usr/hr/etc/apps	application catalog
+	/usr/hr/etc/apps	launcher-menu catalog
+	/usr/hr/etc/dock	the dock's catalog (see zdock)
 	/usr/hr/etc/rc	desktop start-up script
 	/usr/hr/icons/*.icn	icons
 	/usr/hr/fonts/*.hf	fonts
@@ -204,13 +205,18 @@ emergency exit for a hung screen.
 Each
 .B apps
 line reads
-\fIname\fB:\fIpath\fB:\fImulti\fB:\fIicon\fB:\fIX\fB,\fIY\fR
-\- menu and icon label (which must equal the application's declared
-title), program, whether many copies may run (1) or one (0), the dock
-icon, and where a launched window goes; the last two fields belong to
-the dock and are optional, and
+\fIname\fB:\fIpath\fB:\fImulti\fB:\fIargs\fR
+\- menu label (which must equal the application's declared title),
+program, whether many copies may run (1) or one (0), and extra
+command-line arguments (blank-separated) passed to the program at
+launch; the last two fields are optional, and
 .B #
 starts a comment.
+The dock's icon bar is configured separately, in
+.B /usr/hr/etc/dock
+(see
+.BR zdock ),
+so the menu and the dock are independent lists.
 The
 .B rc
 script runs at desktop start-up; it starts the dock and anything else

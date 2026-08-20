@@ -1,0 +1,44 @@
+.TH zwwin "" "Command"
+.SH NAME
+zwwin \- dock widget: running-program count
+.SH SYNOPSIS
+started by \fBzdock\fR (catalog line \fB@Programs:/usr/hr/bin/zwwin:*\fR)
+.SH DESCRIPTION
+.HS
+zwwin -- dock widget: running-program count
+Started by zdock from an @ line of /usr/hr/etc/dock; not run by hand.
+Shows how many programs are on the desktop; click for "Switch to...".
+.HE
+.B zwwin
+is a widget of the
+.B zdock
+bar: a small resident program the dock starts from an
+.B @
+line of its catalog, showing how many programs are on the desktop
+(distinct window-owning clients \- an application with two windows
+counts once, and the dock bar itself not at all) in an icon-sized cell
+at the right end of the bar.
+The count comes from the server-published window list, the same list
+.B zmon
+shows a column of, and follows the desktop within a second.
+.PP
+It draws inside the dock's own window under the dock's clipping, owns
+no window of its own, and takes no input itself; a left click on the
+cell is the dock's, and the shipped catalog wires it (the
+.B *
+click verb) to the server's
+.B "Switch to..."
+dialog \- the same window list the desktop menu offers.
+It exits by itself when the dock goes away.
+.SH "SEE ALSO"
+.B zdock ,
+.B zview ,
+.B zmon
+.SH NOTES
+Not meant to be run from a shell: it needs the cell contract
+.RB ( \-W )
+that only
+.B zdock
+supplies, and exits at once without it.
+Minimised (hidden) windows still belong to running programs and are
+counted.

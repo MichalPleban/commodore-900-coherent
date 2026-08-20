@@ -1004,10 +1004,11 @@ $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zview/zvpump.o \
 	$(HRGUIOBJ)/zman/zman.o $(HRGUIOBJ)/zfile/zfile.o \
 	$(HRGUIOBJ)/zpuzzle/zpuzzle.o $(HRGUIOBJ)/zdock/zdock.o \
 	$(HRGUIOBJ)/zmaze/zmaze.o $(HRGUIOBJ)/zmaze/zmcore.o \
+	$(HRGUIOBJ)/zwidg/zwclock.o $(HRGUIOBJ)/zwidg/zwwin.o \
 	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o \
 	$(HRGUIOBJ)/clgfx/hrsel.o $(HRGUIOBJ)/cmd/hrclip.o \
 	$(HRGUIOBJ)/clgfx/hrapp.o $(HRGUIOBJ)/clgfx/hrdlg.o \
-	$(HRGUIOBJ)/clgfx/hrwl.o \
+	$(HRGUIOBJ)/clgfx/hrwl.o $(HRGUIOBJ)/clgfx/hrwidg.o \
 	$(HRGUIOBJ)/clgfx/hrsbar.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
 
 # clgfx.o: the client-side direct-render draw library (GUI.md Model A).  Clients
@@ -1037,6 +1038,10 @@ HRSEL := $(HRGUIOBJ)/clgfx/hrsel.o
 # named explicitly by consumers that enumerate windows; exported to every
 # shared client via the .sl below.  (The PUBLISHER is in zview itself.)
 HRWL := $(HRGUIOBJ)/clgfx/hrwl.o
+# hrwidg.o: the dock-widget client side (inc/hrwidg.h) -- parse zdock's -W
+# cell contract into a clgfx sub-surface (cl_subinit) and the hr_wlive
+# liveness gate.  In the .sl like hrwl.o, so a widget links no gfx objects.
+HRWIDG := $(HRGUIOBJ)/clgfx/hrwidg.o
 CLGFX := $(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/clrow.o \
 	$(HRGUIOBJ)/clgfx/hrapp.o $(HRLOCK)
 # hrdlg.o: the modal-dialog widget kit (inc/hrdlg.h).  Same rule as HRSEL --
@@ -1076,7 +1081,7 @@ SHLIB := $(LIBDIR)/libhrgfx.sl
 # malloc, stays in its own data segment -- the two coexist).
 SLCRT := $(OBJ)/userland/lib/csu/slcrt.o
 SLGFX_OBJ := $(HRGFX_ASM) $(filter-out $(HRGUIOBJ)/gfx/layer.o,$(HRGFX_C)) \
-	$(HRGFX_GLOB) $(CLGFX) $(HRSEL) $(HRDLG) $(HRSBAR) $(HRWL)
+	$(HRGFX_GLOB) $(CLGFX) $(HRSEL) $(HRDLG) $(HRSBAR) $(HRWL) $(HRWIDG)
 
 $(SHLIB): $(SLCRT) $(SLGFX_OBJ) $(DTOA) $(LIBC) tools/mkslib.py
 	@mkdir -p $(dir $@)
@@ -1251,6 +1256,26 @@ $(HRGUIBIN)/zdock: $(HRGUIOBJ)/zdock/zdock.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zdock/zdock.o $(SHLIB) $(LIBC)
 
+# Dock widgets (zdock "@" catalog lines): windowless clients that draw live
+# content inside one cell of the dock bar through the clgfx sub-surface mode
+# (cl_subinit; -W contract parsed by the .sl's hrwidg.o).  zwmem samples the
+# kernel the way zmon/ps/mem do, so like them it compiles against the
+# machine-specific kernel headers.
+$(HRGUIOBJ)/zwidg/zwmem.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc \
+	-I$(SRC)/kernel/z8001/h -I$(SRC)/kernel/h
+$(HRGUIBIN)/zwclock: LDNFLAGS := -n
+$(HRGUIBIN)/zwclock: $(HRGUIOBJ)/zwidg/zwclock.o $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zwidg/zwclock.o $(SHLIB) $(LIBC)
+$(HRGUIBIN)/zwmem: LDNFLAGS := -n
+$(HRGUIBIN)/zwmem: $(HRGUIOBJ)/zwidg/zwmem.o $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zwidg/zwmem.o $(SHLIB) $(LIBC)
+$(HRGUIBIN)/zwwin: LDNFLAGS := -n
+$(HRGUIBIN)/zwwin: $(HRGUIOBJ)/zwidg/zwwin.o $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zwidg/zwwin.o $(SHLIB) $(LIBC)
+
 # zfile: direct-render file manager -- an ls -l listing of one directory with
 # open/copy/move/delete/mkdir through the dialog kit.  Launched executables
 # inherit the command pipe, so any +x binary becomes a launchable GUI app.
@@ -1293,6 +1318,12 @@ $(ROOT)/usr/hr/etc/apps: src/userland/hr/etc/apps
 	@mkdir -p $(dir $@)
 	cp $< $@
 
+# the icon-bar catalog zdock reads at startup -- a separate list from the
+# server's menu catalog above (src -> staging image).
+$(ROOT)/usr/hr/etc/dock: src/userland/hr/etc/dock
+	@mkdir -p $(dir $@)
+	cp $< $@
+
 # the desktop start-up script: a /bin/sh script zview runs when it comes up,
 # naming the apps to open (with their -P/-S/-H options) -- so the first screen
 # is configuration, not server code (src -> staging image).
@@ -1331,9 +1362,11 @@ HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(SHLIB) $(HRGUIBIN)/gfxtest $(HRGUIBI
 	$(HRGUIBIN)/zdlg $(HRGUIBIN)/zedit $(HRGUIBIN)/zmail $(HRGUIBIN)/zprint \
 	$(HRGUIBIN)/zmon $(HRGUIBIN)/zcalc $(HRGUIBIN)/zman $(HRGUIBIN)/zfile \
 	$(HRGUIBIN)/zpuzzle $(HRGUIBIN)/zmaze $(HRGUIBIN)/zdock \
+	$(HRGUIBIN)/zwclock $(HRGUIBIN)/zwmem $(HRGUIBIN)/zwwin \
 	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIBIN)/hrclip \
 	$(HRGUIFONTS) \
-	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/rc $(HRGUIICONS)
+	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/dock $(ROOT)/usr/hr/etc/rc \
+	$(HRGUIICONS)
 
 # Build the ZView desktop and its clients standalone (they are otherwise only
 # reachable through `image`, which repacks the whole disk).

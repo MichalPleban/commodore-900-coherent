@@ -1,25 +1,17 @@
-# Desktop application catalog, read by BOTH halves of the desktop:
-#   zview  (the window server) reads name/execpath/multi for its right-click
-#          launcher menu -- the fallback launcher that works even with no dock;
-#   zdock  (the dock, the desktop's separate "shell") reads every field and
-#          draws one icon per entry in its bar along the top of the screen.
-# One line per app:  name:execpath:multi:icon:X,Y   (the last two optional)
-#   name        menu label, dock-icon label, AND the app's title base: by
-#               convention it equals the title the program declares in its
-#               HRAPP, which is how the dock (and the menu's single-instance
-#               re-raise) match windows to this entry.
-#   execpath    program; run with a bare argv (plus -P X,Y from the dock)
-#   multi       1 = may open many copies (dock: middle click starts another;
-#               menu shows "New <name>...");
+# Launcher catalog, read by the window server (zview): what the right-click
+# desktop menu offers -- the fallback launcher that works even with no dock.
+# The dock keeps its OWN catalog, /usr/hr/etc/dock: the two lists are
+# independent, so an app can sit in this menu without a dock icon (or the
+# other way round).
+# One line per app:  name:execpath:multi:args   (the last two optional)
+#   name        menu label AND the app's title base: by convention it equals
+#               the title the program declares in its HRAPP, which is how the
+#               menu's single-instance re-raise matches windows to this entry.
+#   execpath    program, run from the menu with these arguments
+#   multi       1 = may open many copies (menu shows "New <name>...");
 #               0 = single instance (a second launch raises it instead)
-#   icon        .icn under /usr/hr/icons, shown in the dock.  EVERY entry's
-#               icon is always visible there: sitting high with the name
-#               beneath while nothing runs, pressed (dropped down, no name)
-#               while the app has a window or a launch is in flight.  Left
-#               click launches or switches to the app's topmost window.
-#   X,Y         where a dock launch puts the window (top-left of the frame);
-#               left out, the server places it.  Keep Y clear of the dock
-#               strip (the top ~70px) or the new window opens under it.
+#   args        extra command-line arguments, blank-separated, passed to the
+#               program at launch
 #
 # The window itself -- title, size, icon while hidden, whether it may be
 # stretched -- is NOT configured here: the application declares it at
@@ -28,14 +20,14 @@
 #
 # The rc script /usr/hr/etc/rc runs at desktop start-up: it starts the dock,
 # and anything else that should be genuinely RESIDENT from power-on.
-Shell:/usr/hr/bin/zterm:1:term.icn:48,88
-Files:/usr/hr/bin/zfile:1:file.icn:120,100
-Editor:/usr/hr/bin/zedit:1:edit.icn:80,84
-Mail:/usr/hr/bin/zmail:0:mail.icn:100,120
-Manual:/usr/hr/bin/zman:0:man.icn:180,140
-Calculator:/usr/hr/bin/zcalc:0:calc.icn:600,180
-Printer:/usr/hr/bin/zprint:0:printer.icn:380,300
-Monitor:/usr/hr/bin/zmon:0:monitor.icn:300,180
-Puzzle:/usr/hr/bin/zpuzzle:0:puzzle.icn:700,300
-Maze:/usr/hr/bin/zmaze:0:maze.icn:620,300
-Clock:/usr/hr/bin/zclock:0:clock.icn:720,88
+Shell:/usr/hr/bin/zterm:1
+Files:/usr/hr/bin/zfile:1
+Editor:/usr/hr/bin/zedit:1
+Mail:/usr/hr/bin/zmail:0
+Manual:/usr/hr/bin/zman:0
+Calculator:/usr/hr/bin/zcalc:0
+Printer:/usr/hr/bin/zprint:0
+Monitor:/usr/hr/bin/zmon:0
+Puzzle:/usr/hr/bin/zpuzzle:0
+Maze:/usr/hr/bin/zmaze:0
+Clock:/usr/hr/bin/zclock:0

@@ -1,0 +1,41 @@
+
+
+zzwwmmeemm                                                       zzwwmmeemm
+
+
+
+NNAAMMEE
+     zwmem - dock widget: free memory
+
+SSYYNNOOPPSSIISS
+     started by zzddoocckk (catalog line @MMeemmoorryy:/uussrr/hhrr/bbiinn/zzwwmmeemm)
+
+DDEESSCCRRIIPPTTIIOONN
+     zzwwmmeemm is a widget of the zzddoocckk bar: a small resident program
+     the dock starts from an @ line of its catalog, showing the
+     machine's free user memory in kilobytes in an icon-sized
+     cell at the right end of the bar.  The figure is mmeemm's (and
+     zzmmoonn's): the kernel's in-core segment queue, walked through
+     a /ddeevv/kkmmeemm snapshot, subtracted from the user-memory span.
+     It resamples every three seconds.
+
+     It draws inside the dock's own window under the dock's clip-
+     ping, owns no window of its own, and takes no input itself;
+     a left click on the cell is the dock's, and the shipped
+     catalog wires it to zzmmoonn (switch to it when it runs, launch
+     it when it does not), so the Monitor icon need not sit on
+     the bar.  It exits by itself when the dock goes away.
+
+FFIILLEESS
+                  /coherent             kernel namelist
+                  /dev/kmem             kernel memory
+
+SSEEEE AALLSSOO
+     zzddoocckk , zzvviieeww , zzmmoonn , mmeemm
+
+NNOOTTEESS
+     Not meant to be run from a shell: it needs the cell contract
+     (-WW that only zzddoocckk supplies, and exits at once without it.
+     With no readable /ddeevv/kkmmeemm or a stripped kernel the cell
+     shows -- and keeps ticking.  For the full memory breakdown
+     and process list, see zzmmoonn.

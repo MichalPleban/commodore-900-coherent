@@ -15,8 +15,8 @@ middle click starts another copy of a multi application.
 is the dock of the
 .B zview
 desktop: an undecorated bar along the top of the screen showing one
-icon per application of the catalog
-.BR /usr/hr/etc/apps .
+icon per application of the dock's own catalog
+.BR /usr/hr/etc/dock .
 It is the desktop's
 .I shell
 in the old kernel-and-shell sense: the window server manages windows
@@ -27,6 +27,28 @@ the desktop start-up script
 like any other resident application.
 The desktop survives without it; the server's right-click menu remains
 as the fallback launcher.
+The menu reads a separate catalog
+.RB ( /usr/hr/etc/apps ,
+see
+.BR zview ),
+so the dock's icons and the menu's entries are independent lists.
+.PP
+Each
+.B dock
+line reads
+\fIname\fB:\fIpath\fB:\fImulti\fB:\fIicon\fB:\fIX\fB,\fIY\fB:\fIargs\fR
+\- icon label (which must equal the application's declared title),
+program, whether many copies may run (1) or one (0), the icon file
+under
+.BR /usr/hr/icons ,
+where a launched window goes, and extra command-line arguments
+(blank-separated) passed to the program at launch; all fields past the
+program are optional, and
+.B #
+starts a comment.
+A line starting with
+.B @
+declares a widget instead \- see WIDGETS below.
 .PP
 Every icon is always visible.
 Its look tells the application's state:
@@ -55,10 +77,55 @@ to the application as
 or wherever the server places it when the entry names none.
 While a launch is in flight the icon is already pressed and further
 clicks are ignored, so a double click starts one copy, not two.
+.SH WIDGETS
+A catalog line
+\fB@\fIname\fB:\fIpath\fR[\fB:\fIclick\fR][\fB:\fIargs\fR]
+declares a
+.IR widget :
+a small resident program the dock starts itself, drawing live content
+\- the time of day, free memory \- in an icon-sized cell at the
+.I right
+end of the bar (the first
+.B @
+line takes the rightmost cell; at most four).
+The widget draws
+.I inside
+the dock's own window, clipped exactly as the dock is, so it can never
+paint outside its cell; it has no icon and does not appear in the
+window list.
+The dock restarts a widget that dies \- a few times, then gives up and
+leaves the cell blank \- and takes its widgets with it when it exits.
+.PP
+The
+.I click
+field makes the cell a button.
+\fITitle\fB=\fIpath\fR
+gives a left click on the cell the dock-icon verb for that
+application: switch to it when it runs, launch it when it does not \-
+so the application's own icon can be taken off the bar (the shipped
+catalog wires the time cell to
+.B zclock
+and the memory cell to
+.BR zmon ).
+A click value of
+.B *
+opens the server's
+.B "Switch to..."
+dialog (the shipped program-count cell), the same dialog the desktop
+menu offers.
+.PP
+The shipped widgets are
+.BR zwclock ,
+.B zwmem
+and
+.BR zwwin ;
+they are started with a private
+.B \-W
+contract on the command line and are not meant to be run by hand.
 .SH FILES
 .DS
 .ta 8n 30n
-	/usr/hr/etc/apps	application catalog (see zview)
+	/usr/hr/etc/dock	dock catalog
 	/usr/hr/icons/*.icn	icon artwork; icon0.icn is the fallback
 .DE
 .SH "SEE ALSO"
@@ -75,4 +142,7 @@ The dock matches windows to catalog entries by window title: an
 application's declared title must equal its catalog name (the
 convention throughout the shipped catalog), or its icon will not read
 as running.
-The state of the bar follows the desktop within about two seconds.
+The state of the bar follows the desktop immediately: the server
+notifies the dock the moment the window list changes.
+(A launch that dies before it makes a window is noticed by a slower
+fallback poll, so its icon may stay pressed for a couple of seconds.)

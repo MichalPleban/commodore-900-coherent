@@ -20,6 +20,10 @@
 #define CLGFX_H
 
 extern int	cl_init();	/* cl_init(wid): one-time setup for window wid    */
+extern int	cl_subinit();	/* cl_subinit(hostwid, x0,y0,x1,y1): widget mode --
+				   draw inside that host-content cell of window
+				   hostwid (the dock bar); (0,0) = cell corner.
+				   cl_dopen/cl_dclose are undefined in this mode  */
 extern int	cl_begin();	/* refresh descriptor (seqlock) + bracket cursor  */
 extern int	cl_end();	/* end batch, show cursor                         */
 extern int	cl_mapped();	/* 1 if the window is live & has a clip descriptor */

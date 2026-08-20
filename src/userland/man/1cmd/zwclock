@@ -1,0 +1,43 @@
+.TH zwclock "" "Command"
+.SH NAME
+zwclock \- dock widget: time of day
+.SH SYNOPSIS
+started by \fBzdock\fR (catalog line \fB@Time:/usr/hr/bin/zwclock\fR)
+.SH DESCRIPTION
+.HS
+zwclock -- dock widget: time of day
+Started by zdock from an @ line of /usr/hr/etc/dock; not run by hand.
+Shows the time (HH:MM) and the day in a cell of the dock bar.
+.HE
+.B zwclock
+is a widget of the
+.B zdock
+bar: a small resident program the dock starts from an
+.B @
+line of its catalog, showing the time of day
+.RB ( HH : MM )
+with the weekday and day of the month beneath, in an icon-sized cell
+at the right end of the bar.
+It redraws once a second, so the display follows the clock (and the
+dock's own repaints) immediately.
+.PP
+It draws inside the dock's own window under the dock's clipping, owns
+no window of its own, and takes no input itself; a left click on the
+cell is the dock's, and the shipped catalog wires it to the full
+.B zclock
+application (switch to it when it runs, launch it when it does not),
+so the Clock icon need not sit on the bar.
+It exits by itself when the dock goes away.
+.SH "SEE ALSO"
+.B zdock ,
+.B zview ,
+.B zclock ,
+.B date
+.SH NOTES
+Not meant to be run from a shell: it needs the cell contract
+.RB ( \-W )
+that only
+.B zdock
+supplies, and exits at once without it.
+For a clock in a window of its own, see
+.BR zclock .

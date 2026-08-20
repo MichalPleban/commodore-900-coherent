@@ -1,0 +1,58 @@
+.TH zwmem "" "Command"
+.SH NAME
+zwmem \- dock widget: free memory
+.SH SYNOPSIS
+started by \fBzdock\fR (catalog line \fB@Memory:/usr/hr/bin/zwmem\fR)
+.SH DESCRIPTION
+.HS
+zwmem -- dock widget: free memory
+Started by zdock from an @ line of /usr/hr/etc/dock; not run by hand.
+Shows free user memory (Kb) in a cell of the dock bar.
+.HE
+.B zwmem
+is a widget of the
+.B zdock
+bar: a small resident program the dock starts from an
+.B @
+line of its catalog, showing the machine's free user memory in
+kilobytes in an icon-sized cell at the right end of the bar.
+The figure is
+.BR mem 's
+(and
+.BR zmon 's):
+the kernel's in-core segment queue, walked through a
+.B /dev/kmem
+snapshot, subtracted from the user-memory span.
+It resamples every three seconds.
+.PP
+It draws inside the dock's own window under the dock's clipping, owns
+no window of its own, and takes no input itself; a left click on the
+cell is the dock's, and the shipped catalog wires it to
+.B zmon
+(switch to it when it runs, launch it when it does not), so the
+Monitor icon need not sit on the bar.
+It exits by itself when the dock goes away.
+.SH FILES
+.DS
+.ta 8n 30n
+	/coherent	kernel namelist
+	/dev/kmem	kernel memory
+.DE
+.SH "SEE ALSO"
+.B zdock ,
+.B zview ,
+.B zmon ,
+.B mem
+.SH NOTES
+Not meant to be run from a shell: it needs the cell contract
+.RB ( \-W )
+that only
+.B zdock
+supplies, and exits at once without it.
+With no readable
+.B /dev/kmem
+or a stripped kernel the cell shows
+.B \-\-
+and keeps ticking.
+For the full memory breakdown and process list, see
+.BR zmon .

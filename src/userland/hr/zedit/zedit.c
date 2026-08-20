@@ -78,8 +78,8 @@ extern char	*malloc();
 #define	FNLEN	40		/* file-name buffer (path) */
 
 /* "Editor", not "Edit": the title base doubles as the app's identity in the
- * catalog (/usr/hr/etc/apps) -- the dock and the server both match windows to
- * catalog entries by it, so it must equal the catalog name. */
+ * catalogs (/usr/hr/etc/apps and /usr/hr/etc/dock) -- the server and the dock
+ * match windows to catalog entries by it, so it must equal the catalog name. */
 HRAPP	me = { "Editor", "edit.icn", 0, 0, HRF_STRETCH | HRF_CONFIRM, 0, 0,
 	       HRM_NEW | HRM_OPEN | HRM_SAVE | HRM_CUT | HRM_COPY | HRM_PASTE |
 	       HRM_HELP };

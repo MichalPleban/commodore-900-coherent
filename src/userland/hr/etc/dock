@@ -1,0 +1,57 @@
+# Dock catalog, read by zdock (the desktop's separate "shell"): one icon per
+# entry in its bar along the top of the screen.  The window server's
+# right-click menu keeps its OWN catalog, /usr/hr/etc/apps: the two lists are
+# independent, so the dock can carry fewer icons than the menu offers apps
+# (or different ones).
+# One line per icon:  name:execpath:multi:icon:X,Y:args  (all but the first
+# two optional)
+#   name        dock-icon label AND the app's title base: by convention it
+#               equals the title the program declares in its HRAPP, which is
+#               how the dock matches windows to this entry (a mismatch and
+#               the icon never reads as running).
+#   execpath    program; run with these arguments (plus -P X,Y first)
+#   multi       1 = may open many copies (middle click starts another);
+#               0 = single instance (a second click switches to it)
+#   icon        .icn under /usr/hr/icons.  EVERY entry's icon is always
+#               visible: sitting high with the name beneath while nothing
+#               runs, pressed (dropped down, no name) while the app has a
+#               window or a launch is in flight.  Left click launches or
+#               switches to the app's topmost window.  Missing artwork gets
+#               the generic icon0.icn.
+#   X,Y         where a dock launch puts the window (top-left of the frame);
+#               left out, the server places it.  Keep Y clear of the dock
+#               strip (the top ~70px) or the new window opens under it.
+#   args        extra command-line arguments, blank-separated, appended
+#               after -P at launch
+#
+# The window itself -- title, size, icon while hidden, whether it may be
+# stretched -- is NOT configured here: the application declares it at
+# start-up (hr_open, see inc/hrapp.h), so a program can also be run straight
+# from a shell.
+#
+# A line starting with '@' is a WIDGET:  @name:execpath[:click][:args]  --
+# a small resident program (zwclock, zwmem, ...) the dock starts itself,
+# drawing live content in an icon-sized cell at the RIGHT end of the bar
+# (first @ line = rightmost cell; at most 4).  Widgets have no icon; a
+# crashed one is restarted, a few times, then given up on.  They are not
+# meant to be run from a shell.
+# The click field makes the cell a button:
+#   Title=/path   left click gets the dock-icon verb for that app -- switch
+#                 to it when it runs, launch it when it does not -- so the
+#                 app's own icon can be taken off the bar;
+#   *             left click opens the server's "Switch to..." dialog.
+#
+# The rc script /usr/hr/etc/rc runs at desktop start-up: it starts the dock,
+# and anything else that should be genuinely RESIDENT from power-on.
+Shell:/usr/hr/bin/zterm:1:term.icn:48,88
+Files:/usr/hr/bin/zfile:1:file.icn:120,100
+Editor:/usr/hr/bin/zedit:1:edit.icn:80,84
+Mail:/usr/hr/bin/zmail:0:mail.icn:100,120
+Manual:/usr/hr/bin/zman:0:man.icn:180,140
+Calculator:/usr/hr/bin/zcalc:0:calc.icn:600,180
+Printer:/usr/hr/bin/zprint:0:printer.icn:380,300
+Puzzle:/usr/hr/bin/zpuzzle:0:puzzle.icn:700,300
+Maze:/usr/hr/bin/zmaze:0:maze.icn:620,300
+@Time:/usr/hr/bin/zwclock:Clock=/usr/hr/bin/zclock
+@Memory:/usr/hr/bin/zwmem:Monitor=/usr/hr/bin/zmon
+@Programs:/usr/hr/bin/zwwin:*

@@ -1,5 +1,11 @@
+Version 0.9.1 (20 August 2026):
+- The dock gained widget cells: an @name:execpath[:click][:args] catalog line starts a small resident program that draws live content in an icon-sized cell at the right end of the bar. Three widgets ship: zwclock (time and day), zwmem (free memory, sampled the way mem does) and zwwin (running-program count).
+- Widget cells are buttons too: the catalog's click field gives a cell the dock-icon verb for an app (Title=/path -- switch to it or launch it, so the Clock and Monitor icons came off the bar), or opens the server's "Switch to..." dialog (*, the program-count cell; C_ACTIVATE with a negative window id).
+- Widgets draw inside the dock's own window through a new clgfx sub-surface mode (cl_subinit in libhrgfx.sl): the widget clips itself to the intersection of the dock's server-published visible rects and its cell, so no new server mechanism was needed and a widget can never paint outside its cell. The dock paints its bar around the live widget cells (never signalling a widget -- a second SIGALRM source can kill a process through the one-shot signal(2) re-install window), restarts a crashed widget, and takes its widgets along when it exits; a widget repaints its cell every second, healing any damage within a tick.
+
 Version 0.9.0 (11 August 2026):
 - Added keyboard shortcuts for the common window operations, acting on the focused window: Alt+F1 Move, Alt+F2 Stretch, Alt+F3 Back, Alt+F4 Hide, Alt+F5 Quit.
+- The dock now follows the desktop immediately: the server sends a window-list-changed event (E_WINCHG) to clients that subscribe with a new connect flag (HRF_WLNOTIFY), replacing the dock's 2-second poll as the primary mechanism (the poll remains as a fallback).
 - Ctrl+C now stops a foreground program run from a GUI terminal: zterm gives its shell a clean signal slate (like login), where before the shell inherited SIGINT/SIGQUIT ignored from the desktop's background start-up and passed that on to every command it ran. Apps launched from the dock or desktop menu get the same clean slate, so kill -2 works on them too.
 - The desktop is split kernel-and-shell style: zview now manages only windows, and a new separate application -- the dock, zdock, started from the desktop rc -- owns the icon bar along the top of the screen, launching and switching. The desktop survives without it (the right-click menu remains the fallback launcher).
 - Dock icons are always visible: a running app's icon draws pressed (lowered, no name) instead of disappearing, and the "New <name>" placeholder labels are gone. Left click launches an app or switches to its topmost window; middle click on a multi app starts another copy.
@@ -13,6 +19,7 @@ Version 0.9.0 (11 August 2026):
 - Added shared libraries: /lib/libc.sl and /lib/libhrgfx.sl are loaded once at boot and mapped into every process, shrinking commands on disk and in memory.
 - Most commands now link against the shared libc; boot and repair tools (sh, init, mount, check tools, etc.) remain fully static so the system boots even without shared libraries.
 - Commands linked against the shared libc get full floating-point printf support.
+- The desktop menu and the dock now have separate catalogs: /usr/hr/etc/apps (zview's right-click menu, name:execpath:multi:args -- no icon needed) and /usr/hr/etc/dock (the icon bar, name:execpath:multi:icon:X,Y:args), so the two lists can differ. Both gained an args field: extra command-line arguments passed to the program at launch.
 
 Version 0.8.3 (10 August 2026):
 - Added /dev/zero device.

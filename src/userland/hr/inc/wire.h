@@ -71,9 +71,11 @@ typedef struct {
 					 * server raises the topmost visible
 					 * window sharing its title base, or
 					 * restores the named one when every
-					 * window of the app is hidden.  Sent
-					 * by the dock (zdock); wm_wid is the
-					 * sender's own window as usual.       */
+					 * window of the app is hidden.  A
+					 * NEGATIVE arg0 opens the "Switch
+					 * to..." dialog instead.  Sent by the
+					 * dock (zdock); wm_wid is the sender's
+					 * own window as usual.               */
 
 /* C_INPUT kinds (wm_arg[0]) */
 #define IN_KEY		0		/* arg1 = ascii                        */
@@ -129,6 +131,13 @@ typedef struct {
 					/* right-click over it opens the DESKTOP */
 					/* menu, and it is left out of the       */
 					/* "Switch to" list.                     */
+#define HRF_WLNOTIFY	0x0020		/* send E_WINCHG when the shared window  */
+					/* list (shmem.h SHM_WINLIST) changes.   */
+					/* Opt-in so the server does not wake    */
+					/* every client for bookkeeping only a   */
+					/* few (the dock) care about; the event  */
+					/* carries nothing -- the subscriber     */
+					/* re-reads the list itself.             */
 
 /* ---- the dialog-open record (client -> server, C_DLGOPEN) ----------------- *
  * A connected client asks for a MODAL DIALOG OVERLAY: the server saves the
@@ -284,6 +293,12 @@ typedef struct {
 #define E_DBUTTON	12		/* arg0,1=x,y arg2=down arg3=changed     */
 #define E_DMOTION	13		/* arg0,1=x,y (unclamped) arg2=held      */
 #define E_DKEY		14		/* arg0 = ascii                          */
+
+/* The shared window list changed (a window came, went, was hidden/restored or
+ * retitled).  Sent only to clients that declared HRF_WLNOTIFY; no payload --
+ * the subscriber re-reads the list (hr_winlist).  Coalesced: one event may
+ * stand for several changes, so treat it as "look now", not a delta. */
+#define E_WINCHG	15
 
 /* Button bits in E_BUTTON/E_MOTION's masks.  Same values as SM_LFT/SM_MID/
  * SM_RGHT (gfx/smgr_defs.h) -- repeated here so a client needs only this header

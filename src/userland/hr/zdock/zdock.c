@@ -12,8 +12,9 @@
  * frame, no drop shadow -- a bare strip at (0,0), which the server also
  * exempts from keyboard focus, the window menu and the "Switch to" list.
  *
- * One icon per entry of /usr/hr/etc/apps (the same catalog the server's menu
- * reads; the icon and X,Y fields are ours).  EVERY icon is ALWAYS visible --
+ * One icon per entry of the dock's own catalog /usr/hr/etc/dock (the server's
+ * menu keeps a separate list, /usr/hr/etc/apps -- the two are independent, so
+ * the dock can carry fewer icons than the menu).  EVERY icon is ALWAYS visible --
  * unlike the old server-drawn desktop icons, which disappeared while their
  * app ran.  What changes is the look:
  *
@@ -31,9 +32,12 @@
  * Running-state comes from the shared window list (shmem.h SHM_WINLIST),
  * matched by title base (the " #N" instance suffix stripped) -- the catalog
  * name doubles as the app's declared title, which is the convention the whole
- * /usr/hr/etc/apps file keeps.  The list's seqlock generation is polled on a
- * 2-second alarm, so a press/release of an icon follows the app's windows by
- * at most that; the poll is one shared-memory word, no system call.
+ * /usr/hr/etc/dock file keeps.  We subscribe with HRF_WLNOTIFY, so the server
+ * sends E_WINCHG the moment the list changes and the press/release of an icon
+ * follows the app's windows immediately.  The 2-second alarm poll remains as
+ * the FALLBACK -- it is also what reaps a launch that died before it ever
+ * made a window (no window, no list change, no event -- but the icon must
+ * come back up); the poll is one shared-memory word, no system call.
  *
  * Launched apps are OUR children (they inherit the command pipe across
  * fork/exec, so the server needs nothing from us), and their corpses are ours
@@ -65,12 +69,13 @@ extern int	strlen(), strcmp(), atoi();
 #define ICONW	48		/* .icn glyph ceiling                   */
 
 HRAPP	me = { "Dock", "", DOCKW, DOCKH,
-	       HRF_NODECOR | HRF_POS, 0, 0, 0 };
+	       HRF_NODECOR | HRF_POS | HRF_WLNOTIFY, 0, 0, 0 };
 
-/* ---- the catalog (/usr/hr/etc/apps) -------------------------------------- *
- * Same file, same line format as the server: name:execpath:multi:icon:X,Y.
- * The server reads the first three fields (its menu); the icon and launch
- * position are ours.  Fixed-size bss, like the server's table. */
+/* ---- the catalog (/usr/hr/etc/dock) -------------------------------------- *
+ * The dock's OWN file (the server's menu reads the separate /usr/hr/etc/apps):
+ * one line per icon, name:execpath:multi:icon:X,Y:args -- or a WIDGET line,
+ * @name:execpath[:args] (see the widget block below).  Fixed-size bss, like
+ * the server's table. */
 #define MAX_APPS	12
 struct app {
 	char	name[16];	/* catalog name == the app's title base   */
@@ -78,6 +83,7 @@ struct app {
 	int	multi;		/* 1 = middle click may start more copies */
 	char	icon[20];	/* .icn under /usr/hr/icons               */
 	int	px, py;		/* -P for a launch; -1,-1 = server places */
+	char	args[40];	/* extra argv words, blank-separated      */
 	int	run;		/* current pressed-state (windows or a    */
 				/* launch in flight)                      */
 	int	iw, ih;		/* loaded glyph size (0 = no artwork)     */
@@ -90,6 +96,53 @@ int	napps;
 int	iconpool[MAX_APPS][ICONW * 3];
 
 #define HR_DEFICON	"icon0.icn"
+
+/* ---- widget cells (@ lines in the catalog) ------------------------------- *
+ * A WIDGET is a small resident program (zwclock, zwmem, ...) that draws live
+ * content in an icon-sized cell at the RIGHT end of the bar -- inside OUR
+ * window.  We fork it with "-W wid,x0,y0,x1,y1,dockpid" and it enters clgfx
+ * sub-surface mode (cl_subinit): its primitives clip to the intersection of
+ * our published visible rects and the cell, so it can never paint outside.
+ * Catalog line:  @name:execpath[:click][:args]  -- first @ line = rightmost
+ * cell.  The click field makes the cell a BUTTON too:  "Title=/path" gives
+ * a left click the dock-icon verb for that app (running -> switch to it,
+ * else launch it -- so the app's icon can be taken OFF the bar), and "*"
+ * asks the server for its "Switch to..." dialog (C_ACTIVATE, negative wid).
+ * The repaint contract: repaint() paints the bar AROUND a live widget's
+ * cell and never touches its pixels; the widget repaints its cell once a
+ * second regardless, so any damage that does reach a cell (an uncover, a
+ * failed save-under) heals within a tick.  We must NOT signal a widget to
+ * redraw: this kernel's signal() is V7 one-shot (delivery resets the
+ * handler to SIG_DFL, and the handler's first act is re-installing
+ * itself), so a second, ASYNCHRONOUS SIGALRM source can land in that
+ * unhandled window and silently KILL the widget -- cumulatively certain
+ * under an interactive desktop.  A widget's only SIGALRM is its own
+ * serialized alarm(); a dead widget's cell is whited like the rest. */
+#define MAX_WIDG	4
+#define WCELLW	60		/* widget cell width                     */
+#define WPITCH	64		/* pitch, allocated right-to-left        */
+#define WMARG	4		/* gap at the bar's right edge           */
+#define WFAILS	5		/* launch attempts before giving up      */
+#define WAGERST	10		/* ticks alive that earn a fresh set of  */
+				/* attempts: a widget that RAN for a     */
+				/* while and died is not a crash loop    */
+struct widg {
+	char	name[16];	/* catalog name (argv[0], diagnostics)   */
+	char	path[40];	/* executable                            */
+	char	args[40];	/* extra argv words, blank-separated     */
+	char	clkname[16];	/* click: app title base ("" = none)     */
+	char	clkpath[40];	/* click: its executable                 */
+	int	clksw;		/* click: 1 = the Switch to... dialog    */
+	int	pid;		/* 0 = not running                       */
+	int	x0, x1;		/* cell, dock-content x range            */
+	int	fails;		/* launches so far; give up at WFAILS    */
+	int	age;		/* ticks alive since this launch         */
+} widgs[MAX_WIDG];
+int	nwidgs;
+
+/* kids[].ai tag for a launch started by a widget CLICK (not a catalog app):
+ * distinct per widget so pending-style double-click suppression works. */
+#define WCLKAI(wi)	(-2 - (wi))
 
 /* ---- children we launched ------------------------------------------------ */
 #define NKIDS	(2 * MAX_APPS)
@@ -145,22 +198,93 @@ char *name;
 	return 1;
 }
 
+/* One widget catalog line (past the '@') -> a widgs[] entry.  Cells are
+ * allocated right-to-left from the bar's right edge; four widgets reach left
+ * only to x=768, clear of the last app cell (ends 762). */
+static
+widgline(p)
+char *p;
+{
+	char *fld[4];
+	char *f;
+	int nf;
+	register struct widg *wg;
+
+	if ( !*p || nwidgs >= MAX_WIDG )
+		return;
+	nf = 0;
+	fld[nf++] = p;
+	f = p;
+	while ( nf < 4 )
+	{
+		while ( *f && *f != ':' )
+			f++;
+		if ( !*f )
+			break;
+		*f++ = 0;
+		fld[nf++] = f;
+	}
+	if ( nf < 2 || !fld[1][0] )
+		return;
+	wg = &widgs[nwidgs];
+	strncpy(wg->name, fld[0], sizeof(wg->name) - 1);
+	strncpy(wg->path, fld[1], sizeof(wg->path) - 1);
+	wg->clkname[0] = 0;
+	wg->clkpath[0] = 0;
+	wg->clksw = 0;
+	if ( nf > 2 && fld[2][0] )
+	{
+		/* the click verb: "*" = Switch to... dialog,
+		 * "Title=/path" = the dock-icon verb for that app */
+		if ( fld[2][0] == '*' && fld[2][1] == 0 )
+			wg->clksw = 1;
+		else
+		{
+			for ( f = fld[2]; *f && *f != '='; f++ )
+				;
+			if ( *f )
+			{
+				*f++ = 0;
+				strncpy(wg->clkname, fld[2],
+					sizeof(wg->clkname) - 1);
+				strncpy(wg->clkpath, f,
+					sizeof(wg->clkpath) - 1);
+			}
+		}
+	}
+	wg->args[0] = 0;
+	if ( nf > 3 )
+		strncpy(wg->args, fld[3], sizeof(wg->args) - 1);
+	wg->pid = 0;
+	wg->fails = 0;
+	wg->x1 = DOCKW - WMARG - nwidgs * WPITCH;
+	wg->x0 = wg->x1 - WCELLW;
+	nwidgs++;
+}
+
 /* One catalog line -> an apps[] entry (comments/blanks skipped). */
 static
 appline(p)
 char *p;
 {
-	char *fld[5];
+	char *fld[6];
 	char *f;
 	int nf;
 	struct app *a;
 
-	if ( !*p || *p == '#' || napps >= MAX_APPS )
+	if ( !*p || *p == '#' )
+		return;
+	if ( *p == '@' )
+	{
+		widgline(p + 1);
+		return;
+	}
+	if ( napps >= MAX_APPS )
 		return;
 	nf = 0;
 	fld[nf++] = p;
 	f = p;
-	while ( nf < 5 )
+	while ( nf < 6 )
 	{
 		while ( *f && *f != ':' )
 			f++;
@@ -177,6 +301,7 @@ char *p;
 	a->multi = (nf > 2) ? atoi(fld[2]) : 0;
 	a->px = a->py = -1;
 	a->icon[0] = 0;
+	a->args[0] = 0;
 	if ( nf > 3 && fld[3][0] )
 		strncpy(a->icon, fld[3], sizeof(a->icon) - 1);
 	if ( nf > 4 )
@@ -191,6 +316,8 @@ char *p;
 		if ( a->px < 0 || a->py < 0 )
 			a->px = a->py = -1;
 	}
+	if ( nf > 5 )
+		strncpy(a->args, fld[5], sizeof(a->args) - 1);
 	a->run = 0;
 	a->bits = iconpool[napps];
 	if ( !loadicn(a, a->icon) )
@@ -209,7 +336,8 @@ loadapps()
 	register int i;
 
 	napps = 0;
-	fd = open("/usr/hr/etc/apps", 0);
+	nwidgs = 0;
+	fd = open("/usr/hr/etc/dock", 0);
 	if ( fd < 0 )
 		return;
 	ll = 0;
@@ -238,13 +366,13 @@ loadapps()
 
 /* ---- running-state from the shared window list --------------------------- */
 
-/* Does window-list title `t' belong to catalog entry `ai'?  The displayed
+/* Does window-list title `t' belong to the app named `name'?  The displayed
  * title is the app's base name, or "base #N" when several instances are open
- * -- strip at " #" and compare with the catalog name (they are the same
- * string by convention, both truncated to 15 chars). */
+ * -- strip at " #" and compare (catalog names and declared titles are the
+ * same string by convention, both truncated to 15 chars). */
 static
-titlematch(t, ai)
-char *t;
+titlematch(t, name)
+char *t, *name;
 {
 	char b[24];
 	register char *p;
@@ -257,15 +385,16 @@ char *t;
 			*p = 0;
 			break;
 		}
-	return strcmp(b, apps[ai].name) == 0;
+	return strcmp(b, name) == 0;
 }
 
-/* Windows of catalog entry `ai' in the snapshot wl[]: returns the count and
- * puts a representative window id in *pwid (any one; the server resolves
+/* Windows of the app named `name' in the snapshot wl[]: returns the count
+ * and puts a representative window id in *pwid (any one; the server resolves
  * which of the app's windows is topmost when we C_ACTIVATE it). */
 static
-appwins(wl, ai, pwid)
+appwins(wl, name, pwid)
 HRWIN wl[];
+char *name;
 int *pwid;
 {
 	register int w, n;
@@ -273,7 +402,7 @@ int *pwid;
 	n = 0;
 	*pwid = -1;
 	for ( w = 0; w < HRWL_N; w++ )
-		if ( wl[w].ww_used && titlematch(wl[w].ww_title, ai) )
+		if ( wl[w].ww_used && titlematch(wl[w].ww_title, name) )
 		{
 			if ( *pwid < 0 )
 				*pwid = w;
@@ -299,25 +428,39 @@ pending(ai)
 /* Probe our launched children and reap AT MOST one zombie per call (the
  * server's reapdead discipline): kill(pid, 0) fails for a dead child, and
  * only then is wait() called -- which then cannot block, though it may hand
- * back a different child of ours; drop whichever slot it names. */
+ * back a different child of ours (an app OR a widget); drop whichever slot
+ * in whichever table it names. */
 static
 reapkids()
 {
-	register int i, w;
-	int st;
+	register int i;
+	int st, w, dead;
 
-	for ( i = 0; i < NKIDS; i++ )
+	dead = 0;
+	for ( i = 0; i < NKIDS && !dead; i++ )
 		if ( kids[i].pid > 0 && kill(kids[i].pid, 0) < 0 )
+			dead = kids[i].pid;
+	for ( i = 0; i < nwidgs && !dead; i++ )
+		if ( widgs[i].pid > 0 && kill(widgs[i].pid, 0) < 0 )
+			dead = widgs[i].pid;
+	if ( !dead )
+		return;
+	w = wait(&st);
+	if ( w < 0 )
+		w = dead;
+	for ( i = 0; i < NKIDS; i++ )
+		if ( kids[i].pid == w )
 		{
-			w = wait(&st);
-			if ( w < 0 )
-				w = kids[i].pid;
-			for ( i = 0; i < NKIDS; i++ )
-				if ( kids[i].pid == w )
-				{
-					kids[i].pid = 0;
-					break;
-				}
+			kids[i].pid = 0;
+			return;
+		}
+	for ( i = 0; i < nwidgs; i++ )
+		if ( widgs[i].pid == w )
+		{
+			widgs[i].pid = 0;
+			if ( widgs[i].age >= WAGERST )
+				widgs[i].fails = 0;	/* ran a while: not a
+							 * crash loop, retry  */
 			return;
 		}
 }
@@ -368,11 +511,25 @@ static
 repaint()
 {
 	register int i;
+	int px;
 
 	if ( cl_frozen() )	/* a server menu/overlay is up: don't paint over it */
 		return;
 	cl_begin();
-	cl_fillrect(0, 0, DOCKW, DOCKH - 1, 1);		/* the bar */
+	/* the bar, painted AROUND each live widget's cell (see the widget
+	 * block comment: signalling a widget to redraw a whited cell could
+	 * kill it, so its pixels are simply never disturbed).  widgs[] is
+	 * rightmost-first, so walk it backwards for left-to-right spans; a
+	 * dead widget breaks no span and its cell is whited like the rest. */
+	px = 0;
+	for ( i = nwidgs - 1; i >= 0; i-- )
+	{
+		if ( widgs[i].pid <= 0 )
+			continue;
+		cl_fillrect(px, 0, widgs[i].x0, DOCKH - 1, 1);
+		px = widgs[i].x1;
+	}
+	cl_fillrect(px, 0, DOCKW, DOCKH - 1, 1);
 	cl_fillrect(0, DOCKH - 1, DOCKW, DOCKH, 0);	/* bottom hairline */
 	for ( i = 0; i < napps; i++ )
 		drawcell(i);
@@ -395,7 +552,7 @@ syncstate(full)
 	dirty = 0;
 	for ( i = 0; i < napps; i++ )
 	{
-		r = (appwins(wl, i, &w) > 0) || pending(i);
+		r = (appwins(wl, apps[i].name, &w) > 0) || pending(i);
 		flip[i] = (r != apps[i].run);
 		if ( flip[i] )
 		{
@@ -432,13 +589,37 @@ activate(wid)
 	write(HR_CMDFD, (char *)&c, sizeof(c));
 }
 
+/* Append the catalog's args string to av[] as blank-separated words, starting
+ * at av[n]; NULL-terminates av (room for `lim' entries in all).  Scribbles
+ * NULs into `s' -- called between fork and exec, on the child's copy. */
+static
+addargs(s, av, n, lim)
+char *s, **av;
+{
+	for ( ;; )
+	{
+		while ( *s == ' ' || *s == '\t' )
+			s++;
+		if ( !*s || n >= lim - 1 )
+			break;
+		av[n++] = s;
+		while ( *s && *s != ' ' && *s != '\t' )
+			s++;
+		if ( *s )
+			*s++ = 0;
+	}
+	av[n] = 0;
+}
+
 /* Start catalog entry `ai'.  The child inherits the command pipe on HR_CMDFD
  * across the exec (like a launch from the rc script); the catalog's X,Y goes
- * on the command line as -P, which every GUI app parses in hr_open(). */
+ * on the command line as -P, which every GUI app parses in hr_open(), and
+ * the args field follows it, word by word. */
 static
 launch(ai)
 {
 	char pbuf[16];
+	char *av[10];
 	register struct app *a;
 	int pid, i;
 
@@ -446,17 +627,20 @@ launch(ai)
 	pid = fork();
 	if ( pid == 0 )
 	{
-		int f;
+		int f, n;
 
 		for ( f = 5; f < 20; f++ )
 			close(f);
+		n = 0;
+		av[n++] = a->name;
 		if ( a->px >= 0 )
 		{
 			sprintf(pbuf, "%d,%d", a->px, a->py);
-			execl(a->path, a->name, "-P", pbuf, (char *)0);
+			av[n++] = "-P";
+			av[n++] = pbuf;
 		}
-		else
-			execl(a->path, a->name, (char *)0);
+		addargs(a->args, av, n, 10);
+		execv(a->path, av);
 		_exit(1);
 	}
 	if ( pid < 0 )
@@ -471,6 +655,77 @@ launch(ai)
 	/* pressed at once: the launch is in flight (pending), and the button
 	 * reading "down" is the acknowledgement the click deserves */
 	syncstate(0);
+}
+
+/* Start widget `wi'.  Like launch(), but the cell contract goes on the
+ * command line as -W (hr_wopen parses it): our wid, the cell rect in our
+ * content coords -- the bottom hairline row stays ours -- and our pid, the
+ * widget's liveness check (this libc has no getppid).  Counts as one of the
+ * WFAILS attempts whether or not the exec sticks. */
+static
+launchwidg(wi)
+{
+	char wbuf[40];
+	char *av[10];
+	register struct widg *wg;
+	int pid;
+
+	wg = &widgs[wi];
+	wg->fails++;
+	sprintf(wbuf, "%d,%d,%d,%d,%d,%d",
+		mywid, wg->x0, 0, wg->x1, DOCKH - 1, getpid());
+	pid = fork();
+	if ( pid == 0 )
+	{
+		int f, n;
+
+		for ( f = 5; f < 20; f++ )
+			close(f);	/* fd 4 stays; hr_wopen drops it */
+		n = 0;
+		av[n++] = wg->name;
+		av[n++] = "-W";
+		av[n++] = wbuf;
+		addargs(wg->args, av, n, 10);
+		execv(wg->path, av);
+		_exit(1);
+	}
+	if ( pid > 0 )
+	{
+		wg->pid = pid;
+		wg->age = 0;
+	}
+}
+
+/* Tend the widget table, once per tick: age the live ones (reapkids turns
+ * a long-enough age into a fresh set of launch attempts), and (re)start
+ * every widget that is not running and has attempts left -- the initial
+ * launch after connect, and the restart of a crashed one.  A widget that
+ * keeps dying young stops being restarted at WFAILS; the bar's white fill
+ * keeps its dead cell clean. */
+static
+tendwidgs()
+{
+	register int i;
+
+	for ( i = 0; i < nwidgs; i++ )
+	{
+		if ( widgs[i].pid > 0 )
+			widgs[i].age++;
+		else if ( widgs[i].fails < WFAILS )
+			launchwidg(i);
+	}
+}
+
+/* We are quitting: take the widgets with us (they would notice the window
+ * going via hr_wlive within a tick anyway; this is just prompt). */
+static
+killwidgs()
+{
+	register int i;
+
+	for ( i = 0; i < nwidgs; i++ )
+		if ( widgs[i].pid > 0 )
+			kill(widgs[i].pid, SIGTERM);
 }
 
 /* Which icon cell is content point (x,y) in, or -1.  The target spans the
@@ -492,9 +747,100 @@ cellhit(x, y)
 	return -1;
 }
 
+/* Which widget cell is content point (x,y) in, or -1.  Widget cells span
+ * the bar's full height (short of the hairline). */
+static
+widghit(x, y)
+{
+	register int i;
+
+	if ( y < 0 || y >= DOCKH - 1 )
+		return -1;
+	for ( i = 0; i < nwidgs; i++ )
+		if ( x >= widgs[i].x0 - 2 && x < widgs[i].x1 + 2 )
+			return i;
+	return -1;
+}
+
+/* A widget-click launch still in flight?  (The widget-cell twin of
+ * pending(): keyed by the WCLKAI tag launchclick left in kids[].) */
+static
+wclkpending(wi)
+{
+	register int i;
+
+	for ( i = 0; i < NKIDS; i++ )
+		if ( kids[i].pid > 0 && kids[i].ai == WCLKAI(wi) &&
+		     kill(kids[i].pid, 0) >= 0 )
+			return 1;
+	return 0;
+}
+
+/* Start the app a widget click names (no catalog entry: no -P, no args --
+ * the server places the window).  Tagged WCLKAI in kids[] so the corpse is
+ * reaped and a double click starts one copy. */
+static
+launchclick(wi)
+{
+	char *av[2];
+	register struct widg *wg;
+	int pid, i;
+
+	wg = &widgs[wi];
+	pid = fork();
+	if ( pid == 0 )
+	{
+		int f;
+
+		for ( f = 5; f < 20; f++ )
+			close(f);
+		av[0] = wg->clkname;
+		av[1] = (char *)0;
+		execv(wg->clkpath, av);
+		_exit(1);
+	}
+	if ( pid < 0 )
+		return;
+	for ( i = 0; i < NKIDS; i++ )
+		if ( kids[i].pid <= 0 )
+		{
+			kids[i].pid = pid;
+			kids[i].ai = WCLKAI(wi);
+			break;
+		}
+}
+
+/* A left click in widget cell `wi': the catalog's click verb -- ask the
+ * server for the Switch to... dialog ("*"), or the dock-icon verb for the
+ * named app: switch to it when it runs, launch it when it does not. */
+static
+dowidgclick(wi)
+{
+	HRWIN wl[HRWL_N];
+	register struct widg *wg;
+	int w, n;
+
+	wg = &widgs[wi];
+	if ( wg->clksw )
+	{
+		activate(-1);		/* server: open Switch to... */
+		return;
+	}
+	if ( !wg->clkpath[0] )
+		return;
+	if ( hr_winlist(wl) < 0 )
+		return;
+	n = appwins(wl, wg->clkname, &w);
+	if ( n > 0 )
+		activate(w);
+	else if ( !wclkpending(wi) )
+		launchclick(wi);
+}
+
 /* A button press in our content.  Left: launch, or switch to the running
  * app's topmost window.  Middle: another copy of a multi app (on a single
- * app it behaves like left -- there is nothing else it could mean). */
+ * app it behaves like left -- there is nothing else it could mean).  A
+ * click in a widget cell runs the widget's click verb instead. */
 static
 doclick(x, y, mid)
 {
@@ -502,10 +848,14 @@ doclick(x, y, mid)
 	int i, w, n;
 
 	if ( (i = cellhit(x, y)) < 0 )
+	{
+		if ( (i = widghit(x, y)) >= 0 )
+			dowidgclick(i);
 		return;
+	}
 	if ( hr_winlist(wl) < 0 )
 		return;
-	n = appwins(wl, i, &w);
+	n = appwins(wl, apps[i].name, &w);
 	if ( mid && apps[i].multi )
 	{
 		if ( n == 0 && pending(i) )
@@ -540,6 +890,8 @@ char **argv;
 
 	syncstate(1);			/* rc may have started siblings first */
 	repaint();
+	tendwidgs();			/* widgets need mywid on the -W line:
+					 * only after the connect */
 
 	signal(SIGALRM, tick);
 	alarm(2);
@@ -555,7 +907,14 @@ char **argv;
 			if ( e.wm_type == E_EXPOSE )
 				needfull = 1;
 			else if ( e.wm_type == E_QUIT )
+			{
+				killwidgs();
 				exit(0);
+			}
+			else if ( e.wm_type == E_WINCHG )
+				tickflag = 1;	/* the server says the list
+						 * changed: poll it NOW, not on
+						 * the fallback alarm */
 			else if ( e.wm_type == E_BUTTON )
 			{
 				if ( e.wm_arg[2] & e.wm_arg[3] & EB_LEFT )
@@ -571,6 +930,7 @@ char **argv;
 		{
 			tickflag = 0;
 			reapkids();
+			tendwidgs();	/* restart a crashed widget */
 			if ( hr_winseq() != lastseq )
 			{
 				lastseq = hr_winseq();
@@ -583,7 +943,8 @@ char **argv;
 		if ( cl_mapped() && !cl_frozen() &&
 		     (needfull || cl_dropped() || cl_uncovered()) )
 		{
-			repaint();
+			repaint();	/* paints around the live widget cells;
+					 * a widget heals its own within 1s */
 			needfull = 0;
 		}
 	}

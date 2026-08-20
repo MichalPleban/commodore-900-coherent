@@ -65,6 +65,8 @@ struct win {
 	int	confirm;	/* 1 = window-menu Quit asks first (HRF_CONFIRM) */
 	int	nodecor;	/* 1 = undecorated (HRF_NODECOR): no chrome,   */
 				/* no focus, no window menu, not in Switch to  */
+	int	wlnote;		/* 1 = wants E_WINCHG when the window list     */
+				/* changes (HRF_WLNOTIFY)                      */
 	int	menu;		/* HRM_* the client wants in its window menu */
 	int	ourkid;		/* 1 = we forked this client (launchapp), so  */
 				/* its corpse is OURS to reap (see deadpool)  */
@@ -75,13 +77,14 @@ int	cmdwr;			/* write end kept so children can inherit it    */
 
 /* Launchable applications, read from /usr/hr/etc/apps at startup (GUI.md: a
  * data-driven launcher menu so new software installs without recompiling the
- * server).  One line per app: name:execpath:multi:icon:X,Y.  The catalog says
- * only what the SERVER has to decide -- what the launcher menu reads and
- * whether a second copy may be started; the window's title, size, icon and
- * flags belong to the application and reach us in its C_CONNECT (wire.h), so
- * an app can also be run with a bare argv from a shell.  The icon and X,Y
- * fields are the DOCK's (zdock reads this same file for its icon bar) -- the
- * server parses only the first three and ignores the rest.
+ * server).  One line per app: name:execpath:multi:args.  The catalog says
+ * only what the SERVER has to decide -- what the launcher menu reads,
+ * whether a second copy may be started, and any extra arguments to exec the
+ * program with; the window's title, size, icon and flags belong to the
+ * application and reach us in its C_CONNECT (wire.h), so an app can also be
+ * run with a bare argv from a shell.  The dock keeps its OWN catalog
+ * (/usr/hr/etc/dock, with icon and position fields) -- the two lists are
+ * independent since 0.9.0.
  *
  * The table is fixed-size bss (no heap) and the strings are filled at
  * runtime, so nothing here bloats the near-full data segment. */
@@ -90,6 +93,7 @@ struct app {
 	char	name[16];	/* menu label                                     */
 	char	path[40];	/* executable                                     */
 	int	multi;		/* 1 = allow many instances; 0 = single (re-raise) */
+	char	args[40];	/* extra argv words, blank-separated              */
 } apps[MAX_APPS];
 int	napps;
 
@@ -657,6 +661,9 @@ publish_surf(wid)
 	sp->seq++;					/* even: done */
 }
 
+int	wlpend;		/* window list republished: E_WINCHG owed to the
+			 * HRF_WLNOTIFY subscribers (sent by wlflush) */
+
 /* Mirror wins[] into the shared window list (shmem.h SHM_WINLIST) so any
  * client can enumerate the desktop.  Display-only fields -- the authoritative
  * wins[] stays private (its pids drive kill/reaping; the tail is writable by
@@ -693,6 +700,10 @@ publish_wins()
 	}
 	if ( !diff )
 		return;
+	wlpend = 1;			/* notify subscribers -- deferred to
+					 * wlflush() in the main loop, because
+					 * this runs under srvlock and sendev
+					 * must not (lock rule)               */
 	wl->wl_seq++;				/* odd: writing */
 	for ( w = 0; w < MAX_WINDOWS; w++ )
 	{
@@ -709,6 +720,24 @@ publish_wins()
 			pw->ww_used = 0;
 	}
 	wl->wl_seq++;				/* even: done */
+}
+
+/* The window list changed since the last main-loop pass: send E_WINCHG to
+ * every client that subscribed with HRF_WLNOTIFY (the dock), so it re-reads
+ * the list at once instead of on its poll timer.  One event per pass however
+ * many changes it covered -- the event is "look now", not a delta.  Called
+ * from the main loop only, NEVER under srvlock: sendev while the drawing
+ * lock is held is against the lock rule. */
+wlflush()
+{
+	int w;
+
+	if ( !wlpend )
+		return;
+	wlpend = 0;
+	for ( w = 0; w < MAX_WINDOWS; w++ )
+		if ( wins[w].used && wins[w].wlnote )
+			sendev(w, E_WINCHG, 0, 0, 0, 0);
 }
 
 /* Republish every window: any single op can cover/uncover others. */
@@ -1501,16 +1530,15 @@ resizewin(wid, cx, cy)
 /* ------------------------------------------------------------------ */
 
 /* Read /usr/hr/etc/apps into apps[].  One line per app:
- * name:execpath:multi:icon:X,Y ('#'/blank lines skipped).  Only the first
- * three fields are the server's (the launcher menu); icon and X,Y belong to
- * the dock (zdock reads the same file) and are ignored here. */
+ * name:execpath:multi:args ('#'/blank lines skipped; the dock's catalog is
+ * the separate /usr/hr/etc/dock, not this file). */
 /* One catalog line -> an apps[] entry (comment/blank/overlong-comment lines
  * come through here too and are skipped). */
 static
 appline(p)
 char *p;
 {
-	char *fld[3];
+	char *fld[4];
 	char *f;
 	int nf;
 
@@ -1519,7 +1547,7 @@ char *p;
 	nf = 0;
 	fld[nf++] = p;
 	f = p;
-	while ( nf < 3 )
+	while ( nf < 4 )
 	{
 		while ( *f && *f != ':' )
 			f++;
@@ -1536,6 +1564,8 @@ char *p;
 		strncpy(a->name, fld[0], sizeof(a->name) - 1);
 		strncpy(a->path, fld[1], sizeof(a->path) - 1);
 		a->multi = (nf > 2) ? atoi(fld[2]) : 0;
+		if ( nf > 3 )
+			strncpy(a->args, fld[3], sizeof(a->args) - 1);
 	}
 }
 
@@ -1652,6 +1682,28 @@ pendlive(p)
 	return 0;
 }
 
+/* Append the catalog's args string to av[] as blank-separated words, starting
+ * at av[n]; NULL-terminates av (room for `lim' entries in all).  Scribbles
+ * NULs into `s' -- called between fork and exec, on the child's copy. */
+static
+addargs(s, av, n, lim)
+char *s, **av;
+{
+	for ( ;; )
+	{
+		while ( *s == ' ' || *s == '\t' )
+			s++;
+		if ( !*s || n >= lim - 1 )
+			break;
+		av[n++] = s;
+		while ( *s && *s != ' ' && *s != '\t' )
+			s++;
+		if ( *s )
+			*s++ = 0;
+	}
+	av[n] = 0;
+}
+
 launchapp(ai, x, y)
 {
 	int i, p, ev[2], pid;
@@ -1685,6 +1737,8 @@ launchapp(ai, x, y)
 	pid = fork();
 	if ( pid == 0 )
 	{
+		char *av[8];
+
 		/* Clean signal slate, like zterm gives its shell (spawnsh): the
 		 * server itself rode in on SIG_IGN for these (the boot shell's `&'
 		 * ignores INT/QUIT in background children, and exec preserves
@@ -1695,7 +1749,9 @@ launchapp(ai, x, y)
 		signal(SIGHUP, SIG_DFL);
 		dup2(cmdwr, HR_CMDFD);
 		{ int f; for ( f = 5; f < 20; f++ ) close(f); }
-		execl(a->path, a->name, (char *)0);
+		av[0] = a->name;
+		addargs(a->args, av, 1, 8);
+		execv(a->path, av);
 		_exit(1);
 	}
 	if ( pid < 0 )
@@ -1837,6 +1893,7 @@ HRCONN *hc;
 	wins[wid].stretch = (hc->hc_flags & HRF_STRETCH) != 0;
 	wins[wid].confirm = (hc->hc_flags & HRF_CONFIRM) != 0;
 	wins[wid].nodecor = (hc->hc_flags & HRF_NODECOR) != 0;
+	wins[wid].wlnote = (hc->hc_flags & HRF_WLNOTIFY) != 0;
 	wins[wid].menu = hc->hc_menu & HRM_ALL;	/* its own window-menu entries */
 	wins[wid].pid = hc->hc_pid;
 	wins[wid].ourkid = (p >= 0);	/* forked by launchapp: reap it when it dies */
@@ -3553,14 +3610,21 @@ WMSG *c;
 			dlgclose();
 		return;
 	}
-	/* The dock asks for an application to be brought forward (wire.h).
-	 * Dropped while a dialog overlay is up: activate restacks and repaints,
-	 * which must not land on a box that is not a layer -- and the desktop
-	 * is system-modal then anyway. */
+	/* The dock asks for an application to be brought forward (wire.h) --
+	 * or, with a NEGATIVE window id, for the "Switch to..." dialog (the
+	 * dock's window-count widget is a click away from the desktop menu's
+	 * entry).  Dropped while a dialog overlay is up: both restack and
+	 * repaint, which must not land on a box that is not a layer -- and
+	 * the desktop is system-modal then anyway. */
 	if ( c->wm_type == C_ACTIVATE )
 	{
 		if ( dlgwid < 0 )
-			activate(c->wm_arg[0]);
+		{
+			if ( c->wm_arg[0] < 0 )
+				srvswitch();
+			else
+				activate(c->wm_arg[0]);
+		}
 		return;
 	}
 	if ( c->wm_type == C_BYE )
@@ -3876,9 +3940,9 @@ char **argv;
 	/* Load the launchable-app catalog (/usr/hr/etc/apps) -- what the right-click
 	 * desktop menu offers.  The desktop's icon bar is NOT ours: the rc script
 	 * starts the dock (zdock), a plain client with an undecorated window, which
-	 * reads the same catalog and draws every entry's icon itself -- the
-	 * kernel-and-shell split.  The menu here stays as the fallback launcher,
-	 * so a desktop whose dock has died can still start things (or quit). */
+	 * keeps its own catalog (/usr/hr/etc/dock) and draws every entry's icon
+	 * itself -- the kernel-and-shell split.  The menu here stays as the fallback
+	 * launcher, so a desktop whose dock has died can still start things (or quit). */
 	loadapps();
 	deadadd(runrc());	/* the rc shell exits when the script ends: reap it */
 
@@ -3897,5 +3961,6 @@ char **argv;
 			drainconn();	/* windows for clients that just connected */
 			draindlg();	/* dialog opens taken mid-tracker */
 		}
+		wlflush();	/* window list changed this pass: tell subscribers */
 	}
 }

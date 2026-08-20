@@ -433,6 +433,9 @@ f	/usr/man/1cmdman/zpuzzle	644	0	1
 f	/usr/man/1cmdman/zmaze	644	0	1
 f	/usr/man/1cmdman/zterm	644	0	1
 f	/usr/man/1cmdman/zview	644	0	1
+f	/usr/man/1cmdman/zwclock	644	0	1
+f	/usr/man/1cmdman/zwmem	644	0	1
+f	/usr/man/1cmdman/zwwin	644	0	1
 f	/usr/man/8cmdman/Ncron	644	0	1
 f	/usr/man/8cmdman/ac	644	0	1
 f	/usr/man/8cmdman/accton	644	0	1
@@ -468,6 +471,7 @@ d	/usr/hr/etc	755	0	1
 d	/usr/hr/fonts	755	0	1
 d	/usr/hr/icons	755	0	1
 f	/usr/hr/etc/apps	644	0	1
+f	/usr/hr/etc/dock	644	0	1
 f	/usr/hr/etc/rc	755	0	1
 f	/usr/hr/icons/term.icn	644	0	1
 f	/usr/hr/icons/clock.icn	644	0	1
@@ -516,6 +520,9 @@ f	/usr/hr/bin/zfile	755	0	1
 f	/usr/hr/bin/zpuzzle	755	0	1
 f	/usr/hr/bin/zmaze	755	0	1
 f	/usr/hr/bin/zdock	755	0	1
+f	/usr/hr/bin/zwclock	755	0	1
+f	/usr/hr/bin/zwmem	755	0	1
+f	/usr/hr/bin/zwwin	755	0	1
 f	/usr/hr/bin/ptytest	755	0	1
 f	/usr/hr/bin/zterm	755	0	1
 f	/usr/hr/bin/hrpump	755	0	1
