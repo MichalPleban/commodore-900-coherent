@@ -1,0 +1,75 @@
+# Vellum symbol library: PROCESS / P&ID stencils (VELLUM.md sec. 17).
+# Quarter-grid units, pins on whole units (multiples of 4).
+symbol PUMP P
+c 0 0 8
+s -4 -6 6 0
+s 6 0 -4 6
+s -4 6 -4 -6
+p -8 0
+p 8 0
+end
+symbol VGATE V
+s -8 -4 -8 4
+s 8 -4 8 4
+s -8 -4 8 4
+s -8 4 8 -4
+p -8 0
+p 8 0
+end
+symbol VCHK V
+s -8 -4 -8 4
+s -8 -4 8 0
+s -8 4 8 0
+s 8 -4 8 4
+p -8 0
+p 8 0
+end
+symbol VCTL V
+s -8 -4 -8 4
+s 8 -4 8 4
+s -8 -4 8 4
+s -8 4 8 -4
+s 0 0 0 -6
+a 0 -8 4 0 180
+p -8 0
+p 8 0
+end
+symbol TANK TK
+s -8 -8 -8 8
+s -8 8 8 8
+s 8 8 8 -8
+p -8 0
+p 8 0
+p 0 8
+end
+symbol VESS VS
+s -8 -4 -8 4
+s 8 -4 8 4
+a 0 -4 8 0 180
+a 0 4 8 180 360
+p 0 -12
+p 0 12
+end
+symbol HX E
+c 0 0 8
+s -12 0 -8 0
+s 8 0 12 0
+s -8 0 -4 -4
+s -4 -4 4 4
+s 4 4 8 0
+p -12 0
+p 12 0
+end
+symbol COMP K
+c 0 0 8
+s -6 -5 6 -2
+s -6 5 6 2
+p -8 0
+p 8 0
+end
+symbol INST I
+c 0 0 6
+s -6 0 6 0
+s 0 6 0 8
+p 0 8
+end

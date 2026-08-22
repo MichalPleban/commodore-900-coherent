@@ -46,6 +46,7 @@
 Shell:/usr/hr/bin/zterm:1:term.icn:48,88
 Files:/usr/hr/bin/zfile:1:file.icn:120,100
 Editor:/usr/hr/bin/zedit:1:edit.icn:80,84
+Vellum:/usr/vellum/bin/vellum:1:vellum.icn:140,90
 Mail:/usr/hr/bin/zmail:0:mail.icn:100,120
 Manual:/usr/hr/bin/zman:0:man.icn:180,140
 Calculator:/usr/hr/bin/zcalc:0:calc.icn:600,180

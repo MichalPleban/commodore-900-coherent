@@ -67,6 +67,15 @@ struct win {
 				/* no focus, no window menu, not in Switch to  */
 	int	wlnote;		/* 1 = wants E_WINCHG when the window list     */
 				/* changes (HRF_WLNOTIFY)                      */
+	int	track;		/* 1 = wants UNBUTTONED E_MOTION while the     */
+				/* pointer is over its content (HRF_TRACK):    */
+				/* how a CAD client floats a placement ghost   */
+				/* under the cursor.  Opt-in so nobody else    */
+				/* pays the ring traffic.                      */
+	int	midbtn;		/* 1 = wants the RAW middle button (press +    */
+				/* grab + release) instead of the E_PASTE      */
+				/* click (HRF_MIDBTN): the client tells a      */
+				/* middle CLICK (paste) from a DRAG (pan)      */
 	int	menu;		/* HRM_* the client wants in its window menu */
 	int	ourkid;		/* 1 = we forked this client (launchapp), so  */
 				/* its corpse is OURS to reap (see deadpool)  */
@@ -1894,6 +1903,8 @@ HRCONN *hc;
 	wins[wid].confirm = (hc->hc_flags & HRF_CONFIRM) != 0;
 	wins[wid].nodecor = (hc->hc_flags & HRF_NODECOR) != 0;
 	wins[wid].wlnote = (hc->hc_flags & HRF_WLNOTIFY) != 0;
+	wins[wid].track = (hc->hc_flags & HRF_TRACK) != 0;
+	wins[wid].midbtn = (hc->hc_flags & HRF_MIDBTN) != 0;
 	wins[wid].menu = hc->hc_menu & HRM_ALL;	/* its own window-menu entries */
 	wins[wid].pid = hc->hc_pid;
 	wins[wid].ourkid = (p >= 0);	/* forked by launchapp: reap it when it dies */
@@ -2812,8 +2823,7 @@ WMSG *c;
 	{
 		mx = c->wm_arg[1];
 		my = c->wm_arg[2];
-		hr_glob()->curx = mx;	/* cursor-overlap gating must stay live */
-		hr_glob()->cury = my;
+		/* hr_glob()->curx/cury: driver-owned (drawn position) -- see docmd */
 		SM_Mouse_Pos.x = mx;
 		SM_Mouse_Pos.y = my;
 		if ( dlggrab )
@@ -3320,14 +3330,16 @@ WMSG *c;
 	my = c->wm_arg[2];
 	SM_Mouse_Pos.x = mx;		/* keep bitblt cursor-hide gating current */
 	SM_Mouse_Pos.y = my;
-	hr_glob()->curx = mx;		/* clients read this for cursor-overlap */
-	hr_glob()->cury = my;
+	/* hr_glob()->curx/cury deliberately NOT written: the driver owns them
+	 * (published at each sprite draw = where the save-under sits). */
 	p.x = mx;  p.y = my;
 
-	/* LEFT RELEASE: end the grab, and hand the client the release that closes
-	 * its gesture.  Done before anything else and regardless of where the
-	 * pointer now is -- a drag legitimately ends outside the window. */
-	if ( (changed & SM_LFT) && !(down & SM_LFT) )
+	/* LEFT (or grabbed-MIDDLE) RELEASE: end the grab, and hand the client
+	 * the release that closes its gesture.  Done before anything else and
+	 * regardless of where the pointer now is -- a drag legitimately ends
+	 * outside the window. */
+	if ( ((changed & SM_LFT) && !(down & SM_LFT)) ||
+	     ((changed & SM_MID) && !(down & SM_MID)) )
 	{
 		if ( grabwid >= 0 )
 		{
@@ -3377,6 +3389,18 @@ WMSG *c;
 		 * copy of a multi app).  No grab and no E_SELCLEAR -- the
 		 * selection is not consumed by a click that pastes nothing. */
 		w = who_top_at(p);
+		if ( w >= 0 && w < MAX_WINDOWS && wins[w].used &&
+		     wins[w].midbtn && !wins[w].min &&
+		     toclient(w, mx, my, &cx, &cy) )
+		{
+			/* HRF_MIDBTN: the raw gesture, WITH the grab so the
+			 * motion and the release follow -- the client tells a
+			 * click (its own paste) from a drag (Vellum pans). */
+			grabwid = w;
+			lastgx = cx;  lastgy = cy;
+			sendev(w, E_BUTTON, cx, cy, down, changed);
+			return;
+		}
 		if ( w >= 0 && w < MAX_WINDOWS && wins[w].used &&
 		     wins[w].nodecor )
 		{
@@ -3543,8 +3567,15 @@ WMSG *c;
 
 			mx = c->wm_arg[1];
 			my = c->wm_arg[2];
-			hr_glob()->curx = mx;	/* clients read this for overlap */
-			hr_glob()->cury = my;
+			/* hr_glob()->curx/cury are NOT touched here: the DRIVER
+			 * publishes them at every sprite draw (hrdraw), and that
+			 * drawn position is where the save-under lies -- what
+			 * clients must hide for.  The server's input position
+			 * LAGS the drawn sprite by the whole pump pipeline when
+			 * a busy client starves the server; overwriting the
+			 * fresh value with the stale one made clients paint
+			 * under the real sprite unhidden, and its next move
+			 * restored a stale patch (the zdraw ghost fragments). */
 			SM_Mouse_Pos.x = mx;	/* bitblt cursor-hide gating (bug #1) */
 			SM_Mouse_Pos.y = my;
 			/* Forward to the grab holder only -- see grabwid.  Clamped to the
@@ -3555,6 +3586,27 @@ WMSG *c;
 			{
 				lastgx = cx;  lastgy = cy;
 				sendev(grabwid, E_MOTION, cx, cy, SM_LFT, 0);
+			}
+			else if ( grabwid < 0 )
+			{
+				/* No grab: a window that opted into HRF_TRACK gets
+				 * plain motion while the pointer is over its content
+				 * (buttons arg = 0 tells it from a drag), so it can
+				 * float a placement ghost under the cursor.  Same
+				 * de-dup as the grab path; nobody else is woken. */
+				POINT tp;
+				int w;
+
+				tp.x = mx;  tp.y = my;
+				w = who_top_at(tp);
+				if ( w >= 0 && w < MAX_WINDOWS && wins[w].used &&
+				     wins[w].track &&
+				     toclient(w, mx, my, &cx, &cy) &&
+				     (cx != lastgx || cy != lastgy) )
+				{
+					lastgx = cx;  lastgy = cy;
+					sendev(w, E_MOTION, cx, cy, 0, 0);
+				}
 			}
 		}
 		else if ( c->wm_arg[0] == IN_BUTTON )

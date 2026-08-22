@@ -219,6 +219,20 @@ char **argv;
 	return mywid;
 }
 
+/* Attach to an EXISTING window without any server handshake: the caller
+ * inherited the command pipe (fd HR_CMDFD) and was TOLD the window id by
+ * its parent, which owns the window and stays blocked while this process
+ * borrows its event ring (the vellum dialog-helper pattern -- a spawned
+ * process runs a modal dialog on its parent's window and exits).  Sets up
+ * direct rendering exactly like hr_open's tail; nothing here writes any
+ * server state the owner is using while it waits. */
+hr_attach(wid)
+{
+	mywid = wid;
+	cl_init(mywid);
+	return mywid;
+}
+
 /* Tell the server we are done so it reaps the window (the client normally exits
  * right after).  A client that just exits is reaped anyway when its event pipe
  * breaks, but saying so is instant and keeps the desktop tidy. */

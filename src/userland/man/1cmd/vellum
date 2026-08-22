@@ -1,0 +1,359 @@
+.TH vellum "" "Command"
+.SH NAME
+vellum \- GUI technical drawing and schematic editor
+.SH SYNOPSIS
+\fBvellum [\fIoptions\fB] [\fIfile\fB]\fR
+.br
+\fBvellum \-print\fR|\fB\-pic\fR|\fB\-net\fR|\fB\-hpgl\fR|\fB\-bom\fR \
+[\fB\-wide\fR] [\fB\-scale\fR \fIn\fR] \fIfile.d ...\fR
+.SH DESCRIPTION
+.HS
+vellum -- GUI technical drawing and schematic editor
+Usage:	vellum [ options ] [ file ]
+	vellum -print|-pic|-net|-hpgl|-bom [-wide] [-scale n] file.d ...
+Keys:	r rotate, m mirror, d duplicate, n properties, x/Del delete,
+	u undo, v zoom-to-fit, f to front, j/J group/ungroup,
+	1-6 align L/R/T/B + distribute, g grid, < > sheets, Esc select,
+	F2 save, F3 open, F4 new, F5-F7 cut/copy/paste, F8 settings
+.HE
+.B vellum
+is the drawing board of this workstation: electronic schematics,
+block diagrams, flowcharts, network maps, software structure charts
+and figures for manuals, with clean printed output and full
+membership in the Unix pipeline.
+It must be run under the
+.B zview
+desktop and accepts the standard window
+.I options
+of GUI applications; see
+.BR zview .
+The optional
+.I file
+argument names a drawing to open.
+.PP
+The file name sits in its own bar at the top, with a `*' while the
+drawing has unsaved changes; the TOOLBAR row of cells sits under it,
+and the palette down the left edge holds the symbol bank.
+Symbols come from LIBRARY FILES named in /usr/vellum/etc/libs:
+.B discrete
+(resistor through opamp),
+.B logic
+(gates and flip-flops),
+.B flow
+(flowchart stencils),
+.B net
+(network-map stencils),
+.B arch
+(software structure stencils),
+.B pid
+(process / P&ID stencils),
+.B power
+(one-line electrical) and
+.B plan
+(floor-plan stencils), plus the user scratch library
+/usr/vellum/etc/symbols when it holds anything.
+Every loaded symbol stays resolvable at once \- a drawing may mix
+libraries \- but the palette shows ONE group at a time: the header
+cell above the bank names it and clicking the header switches to the
+next.
+After the last library comes the
+.B shapes
+pseudo-group: the nine STRETCHABLE shapes (box, rounded box,
+diamond, oval, parallelogram, drum, document, circle, ellipse), the
+four CONNECTOR styles (hv, line, arrow, harrow), the Arc tool, the
+Net name marker and the Dim (dimension) tool.
+The toolbar's
+.B Lib
+cell lists the libraries on file in a scrollable dialog, and
+.B Edit
+opens the current library in the
+.B symedit
+symbol editor.
+.PP
+The tools:
+.DS
+.ta 8n
+	\fBSel\fR	click selects (a grouped object selects its whole
+		group), drag moves; a drag on EMPTY canvas selects
+		everything inside the rectangle.  A selected SHAPE
+		shows corner handles \- dragging one resizes it \-
+		and a selected line, wire, connector or dimension
+		shows ENDPOINT grips (a polyline its vertices):
+		dragging one re-routes and re-snaps the end
+	\fBWire\fR	drag or click each end; wires route H-then-V, snap
+		to pins and re-anchor so a run chains corner by corner
+	\fBLine\fR	like Wire but straight \- and a chained run folds
+		into ONE polyline object
+	\fBBox\fR	drag draws a rectangle
+	\fBCirc\fR	drag from the centre draws a circle
+	\fBText\fR	click asks for a label and places it
+	\fBDel\fR	click deletes what it hits
+.DE
+Under them the ACTION cells
+.B Rot ,
+.B Mir ,
+.B Name
+and
+.B Dup
+arm click-to-apply versions of the keys;
+.B In
+and
+.B Out
+zoom (also
+.B +
+and
+.B \- ,
+and
+.B v
+zooms to fit the whole drawing);
+.B Fr
+and
+.B Bk
+move the selection to the front or back of the stacking order; the
+.B L\fIn\fR
+cell cycles the ACTIVE layer new objects land on; and the
+.B <
+and
+.B >
+cells walk a numbered sheet set (the same actions as the
+.B <
+and
+.B >
+keys \- see SHEET SETS).
+.PP
+A SHAPE is placed by dragging its rectangle, then typing the label
+(drawn centred, clipped to the shape); shapes expose ATTACHMENT
+POINTS at their edge midpoints and corners.
+A CONNECTOR is drawn with the wire gestures but snaps to attachment
+points and symbol pins, and STAYS ATTACHED: moving or resizing the
+target re-routes the connector.
+The
+.B arrow
+and
+.B harrow
+styles carry an arrowhead at the far end.
+The Arc cell draws a circular arc in two stages: drag from the
+centre to the start point, then click where the arc ends.
+The Net cell places a named net marker for the netlist export.
+.PP
+The
+.B Dim
+cell draws a DIMENSION point to point with the wire gestures; both
+ends snap to attachment points, so dimensioning a shape's edge is
+two clicks.
+It lands on the annotation layer, with extension ticks, arrowheads
+both ends and a centred label.
+An EMPTY label is automatic: the measured distance times the sheet
+unit, integer formatted (``85 mm''); any text set through the style
+dialog overrides it, and emptying the text goes back to automatic.
+The sheet unit (``one grid unit is 5 mm'') is set in Settings and
+saved in the drawing; coordinates stay grid units \- only labels
+multiply.
+A LEADER needs no tool of its own: an
+.B arrow
+connector plus a text label already is one.
+.PP
+The
+.B n
+key (or the Name tool) edits a symbol's designator and value; on any
+other object it opens the STYLE dialog: solid/dashed/dotted line
+style, white/gray/black fill (fills stack in z-order), bold (width
+2),
+.B Hatch
+(a gray fill renders as 45-degree hatching \- cross-section shading),
+the object's layer, its text and \- for a text label \- one of
+three sizes and
+.B Vert ,
+which turns the label 90 degrees (axis labels, vertical dimensions).
+A text label may hold several lines separated by `|'.
+A polyline checked
+.B Smooth
+renders as a spline through its points, and
+.B \-pic
+exports it as one.
+.SH LAYERS
+Four fixed layers: 0
+.B drawing
+(the default), 1
+.B annotation ,
+2
+.B frame
+(title block, sheet border) and 3
+.B construction ,
+which never prints.
+The Settings dialog (window menu) checks which layers are VISIBLE
+and which PRINT, picks the snap pitch (1 or 2 units) and the sheet
+preset (160x120, or A4 at 120x168), and its
+.B Frame
+button stamps a sheet border and title block (file name, date,
+revision) as ordinary editable objects on the frame layer.
+The sheet edge shows as a dotted construction guide.
+.SH EDITING
+.DS
+.ta 12n
+	\fBr\fR	rotate a quarter turn (ANY selection turns about
+		its centre; a lone symbol turns in place)
+	\fBm\fR	mirror (likewise: any selection)
+	\fBd\fR	duplicate, two units down-right
+	\fBn\fR	properties (name/value or style dialog)
+	\fBx\fR, \fBDel\fR	delete the selection
+	\fBu\fR	UNDO the last commit (once more redoes)
+	\fBv\fR	zoom to fit the drawing
+	\fBf\fR	selection to the front (stacking)
+	\fBj\fR, \fBJ\fR	group / ungroup the selection
+	\fB1 2 3 4\fR	align left / right / top / bottom
+	\fB5 6\fR	distribute evenly, horizontally / vertically
+	\fBs w l b c t e\fR	arm Sel/Wire/Line/Box/Circ/Text/Del
+	\fB<\fR, \fB>\fR	previous / next sheet of a numbered set
+	\fBEsc\fR	cancel the armed tool, placement or run
+	\fBF2 F3 F4\fR	Save / Open / New (as in \fBzedit\fR)
+	\fBF5 F6 F7\fR	Cut / Copy / Paste
+	\fBF8\fR	the Settings dialog
+	\fBF11\fR	the Help dialog
+	arrows	pan; \fBClear/Home\fR pans to the origin
+.DE
+Cut, Copy and Paste (window menu) go through the system clipboard AS
+TEXT in the drawing format \- paste a fragment into another Vellum,
+or into
+.B zedit
+as text.
+A middle CLICK pastes at the pointer (the selection, else the
+clipboard); a middle DRAG pans the sheet.
+Persistent groups select, move, copy and delete as one until
+ungrouped.
+When the drawing is modified, an autosave writes
+.IB file .bak
+every five minutes.
+.SH "SHEET SETS"
+A sheet is a file; a drawing that spans sheets is a SET of numbered
+files
+.RI ( amp1.d ,
+.IR amp2.d ,
+\&...).
+The
+.B >
+key saves the current sheet and loads the next \- past the last one
+it offers to create it, which is how a set grows \- and
+.B <
+walks back.
+The Frame stamp adds ``Sheet n/m'' when the file name carries a
+number.
+Shell globs are the set syntax for the exporters:
+.B "vellum \-net amp?.d"
+computes nets per sheet and MERGES them BY NAME \- a net named (by an
+N marker or GND/VCC) VBUS on sheet 1 is the same conductor as VBUS on
+sheet 3; unnamed nets stay sheet-local and print qualified
+(NET\-2.3 = sheet 2, net 3).
+.B \-print
+emits the form feed between sheets, and
+.B \-bom
+yields ONE parts list for the whole set.
+An off-page reference is the OFFP stencil with its value reading
+``\(->3'' and an N net name on its pin \- the netlist merge makes it
+electrically true.
+.SH "HEADLESS EXPORT"
+The export modes run WITHOUT a window \- from make(1), from
+scripts, even on a machine with no graphics card (they exec the
+helper /usr/vellum/lib/velxport); each takes ONE OR MORE sheet
+files:
+.DS
+.ta 16n
+	\fBvellum -print\fR f.d	Epson raster on stdout (ESC * bands,
+		1 grid unit = 8 dots; pipe to \fBlpr\fR).
+		\fB-wide\fR prints landscape (the page turned a
+		quarter), \fB-scale\fR \fIn\fR picks n dots per
+		grid unit \- small drawings print big
+	\fBvellum -pic\fR f.d	troff pic source on stdout (16 units
+		per inch), for figures in manuals; smooth
+		polylines come out as pic splines
+	\fBvellum -hpgl\fR f.d	HPGL pen-plotter commands on stdout
+	\fBvellum -net\fR f.d ...	netlist: one line per net, R1.2-style
+		pins (named pins print Q1.B), GND/VCC and
+		N markers name nets \- MERGED by name across
+		the sheet set; designator-less stencils
+		(rails, taps, off-page markers) carry nets
+		but are never listed; warnings for single-
+		pin nets and unconnected pins on stderr
+	\fBvellum -bom\fR f.d ...	bill of materials over the whole
+		set: count, stencil, value and the
+		designators, sorted
+.DE
+Layers marked no-print and the construction layer are skipped.
+.SH "FILE FORMAT"
+Drawings are plain text, one object per line, in grid units; unknown
+lines are skipped, so old readers accept new files:
+.DS
+.ta 8n
+	vellum1
+	U 5 mm
+	Y NPN 20 30 0 0 Q1 -
+	W 10 10 20 10
+	L 5 5 9 9 /1.0
+	T 12 4 s1 Power supply
+	S box 60 10 75 20 Fetch
+	K harrow 67 20 67 24 @67,20 -
+	P 3 5 50 10 55 5 60
+	A 30 50 4 0 180
+	N 17 10 OUT
+	D 10 40 24 40
+	G 2
+.DE
+.B Y
+symbol,
+.B W
+wire,
+.B L
+line,
+.B B
+box,
+.B C
+circle,
+.B T
+text (with an
+.BI s n
+size),
+.B S
+a stretchable shape,
+.B K
+a connector whose ends are `\-' (free) or
+.BI @ x,y
+(the attachment's grid point, re-resolved on load),
+.B P
+a polyline,
+.B A
+an arc (centre, radius, angles),
+.B N
+a net name,
+.B D
+a dimension (empty text = the automatic label),
+.B U
+the sheet-units header and
+.B G
+a group header covering the following n objects.
+An optional
+.BI / flags . layer
+token carries line style, fill, bold, hatch, smooth, vertical text
+and the layer.
+.SH FILES
+.DS
+.ta 28n
+	/usr/vellum/lib/*.sym	the symbol libraries
+	/usr/vellum/etc/libs	which of them load at start-up
+	/usr/vellum/etc/symbols	the user scratch library
+	/usr/vellum/eg/*.d	SAMPLE drawings, one per domain:
+		amp logic (schematics), flow lan struct
+		(diagrams), bracket (mechanical, with
+		dimensions), feed oneline office (P&ID,
+		one-line, floor plan), psu1 psu2 (a two-
+		sheet set for -net merging).  Open one, or
+		feed them to the exporters, to see every
+		feature working.
+.DE
+.SH "SEE ALSO"
+.B symedit ,
+.B zview ,
+.B lpr
+.SH NOTES
+Wires connect only through junction dots; connectors never dot.
+One level of undo only; the printed page and the pic figure are the
+first-class outputs.

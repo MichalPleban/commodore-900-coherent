@@ -138,6 +138,18 @@ typedef struct {
 					/* few (the dock) care about; the event  */
 					/* carries nothing -- the subscriber     */
 					/* re-reads the list itself.             */
+#define HRF_TRACK	0x0040		/* also send E_MOTION with NO button     */
+#define HRF_MIDBTN	0x0080		/* send the RAW middle button (press,
+					 * grab, motion, release) instead of the
+					 * E_PASTE click: the client tells a
+					 * middle CLICK (paste) from a middle
+					 * DRAG (Vellum pans with it)           */
+					/* held while the pointer is over this   */
+					/* window's content (arg2 = 0 tells it   */
+					/* from drag motion).  Opt-in: only a    */
+					/* client that floats something under    */
+					/* the cursor (zdraw's placement ghost)  */
+					/* should pay the ring traffic.          */
 
 /* ---- the dialog-open record (client -> server, C_DLGOPEN) ----------------- *
  * A connected client asks for a MODAL DIALOG OVERLAY: the server saves the

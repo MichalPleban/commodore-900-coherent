@@ -1,0 +1,99 @@
+.TH symedit "" "Command"
+.SH NAME
+symedit \- GUI symbol editor for the vellum library
+.SH SYNOPSIS
+\fBsymedit [\fIoptions\fB] [\fIlibrary\fB]\fR
+.SH DESCRIPTION
+.HS
+symedit -- GUI symbol editor for the vellum library
+Usage:	symedit [ options ] [ library-file ]
+Keys:	s/c/a/p/t/v/e arm Seg/Circ/Arc/Pin/Char/Move/Del,
+	r/m rotate/mirror the whole symbol, f copy-from,
+	x delete selection, Esc back to Seg
+.HE
+.B symedit
+edits a
+.B vellum
+symbol library file: draw a part once here \- a lab instrument, a
+relay, a connector \- and place it in every schematic afterwards.
+The optional
+.I library
+argument names the file to edit (the Edit button in
+.B vellum
+passes the current library); the default is the user scratch
+library, /usr/vellum/etc/symbols.
+The status line shows the file's name in brackets.
+It must be run under the
+.B zview
+desktop; see
+.BR zview .
+.PP
+The canvas shows one symbol magnified, dotted at every quarter grid
+unit with heavier marks on whole grid units.
+The cross is the ORIGIN: the point
+.B vellum
+places, rotates and mirrors the symbol around.
+Under the tool cells sits a true-scale preview \- exactly what the
+palette and canvas of
+.B vellum
+will draw.
+.PP
+The tools:
+.DS
+.ta 8n
+	\fBSeg\fR	drag draws a segment, snapped to quarter units
+	\fBCirc\fR	drag from the centre; radius in quarter units
+	\fBArc\fR	drag from the centre to the START point (radius
+		and start angle), then drag once more to sweep
+		out the end; angles snap to 5 degrees
+	\fBPin\fR	click places a connection pin, snapped to WHOLE
+		grid units \- pins are where wires snap in \fBvellum\fR.
+		A second click on a pin asks for its NAME, which
+		the netlist export prints (Q1.B instead of Q1.2)
+	\fBChar\fR	click asks for one small-font character
+	\fBMove\fR	drag an element to move it; a drag on empty
+		canvas marquee-selects, and the set then moves
+		as one and deletes with \fBx\fR
+	\fBDel\fR	click removes the nearest element
+.DE
+The
+.B r
+and
+.B m
+keys rotate (a quarter turn) and mirror the WHOLE symbol around the
+origin \- draw one gate half, mirror it.
+The
+.B f
+key copies a symbol IN from another library file as the starting
+point (asks for the file and the code; the buffer is replaced, the
+code and prefix stay).
+The two triangle cells under the preview step to the previous and
+next symbol in the library, keeping any edits in memory.
+.PP
+The window menu carries New (asks for the symbol's code and its
+designator prefix), Open (by code; the dialog lists what the library
+holds), Save and Help.
+Switching symbols keeps every edit in memory;
+.B Save
+writes the whole library back to the file.
+A running
+.B vellum
+reads the library only at start-up, so open a fresh one to see saved
+changes.
+.SH FILES
+.DS
+	/usr/vellum/etc/symbols	the user scratch library (default)
+	/usr/vellum/lib/*.sym	the stock libraries (discrete, logic,
+		flow, net, arch)
+	/usr/vellum/etc/libs	which libraries vellum loads at start-up
+.DE
+The format is the plain text described in
+.BR vellum ;
+it can also be edited by hand.
+.SH "SEE ALSO"
+.B vellum ,
+.B zview
+.SH NOTES
+The library holds up to 12 symbols of up to 8 pins each.
+Keep bodies within about \-20..40 quarter units horizontally and
+\-20..20 vertically so they fit the palette cells sensibly.

@@ -50,6 +50,19 @@ extern int	cl_fillrect();	/* cl_fillrect(cx0,cy0,cx1,cy1, val) content px;
 				   val 0=black 1=white 2=invert 3=50% gray       */
 extern int	cl_point();	/* cl_point(cx,cy, val)                           */
 extern int	cl_line();	/* cl_line(cx0,cy0,cx1,cy1, val)                  */
+extern int	cl_lpat();	/* cl_lpat(pat): 16-bit line-style mask, one bit
+				   per plotted pixel (0x8000 first; 0xffff solid,
+				   0xf0f0 dashed, 0xaaaa dotted).  PERSISTS until
+				   changed; each cl_line restarts the phase.  End
+				   styled drawing with cl_lpat(0xffff).          */
+extern int	cl_circle();	/* cl_circle(cx,cy,r, val): midpoint circle; a
+				   real primitive (cursor-coordinated, XOR-safe
+				   octants) -- never hand-roll one from bare
+				   cl_point, the sprite save-under stomps it   */
+extern int	cl_dotrow();	/* cl_dotrow(cx,cy, n, step): n BLACK dots on
+				   one row, step px apart -- the fast, cursor-
+				   safe way to paint a snap grid (one bracket,
+				   one address resolve for the whole row)      */
 extern int	cl_blit();	/* cl_blit(cx0,cy0,cx1,cy1, src, swpr): blit a
 				   client 1bpp image (int rows, swpr words/row,
 				   word 0 = (cx0,cy0)) into the content rect;

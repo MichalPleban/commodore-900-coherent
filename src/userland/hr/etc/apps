@@ -23,6 +23,8 @@
 Shell:/usr/hr/bin/zterm:1
 Files:/usr/hr/bin/zfile:1
 Editor:/usr/hr/bin/zedit:1
+Vellum:/usr/vellum/bin/vellum:1
+SymEdit:/usr/vellum/bin/symedit:0
 Mail:/usr/hr/bin/zmail:0
 Manual:/usr/hr/bin/zman:0
 Calculator:/usr/hr/bin/zcalc:0

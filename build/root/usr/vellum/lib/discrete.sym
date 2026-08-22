@@ -1,0 +1,208 @@
+# Vellum symbol library: DISCRETE components.
+# Format (see Vellum): quarter-grid units, pins on whole units (mult. of 4).
+#   symbol CODE PFX / s x0 y0 x1 y1 / c cx cy r / t x y C / p x y / end
+symbol R R
+s 0 0 4 0
+s 4 0 5 -3
+s 5 -3 7 3
+s 7 3 9 -3
+s 9 -3 11 3
+s 11 3 12 0
+s 12 0 16 0
+p 0 0
+p 16 0
+end
+symbol C C
+s 0 0 3 0
+s 3 -4 3 4
+s 5 -4 5 4
+s 5 0 8 0
+p 0 0
+p 8 0
+end
+symbol CP C
+s 0 0 3 0
+s 3 -4 3 4
+s 0 -6 2 -6
+s 1 -7 1 -5
+s 6 -4 5 -1
+s 5 -1 5 1
+s 5 1 6 4
+s 5 0 8 0
+p 0 0
+p 8 0
+end
+symbol L L
+s 0 0 4 0
+s 4 0 5 -3
+s 5 -3 6 0
+s 6 0 7 -3
+s 7 -3 8 0
+s 8 0 9 -3
+s 9 -3 10 0
+s 10 0 11 -3
+s 11 -3 12 0
+s 12 0 16 0
+p 0 0
+p 16 0
+end
+symbol POT R
+s 0 0 4 0
+s 4 0 5 -3
+s 5 -3 7 3
+s 7 3 9 -3
+s 9 -3 11 3
+s 11 3 12 0
+s 12 0 16 0
+s 8 -8 8 -4
+s 8 -4 6 -6
+s 8 -4 10 -6
+p 0 0
+p 16 0
+p 8 -8
+end
+symbol D D
+s 0 0 2 0
+s 2 -3 2 3
+s 2 -3 6 0
+s 2 3 6 0
+s 6 -3 6 3
+s 6 0 8 0
+p 0 0
+p 8 0
+end
+symbol Z D
+s 0 0 2 0
+s 2 -3 2 3
+s 2 -3 6 0
+s 2 3 6 0
+s 6 -3 6 3
+s 6 -3 4 -4
+s 6 3 8 4
+s 6 0 8 0
+p 0 0
+p 8 0
+end
+symbol LED D
+s 0 0 2 0
+s 2 -3 2 3
+s 2 -3 6 0
+s 2 3 6 0
+s 6 -3 6 3
+s 6 0 8 0
+s 3 -4 5 -7
+s 5 -7 4 -7
+s 5 -7 5 -6
+s 6 -3 8 -6
+s 8 -6 7 -6
+s 8 -6 8 -5
+p 0 0
+p 8 0
+end
+symbol NPN Q
+s 0 0 4 0
+s 4 -4 4 4
+c 6 0 6
+s 4 -2 8 -6
+s 8 -6 8 -8
+s 4 2 8 6
+s 8 6 8 8
+s 8 6 5 5
+s 8 6 7 3
+p 0 0
+p 8 -8
+p 8 8
+end
+symbol PNP Q
+s 0 0 4 0
+s 4 -4 4 4
+c 6 0 6
+s 4 -2 8 -6
+s 8 -6 8 -8
+s 4 2 8 6
+s 8 6 8 8
+s 4 2 7 3
+s 4 2 5 5
+p 0 0
+p 8 -8
+p 8 8
+end
+symbol SW S
+s 0 0 3 0
+c 4 0 1
+c 12 0 1
+s 5 0 11 -4
+s 13 0 16 0
+p 0 0
+p 16 0
+end
+symbol FUSE F
+s 0 0 2 0
+s 2 -2 10 -2
+s 10 -2 10 2
+s 10 2 2 2
+s 2 2 2 -2
+s 2 0 10 0
+s 10 0 12 0
+p 0 0
+p 12 0
+end
+symbol BAT B
+s 0 0 3 0
+s 3 -4 3 4
+s 5 -2 5 2
+s 5 0 8 0
+p 0 0
+p 8 0
+end
+symbol XTAL Y
+s 0 0 3 0
+s 3 -3 3 3
+s 5 -4 7 -4
+s 7 -4 7 4
+s 7 4 5 4
+s 5 4 5 -4
+s 9 -3 9 3
+s 9 0 12 0
+p 0 0
+p 12 0
+end
+symbol LMP DS
+s 0 0 2 0
+c 6 0 4
+s 3 -3 9 3
+s 3 3 9 -3
+s 10 0 12 0
+p 0 0
+p 12 0
+end
+symbol J J
+c 2 0 2
+s 4 0 8 0
+p 8 0
+end
+symbol GND -
+s 0 0 0 4
+s -4 4 4 4
+s -2 6 2 6
+s -1 8 1 8
+p 0 0
+end
+symbol VCC -
+s 0 0 0 -4
+s -3 -4 3 -4
+p 0 0
+end
+symbol OPA U
+s 4 -8 4 8
+s 4 -8 16 0
+s 4 8 16 0
+s 0 -4 4 -4
+s 0 4 4 4
+s 6 -4 8 -4
+s 6 4 8 4
+s 7 3 7 5
+p 0 -4
+p 0 4
+p 16 0
+end

@@ -1,0 +1,69 @@
+# Vellum symbol library: FLOWCHART stencils (fixed size; the stretchable
+# S shapes cover everything that must grow).  Quarter-grid units, pins on
+# whole units (multiples of 4).
+#   symbol CODE PFX / s x0 y0 x1 y1 / c cx cy r / a cx cy r a0 a1
+#   t x y C / p x y [NAME] / end
+symbol TERM -
+s -8 -4 8 -4
+s -8 4 8 4
+a -8 0 4 90 270
+a 8 0 4 270 90
+p 0 -4
+p 0 4
+end
+symbol PROC -
+s -12 -4 12 -4
+s 12 -4 12 4
+s 12 4 -12 4
+s -12 4 -12 -4
+p 0 -4
+p 0 4
+p -12 0
+p 12 0
+end
+symbol DEC -
+s 0 -4 12 0
+s 12 0 0 4
+s 0 4 -12 0
+s -12 0 0 -4
+p 0 -4
+p 0 4
+p -12 0
+p 12 0
+end
+symbol IO -
+s -10 -4 14 -4
+s 14 -4 10 4
+s 10 4 -14 4
+s -14 4 -10 -4
+p 0 -4
+p 0 4
+end
+symbol DOC -
+s -12 -4 12 -4
+s -12 -4 -12 3
+s 12 -4 12 3
+s -12 3 -8 5
+s -8 5 -4 5
+s -4 5 0 3
+s 0 3 4 1
+s 4 1 8 1
+s 8 1 12 3
+p 0 -4
+end
+symbol CON -
+c 0 0 4
+p 0 -4
+p 0 4
+p -4 0
+p 4 0
+end
+symbol OFFP -
+s -8 -4 8 -4
+s 8 -4 8 0
+s 8 0 0 4
+s 0 4 -8 0
+s -8 0 -8 -4
+p 0 -4
+p 0 4
+end

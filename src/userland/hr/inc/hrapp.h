@@ -87,6 +87,9 @@ typedef struct {
 } HRAPP;
 
 extern int	hr_open();	/* hr_open(&app, &argc, argv) -> wid, or -1    */
+extern int	hr_attach();	/* hr_attach(wid): adopt an EXISTING window
+				 * (no handshake) -- for a spawned helper that
+				 * borrows its blocked parent's window/ring     */
 extern int	hr_wid();	/* our window id (-1 before hr_open succeeds)  */
 extern int	hr_bye();	/* tell the server to reap our window          */
 extern int	hr_cmd();	/* hr_cmd(C_*): send a bare command record     */

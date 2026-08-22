@@ -1003,6 +1003,11 @@ $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zview/zvpump.o \
 	$(HRGUIOBJ)/zprint/zprint.o $(HRGUIOBJ)/zcalc/zcalc.o \
 	$(HRGUIOBJ)/zman/zman.o $(HRGUIOBJ)/zfile/zfile.o \
 	$(HRGUIOBJ)/zpuzzle/zpuzzle.o $(HRGUIOBJ)/zdock/zdock.o \
+	$(HRGUIOBJ)/vellum/vellum.o $(HRGUIOBJ)/vellum/symedit.o \
+	$(HRGUIOBJ)/vellum/velgfx.o $(HRGUIOBJ)/vellum/velfile.o \
+	$(HRGUIOBJ)/vellum/velcmd.o $(HRGUIOBJ)/vellum/veldlg.o \
+	$(HRGUIOBJ)/vellum/velbase.o $(HRGUIOBJ)/vellum/velport.o \
+	$(HRGUIOBJ)/vellum/velxmain.o $(HRGUIOBJ)/vellum/veldlgm.o \
 	$(HRGUIOBJ)/zmaze/zmaze.o $(HRGUIOBJ)/zmaze/zmcore.o \
 	$(HRGUIOBJ)/zwidg/zwclock.o $(HRGUIOBJ)/zwidg/zwwin.o \
 	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o \
@@ -1235,6 +1240,80 @@ $(HRGUIBIN)/zpuzzle: $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(SHLIB) $(LIBC)
 
+# Vellum: the schematic / diagram editor, and SymEdit, its symbol-library
+# editor.  A ZView client pair, but installed under their OWN prefix
+# (/usr/vellum/{bin,lib,etc}) like a proper application suite: bin/ the two
+# programs, lib/ the stock symbol libraries (discrete.sym, logic.sym),
+# etc/ the start-up library list and the user scratch library.
+# No floats anywhere: circle radii come from an integer square root.
+VELBIN := $(ROOT)/usr/vellum/bin
+# vellum is several objects (one module outgrew both the assembler's
+# fix-up tables and, all together, the 64 K text segment): the editor
+# (vellum.o + veldlg.o dialogs + velcmd.o commands + velgfx.o drawing)
+# over the shared MODEL layer (velbase.o) and format (velfile.o).  The
+# headless exporters live in a SEPARATE helper binary velxport
+# (velxmain + velport + velfile + velbase, NO gfx library) that
+# `vellum -print/-pic/-net' execs -- exports work without the hi-res
+# card, and the editor stays inside its text segment.
+VELOBJ := $(HRGUIOBJ)/vellum/vellum.o $(HRGUIOBJ)/vellum/velgfx.o \
+	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velcmd.o \
+	$(HRGUIOBJ)/vellum/veldlg.o $(HRGUIOBJ)/vellum/velbase.o
+VELXOBJ := $(HRGUIOBJ)/vellum/velxmain.o $(HRGUIOBJ)/vellum/velport.o \
+	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velbase.o
+$(VELOBJ) $(VELXOBJ): src/userland/hr/vellum/vellum.h
+# The EDITOR's units compile WITHOUT -Wa,-S: their string literals then
+# live in the (roomy) DATA segment instead of the text segment, whose 64 K
+# is the v2 wall (VELLUM.md sec. 13 -- editor features are rationed by
+# text bytes).  Only vellum pays: the dialog HELPER below and the rest of
+# the hr tree keep -S, where shared read-only text is the win.
+VELEDCFLAGS := -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRGFXDIR) \
+	-I$(HRGUISRC)/inc
+$(VELOBJ): $(HRGUIOBJ)/%.o: $(HRGUISRC)/%.c $(HRGUIHDRS)
+	@mkdir -p $(dir $@)
+	$(CC) $(VELEDCFLAGS) -c $< -o $@
+$(VELBIN)/vellum: LDNFLAGS := -n
+$(VELBIN)/vellum: $(VELOBJ) $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(VELOBJ) $(SHLIB) $(LIBC)
+	@python tools/segtrip.py --gate 95 $@
+
+$(ROOT)/usr/vellum/lib/velxport: $(VELXOBJ) $(CRT) $(LIBC) $(LIBC_SL)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(VELXOBJ) $(LIBC_SL) $(LIBC)
+	@python tools/segtrip.py --gate 95 $@
+
+$(VELBIN)/symedit: LDNFLAGS := -n
+$(VELBIN)/symedit: $(HRGUIOBJ)/vellum/symedit.o $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/vellum/symedit.o $(SHLIB) $(LIBC)
+
+# The dialog HELPER (veldlgm.c): every editor dialog, run in a spawned
+# process on the editor's window (hr_attach) -- the velxport pattern
+# applied to the dialogs, keeping the editor under its text tripwire.
+$(ROOT)/usr/vellum/lib/veldlg: $(HRGUIOBJ)/vellum/veldlgm.o $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -n -o $@ $(CRT) $(HRGUIOBJ)/vellum/veldlgm.o $(SHLIB) $(LIBC)
+
+# Vellum's data files (src/userland/hr/vellum -> the /usr/vellum tree).
+$(ROOT)/usr/vellum/lib/%.sym: src/userland/hr/vellum/%.sym
+	@mkdir -p $(dir $@)
+	cp $< $@
+# The sample gallery (/usr/vellum/eg): one drawing per domain, each a
+# working demo of the manual's features -- schematic, logic, flowchart,
+# network, structure chart, mechanical sketch, P&ID, one-line, floor
+# plan, and a two-sheet set for the sheet-set/netlist-merge story.
+VELEG := amp logic flow lan struct bracket feed oneline office psu1 psu2
+VELEG_TARGETS := $(patsubst %,$(ROOT)/usr/vellum/eg/%.d,$(VELEG))
+$(ROOT)/usr/vellum/eg/%.d: src/userland/hr/vellum/eg/%.d
+	@mkdir -p $(dir $@)
+	cp $< $@
+$(ROOT)/usr/vellum/etc/libs: src/userland/hr/vellum/libs
+	@mkdir -p $(dir $@)
+	cp $< $@
+$(ROOT)/usr/vellum/etc/symbols: src/userland/hr/vellum/symbols
+	@mkdir -p $(dir $@)
+	cp $< $@
+
 # zmaze: Wolfenstein-style raycast maze in a fixed 320x200 window.  The
 # render core (zmcore.c) never divides -- tables + the zmaze_a.s asm inner
 # loops (DDA, edge compositor, dither fills; r0-r5 scratch ABI) -- and the
@@ -1361,11 +1440,20 @@ HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(SHLIB) $(HRGUIBIN)/gfxtest $(HRGUIBI
 	$(HRGUIBIN)/zvpump $(HRGUIBIN)/zvwatch $(HRGUIBIN)/zclock \
 	$(HRGUIBIN)/zdlg $(HRGUIBIN)/zedit $(HRGUIBIN)/zmail $(HRGUIBIN)/zprint \
 	$(HRGUIBIN)/zmon $(HRGUIBIN)/zcalc $(HRGUIBIN)/zman $(HRGUIBIN)/zfile \
-	$(HRGUIBIN)/zpuzzle $(HRGUIBIN)/zmaze $(HRGUIBIN)/zdock \
+	$(HRGUIBIN)/zpuzzle $(HRGUIBIN)/zmaze \
+	$(VELBIN)/vellum $(VELBIN)/symedit \
+	$(ROOT)/usr/vellum/lib/velxport $(ROOT)/usr/vellum/lib/veldlg \
+	$(HRGUIBIN)/zdock \
 	$(HRGUIBIN)/zwclock $(HRGUIBIN)/zwmem $(HRGUIBIN)/zwwin \
 	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIBIN)/hrclip \
 	$(HRGUIFONTS) \
 	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/dock $(ROOT)/usr/hr/etc/rc \
+	$(ROOT)/usr/vellum/etc/symbols $(ROOT)/usr/vellum/etc/libs \
+	$(VELEG_TARGETS) \
+	$(ROOT)/usr/vellum/lib/discrete.sym $(ROOT)/usr/vellum/lib/logic.sym \
+	$(ROOT)/usr/vellum/lib/flow.sym $(ROOT)/usr/vellum/lib/net.sym \
+	$(ROOT)/usr/vellum/lib/arch.sym $(ROOT)/usr/vellum/lib/pid.sym \
+	$(ROOT)/usr/vellum/lib/power.sym $(ROOT)/usr/vellum/lib/plan.sym \
 	$(HRGUIICONS)
 
 # Build the ZView desktop and its clients standalone (they are otherwise only

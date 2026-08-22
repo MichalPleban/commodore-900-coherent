@@ -1,0 +1,59 @@
+# Vellum symbol library: SOFTWARE-STRUCTURE stencils (module charts,
+# dataflow).  Quarter-grid units, pins on whole units (multiples of 4).
+symbol MOD M
+s -12 -4 12 -4
+s 12 -4 12 4
+s 12 4 -12 4
+s -12 4 -12 -4
+s -10 -4 -10 4
+p 0 -4
+p 0 4
+p -12 0
+p 12 0
+end
+symbol FILE F
+s -8 -8 4 -8
+s 4 -8 8 -4
+s 8 -4 8 8
+s 8 8 -8 8
+s -8 8 -8 -8
+s 4 -8 4 -4
+s 4 -4 8 -4
+p 0 -8
+p 0 8
+end
+symbol QUE Q
+s -12 -2 12 -2
+s 12 -2 12 2
+s 12 2 -12 2
+s -12 2 -12 -2
+s -4 -2 -4 2
+s 4 -2 4 2
+p -12 0
+p 12 0
+end
+symbol DEV D
+s -8 -4 8 -4
+s 8 -4 8 4
+s 8 4 -8 4
+s -8 4 -8 -4
+c 0 0 2
+p -8 0
+p 8 0
+p 0 -4
+p 0 4
+end
+symbol DMN -
+c 0 0 6
+a 0 1 3 200 340
+c -2 -2 1
+c 2 -2 1
+s 0 -8 0 -6
+s 0 6 0 8
+s -8 0 -6 0
+s 6 0 8 0
+p 0 -8
+p 0 8
+p -8 0
+p 8 0
+end

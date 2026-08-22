@@ -1,0 +1,89 @@
+
+
+ssyymmeeddiitt                                                   ssyymmeeddiitt
+
+
+
+NNAAMMEE
+     symedit - GUI symbol editor for the vellum library
+
+SSYYNNOOPPSSIISS
+     ssyymmeeddiitt [_o_p_t_i_o_n_s] [_l_i_b_r_a_r_y]
+
+DDEESSCCRRIIPPTTIIOONN
+     ssyymmeeddiitt edits a vveelllluumm symbol library file: draw a part once
+     here - a lab instrument, a relay, a connector - and place it
+     in every schematic afterwards.  The optional _l_i_b_r_a_r_y argu-
+     ment names the file to edit (the Edit button in vveelllluumm pas-
+     ses the current library); the default is the user scratch
+     library, /usr/vellum/etc/symbols.  The status line shows the
+     file's name in brackets.  It must be run under the zzvviieeww
+     desktop; see zzvviieeww.
+
+     The canvas shows one symbol magnified, dotted at every
+     quarter grid unit with heavier marks on whole grid units.
+     The cross is the ORIGIN: the point vveelllluumm places, rotates
+     and mirrors the symbol around.  Under the tool cells sits a
+     true-scale preview - exactly what the palette and canvas of
+     vveelllluumm will draw.
+
+     The tools:
+
+                  SSeeggdrag draws a segment, snapped to quarter units
+                  CCiirrccdrag from the centre; radius in quarter units
+                  AArrccdrag from the centre to the START point (radius
+                            and start angle), then drag once more to sweep
+                            out the end; angles snap to 5 degrees
+                  PPiinnclick places a connection pin, snapped to WHOLE
+                            grid units - pins are where wires snap in vveelllluumm.
+                            A second click on a pin asks for its NAME, which
+                            the netlist export prints (Q1.B instead of Q1.2)
+                  CChhaarrclick asks for one small-font character
+                  MMoovveedrag an element to move it; a drag on empty
+                            canvas marquee-selects, and the set then moves
+                            as one and deletes with xx
+                  DDeellclick removes the nearest element
+
+     The rr and mm keys rotate (a quarter turn) and mirror the
+     WHOLE symbol around the origin - draw one gate half, mirror
+     it.  The ff key copies a symbol IN from another library file
+     as the starting point (asks for the file and the code; the
+     buffer is replaced, the code and prefix stay).  The two tri-
+     angle cells under the preview step to the previous and next
+     symbol in the library, keeping any edits in memory.
+
+     The window menu carries New (asks for the symbol's code and
+     its designator prefix), Open (by code; the dialog lists what
+     the library holds), Save and Help.  Switching symbols keeps
+     every edit in memory; SSaavvee writes the whole library back to
+     the file.  A running vveelllluumm reads the library only at start-
+     up, so open a fresh one to see saved changes.
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ssyymmeeddiitt                                                   ssyymmeeddiitt
+
+
+
+FFIILLEESS
+                  /usr/vellum/etc/symbolsthe user scratch library (default)
+                  /usr/vellum/lib/*.symthe stock libraries (discrete, logic,
+                            flow, net, arch)
+                  /usr/vellum/etc/libswhich libraries vellum loads at start-up
+
+     The format is the plain text described in vveelllluumm; it can
+     also be edited by hand.
+
+SSEEEE AALLSSOO
+     vveelllluumm , zzvviieeww
+
+NNOOTTEESS
+     The library holds up to 12 symbols of up to 8 pins each.
+     Keep bodies within about -20..40 quarter units horizontally
+     and -20..20 vertically so they fit the palette cells sen-
+     sibly.

@@ -1,0 +1,13 @@
+# Symbol libraries Vellum loads at start-up, one file per line.  ALL of
+# them stay loaded (so any drawing's symbols resolve); the palette shows
+# one at a time -- its header cell switches between them, and the toolbar
+# Lib button loads further files.  The user scratch library SymEdit edits by
+# default (/usr/vellum/etc/symbols) is always tried after these.
+/usr/vellum/lib/discrete.sym
+/usr/vellum/lib/logic.sym
+/usr/vellum/lib/flow.sym
+/usr/vellum/lib/net.sym
+/usr/vellum/lib/arch.sym
+/usr/vellum/lib/pid.sym
+/usr/vellum/lib/power.sym
+/usr/vellum/lib/plan.sym

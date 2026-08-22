@@ -343,6 +343,11 @@ baddest( )
  * the LAST bracket ends.  (ms_en stays the on-screen state its many readers -
  * hrmouse, CIOMOUSE, the evmgr save/restore - already depend on.) */
 int	mshide;
+int	mshid;		/* hrmouse took the sprite off-screen while the drawing
+			 * lock / SHM_INDRAW was busy; it returns (hrdraw) on the
+			 * first calm tick.  Cleared wherever something else puts
+			 * the sprite back up (hrmsedraw / hrmsereset), so the
+			 * erase/draw alternation stays paired. */
 
 /* The hrgui shared-data segment (userland shmem.h: HRTAIL 0x38000000, the
  * GDS segment machine.h defines and the console driver maps).  The driver
@@ -421,6 +426,7 @@ hrmsedraw()
 		hrshow(mousebuf.ms_x/8, mousebuf.ms_y);
 		timeout( &timebuf, 1, hrmouse, 0);
 	}
+	mshid = 0;		/* the sprite is up: no busy-hide pending */
 }
 
 /* Low-level: take the cursor off screen (idempotent). */
@@ -455,6 +461,7 @@ hrmseoff()
 hrmsereset(on)
 {
 	mshide = 0;
+	mshid = 0;
 	if ( on )
 		hrmsedraw();
 	else
@@ -470,7 +477,6 @@ hrmouse( )
 	static		lastxrel,
 			lastyrel;
 	static int	mspend;		/* a cursor redraw is wanted             */
-	static int	msdefer;	/* consecutive ticks it has been deferred */
 	register uint	k,
 			i;
 	register int	x,
@@ -507,25 +513,36 @@ hrmouse( )
 		mouse.m_msg[3] = y;
 		mspend = 1;		/* sprite wants to move to (x,y) */
 	}
-	/* Redraw the sprite, preferably while NO userland op holds the drawing
-	 * lock -- a blit racing this erase/draw is what left the stray cursor.  We
-	 * cannot spin at timer level, so if the lock is held we defer to a later tick
-	 * (mspend).  But a client flooding output holds the lock across a whole
-	 * screen repaint almost continuously, so an UNBOUNDED defer would freeze the
-	 * cursor; after a few ticks we redraw anyway.  A forced redraw is safe unless
-	 * the cursor sits exactly on the cells being blitted, and that is precisely
-	 * the "painting where the cursor is" case the client hides for -- so at worst
-	 * a brief flicker there (the save-under restore may put back a stale patch,
-	 * healed by the very next redraw), never a frozen pointer.  hrdraw publishes
-	 * the drawn position to the tail so clients hide the sprite accurately.
-	 * A raised SHM_INDRAW flag defers exactly like a held lock: it is the
-	 * topmost client's lock-free equivalent (clgfx cl_pbegin fast path). */
-	if (mspend && ((HRFUTEX == 0 && !hrindraw()) || ++msdefer >= 4))
+	/* Move the sprite only while NO userland op holds the drawing lock (a
+	 * raised SHM_INDRAW flag counts like the lock: it is the topmost
+	 * client's lock-free equivalent, clgfx cl_pbegin fast path).  While the
+	 * screen is BUSY the sprite comes OFF instead of deferring the move:
+	 * the old scheme forced a redraw after a few deferred ticks, and that
+	 * forced hrudraw() -- running at timer level, mid-blit -- restored a
+	 * save-under captured BEFORE the client's in-flight painting, leaving a
+	 * stale patch behind (zdraw's placement-ghost fragments; "healed by the
+	 * next redraw" was wrong -- the next redraw heals the NEW cell, never
+	 * the old one).  Hiding NOW is always safe: the save-under is fresh at
+	 * this instant, because any client painting the published cell hides
+	 * the sprite first (which re-saves) and the lock-free fast path never
+	 * touches the cell at all.  The sprite returns on the first calm tick;
+	 * during a long repaint the pointer is briefly absent, never frozen
+	 * and never a source of stale pixels. */
+	if (mspend || mshid)
 	{
-		hrudraw();			/* erase at the old drawn position */
-		hrdraw(mouse.m_msg[2], mouse.m_msg[3]);	/* draw at the latest position */
-		mspend = 0;
-		msdefer = 0;
+		if (HRFUTEX == 0 && !hrindraw())
+		{
+			if (!mshid)
+				hrudraw();	/* erase at the old drawn position */
+			hrdraw(mouse.m_msg[2], mouse.m_msg[3]);	/* latest position */
+			mspend = 0;
+			mshid = 0;
+		}
+		else if (!mshid)
+		{
+			hrudraw();	/* busy: off-screen while the save is fresh */
+			mshid = 1;
+		}
 	}
 
 	s = sphi();

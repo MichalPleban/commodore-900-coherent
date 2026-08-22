@@ -1,0 +1,62 @@
+# Vellum symbol library: FLOOR-PLAN stencils (VELLUM.md sec. 17).
+# Quarter-grid units, pins on whole units (multiples of 4).
+symbol POST -
+s -2 -2 2 -2
+s 2 -2 2 2
+s 2 2 -2 2
+s -2 2 -2 -2
+s -2 -2 2 2
+s 2 -2 -2 2
+p -4 0
+p 4 0
+p 0 -4
+p 0 4
+end
+symbol DOOR -
+s -8 0 8 0
+s -8 0 -8 -16
+a -8 0 16 0 90
+p -8 0
+p 8 0
+end
+symbol WIN -
+s -8 -2 8 -2
+s -8 0 8 0
+s -8 2 8 2
+s -8 -2 -8 2
+s 8 -2 8 2
+p -8 0
+p 8 0
+end
+symbol OUTL -
+c 0 0 4
+s -8 0 -4 0
+s 4 0 8 0
+p -8 0
+p 8 0
+end
+symbol SW -
+t -1 -2 S
+s 0 2 0 4
+s 0 -2 0 -4
+p 0 4
+p 0 -4
+end
+symbol LAMP -
+c 0 0 4
+s -3 -3 3 3
+s -3 3 3 -3
+p 0 -4
+p 0 4
+end
+symbol STAIR -
+s -8 -6 8 -6
+s -8 -2 8 -2
+s -8 2 8 2
+s -8 6 8 6
+s 0 8 0 -8
+s 0 -8 -2 -4
+s 0 -8 2 -4
+p 0 8
+p 0 -8
+end

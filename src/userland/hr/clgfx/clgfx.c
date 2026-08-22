@@ -478,6 +478,14 @@ cl_pend(locked)
 		ioctl(hrfd, CIOMSEON, (char *)0);
 		curhid = 0;
 	}
+	/* The hide privilege ends WITH the primitive.  Left set, a bare
+	 * cl_point between primitives (a grid of dots, a hand-rolled circle)
+	 * that overlaps the sprite would CIOMSEOFF with no cl_pend to ever
+	 * CIOMSEON -- and the next cl_pbegin resets curhid, orphaning the
+	 * bracket for good.  A leaked hide is not cosmetic: the driver's
+	 * hrmouse poll STOPS while the sprite is erased (hr2.c) and only the
+	 * balancing show re-arms it, so one leak kills all mouse input. */
+	cureligible = 0;
 	if ( locked )
 		hr_unlock(hr_lockw());
 	else
@@ -777,6 +785,71 @@ cl_point(cx, cy, mode)
 		}
 }
 
+/* A ROW OF BLACK DOTS: n single pixels from content (cx,cy), step px apart.
+ * The primitive a snap-grid canvas needs: n is hundreds per row and rows
+ * repaint constantly, so per-dot cl_point (a vis-rect scan, a cursor test
+ * and a screen-address computation EACH) is both too slow and, called bare,
+ * invisible to the cursor sprite.  Here the whole row is one bracket: clip
+ * once per visible rect, hide the sprite once, resolve the row's screen
+ * address once and step along it (one row never crosses the SEG0/SEG1
+ * 512-line split, so plain word arithmetic is safe). */
+cl_dotrow(cx, cy, n, step)
+{
+	int locked, fy, fx0, fxs, i, k0, k1;
+	register int *p0;
+	register int k, w0;
+
+	if ( n <= 0 || step <= 0 )
+		return;
+	locked = cl_pbegin(cx, cy, cx + (n - 1) * step + 1, cy + 1);
+	if ( !S.mapped || cl_frozen() )	/* window unmapped / a server overlay is up */
+	{
+		cldropped = 1;		/* content lost: a repaint is owed */
+		cl_pend(locked);
+		return;
+	}
+	fy = S.oy + cy;
+	fx0 = S.ox + cx;
+	for ( i = 0; i < S.nvis; i++ )
+	{
+		if ( fy < S.vis[i].y0 || fy >= S.vis[i].y1 )
+			continue;
+		k0 = 0;
+		if ( fx0 < S.vis[i].x0 )
+			k0 = (S.vis[i].x0 - fx0 + step - 1) / step;
+		k1 = n - 1;
+		if ( fx0 + k1 * step >= S.vis[i].x1 )
+			k1 = (S.vis[i].x1 - 1 - fx0) / step;
+		if ( k0 > k1 )
+			continue;
+		fxs = fx0 + k0 * step;
+		cl_hidecur(fxs, fy, fx0 + k1 * step + 1, fy + 1);
+		p0 = cl_scraddr(fxs, fy);
+		w0 = fxs >> 4;
+		for ( k = k0; k <= k1; k++ )
+		{
+			fxs = fx0 + k * step;
+			p0[(fxs >> 4) - w0] &= ~(0x8000 >> (fxs & 15));
+		}
+	}
+	cl_pend(locked);
+}
+
+/* Line style pattern: a 16-bit run-length mask consumed one bit per plotted
+ * pixel along the Bresenham walk (0x8000 first).  0xffff (the default) is a
+ * solid line; 0xf0f0 dashes, 0xaaaa dots.  cl_lpat() sets it AND resets the
+ * phase, so a caller styling an object calls it once per line and gets a
+ * dash pattern that starts fresh at each line's first pixel.  The pattern
+ * PERSISTS until changed -- style-drawing code ends with cl_lpat(0xffff). */
+static int	cllpat = 0xffff;	/* current pattern (never 0)      */
+static int	cllrun;			/* rotating copy: bit 0x8000 next */
+
+cl_lpat(pat)
+{
+	cllpat = (pat & 0xffff) ? (pat & 0xffff) : 0xffff;
+	cllrun = cllpat;
+}
+
 /* Bresenham line in content coords (used for graphics clients like the clock;
  * low-rate, so per-pixel plotting is fine here -- unlike text).  mode as cl_point. */
 cl_line(x0, y0, x1, y1, mode)
@@ -797,14 +870,101 @@ cl_line(x0, y0, x1, y1, mode)
 	sx = x0 < x1 ? 1 : -1;
 	sy = y0 < y1 ? 1 : -1;
 	err = dx - dy;
+	if ( cllpat == 0xffff )		/* solid: the plain fast walk */
+	{
+		for (;;)
+		{
+			cl_point(x0, y0, mode);
+			if ( x0 == x1 && y0 == y1 )
+				break;
+			e2 = err + err;
+			if ( e2 > -dy ) { err -= dy;  x0 += sx; }
+			if ( e2 <  dx ) { err += dx;  y0 += sy; }
+		}
+		cl_pend(locked);
+		return;
+	}
+	cllrun = cllpat;		/* each line starts the pattern fresh */
 	for (;;)
 	{
-		cl_point(x0, y0, mode);
+		if ( cllrun & 0x8000 )
+			cl_point(x0, y0, mode);
+		cllrun = ((cllrun << 1) | ((cllrun >> 15) & 1)) & 0xffff;
 		if ( x0 == x1 && y0 == y1 )
 			break;
 		e2 = err + err;
 		if ( e2 > -dy ) { err -= dy;  x0 += sx; }
 		if ( e2 <  dx ) { err += dx;  y0 += sy; }
+	}
+	cl_pend(locked);
+}
+
+/* Midpoint circle in content coords, mode as cl_point.  A PRIMITIVE, not a
+ * client-side point loop, for the same reason cl_line is one: only inside
+ * the cl_pbegin bracket do the plotted points coordinate with the driver's
+ * cursor sprite -- a bare-cl_point circle drawn under the sprite is silently
+ * stomped by the save-under restore on the next cursor move (and before
+ * cl_pend cleared cureligible it could leak the hide outright and kill the
+ * mouse).  Octant-boundary points are plotted once only, so mode 2 (XOR
+ * rubber banding) never self-cancels. */
+cl_circle(cx, cy, r, mode)
+{
+	register int x, y;
+	int d, locked;
+
+	if ( r < 0 )
+		r = -r;
+	locked = cl_pbegin(cx - r, cy - r, cx + r + 1, cy + r + 1);
+	if ( !S.mapped || cl_frozen() )	/* window unmapped / a server overlay is up */
+	{
+		cldropped = 1;		/* content lost: a repaint is owed */
+		cl_pend(locked);
+		return;
+	}
+	if ( r == 0 )
+	{
+		cl_point(cx, cy, mode);
+		cl_pend(locked);
+		return;
+	}
+	x = 0;
+	y = r;
+	d = 1 - r;
+	while ( x <= y )
+	{
+		if ( x == 0 )
+		{
+			cl_point(cx, cy + y, mode);
+			cl_point(cx, cy - y, mode);
+			cl_point(cx + y, cy, mode);
+			cl_point(cx - y, cy, mode);
+		}
+		else if ( x == y )
+		{
+			cl_point(cx + x, cy + y, mode);
+			cl_point(cx - x, cy + y, mode);
+			cl_point(cx + x, cy - y, mode);
+			cl_point(cx - x, cy - y, mode);
+		}
+		else
+		{
+			cl_point(cx + x, cy + y, mode);
+			cl_point(cx - x, cy + y, mode);
+			cl_point(cx + x, cy - y, mode);
+			cl_point(cx - x, cy - y, mode);
+			cl_point(cx + y, cy + x, mode);
+			cl_point(cx - y, cy + x, mode);
+			cl_point(cx + y, cy - x, mode);
+			cl_point(cx - y, cy - x, mode);
+		}
+		if ( d < 0 )
+			d += 2 * x + 3;
+		else
+		{
+			d += 2 * (x - y) + 5;
+			y--;
+		}
+		x++;
 	}
 	cl_pend(locked);
 }

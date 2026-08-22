@@ -1,0 +1,13 @@
+# Vellum USER symbol library -- the scratch file SymEdit edits by default.
+# Draw your own parts with SymEdit (or by hand; the format is plain text,
+# coordinates in QUARTER grid units, 4 = one grid unit):
+#   symbol CODE PFX     start a symbol (PFX = designator prefix, - = none)
+#   s x0 y0 x1 y1       line segment
+#   c cx cy r           circle
+#   t x y C             one small-font character
+#   p x y               connection pin -- MUST sit on whole grid units
+#                       (multiples of 4); wires snap onto pins
+#   end                 finish the symbol (pins go BEFORE it)
+# The origin (0 0) is the point Vellum places and rotates the symbol around.
+# Once this file holds symbols, Vellum lists it in the palette as "symbols".
+# The stock parts live in /usr/vellum/lib/discrete.sym and logic.sym.
