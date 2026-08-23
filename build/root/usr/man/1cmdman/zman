@@ -8,16 +8,18 @@ NNAAMMEE
      zman - GUI manual-page browser
 
 SSYYNNOOPPSSIISS
-     zzmmaann [_o_p_t_i_o_n_s]
+     zzmmaann [_o_p_t_i_o_n_s] [_p_a_g_e]
 
 DDEESSCCRRIIPPTTIIOONN
      zzmmaann is the manual browser of the COHERENT GUI.  It must be
      run under the zzvviieeww desktop.  It lists every pre-formatted
      manual page installed under /uussrr/mmaann in a multi-column
      catalog, and shows the selected page - with bold and under-
-     lining - in the pane below.  zzmmaann takes no page argument on
-     the command line; it accepts the standard window _o_p_t_i_o_n_s of
-     GUI applications; see zzvviieeww.
+     lining - in the pane below.  An optional _p_a_g_e argument names
+     the page to open on (an application's Help entry runs zzmmaann
+     _a_p_p_n_a_m_e); absent or unknown, the browser opens on the
+     desktop's own page.  It accepts the standard window _o_p_t_i_o_n_s
+     of GUI applications; see zzvviieeww.
 
      The find field in the top bar always has the keyboard focus:
      printable characters are appended to it, and RETURN (or the

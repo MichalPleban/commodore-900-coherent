@@ -368,6 +368,35 @@ char	*envp[];
 	if ((pp->p_flags&PFTRAC) != 0)
 		sendsig(SIGTRAP, pp);
 	idetach(ip);
+#if Z8001
+	if ((lflag&LF_SLIB) != 0) {
+		register PROC *ppp;
+
+		/*
+		 * The library is loaded and registered and nothing below
+		 * can fail (msetusr parks us in upause forever), so report
+		 * the completed load to our parent as a ptrace-style stop:
+		 * with PFWAIT set its wait() returns our pid with status
+		 * 0177, exactly once.  This lets init hold the boot until
+		 * each library is actually usable.  PFWAIT must not be set
+		 * any earlier: a load that dies with it still set would be
+		 * reported stopped and then never reaped (pexit does not
+		 * clear it).  Wake the parent in case it is already
+		 * sleeping in wait(), as pexit does.
+		 */
+		pp->p_flags |= PFWAIT;
+		lock(pnxgate);
+		for (ppp=procq.p_nforw; ppp!=&procq; ppp=ppp->p_nforw) {
+			if (ppp->p_pid == pp->p_ppid) {
+				if (ppp->p_state==PSSLEEP
+				 && ppp->p_event==(char *)ppp)
+					wakeup((char *)ppp);
+				break;
+			}
+		}
+		unlock(pnxgate);
+	}
+#endif
 	segload();
 	msetusr(pc, sp);
 	return (0);

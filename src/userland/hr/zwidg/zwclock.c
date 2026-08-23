@@ -49,6 +49,15 @@ tick()
 				 * whose action KILLS) -- re-install before
 				 * anything else narrows the unhandled
 				 * window as far as user code can */
+	alarm(1);		/* re-arm HERE, not in the loop: a delivery
+				 * that lands outside pause() (mid-paint, or
+				 * before a descheduled process reaches the
+				 * pause) would otherwise leave tickflag set
+				 * but NO alarm pending -- pause() then blocks
+				 * forever and the cell freezes.  Armed by the
+				 * handler, the chain never dies; a tick
+				 * consumed at a bad moment costs at most one
+				 * second, never a stall. */
 	tickflag = 1;
 }
 
@@ -88,9 +97,7 @@ char **argv;
 		if ( !tickflag )
 			continue;
 		tickflag = 0;
-		alarm(1);		/* re-armed before the work: a signal
-					 * landing mid-paint costs at most one
-					 * 1-second delay, never a stall */
+		/* (the handler re-armed the alarm -- see tick()) */
 		/* Two strikes to exit: hr_winlist hands back a possibly-torn
 		 * copy when its bounded seqlock retry runs out, and one bad
 		 * read must not kill a healthy widget.  A really-dead dock

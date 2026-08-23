@@ -569,6 +569,58 @@ shapeoutline(kind, x0, y0, x1, y1, fl)
 	return 0;
 }
 
+/* Closed even-odd scanline fill over a polyline's px points (VELLUM.md
+ * sec. 39): the OF_FILL bits have TRAVELLED on P lines since v1.4 --
+ * now they draw.  The polygon closes last-to-first; rowspan does the
+ * styling (white/gray/black/hatch).  A smooth polyline fills the
+ * polygon of its POINTS -- the chords stay an outline affair. */
+fillpoly(xy, n, val)
+register int *xy;
+{
+	short ex[PMAXPT];
+	register int i, k;
+	int y, y0, y1, m, t;
+
+	if ( n < 3 )
+		return 0;
+	y0 = y1 = xy[1];
+	for ( i = 1; i < n; i++ )
+	{
+		if ( xy[2*i + 1] < y0 ) y0 = xy[2*i + 1];
+		if ( xy[2*i + 1] > y1 ) y1 = xy[2*i + 1];
+	}
+	for ( y = y0; y <= y1; y++ )
+	{
+		m = 0;
+		for ( i = 0; i < n; i++ )
+		{
+			int ax, ay, bx, by;
+
+			ax = xy[2*i];
+			ay = xy[2*i + 1];
+			k = i + 1 == n ? 0 : i + 1;
+			bx = xy[2*k];
+			by = xy[2*k + 1];
+			if ( ay == by )
+				continue;
+			/* half-open on y so a shared vertex counts once */
+			if ( (y >= ay && y < by) || (y >= by && y < ay) )
+				ex[m++] = ax + (int)((long)(y - ay) *
+					  (bx - ax) / (by - ay));
+		}
+		for ( i = 1; i < m; i++ )
+			for ( k = i; k > 0 && ex[k - 1] > ex[k]; k-- )
+			{
+				t = ex[k];
+				ex[k] = ex[k - 1];
+				ex[k - 1] = t;
+			}
+		for ( i = 0; i + 1 < m; i += 2 )
+			rowspan(ex[i], ex[i + 1], y, val);
+	}
+	return 0;
+}
+
 /* ---- smooth polylines: the chorded quadratic B-spline (velbase
  * bspline) drawn with the object's style ---- */
 static int	splfl;
@@ -595,7 +647,7 @@ int *xy;
 shlabel(s, x0, y0, x1, y1)
 char *s;
 {
-	char tb[VALL];
+	char tb[TVMAX];
 	register int i;
 	int maxc;
 
@@ -604,7 +656,7 @@ char *s;
 	maxc = (x1 - x0 - 4) / 9;
 	if ( maxc <= 0 )
 		return 0;
-	for ( i = 0; s[i] && i < maxc && i < VALL - 1; i++ )
+	for ( i = 0; s[i] && i < maxc && i < TVMAX - 1; i++ )
 		tb[i] = s[i];
 	tb[i] = 0;
 	cl_ptextt(SHM_FUI, (x0 + x1 - i * 9) / 2 + 1, (y0 + y1 - 16) / 2 + 1,

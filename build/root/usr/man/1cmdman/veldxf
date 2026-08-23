@@ -1,0 +1,53 @@
+
+
+vveellddxxff                                                     vveellddxxff
+
+
+
+NNAAMMEE
+     veldxf - convert a DXF drawing to vellum format
+
+SSYYNNOOPPSSIISS
+     vveellddxxff [-llaayyeerr _n_a_m_e=_n] [-ssccaallee _N] _f_i_l_e._d_x_f > _f_i_l_e._d
+
+DDEESSCCRRIIPPTTIIOONN
+     vveellddxxff reads a DXF file (the R10-era plain-text format the
+     office CAD writes) and prints an ordinary vveelllluumm drawing on
+     standard output: nothing drawn elsewhere is locked out.
+     Import is a CONVERSION, not a link - run it once, and the
+     result is a drawing like any other; nothing remembers where
+     it came from.
+
+     The scope is the honest entity subset:
+
+                        LINEa vellum L line
+                        CIRCLEa C circle
+                        ARCan A arc (centre, radius and angles land exactly)
+                        TEXTa T label at the nearest of the three sizes
+                        POLYLINEa P polyline (LWPOLYLINE too; split at the
+                                  20-point ceiling)
+
+     Everything else is SKIPPED AND COUNTED: the run ends with a
+     report like ``dropped: 12 SPLINE, 3 INSERT'' on the diagnos-
+     tic output, because a silent partial import is how drawings
+     lose limbs.  Flatten blocks at the source; a SPLINE can be
+     chorded by whatever exported it.
+
+     DXF layer names fold onto vellum's four layers through the
+     -llaayyeerr map; a bare digit name (``0''..``3'') folds onto it-
+     self and anything unmapped lands on layer 0.  -ssccaallee gives
+     the number of drawing units in one grid unit - the default 1
+     takes one unit as one millimetre - and the matching UU units
+     header is emitted.  Coordinates may carry decimals; they are
+     handled in fixed point (no floating point anywhere).  The
+     drawing's minimum corner lands at grid 0,0 with the y axis
+     flipped (DXF y runs up), so the vveelllluumm -ddxxff export and this
+     import FIX-POINT: a converted drawing re-exports and re-im-
+     ports byte-identically.
+
+SSEEEE AALLSSOO
+     vveelllluumm , zzffiillee
+
+NNOOTTEESS
+     The Edit button of zzffiillee runs this automatically for a
+     selected .dxf and opens the conversion in vveelllluumm.

@@ -33,6 +33,11 @@ static
 tick()
 {
 	signal(SIGALRM, tick);	/* FIRST: V7 one-shot -- see zwclock.c */
+	alarm(1);		/* re-armed by the HANDLER, so a delivery
+				 * landing outside pause() (mid-paint, or
+				 * before a descheduled process reaches the
+				 * pause) cannot strand the loop in pause()
+				 * with no alarm pending -- see zwclock.c */
 	tickflag = 1;
 }
 
@@ -92,7 +97,7 @@ char **argv;
 		if ( !tickflag )
 			continue;
 		tickflag = 0;
-		alarm(1);
+		/* (the handler re-armed the alarm -- see tick()) */
 		if ( !hr_wlive() )
 		{
 			if ( ++strikes >= 2 )	/* two strikes: one torn list

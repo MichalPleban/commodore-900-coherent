@@ -192,13 +192,19 @@ char *path;
 				continue;
 			sympin[pinuse + 1] = atoi(t);
 			pinnm[(pinuse + 1) / 2] = 0;
-			if ( (t = tok(&p)) != 0 && t[0] != 0 &&
-			     strcmp(t, "-") != 0 &&
-			     pnmuse + (int)strlen(t) + 1 < PNMPOOL )
+			pintyp[(pinuse + 1) / 2] = 0;
+			if ( (t = tok(&p)) != 0 )
 			{
-				pinnm[(pinuse + 1) / 2] = pnmuse;
-				strcpy(&pnmpool[pnmuse], t);
-				pnmuse += strlen(t) + 1;
+				if ( t[0] != 0 && strcmp(t, "-") != 0 &&
+				     pnmuse + (int)strlen(t) + 1 < PNMPOOL )
+				{
+					pinnm[(pinuse + 1) / 2] = pnmuse;
+					strcpy(&pnmpool[pnmuse], t);
+					pnmuse += strlen(t) + 1;
+				}
+				/* the FOURTH token: the pin type (v4.4) */
+				if ( (t = tok(&p)) != 0 && t[0] && t[1] == 0 )
+					pintyp[(pinuse + 1) / 2] = t[0];
 			}
 			pinuse += 2;
 			s->sy_pins[0]++;
@@ -295,14 +301,14 @@ char *lb;
 	case OT_TEXT:
 		sprintf(lb, "T %d %d s%d", o->o_x, o->o_y, o->o_rot);
 		attrcat(o, lb);
-		sprintf(lb + strlen(lb), " %s", o->o_val);
+		sprintf(lb + strlen(lb), " %s", oval(o));
 		break;
 	case OT_SHAPE:
 		sprintf(lb, "S %s %d %d %d %d", shname[o->o_sym],
 			o->o_x, o->o_y, o->o_x2, o->o_y2);
 		attrcat(o, lb);
-		if ( o->o_val[0] )
-			sprintf(lb + strlen(lb), " %s", o->o_val);
+		if ( oval(o)[0] )
+			sprintf(lb + strlen(lb), " %s", oval(o));
 		break;
 	case OT_CONN:
 		{
@@ -344,8 +350,8 @@ char *lb;
 		sprintf(lb, "D %d %d %d %d", o->o_x, o->o_y,
 			o->o_x2, o->o_y2);
 		attrcat(o, lb);
-		if ( o->o_val[0] )
-			sprintf(lb + strlen(lb), " %s", o->o_val);
+		if ( oval(o)[0] )
+			sprintf(lb + strlen(lb), " %s", oval(o));
 		break;
 	}
 	return 0;
@@ -548,7 +554,14 @@ register DOBJ *o;
 		else
 			parseattr(t, o);
 	}
-	return resttext(*pp, o->o_val, VALL) != 0;
+	{
+		char tb[TVMAX];
+
+		if ( resttext(*pp, tb, TVMAX) == 0 )
+			return 0;
+		setoval(o, tb);
+	}
+	return 1;
 }
 
 static
@@ -572,7 +585,12 @@ register DOBJ *o;
 		return 0;
 	while ( (t = opttok(pp, 0)) != 0 )
 		parseattr(t, o);
-	resttext(*pp, o->o_val, VALL);
+	{
+		char tb[TVMAX];
+
+		resttext(*pp, tb, TVMAX);
+		setoval(o, tb);
+	}
 	return 1;
 }
 
@@ -667,7 +685,12 @@ register DOBJ *o;
 		return 0;
 	while ( (t = opttok(pp, 0)) != 0 )
 		parseattr(t, o);
-	resttext(*pp, o->o_val, VALL);
+	{
+		char tb[TVMAX];
+
+		resttext(*pp, tb, TVMAX);
+		setoval(o, tb);
+	}
 	return 1;
 }
 
@@ -801,6 +824,7 @@ char *fn;
 	selclear();
 	nobj = 0;
 	ppuse = 0;
+	tpuse = 0;
 	unum = 1;			/* until a U header says otherwise */
 	uname[0] = 0;
 	parsereset();

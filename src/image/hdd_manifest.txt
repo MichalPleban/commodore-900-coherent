@@ -430,6 +430,8 @@ f	/usr/man/1cmdman/zman	644	0	1
 f	/usr/man/1cmdman/zmon	644	0	1
 f	/usr/man/1cmdman/zprint	644	0	1
 f	/usr/man/1cmdman/vellum	644	0	1
+f	/usr/man/1cmdman/veldxf	644	0	1
+f	/usr/man/1cmdman/velgraph	644	0	1
 f	/usr/man/1cmdman/symedit	644	0	1
 f	/usr/man/1cmdman/zpuzzle	644	0	1
 f	/usr/man/1cmdman/zmaze	644	0	1
@@ -479,6 +481,8 @@ d	/usr/vellum/lib	755	0	1
 d	/usr/vellum/etc	755	0	1
 f	/usr/vellum/bin/vellum	755	0	1
 f	/usr/vellum/bin/symedit	755	0	1
+f	/usr/vellum/bin/veldxf	755	0	1
+f	/usr/vellum/bin/velgraph	755	0	1
 f	/usr/vellum/lib/discrete.sym	644	0	1
 f	/usr/vellum/lib/logic.sym	644	0	1
 f	/usr/vellum/lib/flow.sym	644	0	1
@@ -489,6 +493,8 @@ f	/usr/vellum/lib/power.sym	644	0	1
 f	/usr/vellum/lib/plan.sym	644	0	1
 f	/usr/vellum/lib/velxport	755	0	1
 f	/usr/vellum/lib/veldlg	755	0	1
+f	/usr/vellum/lib/velprev	755	0	1
+f	/usr/vellum/lib/velpal	755	0	1
 d	/usr/vellum/eg	755	0	1
 f	/usr/vellum/eg/amp.d	644	0	1
 f	/usr/vellum/eg/logic.d	644	0	1
@@ -501,8 +507,13 @@ f	/usr/vellum/eg/oneline.d	644	0	1
 f	/usr/vellum/eg/office.d	644	0	1
 f	/usr/vellum/eg/psu1.d	644	0	1
 f	/usr/vellum/eg/psu2.d	644	0	1
+f	/usr/vellum/eg/curve.d	644	0	1
+f	/usr/vellum/eg/plate.d	644	0	1
+f	/usr/vellum/eg/plate.dxf	644	0	1
 f	/usr/vellum/etc/libs	644	0	1
 f	/usr/vellum/etc/symbols	644	0	1
+f	/usr/vellum/etc/frame.d	644	0	1
+f	/usr/vellum/etc/project.mk	644	0	1
 f	/usr/hr/etc/dock	644	0	1
 f	/usr/hr/etc/rc	755	0	1
 f	/usr/hr/icons/term.icn	644	0	1

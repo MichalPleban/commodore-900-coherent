@@ -202,7 +202,9 @@ typedef struct {
 #define HRM_PASTE	0x0020		/* "Paste"      */
 #define HRM_SETTINGS	0x0040		/* "Settings"   */
 #define HRM_HELP	0x0080		/* "Help"       */
-#define HRM_ALL		0x00ff		/* every bit above: what the server knows */
+#define HRM_PRINT	0x0100		/* "Print"      */
+#define HRM_FIND	0x0200		/* "Find"       */
+#define HRM_ALL		0x03ff		/* every bit above: what the server knows */
 
 /* ---- server -> client event codes ---- */
 #define E_CONNECTED	1		/* arg0=wid arg1=width arg2=height      */

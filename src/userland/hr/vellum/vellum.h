@@ -106,7 +106,10 @@ extern int	nobj;
 #define	CTOP	18		/* file-name bar height                   */
 #define	TBH	20		/* toolbar row height                     */
 #define	CANY	(CTOP + TBH)	/* canvas / palette top                   */
+#define	STH	18		/* status bar height (window bottom)      */
+#define	SBW	12		/* scrollbar thickness (right + bottom)   */
 extern int	gsc;		/* px per grid unit ON SCREEN (4/8/16)    */
+extern int	contw, conth;	/* granted content size, px (vellum.c)    */
 
 /* ---- junction dots ---- */
 #define	MAXJUNC	128
@@ -118,6 +121,22 @@ extern int	njunc;
 #define	PMAXPT	20
 extern short	ppool[PPOOL];
 extern int	ppuse;
+
+/* ---- the TEXT pool (v3.3, VELLUM.md sec. 29): a T/S/D value longer
+ * than VALL-1 stores a marker in o_val (o_val[0] == 1, pool offset as a
+ * short at o_val+2) and the string lives here, ppool's exact pattern:
+ * delobj compacts, undo snapshots it with the editor-only arrays.
+ * READ o_val through oval(o) (or ovalp against an explicit pool -- the
+ * undo differ's snapshot objects); WRITE it through setoval(). ---- */
+#define	TPOOL	2048
+#define	TVMAX	40		/* longest stored text, incl. NUL         */
+#define	DIMLBL	(TVMAX + 8)	/* a dimension-label buffer's size        */
+extern char	tpool[TPOOL];
+extern int	tpuse;
+extern char	*oval();	/* velbase: o_val, through the pool       */
+extern char	*ovalp();	/* ... against an explicit pool base      */
+extern int	setoval();	/* velbase: store s as object o's value   */
+extern int	tvfree();	/* velbase: drop o's pool block (delete)  */
 
 /* ---- layers ---- */
 extern int	curlayer;
@@ -188,6 +207,12 @@ extern int	pnmuse;
 extern short	pinnm[SYMPINS / 2];
 #define	PINSLOT(s, k)	((int)((s)->sy_pins - sympin + 2 + 2 * (k)) / 2)
 
+/* Pin TYPES (v4.4, the .sym line's fourth token): the letter itself --
+ * 'i' input, 'o' output, 'p' power, 'b' bidirectional, 0 untyped.  The
+ * -check ERC rules fire ONLY between typed pins, so an old library
+ * produces silence, not noise. */
+extern char	pintyp[SYMPINS / 2];
+
 /* ---- shared state ---- */
 extern int	modified;
 extern int	voxg, voyg;	/* pan (loadfile homes it)                */
@@ -214,7 +239,15 @@ extern int	propdlg();	/* selected object's properties           */
 extern int	dohelp();
 extern int	libdlg();	/* the scrollable library chooser         */
 extern int	doedit();	/* open the current library in SymEdit    */
+extern int	printdlg();	/* Print/Preview from the board (v3.1)    */
+extern int	finddlg();	/* Find + Sheets... (v3.2)                */
+extern int	arraydlg();	/* array duplicate (v3.4)                 */
+extern int	doarray();	/* vellum.c: the nx x ny duplicate loop   */
+extern int	dodup2();	/* vellum.c: one offset duplicate         */
 extern int	palview();	/* vellum.c: rebuild the palette view     */
+extern int	spawn();	/* veldlg.c: double-fork worker launch    */
+extern int	vpspawn();	/* vellum.c: (re)start the velpal helper  */
+extern int	vpkill();	/* vellum.c: stop it (exit / respawn)     */
 
 /* ---- vellum.c services the command unit uses ---- */
 extern int	dmg();		/* accumulate a canvas damage rect (px)   */
@@ -229,6 +262,7 @@ extern int	delobj();	/* delete object i (fixes refs)           */
 extern int	addobj();	/* append a plain object                  */
 extern int	reroute();	/* pull attached connector endpoints      */
 extern int	sheetsplit();	/* fname -> <pre><n><suf> sheet-set parts */
+extern int	sheetto();	/* sheetto(n, create): go to sheet n      */
 
 /* ---- velcmd.c: the editing commands ---- */
 extern int	tofront(), toback();	/* z-order: selection to list ends */
@@ -268,6 +302,7 @@ extern int	stpat();	/* set cl_lpat from OF_STYLE              */
 extern int	sline();	/* styled line (+OF_BOLD)                 */
 extern int	rowspan();	/* one fill span; val 4 = 45-degree hatch */
 extern int	fillval();	/* OF_FILL/OF_HATCH -> rowspan val        */
+extern int	fillpoly();	/* closed even-odd polyline fill (v4)     */
 extern int	drawspline();	/* smooth polyline: B-spline chords       */
 extern int	arcst();	/* styled arc                             */
 extern int	scirc();	/* styled circle                          */
@@ -278,6 +313,42 @@ extern int	shlabel();	/* centred, truncated shape label         */
 extern int	arrowhead();	/* connector arrow barbs                  */
 extern int	dimdraw();	/* dimension: ticks + arrows + label      */
 extern int	vtext();	/* vertical (transposed) text via cl_blit */
+
+/* ---- velwalk.c: the device-coordinate object WALKER and its 8-function
+ * backend contract, shared by the velxport exporters (print/pic/hpgl) AND
+ * the velprev preview window (VELLUM.md sec. 25: the same walker feeds the
+ * Epson bands and the preview, so what the window shows is what the paper
+ * gets). ---- */
+typedef struct {
+	int	(*b_line)();	/* x0,y0,x1,y1 (device px)                */
+	int	(*b_box)();	/* x0,y0,x1,y1, fill (-1 none/0 blk/     */
+				/* 1 wht/2 gray/3 hatch)                  */
+	int	(*b_circle)();	/* cx,cy,r, fill                          */
+	int	(*b_text)();	/* x,y, size, str (y = cell top)          */
+	int	(*b_span)();	/* x0,x1,y, val -- 0: backend can't fill  */
+	int	(*b_style)();	/* style bits (OF_STYLE|OF_BOLD) for the  */
+				/* following lines                        */
+	int	(*b_vtext)();	/* x,y, size, str VERTICAL (glyph
+				 * transpose) -- 0: fall back to b_text   */
+	int	(*b_poly)();	/* xy[], n: a SMOOTH polyline as the
+				 * backend's own curve (pic spline) --
+				 * 0: the walker chords it via bspline    */
+	int	(*b_varc)();	/* cx,cy,r,a0,a1: a TRUE arc (dxf, ps) --
+				 * 0: the walker chords it (v4.1: the
+				 * first XB change since the struct was
+				 * designed, and the last planned)        */
+} XB;
+
+extern int	xsc;		/* device px per grid unit (-scale N)     */
+#define	XSC	xsc
+extern int	widef;		/* -wide: landscape raster (print)        */
+extern int	xorgx, xorgy;	/* device origin (print: the used extent) */
+extern int	xlay;		/* layer of the object being walked       */
+extern long	xsqrt();	/* velwalk's cl_-free integer sqrt        */
+extern int	xtxq();		/* symbol q -> device px transform        */
+extern int	xprn();		/* is a layer printable?                  */
+extern int	xwalk();	/* every printable object -> the backend  */
+extern int	xextent();	/* grid extent of the printable drawing   */
 
 /* ---- cross-unit functions ---- */
 extern char	*tok();		/* velfile.c: tokenizer                   */

@@ -6,7 +6,7 @@
 vellum1
 T 26 12 s2 Supply, sheet 1
 Y BAT 28 30 0 0 B1 9V
-Y SW 34 30 0 0 S1 -
+Y SW 34 30 0 0 S1 SPST
 Y FUSE 42 30 0 0 F1 500mA
 W 30 30 34 30
 W 38 30 42 30

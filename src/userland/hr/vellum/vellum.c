@@ -15,7 +15,7 @@
  *   velfile.c  the plain-text "vellum1" format and symbol libraries
  *   velcmd.c   editing commands (z-order, groups, align, clipboard,
  *              frame stamp) and the Settings / Style dialogs
- *   veldlg.c   the file/confirm/text/properties/help/library dialogs
+ *   veldlg.c   the file/confirm/text/properties/library dialog stubs
  *   velport.c  the headless -print/-pic/-net exporters, shipped as the
  *              separate helper binary velxport (velbase+velfile+velport,
  *              no gfx library at all) which main() execs
@@ -58,10 +58,11 @@
  * model layer's grid<->px transforms use them) ---- */
 #define	SCW	32		/* symbol cell                            */
 #define	SCH	28
-#define	STH	18		/* status bar height (window bottom)      */
-#define	TBW	34		/* toolbar cell width (21 cells = 714)    */
+#define	TBW	38		/* toolbar cell width (19 cells = 722 --  */
+				/* the sheet cells moved to the file bar) */
 #define	LHDR	14		/* palette header cell: the library name  */
-#define	SBW	12		/* scrollbar thickness (right + bottom)   */
+#define	SHCW	20		/* one sheet-set cell on the file bar     */
+/* (STH / SBW moved to vellum.h: veldlg.c's Find centres its hit with them) */
 
 
 /* ---- tools ---- */
@@ -94,9 +95,9 @@
 #define	C_FRONT	16		/* z-order: selection to the top          */
 #define	C_BACK	17		/* ... to the bottom                      */
 #define	C_LAYER	18		/* cycles the ACTIVE layer (label L0..L3) */
-#define	C_PREV	19		/* sheet-set navigation: < and > buttons  */
-#define	C_NEXT	20		/* (the keys wedge; buttons never do)     */
-#define	NCELL	21
+#define	NCELL	19		/* the < > sheet cells live on the FILE   */
+				/* bar now: the sheet is a property of    */
+				/* the file, and the toolbar got roomier  */
 
 int	tool	= T_SEL;
 int	cursym	= -1;		/* >= 0: a symbol is armed for placing    */
@@ -128,7 +129,7 @@ int	midpx, midpy, panvx, panvy;
 HRAPP	me = { "Vellum", "vellum.icn", 0, 0,
 	       HRF_STRETCH | HRF_CONFIRM | HRF_TRACK | HRF_MIDBTN, 0, 0,
 	       HRM_NEW | HRM_OPEN | HRM_SAVE | HRM_CUT | HRM_COPY |
-	       HRM_PASTE | HRM_SETTINGS | HRM_HELP };
+	       HRM_PASTE | HRM_SETTINGS | HRM_HELP | HRM_PRINT | HRM_FIND };
 
 int	mywid;
 int	contw, conth;		/* granted content size, px               */
@@ -173,6 +174,8 @@ DOBJ	uobj[MAXOBJ];
 int	unobj;
 short	uppool[PPOOL];
 int	uppuse;
+char	utpool[TPOOL];		/* the text pool snapshots with them (v3.3) */
+int	utpuse;
 
 /* ---- damage bookkeeping: NOTHING repaints wholesale on a 6 MHz machine.
  * Every action declares what it touched; flush() (the only painter the
@@ -248,12 +251,19 @@ dmg(x0, y0, x1, y1)
 /* Damage an object PLUS everything drawn around it: the selection ring
  * (-3..+4) and the designator/value labels (small font beside or above/
  * below the body -- up to ~7 glyphs, hence the generous right margin). */
+static
+dmgpad(x0, y0, x1, y1)
+{
+	dmg(x0 - 5, y0 - 12, x1 + 48, y1 + 12);
+	return 0;
+}
+
 dmgobj(i)
 {
 	int x0, y0, x1, y1;
 
 	objpbox(i, &x0, &y0, &x1, &y1);
-	dmg(x0 - 5, y0 - 12, x1 + 48, y1 + 12);
+	dmgpad(x0, y0, x1, y1);
 	return 0;
 }
 
@@ -263,7 +273,7 @@ dmgsel()
 	int x0, y0, x1, y1;
 
 	if ( selbbox(&x0, &y0, &x1, &y1) )
-		dmg(x0 - 5, y0 - 12, x1 + 48, y1 + 12);
+		dmgpad(x0, y0, x1, y1);
 	return 0;
 }
 int	wanchor;		/* 1 = a wire start is anchored (the      */
@@ -280,18 +290,27 @@ int	ghgx, ghgy;		/* where the ghost belongs, grid          */
 int	ghdrawn;		/* one is on screen, at ghx0..ghy1        */
 int	ghx0, ghy0, ghx1, ghy1;
 
+/* Damage the anchor cross's cell (shared: drop and place). */
+static
+dmganchor()
+{
+	dmg(gtopx(wax) - 6, gtopy(way) - 6, gtopx(wax) + 6, gtopy(way) + 6);
+	return 0;
+}
+
 /* Drop a pending wire anchor, damaging its cross so it is erased. */
 static
 killanchor()
 {
 	if ( wanchor )
 	{
-		dmg(gtopx(wax) - 6, gtopy(way) - 6,
-		    gtopx(wax) + 6, gtopy(way) + 6);
+		dmganchor();
 		wanchor = 0;
 	}
 	return 0;
 }
+static	clearmodel(), killrun();
+
 int	dgx, dgy;		/* drag start, grid                       */
 int	cgx, cgy;		/* drag current, grid                     */
 int	rubon;			/* an XOR figure is on screen             */
@@ -316,7 +335,7 @@ int	mvx, mvy;		/* DR_MOVE: press offset from o_x,o_y     */
 char	laylbl[3] = "L0";	/* the C_LAYER cell shows the ACTIVE layer */
 char	*toolnm[] = { "Sel", "Wire", "Line", "Box", "Circ", "Text", "Del",
 		      "Grid", "Rot", "Mir", "Name", "Dup", "In", "Out",
-		      "Lib", "Edit", "Fr", "Bk", laylbl, "<", ">" };
+		      "Lib", "Edit", "Fr", "Bk", laylbl };
 
 /* ------------------------------------------------------------------ */
 /* small math                                                         */
@@ -368,7 +387,7 @@ zoomto(n)
 {
 	int cx, cy;
 
-	if ( n < 4 ) n = 4;
+	if ( n < 2 ) n = 2;
 	if ( n > 16 ) n = 16;
 	if ( n == gsc )
 		return 0;
@@ -429,7 +448,7 @@ zoomfit()
 	if ( uy1 > SHH ) uy1 = SHH;
 	w = ux1 - ux0;
 	h = uy1 - uy0;
-	for ( z = 16; z > 4; z /= 2 )
+	for ( z = 16; z > 2; z /= 2 )
 		if ( (cright() - PALW) / z >= w && (canvh() - CANY) / z >= h )
 			break;
 	gsc = z;
@@ -446,16 +465,8 @@ zoomfit()
 
 /* Circles go through the ENGINE primitive (clgfx cl_circle), never a local
  * bare-cl_point loop: only a bracketed primitive coordinates with the
- * driver's cursor sprite, and a circle drawn under the sprite from bare
- * points was being stomped by the save-under restore on the next move --
- * the "cursor erases part of the symbol" bug. */
-static
-circ(cx, cy, r, mode)
-{
-	cl_circle(cx, cy, r, mode);
-	return 0;
-}
-
+ * driver's cursor sprite -- bare points under the sprite were stomped by
+ * the save-under restore (the "cursor erases the symbol" bug). */
 /* XOR rect outline with no corner pixel plotted twice. */
 static
 xrect(x0, y0, x1, y1)
@@ -513,7 +524,7 @@ drawsymat(si, rot, mir, ox, oy, ppq)
 		else if ( *p == SC )
 		{
 			txq(p[1], p[2], rot, mir, ox, oy, ppq, &x0, &y0);
-			circ(x0, y0, p[3] * ppq, 0);
+			cl_circle(x0, y0, p[3] * ppq, 0);
 			p += 4;
 		}
 		else if ( *p == SA )
@@ -626,7 +637,8 @@ drawobj(i)
 	{
 	case OT_SYM:
 		drawsymat(o->o_sym, o->o_rot, o->o_mir,
-			  gtopx(o->o_x), gtopy(o->o_y), gsc / 4);
+			  gtopx(o->o_x), gtopy(o->o_y),
+			  gsc >= 4 ? gsc / 4 : 1);
 		/* Designator and value: above and below a horizontal body, but
 		 * BESIDE a vertical one (odd rotation) -- stacked vertical parts
 		 * sit close, and above/below labels of neighbours collide. */
@@ -676,7 +688,7 @@ drawobj(i)
 		if ( o->o_type == OT_SHAPE )
 		{
 			shapeoutline(o->o_sym, x0, y0, x1, y1, fl);
-			shlabel(o->o_val, x0, y0, x1, y1);
+			shlabel(oval(o), x0, y0, x1, y1);
 			break;
 		}
 		stpat(fl);
@@ -707,18 +719,18 @@ drawobj(i)
 	case OT_TEXT:
 		{
 			register char *s, *e;
-			char lbuf[VALL];
+			char lbuf[TVMAX];
 			int fs, ly;
 
 			fs = fontslot(o->o_rot);
 			if ( fl & OF_VERT )	/* turned 90: glyph transpose */
 			{
 				vtext(fs, gtopx(o->o_x), gtopy(o->o_y),
-				      o->o_val);
+				      oval(o));
 				break;
 			}
 			ly = gtopy(o->o_y);
-			s = o->o_val;
+			s = oval(o);
 			for (;;)
 			{
 				for ( e = s, t = 0; *e && *e != '|'; e++ )
@@ -763,7 +775,6 @@ drawobj(i)
 		break;
 
 	case OT_POLY:
-		if ( (fl & OF_SMOOTH) && o->o_sym >= 3 )
 		{
 			int pxy[2 * PMAXPT];
 
@@ -772,16 +783,19 @@ drawobj(i)
 				pxy[2*t] = gtopx(ppool[o->o_x2 + 2*t]);
 				pxy[2*t + 1] = gtopy(ppool[o->o_x2 + 2*t + 1]);
 			}
-			drawspline(pxy, (int)o->o_sym, fl);
-			break;
+			if ( fl & OF_FILL )	/* v4: filled polylines */
+				fillpoly(pxy, (int)o->o_sym, fillval(fl));
+			if ( (fl & OF_SMOOTH) && o->o_sym >= 3 )
+			{
+				drawspline(pxy, (int)o->o_sym, fl);
+				break;
+			}
+			stpat(fl);
+			for ( t = 1; t < o->o_sym; t++ )
+				sline(pxy[2*t - 2], pxy[2*t - 1],
+				      pxy[2*t], pxy[2*t + 1], 0, fl);
+			cl_lpat(0xffff);
 		}
-		stpat(fl);
-		for ( t = 1; t < o->o_sym; t++ )
-			sline(gtopx(ppool[o->o_x2 + 2 * t - 2]),
-			      gtopy(ppool[o->o_x2 + 2 * t - 1]),
-			      gtopx(ppool[o->o_x2 + 2 * t]),
-			      gtopy(ppool[o->o_x2 + 2 * t + 1]), 0, fl);
-		cl_lpat(0xffff);
 		break;
 
 	case OT_NNAME:
@@ -793,7 +807,7 @@ drawobj(i)
 
 	case OT_DIM:
 		{
-			char db[24];
+			char db[DIMLBL];
 
 			dimlbl(o, db);
 			dimdraw(gtopx(o->o_x), gtopy(o->o_y),
@@ -925,7 +939,7 @@ repaint_rect(x0, y0, x1, y1)
 	cl_fillrect(x0, y0, x1, y1, 1);
 	if ( gridon )
 	{
-		st = (gsc >= GRID) ? 1 : 2;
+		st = (gsc >= GRID) ? 1 : (gsc >= 4) ? 2 : 4;
 		if ( st < gridstep )
 			st = gridstep;
 		gx0 = voxg + (x0 - PALW + gsc - 1) / gsc;
@@ -1075,22 +1089,6 @@ disarm()
 	return 0;
 }
 
-/* Bank cell of an ARM CODE in the current view, or -1. */
-static
-palcellof(code)
-{
-	register int i;
-
-	if ( palsh )
-		return (code >= 1000) ? code - 1000 : -1;
-	if ( code < 0 || code >= 1000 )
-		return -1;
-	for ( i = 0; i < npal; i++ )
-		if ( palidx[i] == code )
-			return i;
-	return -1;
-}
-
 /* End the Line tool's polyline chain. */
 static
 endchain()
@@ -1105,22 +1103,6 @@ palrows()
 	return (npal + 1) / 2;
 }
 
-/* One scroll arrow: a small filled triangle, so up and down are exact
- * mirrors (the font's "^" and "v" glyphs were nothing alike). */
-static
-palarrow(x, y, down)
-{
-	register int i;
-	int cx, ty;
-
-	cx = x + SCW / 2;
-	ty = y + (ABAR - 5) / 2;
-	for ( i = 0; i < 5; i++ )
-		cl_line(cx - (down ? 4 - i : i), ty + i,
-			cx + (down ? 4 - i : i), ty + i, 0);
-	return 0;
-}
-
 static
 palvis()
 {
@@ -1132,103 +1114,81 @@ palvis()
 	return v;
 }
 
-/* Redraw ONE bank cell (bank position k, view-relative): a symbol
- * preview, or -- in the shapes group -- a mini parametric shape, a
- * connector-style glyph, the Arc sample or the Net cell. */
-static
-palbank1(k)
+/* ---- the palette BANK is painted by a resident helper now (velpal,
+ * VELLUM.md sec. 39 -- the editor's last big severable surface, seceded
+ * on the zdock widget pattern): the editor keeps hit-testing (palpress),
+ * arming and drawsymat; velpal owns drawpal/palbank1/palarrow.  The
+ * protocol is the 12-byte GDS sync block (shmem.h SHM_VELPAL) plus a
+ * SIGALRM poke; velpal repaints by generation, never by suspicion. ---- */
+
+#define	VELPAL	"/usr/vellum/lib/velpal"
+
+int	vpwait;			/* pokes seen while vp_pid was still 0    */
+
+/* (Re)start the helper: the palette rect of OUR window and the loaded
+ * library paths IN ORDER, so its symbol table gets our group indices. */
+vpspawn()
 {
-	register SYMDEF *s;
-	int x, y, ox, oy;
+	static char wbuf[40];
+	static char *av[MAXLIB + 4];
+	register HRVELPAL *v;
+	register int i, n;
 
-	if ( k < palrow * 2 || k >= (palrow + palvis()) * 2 || k >= npal )
-		return 0;
-	x = (k & 1) * SCW;
-	y = CANY + LHDR + ((k >> 1) - palrow) * SCH;
-	cl_fillrect(x, y, x + SCW, y + SCH, 1);
-	if ( palsh )
-	{
-		if ( k < NSHAPE )
-			shapeoutline(k, x + 5, y + 6, x + SCW - 6,
-				     y + SCH - 7, 0);
-		else if ( k < NSHAPE + NCONNS )
-		{
-			int cs, x0, y0, x1, y1;
-
-			cs = k - NSHAPE;
-			x0 = x + 5;   y0 = y + SCH - 9;
-			x1 = x + SCW - 6;   y1 = y + 8;
-			if ( cs == CS_HV || cs == CS_HARROW )
-			{
-				cl_line(x0, y0, x1, y0, 0);
-				cl_line(x1, y0, x1, y1, 0);
-			}
-			else
-				cl_line(x0, y0, x1, y1, 0);
-			if ( cs == CS_ARROW )
-				arrowhead(x1, y1, x1 - x0, y1 - y0);
-			else if ( cs == CS_HARROW )
-				arrowhead(x1, y1, 0, y1 - y0);
-		}
-		else if ( k == PC_ARC )
-			arcline(x + 4, y + SCH - 6, 22, 10, 80, 0);
-		else if ( k == PC_NET )
-			cl_ptext(SHM_FICON, x + (SCW - 18) / 2,
-				 y + (SCH - 8) / 2, "Net");
-		else			/* Dim: a sample dimension */
-		{
-			int ym;
-
-			ym = y + SCH / 2 + 4;
-			cl_line(x + 5, ym - 4, x + 5, ym + 4, 0);
-			cl_line(x + SCW - 6, ym - 4, x + SCW - 6, ym + 4, 0);
-			cl_line(x + 5, ym, x + SCW - 6, ym, 0);
-			arrowhead(x + 5, ym, -8, 0);
-			arrowhead(x + SCW - 6, ym, 8, 0);
-			cl_ptextt(SHM_FICON, x + (SCW - 12) / 2, y + 3, "12");
-		}
-		palcell(x, y, SCW, SCH, armcode() == 1000 + k);
-		return 0;
-	}
-	s = &symtab[palidx[k]];
-	ox = x + (SCW - (s->sy_x1 - s->sy_x0)) / 2 - s->sy_x0;
-	oy = y + (SCH - (s->sy_y1 - s->sy_y0)) / 2 - s->sy_y0;
-	drawsymat(palidx[k], 0, 0, ox, oy, 1);
-	palcell(x, y, SCW, SCH, palidx[k] == cursym);
+	v = hr_velpal();
+	v->vp_pid = 0;
+	v->vp_fullgen = 1;
+	v->vp_gen = 1;
+	v->vp_lib = curlib;
+	v->vp_row = palrow;
+	v->vp_arm = armcode();
+	sprintf(wbuf, "%d,0,%d,%d,%d,%d", mywid, CANY, PALW,
+		conth - STH, getpid());
+	av[0] = VELPAL;
+	av[1] = "-W";
+	av[2] = wbuf;
+	n = 3;
+	for ( i = 0; i < nlib; i++ )
+		av[n++] = libpath[i];
+	av[n] = (char *)0;
+	spawn(av);
+	vpwait = 0;
 	return 0;
 }
 
-static
-drawpal()
+/* Stop it (window resize, a new library, editor exit). */
+vpkill()
 {
-	register int k;
-	int y, w, vis, maxr;
+	register HRVELPAL *v;
 
-	vis = palvis();
-	maxr = palrows() - vis;
-	if ( maxr < 0 )
-		maxr = 0;
-	if ( palrow > maxr )
-		palrow = maxr;
-	cl_fillrect(0, CANY, PALW, conth - STH, 1);
-	/* the header: which library this is; a click switches to the next */
+	v = hr_velpal();
+	if ( v->vp_pid )
+		kill((int)v->vp_pid, SIGTERM);
+	v->vp_pid = 0;
+	return 0;
+}
+
+/* Publish the palette state and poke the helper; full = the bank's
+ * pixels are stale (expose / view change), not just the state. */
+static
+palpoke(full)
+{
+	register HRVELPAL *v;
+
+	v = hr_velpal();
+	if ( full )
+		v->vp_fullgen++;
+	v->vp_lib = curlib;
+	v->vp_row = palrow;
+	v->vp_arm = armcode();
+	v->vp_gen++;
+	if ( v->vp_pid )
 	{
-		register char *gn;
-
-		gn = palsh ? "shapes" : (nlib ? libname[curlib] : "-");
-		w = strlen(gn) * 6;
-		cl_ptext(SHM_FICON, (PALW - w) / 2, CANY + (LHDR - 8) / 2,
-			 gn);
+		if ( kill((int)v->vp_pid, SIGALRM) >= 0 )
+			return 0;
+		vpspawn();		/* really dead (init reaped it) */
 	}
-	palcell(0, CANY, PALW, LHDR, 0);
-	for ( k = palrow * 2; k < npal && k < (palrow + vis) * 2; k++ )
-		palbank1(k);
-	y = conth - STH - ABAR;
-	palarrow(0, y, 0);
-	palarrow(SCW, y, 1);
-	palcell(0, y, SCW, ABAR, 0);
-	palcell(SCW, y, SCW, ABAR, 0);
-	cl_line(PALW - 1, CANY, PALW - 1, conth - STH - 1, 0);
+	else if ( ++vpwait > 8 )
+		vpspawn();		/* the exec never came up: retry */
 	return 0;
 }
 
@@ -1305,20 +1265,6 @@ int *tx, *tl, *thx, *thw;
 	return vw;
 }
 
-static
-hsbgeom(tx, tl, thx, thw)
-int *tx, *tl, *thx, *thw;
-{
-	return sbgeom(0, tx, tl, thx, thw);
-}
-
-static
-vsbgeom(ty, tl, thy, thh)
-int *ty, *tl, *thy, *thh;
-{
-	return sbgeom(1, ty, tl, thy, thh);
-}
-
 /* A scrollbar thumb: white body + 1-px border inside (x0,y0)-(x1,y1). */
 static
 thumb(x0, y0, x1, y1)
@@ -1336,11 +1282,11 @@ drawsb()
 {
 	int tx, tl, thx, thw;
 
-	hsbgeom(&tx, &tl, &thx, &thw);
+	sbgeom(0, &tx, &tl, &thx, &thw);
 	cl_fillrect(tx, canvh(), tx + tl, canvh() + SBW, 3);
 	thumb(thx, canvh() + 1, thx + thw, canvh() + SBW - 1);
 
-	vsbgeom(&tx, &tl, &thx, &thw);
+	sbgeom(1, &tx, &tl, &thx, &thw);
 	cl_fillrect(cright(), tx, contw, tx + tl, 3);
 	thumb(cright() + 1, thx, contw - 1, thx + thw);
 
@@ -1360,6 +1306,12 @@ drawtop()
 	sprintf(t, "%s%s", fname[0] ? fname : "(untitled)",
 		modified ? " *" : "");
 	cl_ptext(SHM_FUI, 5, 1, t);
+	/* the < > sheet-set cells, at the bar's right edge: the sheet is
+	 * a property of the FILE, so they live on the file line (v4) */
+	cl_ptext(SHM_FUI, contw - 2 * SHCW + 6, 0, "<");
+	cl_ptext(SHM_FUI, contw - SHCW + 6, 0, ">");
+	palcell(contw - 2 * SHCW, 0, SHCW, CTOP - 1, 0);
+	palcell(contw - SHCW, 0, SHCW, CTOP - 1, 0);
 	return 0;
 }
 
@@ -1373,6 +1325,7 @@ drawtop()
 char	s_nm[12];		/* what each field currently shows        */
 char	s_co[16];
 char	s_rest[96];		/* (s_valid lives with the damage flags)  */
+char	scmsg[10];		/* transient one-shot note ("rounded")    */
 
 static
 drawstat()
@@ -1382,66 +1335,72 @@ drawstat()
 	char *h;
 	int by;
 
-	if ( cursym >= 0 )
-		sprintf(nm, "+%s", symtab[cursym].sy_code);
-	else if ( curshape >= 0 )
-		sprintf(nm, "+%.7s", shname[curshape]);
-	else if ( curconn >= 0 )
-		sprintf(nm, "+%.7s", csname[curconn]);
-	else if ( arcarm )
-		strcpy(nm, "+arc");
-	else if ( netarm )
-		strcpy(nm, "+net");
-	else if ( dimarm )
-		strcpy(nm, "+dim");
-	else
+	/* what is armed / active: ONE ladder feeding the name field AND the
+	 * hint -- per state a base hint and (slot 2k+1) the anchored-run
+	 * variant wanchor (the arc: arcpend) switches to */
 	{
-		register char *tn;
+		static char *hint2[] = {
+			"click places (Rot/Mir turn it)", (char *)0,
+			"drag its box, then type the label", (char *)0,
+			"drag or click ends; snaps to shapes",
+			"now click the far end",
+			"drag centre to the start point",
+			"click where the arc ends",
+			"click the point to name", (char *)0,
+			"drag point to point; snaps",
+			"now click the far point",
+			"click picks, drag moves", (char *)0,
+			"drag pin to pin, or click each end",
+			"now click the far end",
+			"drag or click ends; runs chain",
+			"next point ends here",
+			"drag corner to corner", (char *)0,
+			"drag centre to edge", (char *)0,
+			"click where the text goes", (char *)0,
+			"click what should go", (char *)0,
+			"click what to turn", (char *)0,
+			"click what to flip", (char *)0,
+			"click what to rename", (char *)0,
+			"click what to copy", (char *)0,
+		};
+		register char *an;
+		register int k;
 
-		/* cell label for the tool: the Grid cell sits between the
-		 * basic tools and the action tools, so the ids skew by one */
-		tn = toolnm[tool < NTOOL ? tool : tool + 1];
-		for ( i = 0; tn[i]; i++ )
-			nm[i] = tn[i];
-		nm[i] = 0;
+		an = (char *)0;
+		if ( cursym >= 0 )	  { k = 0;  an = symtab[cursym].sy_code; }
+		else if ( curshape >= 0 ) { k = 1;  an = shname[curshape]; }
+		else if ( curconn >= 0 )  { k = 2;  an = csname[curconn]; }
+		else if ( arcarm )	  { k = 3;  an = "arc"; }
+		else if ( netarm )	  { k = 4;  an = "net"; }
+		else if ( dimarm )	  { k = 5;  an = "dim"; }
+		else			  k = 6 + tool;
+		h = hint2[2 * k + 1];
+		if ( h == (char *)0 || !(k == 3 ? arcpend : wanchor) )
+			h = hint2[2 * k];
+		if ( an )
+			sprintf(nm, "+%.7s", an);
+		else
+			/* cell label for the tool: the Grid cell sits between
+			 * the two tool groups, so the ids skew by one */
+			sprintf(nm, "%.7s",
+				toolnm[tool < NTOOL ? tool : tool + 1]);
 	}
-	sprintf(co, "%3d,%-3d", lastgx, lastgy);
-	/* What the armed tool expects, spelled out -- the canvas has no other
-	 * way to teach the gestures. */
-	if ( cursym >= 0 )
-		h = "click places (Rot/Mir turn it)";
-	else if ( curshape >= 0 )
-		h = "drag its box, then type the label";
-	else if ( curconn >= 0 )
-		h = wanchor ? "now click the far end"
-			    : "drag or click ends; snaps to shapes";
-	else if ( arcarm )
-		h = arcpend ? "click where the arc ends"
-			    : "drag centre to the start point";
-	else if ( netarm )
-		h = "click the point to name";
-	else if ( dimarm )
-		h = wanchor ? "now click the far point"
-			    : "drag point to point; snaps";
-	else switch ( tool )
+	if ( drag == DR_END ||
+	     (drag == DR_TOOL && (dtool == DT_WIRE || dtool == DT_LINE ||
+	      dtool == DT_CONN || dtool == DT_DIM)) )
 	{
-	case T_SEL:	h = "click picks, drag moves";		break;
-	case T_WIRE:	h = wanchor ? "now click the far end"
-				    : "drag pin to pin, or click each end";
-			break;
-	case T_LINE:	h = wanchor ? "next point ends here"
-				    : "drag or click ends; runs chain";
-			break;
-	case T_BOX:	h = "drag corner to corner";		break;
-	case T_CIRC:	h = "drag centre to edge";		break;
-	case T_TEXT:	h = "click where the text goes";	break;
-	case T_DEL:	h = "click what should go";		break;
-	case T_ROT:	h = "click what to turn";		break;
-	case T_MIR:	h = "click what to flip";		break;
-	case T_NAME:	h = "click what to rename";		break;
-	case T_DUP:	h = "click what to copy";		break;
-	default:	h = "";					break;
+		/* the run's length TIMES the sheet unit: measuring without
+		 * committing a dimension (VELLUM.md sec. 30) */
+		long dxl, dyl, dl;
+
+		dxl = cgx - dgx;	if ( dxl < 0 ) dxl = -dxl;
+		dyl = cgy - dgy;	if ( dyl < 0 ) dyl = -dyl;
+		dl = (dyl == 0) ? dxl : (dxl == 0) ? dyl :
+		     isqrt(dxl * dxl + dyl * dyl);
+		sprintf(co, "%ld %.4s", dl * unum, uname);
 	}
+	else
+		sprintf(co, "%3d,%-3d", lastgx, lastgy);
 	strcpy(rest, h);
 	if ( nsel > 1 )
 		sprintf(rest + strlen(rest), "  (%d sel)", nsel);
@@ -1451,6 +1410,13 @@ drawstat()
 		sprintf(rest + strlen(rest), "  [%d,%d]", voxg, voyg);
 	if ( curlayer )
 		sprintf(rest + strlen(rest), "  L%d", curlayer);
+	if ( scmsg[0] )
+	{
+		/* a one-shot note (scale's "rounded"): shown until the
+		 * next status repaint replaces it */
+		sprintf(rest + strlen(rest), "  %s", scmsg);
+		scmsg[0] = 0;
+	}
 
 	by = conth - STH;
 	{
@@ -1529,20 +1495,12 @@ flush()
 		ghx0 = gx0;  ghy0 = gy0;  ghx1 = gx1;  ghy1 = gy1;
 		ghdrawn = 1;
 	}
-	if ( ddpal || shownrow != palrow )
+	if ( ddpal || shownrow != palrow || showncur != armcode() )
 	{
-		drawpal();
+		palpoke(ddpal);		/* velpal repaints what changed */
 		shownrow = palrow;
 		showncur = armcode();
 		ddpal = 0;
-	}
-	else if ( showncur != armcode() )
-	{
-		if ( showncur >= 0 )
-			palbank1(palcellof(showncur));
-		if ( armcode() >= 0 )
-			palbank1(palcellof(armcode()));
-		showncur = armcode();
 	}
 	if ( ddtbar || !tbvalid )
 	{
@@ -1621,6 +1579,7 @@ delobj(i)
 	register DOBJ *o;
 
 	o = &obj[i];
+	tvfree(o);			/* a pooled value's block goes too */
 	if ( o->o_type == OT_POLY )	/* free its point-pool block */
 	{
 		int base, len;
@@ -2014,6 +1973,24 @@ reroute()
 /* moving, z-order, groups, undo                                      */
 /* ------------------------------------------------------------------ */
 
+/* Delete the whole selection (the Del key and velcmd's Cut share it). */
+delsel()
+{
+	register int j;
+
+	snapshot();
+	for ( j = nobj - 1; j >= 0; j-- )
+		if ( osel[j] )
+		{
+			dmgobj(j);
+			delobj(j);
+		}
+	selclear();
+	reroute();
+	statdirty = 1;
+	return 1;
+}
+
 /* Move object i by (dx,dy) grid units (a polyline moves its pool too). */
 moveobj(i, dx, dy)
 {
@@ -2103,6 +2080,35 @@ objmove(i, j)
 	return 0;
 }
 
+/* Byte copy / byte swap (no memcpy in this libc's K&R corner) -- ONE
+ * loop each, shared by snapshot and undo below: PCC emits a fat loop
+ * per copy site, and the editor's text bytes are the scarce resource. */
+static
+bmove(d, sp, n)
+register char *d, *sp;
+register int n;
+{
+	while ( n-- > 0 )
+		*d++ = *sp++;
+	return 0;
+}
+
+static
+bswap(a, b, n)
+register char *a, *b;
+register int n;
+{
+	register char t;
+
+	while ( n-- > 0 )
+	{
+		t = *a;
+		*a++ = *b;
+		*b++ = t;
+	}
+	return 0;
+}
+
 /* Byte-compare two objects (no memcmp in this libc's K&R corner). */
 static
 objdiff(a, b)
@@ -2123,14 +2129,12 @@ DOBJ *a, *b;
  * mutating commit (14.4 KB copy, ~0.1 s worst case at commit rate). */
 snapshot()
 {
-	register int i;
-
-	for ( i = 0; i < nobj; i++ )
-		uobj[i] = obj[i];
+	bmove((char *)uobj, (char *)obj, nobj * sizeof(DOBJ));
 	unobj = nobj;
-	for ( i = 0; i < ppuse; i++ )
-		uppool[i] = ppool[i];
+	bmove((char *)uppool, (char *)ppool, 2 * ppuse);
 	uppuse = ppuse;
+	bmove(utpool, tpool, tpuse);
+	utpuse = tpuse;
 	uvalid = 1;
 	return 0;
 }
@@ -2156,34 +2160,25 @@ undo()
 			continue;
 		if ( i < nobj )
 		{
-			objpbox2(&obj[i], ppool, &x0, &y0, &x1, &y1);
-			dmg(x0 - 5, y0 - 12, x1 + 48, y1 + 12);
+			objpbox2(&obj[i], ppool, tpool, &x0, &y0, &x1, &y1);
+			dmgpad(x0, y0, x1, y1);
 		}
 		if ( i < unobj )
 		{
-			objpbox2(&uobj[i], uppool, &x0, &y0, &x1, &y1);
-			dmg(x0 - 5, y0 - 12, x1 + 48, y1 + 12);
+			objpbox2(&uobj[i], uppool, utpool, &x0, &y0, &x1, &y1);
+			dmgpad(x0, y0, x1, y1);
 		}
 	}
-	for ( i = 0; i < n; i++ )
-	{
-		td = obj[i];
-		obj[i] = uobj[i];
-		uobj[i] = td;
-	}
+	bswap((char *)obj, (char *)uobj, n * sizeof(DOBJ));
 	tn = nobj;  nobj = unobj;  unobj = tn;
 	n = ppuse > uppuse ? ppuse : uppuse;
-	for ( i = 0; i < n; i++ )
-	{
-		ts = ppool[i];
-		ppool[i] = uppool[i];
-		uppool[i] = ts;
-	}
+	bswap((char *)ppool, (char *)uppool, 2 * n);
 	tn = ppuse;  ppuse = uppuse;  uppuse = tn;
+	n = tpuse > utpuse ? tpuse : utpuse;
+	bswap(tpool, utpool, n);
+	tn = tpuse;  tpuse = utpuse;  utpuse = tn;
 	selclear();
-	killanchor();
-	endchain();		/* object indices changed under the run */
-	arcpend = 0;
+	killrun();		/* object indices changed under the run */
 	modified = 1;
 	rejunc();
 	statdirty = 1;
@@ -2228,7 +2223,7 @@ rubdraw()
 
 			dx = rbx1 - rbx0;
 			dy = rby1 - rby0;
-			circ(rbx0, rby0, (int)isqrt(dx * dx + dy * dy), 2);
+			cl_circle(rbx0, rby0, (int)isqrt(dx * dx + dy * dy), 2);
 		}
 		break;
 	}
@@ -2352,19 +2347,36 @@ rubset()
 /* commands                                                           */
 /* ------------------------------------------------------------------ */
 
+/* Empty the model (New, and a fresh sheet of a set). */
+static
+clearmodel()
+{
+	selclear();
+	nobj = 0;
+	njunc = 0;
+	ppuse = 0;
+	tpuse = 0;
+	uvalid = 0;
+	return 0;
+}
+
+/* Drop the pending run state (anchor, chain, arc sweep). */
+static
+killrun()
+{
+	killanchor();
+	endchain();
+	arcpend = 0;
+	return 0;
+}
+
 static
 donew()
 {
 	if ( modified && !confirm("Discard unsaved changes?") )
 		return 0;
-	selclear();
-	nobj = 0;
-	njunc = 0;
-	ppuse = 0;
-	uvalid = 0;
-	killanchor();
-	endchain();
-	arcpend = 0;
+	clearmodel();
+	killrun();
 	fname[0] = 0;
 	modified = 0;
 	voxg = voyg = 0;
@@ -2378,9 +2390,7 @@ doopen()
 {
 	if ( modified && !confirm("Discard unsaved changes?") )
 		return 0;
-	killanchor();
-	endchain();
-	arcpend = 0;
+	killrun();
 	filedlg(0);
 	return 0;
 }
@@ -2394,13 +2404,13 @@ dosave()
 	return 0;
 }
 
-/* Duplicate the SELECTION two units down-right; the copies become the
+/* Duplicate the SELECTION offset by (dx,dy); the copies become the
  * selection, ready to be dragged into place.  A copied polyline gets
  * its own pool block; a copied connector re-attaches to the COPY of its
  * target (or detaches if the target was not copied); a copied group
- * gets a fresh group id. */
-static
-dodup()
+ * gets a fresh group id.  snap = 0 skips the undo snapshot (the ARRAY
+ * loop snapshots once for the whole array). */
+dodup2(dx, dy, snap)
 {
 	register DOBJ *o;
 	register int i;
@@ -2411,7 +2421,8 @@ dodup()
 
 	if ( nsel == 0 )
 		return 0;
-	snapshot();
+	if ( snap )
+		snapshot();
 	dmgsel();			/* the old boxes come off */
 	n0 = nobj;
 	for ( i = 0; i < n0; i++ )
@@ -2442,8 +2453,18 @@ dodup()
 				gmap[o->o_grp & 127] = newgid();
 			o->o_grp = gmap[o->o_grp & 127];
 		}
+		if ( o->o_val[0] == 1 )
+		{
+			/* a pooled value: the copy gets its OWN block, or
+			 * two objects would free one block twice */
+			char tb[TVMAX];
+
+			strcpy(tb, oval(o));
+			o->o_val[0] = 0;
+			setoval(o, tb);
+		}
 		nobj++;
-		moveobj(nobj - 1, 2, 2);
+		moveobj(nobj - 1, dx, dy);
 		if ( o->o_type == OT_SYM )
 			nextdes(symtab[o->o_sym].sy_pfx, o->o_name);
 	}
@@ -2477,6 +2498,50 @@ dodup()
 	reroute();
 	dmgsel();			/* the copies and their boxes   */
 	statdirty = 1;
+	return 1;
+}
+
+static
+dodup()
+{
+	return dodup2(2, 2, 1);
+}
+
+/* Array duplicate (VELLUM.md sec. 30): the selection repeated on an
+ * nx x ny lattice at `pitch' grid units -- pin headers, terminal
+ * strips, parking rows.  ONE undo snapshot covers the whole array. */
+doarray(nx, ny, pitch)
+{
+	register int i, j, k;
+	char sel0[MAXOBJ];
+	int n0;
+
+	if ( nsel == 0 || nx < 1 || ny < 1 || (nx == 1 && ny == 1) )
+		return 0;
+	snapshot();
+	n0 = nobj;
+	for ( k = 0; k < n0; k++ )
+		sel0[k] = osel[k];
+	for ( j = 0; j < ny; j++ )
+		for ( i = 0; i < nx; i++ )
+		{
+			if ( i == 0 && j == 0 )
+				continue;
+			/* re-select the ORIGINALS: each copy offsets from
+			 * the source row, not from the previous copy */
+			selclear();
+			for ( k = 0; k < n0; k++ )
+				if ( sel0[k] )
+				{
+					osel[k] = 1;
+					nsel++;
+					selobj = k;
+				}
+			if ( nsel != 1 )
+				selobj = -1;
+			if ( !dodup2(i * pitch, j * pitch, 0) )
+				return 1;	/* table full: keep what fits */
+		}
 	return 1;
 }
 
@@ -2585,41 +2650,99 @@ xformsel(mir)
 	return 1;
 }
 
-/* Rotate / mirror: a single selected symbol turns in place, ANY other
- * selection turns about its bbox centre, a pending placement turns its
- * ghost. */
+/* ---- scale selection (VELLUM.md sec. 39): '*' doubles about the
+ * selection's bbox corner (exact), '/' halves -- odd coordinates round
+ * and the status line says so: integer honesty over silent drift, the
+ * same bargain as quarter-turn-only rotation. ---- */
+
 static
-dorot()
+sc1(p, org, up, podd)
+short *p;
+int *podd;
 {
-	if ( nsel == 1 && selobj >= 0 && obj[selobj].o_type == OT_SYM )
+	register int d;
+
+	d = *p - org;
+	if ( up )
+		*p = org + d * 2;
+	else
 	{
-		snapshot();
-		dmgobj(selobj);			/* where it was */
-		obj[selobj].o_rot = (obj[selobj].o_rot + 1) & 3;
-		dmgobj(selobj);			/* where it is  */
-		modified = 1;
-		rejunc();	/* the pins moved with the body */
-		reroute();	/* ... and any attached connector */
-		return 1;
-	}
-	if ( nsel > 0 )
-		return xformsel(0);
-	if ( cursym >= 0 )
-	{
-		placerot = (placerot + 1) & 3;
-		return 0;
+		if ( d & 1 )
+			*podd = 1;
+		*p = org + (d >= 0 ? d / 2 : -((1 - d) / 2));
 	}
 	return 0;
 }
 
 static
-domir()
+scalesel(up)
+{
+	register DOBJ *o;
+	register int i;
+	int k, odd, ux0, uy0, ux1, uy1;
+
+	if ( nsel == 0 || !ugbox(1, &ux0, &uy0, &ux1, &uy1) )
+		return 0;
+	snapshot();
+	dmgsel();				/* where it all was */
+	odd = 0;
+	for ( i = 0; i < nobj; i++ )
+	{
+		if ( !osel[i] )
+			continue;
+		o = &obj[i];
+		sc1(&o->o_x, ux0, up, &odd);
+		sc1(&o->o_y, uy0, up, &odd);
+		switch ( o->o_type )
+		{
+		case OT_POLY:
+			for ( k = 0; k < o->o_sym; k++ )
+			{
+				sc1(&ppool[o->o_x2 + 2*k], ux0, up, &odd);
+				sc1(&ppool[o->o_x2 + 2*k + 1], uy0, up, &odd);
+			}
+			o->o_x = ppool[o->o_x2];
+			o->o_y = ppool[o->o_x2 + 1];
+			break;
+		case OT_ARC:
+			sc1(&o->o_x2, 0, up, &odd);	/* the radius */
+			if ( o->o_x2 < 1 )
+				o->o_x2 = 1;
+			break;
+		case OT_SYM:
+		case OT_TEXT:
+		case OT_NNAME:
+			break;		/* anchors only: bodies are fixed */
+		default:
+			sc1(&o->o_x2, ux0, up, &odd);
+			sc1(&o->o_y2, uy0, up, &odd);
+			break;
+		}
+	}
+	if ( !up && odd )
+		strcpy(scmsg, "rounded");
+	modified = 1;
+	rejunc();
+	reroute();
+	dmgsel();				/* where it all is  */
+	statdirty = 1;
+	return 1;
+}
+
+/* Rotate / mirror: a single selected symbol turns in place, ANY other
+ * selection turns about its bbox centre, a pending placement turns its
+ * ghost. */
+static
+dorm(mir)
 {
 	if ( nsel == 1 && selobj >= 0 && obj[selobj].o_type == OT_SYM )
 	{
 		snapshot();
 		dmgobj(selobj);			/* where it was */
-		obj[selobj].o_mir ^= 1;
+		if ( mir )
+			obj[selobj].o_mir ^= 1;
+		else
+			obj[selobj].o_rot = (obj[selobj].o_rot + 1) & 3;
 		dmgobj(selobj);			/* where it is  */
 		modified = 1;
 		rejunc();	/* the pins moved with the body */
@@ -2627,13 +2750,27 @@ domir()
 		return 1;
 	}
 	if ( nsel > 0 )
-		return xformsel(1);
+		return xformsel(mir);
 	if ( cursym >= 0 )
 	{
-		placemir ^= 1;
-		return 0;
+		if ( mir )
+			placemir ^= 1;
+		else
+			placerot = (placerot + 1) & 3;
 	}
 	return 0;
+}
+
+static
+dorot()
+{
+	return dorm(0);
+}
+
+static
+domir()
+{
+	return dorm(1);
 }
 
 /* Switch to a basic tool, dropping every arming, anchor and chain. */
@@ -2675,19 +2812,17 @@ int *pn;
 	return 1;
 }
 
-/* Next/Prev sheet ('>' / '<'): SAVE the current sheet, load the
- * neighbour; past the last sheet, OFFER to create the next one --
- * that is how a set grows. */
-static
-sheetgo(dir)
+/* Go to sheet n of the set: SAVE the current sheet, load that one.
+ * create = 1 may OFFER to create a missing sheet (how a set grows);
+ * Find's Sheets jump passes 0 (sec. 27: sheetgo generalized past +-1). */
+sheetto(n, create)
 {
 	char pre[FNLEN], suf[8], nn[FNLEN + 4], m[24];
-	int n, fd, fresh;
+	int cn, fd, fresh;
 
-	if ( !sheetsplit(pre, &n, suf) )
+	if ( !sheetsplit(pre, &cn, suf) )
 		return 0;
-	n += dir;
-	if ( n < 1 )
+	if ( n < 1 || n == cn )
 		return 0;
 	sprintf(nn, "%s%d%s", pre, n, suf);
 	if ( strlen(nn) >= FNLEN )
@@ -2698,7 +2833,7 @@ sheetgo(dir)
 		close(fd);
 		fresh = 0;
 	}
-	else if ( dir < 0 )
+	else if ( !create )
 		return 0;
 	else
 	{
@@ -2710,11 +2845,7 @@ sheetgo(dir)
 		return 0;		/* never walk away from unsaved work */
 	if ( fresh )
 	{
-		selclear();
-		nobj = 0;
-		njunc = 0;
-		ppuse = 0;
-		uvalid = 0;
+		clearmodel();
 		strcpy(fname, nn);
 		savefile(fname);	/* the new sheet exists at once */
 	}
@@ -2723,14 +2854,24 @@ sheetgo(dir)
 		loadfile(nn);
 		strcpy(fname, nn);
 	}
-	killanchor();
-	endchain();
-	arcpend = 0;
+	killrun();
 	voxg = voyg = 0;
 	viewdirty();
 	ddtop = 1;
 	statdirty = 1;
 	return 1;
+}
+
+/* Next/Prev sheet ('>' / '<'); past the last sheet the walk may create. */
+static
+sheetgo(dir)
+{
+	char pre[FNLEN], suf[8];
+	int n;
+
+	if ( !sheetsplit(pre, &n, suf) )
+		return 0;
+	return sheetto(n + dir, dir > 0);
 }
 
 static	evmenu();
@@ -2760,23 +2901,7 @@ dokey(c)
 	case 'n':	return propdlg();
 	case 'x':
 	case 0x7f:			/* keypad Del: the whole selection */
-		if ( nsel > 0 )
-		{
-			register int j;
-
-			snapshot();
-			for ( j = nobj - 1; j >= 0; j-- )
-				if ( osel[j] )
-				{
-					dmgobj(j);
-					delobj(j);
-				}
-			selclear();
-			reroute();
-			statdirty = 1;
-			return 1;
-		}
-		return 0;
+		return nsel > 0 ? delsel() : 0;
 	case 'g':
 		gridon ^= 1;
 		ddcanv = 1;
@@ -2788,6 +2913,8 @@ dokey(c)
 		return zoomto(gsc / 2);
 	case 'u':	return undo();
 	case 'v':	return zoomfit();
+	case '*':	return scalesel(1);
+	case '/':	return scalesel(0);
 	case 'f':	return tofront();
 	case 'j':	return dogroup();
 	case 'J':	return doungroup();
@@ -2798,13 +2925,23 @@ dokey(c)
 	case '5':
 	case '6':
 		return doalign(c - '0');
-	case 's':	return settool(T_SEL);
+	case 's':
+	case 'b':
+	case 'c':
+	case 't':
+	case 'e':
+		{
+			static char tkey[] = "sbcte";
+			static char ttool[] = { T_SEL, T_BOX, T_CIRC,
+						T_TEXT, T_DEL };
+			register char *q;
+
+			for ( q = tkey; *q != c; q++ )
+				;
+			return settool(ttool[q - tkey]);
+		}
 	case 'w':	tool = T_WIRE;  disarm();  endchain();  return 1;
 	case 'l':	tool = T_LINE;  disarm();  killanchor();  return 1;
-	case 'b':	return settool(T_BOX);
-	case 'c':	return settool(T_CIRC);
-	case 't':	return settool(T_TEXT);
-	case 'e':	return settool(T_DEL);
 	case '<':	return sheetgo(-1);	/* numbered-sheet sets     */
 	case '>':	return sheetgo(1);
 	case 0x1b:			/* ESC: cancel the armed tool /
@@ -2814,10 +2951,7 @@ dokey(c)
 					 * that too */
 		if ( tool != T_SEL || armcode() >= 0 || wanchor || arcpend )
 		{
-			tool = T_SEL;
-			disarm();
-			killanchor();
-			endchain();
+			settool(T_SEL);
 			if ( rubon )
 				rubdmg();	/* a pending arc's rubber */
 			return 1;
@@ -2828,18 +2962,23 @@ dokey(c)
 	case HRK_HELP & 0xff:		/* F11: the Help dialog, like the menu */
 		dohelp();
 		return 1;
-	case 0x06:			/* ^F / right arrow: pan */
-		if ( voxg < SHW - 8 ) { voxg += 4;  viewdirty();  return 1; }
-		return 0;
-	case 0x02:			/* ^B / left arrow */
-		if ( voxg > 0 ) { voxg -= 4;  viewdirty();  return 1; }
-		return 0;
-	case 0x0e:			/* ^N / down arrow */
-		if ( voyg < SHH - 8 ) { voyg += 4;  viewdirty();  return 1; }
-		return 0;
-	case 0x10:			/* ^P / up arrow */
-		if ( voyg > 0 ) { voyg -= 4;  viewdirty();  return 1; }
-		return 0;
+	case 0x06:			/* ^F/^B/^N/^P (arrows): pan */
+	case 0x02:
+	case 0x0e:
+	case 0x10:
+		{
+			register int ox, oy;
+
+			ox = voxg;
+			oy = voyg;
+			voxg += (c == 0x06) ? 4 : (c == 0x02) ? -4 : 0;
+			voyg += (c == 0x0e) ? 4 : (c == 0x10) ? -4 : 0;
+			clampvo();
+			if ( voxg == ox && voyg == oy )
+				return 0;
+			viewdirty();
+			return 1;
+		}
 	case HRK_CLRHOME & 0xff:	/* Clear/Home: pan to the origin */
 		if ( voxg || voyg )
 		{
@@ -2884,24 +3023,29 @@ tbpress(px)
 		/* falls through: arm as a click-to-apply tool */
 	case C_NAME:
 	case C_DUP:
-		if ( i == C_DUP && nsel > 1 )
+		if ( i == C_DUP && nsel > 0 )
 		{
-			dodup();	/* a GROUP is selected: copy it now */
+			arraydlg();	/* selection up: the ARRAY dialog */
 			break;
 		}
 		settool(i - 1);		/* C_ROT.. -> T_ROT.. */
 		break;
 	case C_ZIN:	zoomto(gsc * 2);	break;
 	case C_ZOUT:	zoomto(gsc / 2);	break;
-	case C_LIB:	libdlg();		break;
-	case C_EDIT:	doedit();		break;
-	case C_FRONT:	tofront();		break;
-	case C_BACK:	toback();		break;
+	case C_LIB:
+	case C_EDIT:
+	case C_FRONT:
+	case C_BACK:
+		{
+			static int (*cfn[4])() = { libdlg, doedit, tofront,
+						   toback };
+
+			(*cfn[i - C_LIB])();
+		}
+		break;
 	case C_LAYER:
 		curlayer = (curlayer + 1) & (NLAYER - 1);
 		break;
-	case C_PREV:	sheetgo(-1);		break;
-	case C_NEXT:	sheetgo(1);		break;
 	default:
 		if ( i < NTOOL )
 			settool(i);
@@ -2981,41 +3125,27 @@ palpress(px, py)
 	return 0;
 }
 
-/* Presses on the scrollbars: on the thumb starts a drag, on the track pages. */
+/* Presses on the scrollbars: on the thumb starts a drag, on the track
+ * pages.  ONE path for both bars -- the axis picks the pan variable and
+ * the sheet extent (the H/V twins were byte-for-byte parallel). */
 static
-hsbpress(px)
+sbpress(vert, p)
 {
-	int tx, tl, thx, thw, vw;
+	register int *vo;
+	int tx, tl, thx, thw, vw, tot;
 
-	vw = hsbgeom(&tx, &tl, &thx, &thw);
-	if ( px >= thx && px < thx + thw )
+	vw = sbgeom(vert, &tx, &tl, &thx, &thw);
+	if ( p >= thx && p < thx + thw )
 	{
-		drag = DR_HSB;
-		sbgrab = px - thx;
+		drag = vert ? DR_VSB : DR_HSB;
+		sbgrab = p - thx;
 		return 0;
 	}
-	voxg += (px < thx) ? -(vw - 4) : vw - 4;
-	if ( voxg > SHW - vw ) voxg = SHW - vw;
-	if ( voxg < 0 ) voxg = 0;
-	viewdirty();
-	return 1;
-}
-
-static
-vsbpress(py)
-{
-	int ty, tl, thy, thh, vh;
-
-	vh = vsbgeom(&ty, &tl, &thy, &thh);
-	if ( py >= thy && py < thy + thh )
-	{
-		drag = DR_VSB;
-		sbgrab = py - thy;
-		return 0;
-	}
-	voyg += (py < thy) ? -(vh - 4) : vh - 4;
-	if ( voyg > SHH - vh ) voyg = SHH - vh;
-	if ( voyg < 0 ) voyg = 0;
+	vo = vert ? &voyg : &voxg;
+	tot = vert ? SHH : SHW;
+	*vo += (p < thx) ? -(vw - 4) : vw - 4;
+	if ( *vo > tot - vw ) *vo = tot - vw;
+	if ( *vo < 0 ) *vo = 0;
 	viewdirty();
 	return 1;
 }
@@ -3025,30 +3155,22 @@ vsbpress(py)
 static
 sbmotion(px, py)
 {
-	int tx, tl, thx, thw, v, was;
+	register int *vo;
+	int tx, tl, thx, thw, v, was, vert, tot;
 
-	if ( drag == DR_HSB )
-	{
-		v = hsbgeom(&tx, &tl, &thx, &thw);
-		was = voxg;
-		if ( tl - thw > 0 )
-			voxg = (long)(px - sbgrab - tx) * (SHW - v) /
-			       (tl - thw);
-		if ( voxg > SHW - v ) voxg = SHW - v;
-		if ( voxg < 0 ) voxg = 0;
-		if ( voxg != was )
-			viewdirty();
-		return voxg != was;
-	}
-	v = vsbgeom(&tx, &tl, &thx, &thw);
-	was = voyg;
+	vert = drag == DR_VSB;
+	v = sbgeom(vert, &tx, &tl, &thx, &thw);
+	vo = vert ? &voyg : &voxg;
+	tot = vert ? SHH : SHW;
+	was = *vo;
 	if ( tl - thw > 0 )
-		voyg = (long)(py - sbgrab - tx) * (SHH - v) / (tl - thw);
-	if ( voyg > SHH - v ) voyg = SHH - v;
-	if ( voyg < 0 ) voyg = 0;
-	if ( voyg != was )
+		*vo = (long)((vert ? py : px) - sbgrab - tx) * (tot - v) /
+		      (tl - thw);
+	if ( *vo > tot - v ) *vo = tot - v;
+	if ( *vo < 0 ) *vo = 0;
+	if ( *vo != was )
 		viewdirty();
-	return voyg != was;
+	return *vo != was;
 }
 
 /* Commit the pending arc's second stage: the press picks the END angle. */
@@ -3339,7 +3461,7 @@ canvpress(px, py)
 			i = addobj(OT_TEXT, gx, gy, 0, 0);
 			if ( i >= 0 )
 			{
-				strcpy(obj[i].o_val, vbuf);
+				setoval(&obj[i], vbuf);
 				dmgobj(i);
 			}
 		}
@@ -3512,8 +3634,7 @@ reltoggle()
 		wanchor = 1;
 		wax = dgx;
 		way = dgy;
-		dmg(gtopx(wax) - 6, gtopy(way) - 6,
-		    gtopx(wax) + 6, gtopy(way) + 6);
+		dmganchor();
 	}
 	statdirty = 1;
 	return 1;
@@ -3674,9 +3795,7 @@ relshape()
 		obj[i].o_sym = curshape;
 		vbuf[0] = 0;
 		if ( textdlg("") )
-		{
-			strcpy(obj[i].o_val, vbuf);
-		}
+			setoval(&obj[i], vbuf);
 		dmgobj(i);
 	}
 	statdirty = 1;
@@ -3710,17 +3829,15 @@ canvrelease()
 		switch ( dtool )
 		{
 		case DT_WIRE:
-			return (dx == 0 && dy == 0) ? reltoggle()
-						    : relwire();
 		case DT_LINE:
-			return (dx == 0 && dy == 0) ? reltoggle()
-						    : relline();
 		case DT_CONN:
-			return (dx == 0 && dy == 0) ? reltoggle()
-						    : relconn();
 		case DT_DIM:
-			return (dx == 0 && dy == 0) ? reltoggle()
-						    : reldim();
+			/* the run gestures share the zero-move anchor toggle */
+			if ( dx == 0 && dy == 0 )
+				return reltoggle();
+			return dtool == DT_WIRE ? relwire() :
+			       dtool == DT_LINE ? relline() :
+			       dtool == DT_CONN ? relconn() : reldim();
 		case DT_SHAPE:
 			if ( dx == 0 && dy == 0 )
 				return 1;
@@ -4008,6 +4125,7 @@ char **argv;
 	conth = me.ha_h;
 	signal(SIGALRM, onalrm);	/* AFTER hr_open: it used SIGALRM */
 	alarm(300);			/* the autosave tick */
+	vpspawn();			/* the palette-bank helper */
 
 	/* An optional file argument (options were consumed by hr_open):
 	 * open it, or start empty under that name if it does not exist. */
@@ -4106,16 +4224,20 @@ register WMSG *ep;
 	if ( ep->wm_arg[2] & EB_LEFT )		/* press */
 	{
 		if ( by < CTOP )
-			;			/* the file bar */
+		{
+			/* the file bar: only its sheet-set cells press */
+			if ( bx >= contw - 2 * SHCW )
+				sheetgo(bx >= contw - SHCW ? 1 : -1);
+		}
 		else if ( by < CANY )
 			tbpress(bx);
 		else if ( bx < PALW && by < conth - STH )
 			palpress(bx, by);
 		else if ( bx >= cright() && by < canvh() )
-			vsbpress(by);
+			sbpress(1, by);
 		else if ( by >= canvh() && by < conth - STH &&
 			  bx < cright() )
-			hsbpress(bx);
+			sbpress(0, bx);
 		else if ( by < canvh() && bx < cright() )
 		{
 			canvpress(bx, by);
@@ -4137,17 +4259,21 @@ register WMSG *ep;
 static
 evmenu(code)
 {
-	switch ( code )
-	{
-	case HRM_NEW:	donew();		break;
-	case HRM_OPEN:	doopen();		break;
-	case HRM_SAVE:	dosave();		break;
-	case HRM_CUT:	docut();		break;
-	case HRM_COPY:	docopy();		break;
-	case HRM_PASTE:	dopaste(lastgx, lastgy, 1);	break;
-	case HRM_SETTINGS:	settingsdlg();	break;
-	case HRM_HELP:	dohelp();		break;
-	}
+	/* the HRM_* bits in LSB order; Paste is special-cased (it takes
+	 * the pointer position) */
+	static int (*mfn[10])() = { donew, doopen, dosave, docut, docopy,
+		(int (*)())0, settingsdlg, dohelp, printdlg, finddlg };
+	register int i;
+
+	if ( code == HRM_PASTE )
+		dopaste(lastgx, lastgy, 1);
+	else
+		for ( i = 0; i < 10; i++ )
+			if ( code == (1 << i) && mfn[i] )
+			{
+				(*mfn[i])();
+				break;
+			}
 	statdirty = 1;
 	return 0;
 }
@@ -4167,6 +4293,8 @@ register WMSG *ep;
 		conth = ep->wm_arg[1];
 		drag = DR_NONE;		/* any rubber pixels are gone */
 		rubon = 0;
+		vpkill();		/* the palette rect moved: fresh */
+		vpspawn();		/* helper on the new geometry    */
 		alldirty();
 		break;
 
@@ -4196,6 +4324,7 @@ register WMSG *ep;
 		break;
 
 	case E_QUIT:
+		vpkill();
 		exit(0);
 	}
 	return 0;

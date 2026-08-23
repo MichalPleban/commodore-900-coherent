@@ -1008,6 +1008,7 @@ $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zview/zvpump.o \
 	$(HRGUIOBJ)/vellum/velcmd.o $(HRGUIOBJ)/vellum/veldlg.o \
 	$(HRGUIOBJ)/vellum/velbase.o $(HRGUIOBJ)/vellum/velport.o \
 	$(HRGUIOBJ)/vellum/velxmain.o $(HRGUIOBJ)/vellum/veldlgm.o \
+	$(HRGUIOBJ)/vellum/velprev.o $(HRGUIOBJ)/vellum/velpal.o \
 	$(HRGUIOBJ)/zmaze/zmaze.o $(HRGUIOBJ)/zmaze/zmcore.o \
 	$(HRGUIOBJ)/zwidg/zwclock.o $(HRGUIOBJ)/zwidg/zwwin.o \
 	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o \
@@ -1259,8 +1260,17 @@ VELOBJ := $(HRGUIOBJ)/vellum/vellum.o $(HRGUIOBJ)/vellum/velgfx.o \
 	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velcmd.o \
 	$(HRGUIOBJ)/vellum/veldlg.o $(HRGUIOBJ)/vellum/velbase.o
 VELXOBJ := $(HRGUIOBJ)/vellum/velxmain.o $(HRGUIOBJ)/vellum/velport.o \
+	$(HRGUIOBJ)/vellum/velwalk.o \
 	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velbase.o
-$(VELOBJ) $(VELXOBJ): src/userland/hr/vellum/vellum.h
+# velprev: the print-preview window (VELLUM.md sec. 25) -- the exporters'
+# walker (velwalk) behind a cl_* backend built from velgfx's styled
+# primitives, over the same model/format units, so the preview window
+# draws exactly the walk the Epson bands get.
+VELPOBJ := $(HRGUIOBJ)/vellum/velprev.o $(HRGUIOBJ)/vellum/velwalk.o \
+	$(HRGUIOBJ)/vellum/velgfx.o $(HRGUIOBJ)/vellum/velfile.o \
+	$(HRGUIOBJ)/vellum/velbase.o
+$(VELOBJ) $(VELXOBJ) $(VELPOBJ) $(HRGUIOBJ)/vellum/velgraph.o: \
+	src/userland/hr/vellum/vellum.h
 # The EDITOR's units compile WITHOUT -Wa,-S: their string literals then
 # live in the (roomy) DATA segment instead of the text segment, whose 64 K
 # is the v2 wall (VELLUM.md sec. 13 -- editor features are rationed by
@@ -1282,10 +1292,42 @@ $(ROOT)/usr/vellum/lib/velxport: $(VELXOBJ) $(CRT) $(LIBC) $(LIBC_SL)
 	$(LD) -s -o $@ $(CRT) $(VELXOBJ) $(LIBC_SL) $(LIBC)
 	@python tools/segtrip.py --gate 95 $@
 
+$(ROOT)/usr/vellum/lib/velprev: $(VELPOBJ) $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -n -o $@ $(CRT) $(VELPOBJ) $(SHLIB) $(LIBC)
+
+# velpal: the palette-bank painter (VELLUM.md sec. 39) -- the editor's
+# bank drawing, seceded on the zdock widget pattern: cl_subinit onto the
+# editor's own palette rect, poked by SIGALRM, synced through the GDS
+# tail block (shmem.h SHM_VELPAL).  Model + format + styled drawing, no
+# editor code.
+VELPALOBJ := $(HRGUIOBJ)/vellum/velpal.o $(HRGUIOBJ)/vellum/velgfx.o \
+	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velbase.o
+$(HRGUIOBJ)/vellum/velpal.o: src/userland/hr/vellum/vellum.h
+$(ROOT)/usr/vellum/lib/velpal: $(VELPALOBJ) $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -n -o $@ $(CRT) $(VELPALOBJ) $(SHLIB) $(LIBC)
+
 $(VELBIN)/symedit: LDNFLAGS := -n
 $(VELBIN)/symedit: $(HRGUIOBJ)/vellum/symedit.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/vellum/symedit.o $(SHLIB) $(LIBC)
+
+# veldxf: the DXF (R10 subset) -> .d converter (VELLUM.md sec. 36) -- a
+# headless binary of its own: no velbase, no gfx; it parses group-code
+# pairs and prints drawing lines.
+$(VELBIN)/veldxf: $(HRGUIOBJ)/vellum/veldxf.o $(CRT) $(LIBC) $(LIBC_SL)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/vellum/veldxf.o $(LIBC_SL) $(LIBC)
+
+# velgraph: x/y data -> a vellum drawing (VELLUM.md sec. 37) -- axes,
+# 1-2-5 ticks and styled polylines over the shared model/format units
+# (velbase + velfile), fixed-point throughout, no gfx.
+VELGOBJ := $(HRGUIOBJ)/vellum/velgraph.o $(HRGUIOBJ)/vellum/velfile.o \
+	$(HRGUIOBJ)/vellum/velbase.o
+$(VELBIN)/velgraph: $(VELGOBJ) $(CRT) $(LIBC) $(LIBC_SL)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(VELGOBJ) $(LIBC_SL) $(LIBC)
 
 # The dialog HELPER (veldlgm.c): every editor dialog, run in a spawned
 # process on the editor's window (hr_attach) -- the velxport pattern
@@ -1302,15 +1344,28 @@ $(ROOT)/usr/vellum/lib/%.sym: src/userland/hr/vellum/%.sym
 # working demo of the manual's features -- schematic, logic, flowchart,
 # network, structure chart, mechanical sketch, P&ID, one-line, floor
 # plan, and a two-sheet set for the sheet-set/netlist-merge story.
-VELEG := amp logic flow lan struct bracket feed oneline office psu1 psu2
-VELEG_TARGETS := $(patsubst %,$(ROOT)/usr/vellum/eg/%.d,$(VELEG))
+VELEG := amp logic flow lan struct bracket feed oneline office psu1 psu2 \
+	curve plate
+VELEG_TARGETS := $(patsubst %,$(ROOT)/usr/vellum/eg/%.d,$(VELEG)) \
+	$(ROOT)/usr/vellum/eg/plate.dxf
 $(ROOT)/usr/vellum/eg/%.d: src/userland/hr/vellum/eg/%.d
+	@mkdir -p $(dir $@)
+	cp $< $@
+# the DXF import demo ships its SOURCE beside the imported .d, so the
+# border crossing is demonstrated by a file you can rebuild (sec. 40)
+$(ROOT)/usr/vellum/eg/plate.dxf: src/userland/hr/vellum/eg/plate.dxf
 	@mkdir -p $(dir $@)
 	cp $< $@
 $(ROOT)/usr/vellum/etc/libs: src/userland/hr/vellum/libs
 	@mkdir -p $(dir $@)
 	cp $< $@
 $(ROOT)/usr/vellum/etc/symbols: src/userland/hr/vellum/symbols
+	@mkdir -p $(dir $@)
+	cp $< $@
+$(ROOT)/usr/vellum/etc/frame.d: src/userland/hr/vellum/frame.d
+	@mkdir -p $(dir $@)
+	cp $< $@
+$(ROOT)/usr/vellum/etc/project.mk: src/userland/hr/vellum/project.mk
 	@mkdir -p $(dir $@)
 	cp $< $@
 
@@ -1442,13 +1497,16 @@ HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(SHLIB) $(HRGUIBIN)/gfxtest $(HRGUIBI
 	$(HRGUIBIN)/zmon $(HRGUIBIN)/zcalc $(HRGUIBIN)/zman $(HRGUIBIN)/zfile \
 	$(HRGUIBIN)/zpuzzle $(HRGUIBIN)/zmaze \
 	$(VELBIN)/vellum $(VELBIN)/symedit \
+	$(VELBIN)/veldxf $(VELBIN)/velgraph \
 	$(ROOT)/usr/vellum/lib/velxport $(ROOT)/usr/vellum/lib/veldlg \
+	$(ROOT)/usr/vellum/lib/velprev $(ROOT)/usr/vellum/lib/velpal \
 	$(HRGUIBIN)/zdock \
 	$(HRGUIBIN)/zwclock $(HRGUIBIN)/zwmem $(HRGUIBIN)/zwwin \
 	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIBIN)/hrclip \
 	$(HRGUIFONTS) \
 	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/dock $(ROOT)/usr/hr/etc/rc \
 	$(ROOT)/usr/vellum/etc/symbols $(ROOT)/usr/vellum/etc/libs \
+	$(ROOT)/usr/vellum/etc/frame.d $(ROOT)/usr/vellum/etc/project.mk \
 	$(VELEG_TARGETS) \
 	$(ROOT)/usr/vellum/lib/discrete.sym $(ROOT)/usr/vellum/lib/logic.sym \
 	$(ROOT)/usr/vellum/lib/flow.sym $(ROOT)/usr/vellum/lib/net.sym \

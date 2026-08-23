@@ -9,7 +9,7 @@ symedit -- GUI symbol editor for the vellum library
 Usage:	symedit [ options ] [ library-file ]
 Keys:	s/c/a/p/t/v/e arm Seg/Circ/Arc/Pin/Char/Move/Del,
 	r/m rotate/mirror the whole symbol, f copy-from,
-	x delete selection, Esc back to Seg
+	x delete selection, u undo, Esc back to Seg
 .HE
 .B symedit
 edits a
@@ -49,7 +49,11 @@ The tools:
 	\fBPin\fR	click places a connection pin, snapped to WHOLE
 		grid units \- pins are where wires snap in \fBvellum\fR.
 		A second click on a pin asks for its NAME, which
-		the netlist export prints (Q1.B instead of Q1.2)
+		the netlist export prints (Q1.B instead of Q1.2),
+		and its TYPE \- in, out, power or bidirectional \-
+		which the B-checkR electrical rules test (two
+		outputs on a net conflict, an output must not
+		drive a power rail, all-input nets are undriven)
 	\fBChar\fR	click asks for one small-font character
 	\fBMove\fR	drag an element to move it; a drag on empty
 		canvas marquee-selects, and the set then moves
@@ -67,12 +71,19 @@ The
 key copies a symbol IN from another library file as the starting
 point (asks for the file and the code; the buffer is replaced, the
 code and prefix stay).
+The
+.B u
+key UNDOES the last edit (one level; pressing it again redoes) and
+.B Esc
+cancels in two stages: the first returns to Seg keeping the
+selection, a second drops the selection too.
 The two triangle cells under the preview step to the previous and
 next symbol in the library, keeping any edits in memory.
 .PP
 The window menu carries New (asks for the symbol's code and its
 designator prefix), Open (by code; the dialog lists what the library
-holds), Save and Help.
+holds), Save and Help \- which opens this page in
+.BR zman .
 Switching symbols keeps every edit in memory;
 .B Save
 writes the whole library back to the file.
@@ -84,7 +95,7 @@ changes.
 .DS
 	/usr/vellum/etc/symbols	the user scratch library (default)
 	/usr/vellum/lib/*.sym	the stock libraries (discrete, logic,
-		flow, net, arch)
+		flow, net, arch, pid, power, plan)
 	/usr/vellum/etc/libs	which libraries vellum loads at start-up
 .DE
 The format is the plain text described in
@@ -92,7 +103,8 @@ The format is the plain text described in
 it can also be edited by hand.
 .SH "SEE ALSO"
 .B vellum ,
-.B zview
+.B zview ,
+.B zman
 .SH NOTES
 The library holds up to 12 symbols of up to 8 pins each.
 Keep bodies within about \-20..40 quarter units horizontally and

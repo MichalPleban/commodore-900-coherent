@@ -2,11 +2,11 @@
 .SH NAME
 zman \- GUI manual-page browser
 .SH SYNOPSIS
-\fBzman [\fIoptions\fB]\fR
+\fBzman [\fIoptions\fB] [\fIpage\fB]\fR
 .SH DESCRIPTION
 .HS
 zman -- GUI manual-page browser
-Usage:	zman [ options ]
+Usage:	zman [ options ] [ page ]
 Keys:	^P/^N select page, ^Z/^V page text, ^U clear field
 	type a name and press Return to find a page
 .HE
@@ -21,9 +21,13 @@ It lists every pre-formatted manual page installed under
 .B /usr/man
 in a multi-column catalog, and shows the selected page \- with bold
 and underlining \- in the pane below.
+An optional
+.I page
+argument names the page to open on (an application's Help entry runs
 .B zman
-takes no page argument on the command line; it accepts the standard
-window
+.IR appname );
+absent or unknown, the browser opens on the desktop's own page.
+It accepts the standard window
 .I options
 of GUI applications; see
 .BR zview .

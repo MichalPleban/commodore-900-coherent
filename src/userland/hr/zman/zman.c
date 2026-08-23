@@ -1039,9 +1039,17 @@ char **argv;
 	layout();
 
 	scanpages();
-	for ( i = 0; i < npg; i++ )	/* open on the desktop's own page */
-		if ( strcmp(pages[i].nm, "zview") == 0 )
-			break;
+	/* an optional PAGE argument opens on that page (an app's Help says
+	 * `zman <app>'); absent or unknown falls back to the desktop's own */
+	i = npg;
+	if ( argc > 1 && argv[1][0] )
+		for ( i = 0; i < npg; i++ )
+			if ( strcmp(pages[i].nm, argv[1]) == 0 )
+				break;
+	if ( i >= npg )
+		for ( i = 0; i < npg; i++ )
+			if ( strcmp(pages[i].nm, "zview") == 0 )
+				break;
 	if ( i < npg )
 		select(i);
 	else

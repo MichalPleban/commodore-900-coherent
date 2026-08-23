@@ -1,0 +1,58 @@
+.TH velgraph "" "Command"
+.SH NAME
+velgraph \- plot x/y data as a vellum drawing
+.SH SYNOPSIS
+\fBvelgraph [\fB\-t\fR \fItitle\fR] [\fB\-x\fR \fIlabel\fR] [\fB\-y\fR \fIlabel\fR] \
+[\fB\-smooth\fR] < \fIdata\fR > \fIgraph.d\fR
+.SH DESCRIPTION
+.HS
+velgraph -- plot x/y data as a vellum drawing
+Usage:	velgraph [ -t title ] [ -x label ] [ -y label ] [ -smooth ] < data
+Options:
+	-t title	centred title (large font)
+	-x label	x-axis label
+	-y label	y-axis label (drawn vertically)
+	-smooth	series render as splines, to pic and PostScript too
+.HE
+.B velgraph
+reads
+.I "x y"
+pairs from standard input \- one pair per line, series separated by
+blank lines, graph(1)'s convention \- and emits an ORDINARY
+.B vellum
+drawing: axes on the frame layer, ticks on the 1-2-5 ladder with
+labels, and each series as a styled polyline (solid, dashed, dotted
+and bold in turn).
+A graph is not a special thing here \- it is objects: open the
+result, annotate it, dimension it, stamp a frame on it, print it.
+.PP
+Input decimals parse to fixed point (no floating point anywhere);
+ranges, tick steps and labels are integer arithmetic with the
+decimal point re-inserted by the formatter.
+The 1-2-5 ladder is exact in fixed point, which is precisely why it
+is the 1-2-5 ladder and not ``nice numbers''.
+With
+.B \-smooth
+each series carries the spline flag, so the curve is real all the
+way to the
+.B \-pic
+and
+.B \-ps
+exports.
+.PP
+make(1) composition is the point:
+.DS
+.ta 8n
+	report.ps: bench.log plot.d
+		velgraph -t "Settling time" < bench.log > plot.d
+		vellum -ps plot.d > report.ps
+.DE
+.SH "SEE ALSO"
+.B vellum ,
+.B veldxf
+.SH NOTES
+Up to 280 points over up to 12 series; a series longer than a
+polyline's 20 points is split into chained polylines sharing their
+seam.
+The sample gallery's /usr/vellum/eg/curve.d is a velgraph output,
+annotated in the editor afterwards.

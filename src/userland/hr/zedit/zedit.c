@@ -1352,21 +1352,18 @@ HRWIDGET fwg[] = {
 #define	FD_W	280
 #define	FD_H	132
 
-/* Run it: save = 1 writes the buffer (name prefilled with the current file),
- * save = 0 reads a file in.  Returns 1 when the action was done. */
+/* Run it: save = 1 writes the buffer, save = 0 reads a file in; the name
+ * field is prefilled with the current file either way (Open usually means
+ * a sibling of what is loaded -- edit the name, don't retype it).
+ * Returns 1 when the action was done. */
 static
 filedlg(save)
 {
 	int w, h, r, i;
 
 	dmsg[0] = 0;
-	if ( save )
-	{
-		for ( i = 0; (fnbuf[i] = fname[i]) != 0; i++ )
-			;
-	}
-	else
-		fnbuf[0] = 0;
+	for ( i = 0; (fnbuf[i] = fname[i]) != 0; i++ )
+		;
 	w = FD_W;
 	h = FD_H;
 	r = hr_dlgopen(&w, &h);

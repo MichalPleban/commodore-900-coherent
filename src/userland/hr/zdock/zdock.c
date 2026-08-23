@@ -874,8 +874,16 @@ doclick(x, y, mid)
 static
 tick()
 {
+	signal(SIGALRM, tick);	/* FIRST: V7 one-shot -- see the widget note */
+	alarm(2);		/* re-armed by the HANDLER, not the loop: a
+				 * delivery landing between the loop's tickflag
+				 * check and hr_evwait would otherwise leave
+				 * the flag set with NO alarm pending, and the
+				 * wait then blocks until some unrelated event
+				 * -- on an idle desktop the reap/relaunch tick
+				 * simply stops.  Armed here, the chain never
+				 * dies. */
 	tickflag = 1;
-	signal(SIGALRM, tick);
 }
 
 main(argc, argv)
@@ -936,7 +944,7 @@ char **argv;
 				lastseq = hr_winseq();
 				syncstate(needfull);
 			}
-			alarm(2);
+			/* (the handler re-armed the alarm -- see tick()) */
 		}
 
 		cl_refresh();

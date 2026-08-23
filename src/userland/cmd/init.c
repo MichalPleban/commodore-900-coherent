@@ -102,7 +102,8 @@ char *argv[];
 	}
 	/*
 	 * The console driver named in argv[2] is now loaded, so /dev/console
-	 * is live; announce ourselves before spawning the first shell.
+	 * is live, and loadsl() has waited out every shared-library load;
+	 * announce ourselves before spawning the first shell.
 	 */
 	console("\nOpenCoherent version ");
 	console(VERSION);
@@ -221,16 +222,26 @@ char *np;
 /*
  * Load the given shared library: the child execs it and becomes its
  * resident holder.  A missing library is not an error (see main).
+ * The holder never exits -- the kernel parks it forever -- but it
+ * reports the completed load as a ptrace-style stop (wait status
+ * 0177), so wait for that before going on: the console banner and
+ * the first shell must not appear while a library is still being
+ * read in.  A normal exit instead means the exec failed, and the
+ * system simply runs without the library.
  */
 loadsl(np)
 char *np;
 {
+	register int pid;
+
 	if (access(np, 0) != 0)
 		return;
-	if (fork() != 0)
-		return;
-	execl(np, np, NULL);
-	exit(1);
+	if ((pid = fork()) == 0) {
+		execl(np, np, NULL);
+		exit(1);
+	}
+	if (pid > 0)
+		waitc(pid);
 }
 
 /*

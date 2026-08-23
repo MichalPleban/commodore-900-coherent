@@ -342,6 +342,29 @@ typedef struct {
 #define SHM_DLGSURF	0x5400		/* one HRSURF; ends 0x546E              */
 #define hr_dlgsurf()	((HRSURF *)(HRTAIL + SHM_DLGSURF))
 
+/* ---- Vellum palette-helper sync block (VELLUM.md sec. 39) ----------------- *
+ * The editor's palette BANK is drawn by a resident helper (velpal) on the
+ * zdock widget pattern: cl_subinit onto the editor's own palette rect,
+ * repainting when POKED (a plain SIGALRM from the editor -- velpal never
+ * self-alarms, so the zdock re-install trap does not apply).  This block is
+ * the whole protocol: the editor writes the state and bumps a generation,
+ * velpal diffs it against what it drew.  Single writer per field (velpal
+ * writes only vp_pid), no lock.  Sits in the 18-byte gap between the dialog
+ * surface (ends 0x546E) and the window list (0x5480). */
+#define SHM_VELPAL	0x5470
+typedef struct {
+	short	vp_pid;			/* velpal's OWN pid, stamped by it   */
+					/* once ready (0 = starting); the    */
+					/* editor's poke and liveness probe  */
+	short	vp_fullgen;		/* bump = repaint the whole bank     */
+					/* (expose / view change)            */
+	short	vp_gen;			/* bump = the state below changed    */
+	short	vp_lib;			/* library group the bank shows      */
+	short	vp_row;			/* first visible bank row            */
+	short	vp_arm;			/* armed code (editor's armcode())   */
+} HRVELPAL;				/* 12 B: 0x5470..0x547C              */
+#define hr_velpal()	((HRVELPAL *)(HRTAIL + SHM_VELPAL))
+
 /* ---- published window list (server -> anyone) ----------------------------- *
  * A read-only MIRROR of the server's private wins[] bookkeeping, so a taskbar,
  * monitor or switcher can enumerate the desktop without asking the server:

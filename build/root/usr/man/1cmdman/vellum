@@ -9,8 +9,9 @@ NNAAMMEE
 
 SSYYNNOOPPSSIISS
      vveelllluumm [_o_p_t_i_o_n_s] [_f_i_l_e]
-     vveelllluumm -pprriinntt|-ppiicc|-nneett|-hhppggll|-bboomm [-wwiiddee] [-ssccaallee _n] _f_i_l_e._d
-     ...
+     vveelllluumm -pprriinntt|-ppiicc|-nneett|-hhppggll|-bboomm|-cchheecckk|-ppss|-ddxxff [-wwiiddee]
+     [-ffiitt] [-ssccaallee _n] _f_i_l_e._d ...
+     vveelllluumm -rreennuumm [-bbaassee _n] _f_i_l_e._d > _o_u_t._d
 
 DDEESSCCRRIIPPTTIIOONN
      vveelllluumm is the drawing board of this workstation: electronic
@@ -22,43 +23,42 @@ DDEESSCCRRIIPPTTIIOONN
      zzvviieeww. The optional _f_i_l_e argument names a drawing to open.
 
      The file name sits in its own bar at the top, with a `*'
-     while the drawing has unsaved changes; the TOOLBAR row of
-     cells sits under it, and the palette down the left edge
-     holds the symbol bank.  Symbols come from LIBRARY FILES
-     named in /usr/vellum/etc/libs: ddiissccrreettee (resistor through
-     opamp), llooggiicc (gates and flip-flops), ffllooww (flowchart sten-
-     cils), nneett (network-map stencils), aarrcchh (software structure
-     stencils), ppiidd (process / P&ID stencils), ppoowweerr (one-line
-     electrical) and ppllaann (floor-plan stencils), plus the user
-     scratch library /usr/vellum/etc/symbols when it holds any-
-     thing.  Every loaded symbol stays resolvable at once - a
-     drawing may mix libraries - but the palette shows ONE group
-     at a time: the header cell above the bank names it and
-     clicking the header switches to the next.  After the last
-     library comes the sshhaappeess pseudo-group: the nine STRETCHABLE
-     shapes (box, rounded box, diamond, oval, parallelogram,
-     drum, document, circle, ellipse), the four CONNECTOR styles
-     (hv, line, arrow, harrow), the Arc tool, the Net name marker
-     and the Dim (dimension) tool.  The toolbar's LLiibb cell lists
-     the libraries on file in a scrollable dialog, and EEddiitt opens
-     the current library in the ssyymmeeddiitt symbol editor.
+     while the drawing has unsaved changes; at the bar's right
+     edge the < and > cells walk a numbered sheet set - they sit
+     on the file line because the sheet is a property of the FILE
+     (the same actions as the < and > keys; see SHEET SETS).  The
+     TOOLBAR row of cells sits under it, and the palette down the
+     left edge holds the symbol bank.  Symbols come from LIBRARY
+     FILES named in /usr/vellum/etc/libs: ddiissccrreettee (resistor
+     through opamp), llooggiicc (gates and flip-flops), ffllooww (flow-
+     chart stencils), nneett (network-map stencils), aarrcchh (software
+     structure stencils), ppiidd (process / P&ID stencils), ppoowweerr
+     (one-line electrical) and ppllaann (floor-plan stencils), plus
+     the user scratch library /usr/vellum/etc/symbols when it
+     holds anything.  Every loaded symbol stays resolvable at
+     once - a drawing may mix libraries - but the palette shows
+     ONE group at a time: the header cell above the bank names it
+     and clicking the header switches to the next.  After the
+     last library comes the sshhaappeess pseudo-group: the nine
+     STRETCHABLE shapes (box, rounded box, diamond, oval,
+     parallelogram, drum, document, circle, ellipse), the four
+     CONNECTOR styles (hv, line, arrow, harrow), the Arc tool,
+     the Net name marker and the Dim (dimension) tool.  The tool-
+     bar's LLiibb cell lists the libraries on file in a scrollable
+     dialog, and EEddiitt opens the current library in the ssyymmeeddiitt
+     symbol editor.
 
      The tools:
 
-                  SSeellclick selects (a grouped object selects its whole
-                            group), drag moves; a drag on EMPTY canvas selects
-                            everything inside the rectangle.  A selected SHAPE
-                            shows corner handles - dragging one resizes it -
-                            and a selected line, wire, connector or dimension
-                            shows ENDPOINT grips (a polyline its vertices):
-                            dragging one re-routes and re-snaps the end
-                  WWiirreedrag or click each end; wires route H-then-V, snap
-                            to pins and re-anchor so a run chains corner by corner
-                  LLiinneelike Wire but straight - and a chained run folds
-                            into ONE polyline object
-                  BBooxxdrag draws a rectangle
-                  CCiirrccdrag from the centre draws a circle
-                  TTeexxttclick asks for a label and places it
+                  SSeell     click selects (a grouped object selects its whole
+                          group), drag moves; a drag on EMPTY canvas selects
+                          everything inside the rectangle.  A selected SHAPE
+                          shows corner handles - dragging one resizes it -
+                          and a selected line, wire, connector or dimension
+                          shows ENDPOINT grips (a polyline its vertices):
+                          dragging one re-routes and re-snaps the end
+                  WWiirree    drag or click each end; wires route H-then-V, snap
+                          to pins and re-anchor so a run chains corner by
 
 
 COHERENT Command Manual                                    Page 1
@@ -70,15 +70,21 @@ vveelllluumm                                                     vveell
 
 
 
-                  DDeellclick deletes what it hits
+                          corner - EEsscc or a click back on the anchor
+                          ends the run
+                  LLiinnee    like Wire but straight - and a chained run folds
+                          into ONE polyline object
+                  BBooxx     drag draws a rectangle
+                  CCiirrcc    drag from the centre draws a circle
+                  TTeexxtt    click asks for a label and places it
+                  DDeell     click deletes what it hits
 
-     Under them the ACTION cells RRoott , MMiirr , NNaammee and DDuupp arm
-     click-to-apply versions of the keys; IInn and OOuutt zoom (also +
-     and - , and vv zooms to fit the whole drawing); FFrr and BBkk
-     move the selection to the front or back of the stacking or-
-     der; the LL_n cell cycles the ACTIVE layer new objects land
-     on; and the < and > cells walk a numbered sheet set (the
-     same actions as the < and > keys - see SHEET SETS).
+     Between the tool groups the GGrriidd cell toggles the grid dots;
+     then the ACTION cells RRoott , MMiirr , NNaammee and DDuupp arm click-to-
+     apply versions of the keys; IInn and OOuutt zoom (also + and - ,
+     and vv zooms to fit the whole drawing); FFrr and BBkk move the
+     selection to the front or back of the stacking order; and
+     the LL_n cell cycles the ACTIVE layer new objects land on.
 
      A SHAPE is placed by dragging its rectangle, then typing the
      label (drawn centred, clipped to the shape); shapes expose
@@ -115,16 +121,10 @@ vveelllluumm                                                     vveell
      (axis labels, vertical dimensions).  A text label may hold
      several lines separated by `|'.  A polyline checked SSmmooootthh
      renders as a spline through its points, and -ppiicc exports it
-     as one.
+     as one.  A FILLED polyline is a closed even-odd fill over
+     its points - the arbitrary solid shape mechanical sketches
+     want - on screen, in every export and in the preview.
 
-LLAAYYEERRSS
-     Four fixed layers: 0 ddrraawwiinngg (the default), 1 aannnnoottaattiioonn , 2
-     ffrraammee (title block, sheet border) and 3 ccoonnssttrruuccttiioonn , which
-     never prints.  The Settings dialog (window menu) checks
-     which layers are VISIBLE and which PRINT, picks the snap
-     pitch (1 or 2 units) and the sheet preset (160x120, or A4 at
-     120x168), and its FFrraammee button stamps a sheet border and
-     title block (file name, date, revision) as ordinary editable
 
 
 COHERENT Command Manual                                    Page 2
@@ -136,37 +136,87 @@ vveelllluumm                                                     vveell
 
 
 
-     oobbjjeeccttss on the frame layer.  The sheet edge shows as a
-     dotted construction guide.
+LLAAYYEERRSS
+     Four fixed layers: 0 ddrraawwiinngg (the default), 1 aannnnoottaattiioonn , 2
+     ffrraammee (title block, sheet border) and 3 ccoonnssttrruuccttiioonn , which
+     never prints.  The Settings dialog (window menu) checks
+     which layers are VISIBLE and which PRINT, picks the snap
+     pitch (1 or 2 units) and the sheet preset (160x120, or
+     A4/A3/A2 at 8 dots per unit - now that pages can leave on a
+     laser or a plotter, the screenful is not the natural page
+     for every drawing), and its FFrraammee button stamps the TEMPLATE
+     /usr/vellum/etc/frame.d - ordinary drawing lines fed through
+     the parser onto the frame layer, with $FF  $DD  $SS
+     substituted in text values (file name, date, ``Sheet n/m'',
+     revision) - so a company title block is an edit to that
+     file, not a rebuild.  The sheet edge shows as a dotted con-
+     struction guide.
 
 EEDDIITTIINNGG
-                      rrrotate a quarter turn (ANY selection turns about
+                rr               rotate a quarter turn (ANY selection turns about
                                 its centre; a lone symbol turns in place)
-                      mmmirror (likewise: any selection)
-                      ddduplicate, two units down-right
-                      nnproperties (name/value or style dialog)
-                      xx, DDeelldelete the selection
-                      uuUNDO the last commit (once more redoes)
-                      vvzoom to fit the drawing
-                      ffselection to the front (stacking)
-                      jj, JJgroup / ungroup the selection
-                      11 22 33 44align left / right / top / bottom
-                      55 66distribute evenly, horizontally / vertically
-                      ss ww ll bb cc tt eearm Sel/Wire/Line/Box/Circ/Text/Del
-                      <, >previous / next sheet of a numbered set
-                      EEsscccancel the armed tool, placement or run
-                      FF22 FF33 FF44Save / Open / New (as in zzeeddiitt)
-                      FF55 FF66 FF77Cut / Copy / Paste
-                      FF88the Settings dialog
-                      FF1111the Help dialog
-                      arrowspan; CClleeaarr/HHoommee pans to the origin
+                mm               mirror (likewise: any selection)
+                dd               duplicate, two units down-right
+                nn               properties (name/value or style dialog)
+                xx, DDeell          delete the selection
+                uu               UNDO the last commit (once more redoes)
+                vv               zoom to fit the drawing
+                ff               selection to the front (stacking)
+                jj, JJ            group / ungroup the selection
+                *, /            scale the selection: double / halve about
+                                its corner (halving rounds odd coordinates
+                                and the status line says so)
+                11 22 33 44         align left / right / top / bottom
+                55 66             distribute evenly, horizontally / vertically
+                ss ww ll bb cc tt ee   arm Sel/Wire/Line/Box/Circ/Text/Del
+                gg               toggle the grid dots (also the Grid cell)
+                +, -            zoom in / out
+                <, >            previous / next sheet of a numbered set
+                EEsscc             cancel the armed tool, placement or run;
+                                a second EEsscc drops the selection
+                FF22 FF33 FF44        Save / Open / New (as in zzeeddiitt)
+                FF55 FF66 FF77        Cut / Copy / Paste
+                FF88              the Settings dialog
+                FF1111             Help: this page, opened in zzmmaann
+                                (also the window menu's Help entry)
+                arrows          pan; CClleeaarr/HHoommee pans to the origin
 
-     Cut, Copy and Paste (window menu) go through the system
-     clipboard AS TEXT in the drawing format - paste a fragment
-     into another Vellum, or into zzeeddiitt as text.  A middle CLICK
-     pastes at the pointer (the selection, else the clipboard); a
-     middle DRAG pans the sheet.  Persistent groups select, move,
-     copy and delete as one until ungrouped.  When the drawing is
+     The window menu's PPrriinntt entry opens the print dialog: scale,
+     wide, and the three verbs - PPrriinntt spools the drawing through
+     velxport into llpprr, PPrreevviieeww opens a window (velprev) drawing
+     the printable extent through the SAME renderer that feeds
+     the printer, so what it shows is what the paper gets.  The
+     FFiinndd entry searches designators, values, text and net names
+     for a case-blind substring, selects the hit and pans it to
+     centre - Find again steps to the next hit; its SShheeeettss button
+     lists the numbered set and jumps by number.  The DDuupp toolbar
+     cell with a live selection opens the ARRAY dialog (columns,
+
+
+COHERENT Command Manual                                    Page 3
+
+
+
+
+vveelllluumm                                                     vveelllluumm
+
+
+
+     rroowwss, pitch) - pin headers and terminal strips in one com-
+     mit; the armed Dup tool still copies single objects click by
+     click.  While a wire, line, connector or dimension drag is
+     up, the status line's coordinate cell shows the run's LENGTH
+     times the sheet unit - measuring without committing a dimen-
+     sion.  Zoom reaches down to 2 px per unit - the whole A4
+     sheet in one window - where the grid thins to every fourth
+     unit.  A text, shape label or dimension override may run to
+     39 characters; the value of a symbol stays 15.  Cut, Copy
+     and Paste (window menu) go through the system clipboard AS
+     TEXT in the drawing format - paste a fragment into another
+     Vellum, or into zzeeddiitt as text.  A middle CLICK pastes at the
+     pointer (the selection, else the clipboard); a middle DRAG
+     pans the sheet.  Persistent groups select, move, copy and
+     delete as one until ungrouped.  When the drawing is
      modified, an autosave writes _f_i_l_e.bbaakk every five minutes.
 
 SSHHEEEETT SSEETTSS
@@ -186,14 +236,30 @@ SSHHEEEETT SSEETTSS
      value reading ``3'' and an N net name on its pin - the net-
      list merge makes it electrically true.
 
+     A BUS is an idiom, not an object: draw the trunk as a BOLD
+     wire - graphics, not electricity - and tap it with short
+     wires carrying NN DD00 ...  NN DD77; same-named taps merge across
+     the whole sheet set, which is what a bus MEANS.  -cchheecckk
+     flags a net name appearing on fewer than two pins in the set
+     - the typo'd bit (D3 on one end, D8 on the other) that eyes
+     cannot see.
+
 HHEEAADDLLEESSSS EEXXPPOORRTT
      The export modes run WITHOUT a window - from make(1), from
      scripts, even on a machine with no graphics card (they exec
      the helper /usr/vellum/lib/velxport); each takes ONE OR MORE
      sheet files:
 
+              vveelllluumm -pprriinntt f.d       Epson raster on stdout (ESC * bands,
+                                      1 grid unit = 8 dots; pipe to llpprr).
+                                      -wwiiddee prints landscape (the page turned a
+                                      quarter), -ssccaallee _n picks n dots per
+                                      grid unit - small drawings print big
+              vveelllluumm -ppiicc f.d         troff pic source on stdout (16 units
+                                      per inch), for figures in manuals; smooth
 
-COHERENT Command Manual                                    Page 3
+
+COHERENT Command Manual                                    Page 4
 
 
 
@@ -202,25 +268,74 @@ vveelllluumm                                                     vveell
 
 
 
-                          vveelllluumm -pprriinntt f.dEpson raster on stdout (ESC * bands,
-                                    1 grid unit = 8 dots; pipe to llpprr).
-                                    -wwiiddee prints landscape (the page turned a
-                                    quarter), -ssccaallee _n picks n dots per
-                                    grid unit - small drawings print big
-                          vveelllluumm -ppiicc f.dtroff pic source on stdout (16 units
-                                    per inch), for figures in manuals; smooth
-                                    polylines come out as pic splines
-                          vveelllluumm -hhppggll f.dHPGL pen-plotter commands on stdout
-                          vveelllluumm -nneett f.d ...netlist: one line per net, R1.2-style
-                                    pins (named pins print Q1.B), GND/VCC and
-                                    N markers name nets - MERGED by name across
-                                    the sheet set; designator-less stencils
-                                    (rails, taps, off-page markers) carry nets
-                                    but are never listed; warnings for single-
-                                    pin nets and unconnected pins on stderr
-                          vveelllluumm -bboomm f.d ...bill of materials over the whole
-                                    set: count, stencil, value and the
-                                    designators, sorted
+                                      polylines come out as pic splines
+              vveelllluumm -hhppggll f.d        HPGL pen-plotter commands on stdout;
+                                      the annotation layer draws in the SECOND
+                                      pen (SP2) - the cheapest two-color print
+                                      this machine will ever do
+              vveelllluumm -ppss f.d ...      PostScript (Level 1) on stdout, one
+                                      page per sheet - the laser's page.  Text
+                                      is Courier sized so the monospace advance
+                                      matches the editor cell: nothing collides
+                                      on paper that did not collide on screen.
+                                      Smooth polylines emit real curveto,
+                                      vertical text rotates, arcs are true arcs.
+                                      -ffiitt scales the drawing to fill the
+                                      page (for -pprriinntt it picks the widest
+                                      step of the discrete 2..32 ladder instead)
+              vveelllluumm -ddxxff f.d ...     DXF (R10 entities) on stdout, for
+                                      the office CAD: coordinates in grid units,
+                                      arcs as true ARC entities, our layer
+                                      number as the DXF layer name.  vveellddxxff
+                                      converts the other way, and the pair
+                                      fix-points
+              vveelllluumm -rreennuumm f.d       canonical designators: symbols
+                                      sorted by (y, x), numbered per prefix from
+                                      -bbaassee _n (default 1), the drawing
+                                      re-emitted on stdout.  One sheet per run; a
+                                      set renumbers sheet by sheet with -base
+                                      carrying the count across
+              vveelllluumm -nneett f.d ...     netlist: one line per net, R1.2-style
+                                      pins (named pins print Q1.B), GND/VCC and
+                                      N markers name nets - MERGED by name across
+                                      the sheet set; designator-less stencils
+                                      (rails, taps, off-page markers) carry nets
+                                      but are never listed; warnings for single-
+                                      pin nets and unconnected pins on stderr
+              vveelllluumm -bboomm f.d ...     bill of materials over the whole
+                                      set: count, stencil, value and the
+                                      designators, sorted
+              vveelllluumm -cchheecckk f.d ...   prove the set: duplicate
+                                      designators, dangling wire ends, parts with
+                                      no value, symbol codes no library defines
+                                      (lines the loader would DROP), sheets whose
+                                      U units disagree, single-pin nets and
+                                      unconnected pins - plus the ERC: between
+                                      TYPED pins (see ssyymmeeddiitt), two outputs
+                                      on a net conflict, an output must not drive
+                                      a power rail, and a net whose typed pins
+                                      are all inputs is undriven.  An untyped
+                                      library produces silence, not noise.  The
+                                      conductor checks
+                                      (dangling ends, nets, pins) apply only to
+                                      sheets that contain WIRES - a diagram
+                                      sheet's stencil pins are attachment
+                                      points, not terminals.  One finding per
+                                      line on stdout; the EXIT STATUS is the
+                                      finding count, so make(1) gates on it:
+
+
+COHERENT Command Manual                                    Page 5
+
+
+
+
+vveelllluumm                                                     vveelllluumm
+
+
+
+                                        check: ; vellum -check amp?.d
+                                        print: check ; vellum -print amp?.d | lpr
 
      Layers marked no-print and the construction layer are
      skipped.
@@ -254,12 +369,29 @@ FFIILLEE FFOORRMMAATT
      vertical text and the layer.
 
 FFIILLEESS
-                                      /usr/vellum/lib/*.symthe symbol libraries
-                                      /usr/vellum/etc/libswhich of them load at start-up
-                                      /usr/vellum/etc/symbolsthe user scratch library
+              /usr/vellum/lib/*.sym     the symbol libraries
+              /usr/vellum/etc/libs      which of them load at start-up
+              /usr/vellum/etc/symbols   the user scratch library
+              /usr/vellum/etc/frame.d   the Frame stamp's template
+              /usr/vellum/etc/project.mkthe sheet-set Makefile skeleton:
+                                        cp it next to the sheets and set SHEETS -
+                                        check: gates print:, ps: and bom:
+              /usr/vellum/eg/*.d        SAMPLE drawings, one per domain:
+                                        amp logic (schematics), flow lan struct
+                                        (diagrams), bracket (mechanical, with
+                                        dimensions), feed oneline office (P&ID,
+                                        one-line, floor plan), psu1 psu2 (a two-
+                                        sheet set for -net merging), curve
+                                        (a velgraph plot, annotated), plate
+                                        (imported from plate.dxf, kept beside
+                                        it).  Open one, or feed them to the
+                                        exporters, to see every feature working.
+
+SSEEEE AALLSSOO
+     ssyymmeeddiitt , vveellddxxff , vveellggrraapphh , zzvviieeww , zzmmaann , llpprr
 
 
-COHERENT Command Manual                                    Page 4
+COHERENT Command Manual                                    Page 6
 
 
 
@@ -267,18 +399,6 @@ COHERENT Command Manual                                    Page 4
 vveelllluumm                                                     vveelllluumm
 
 
-
-                                      /usr/vellum/eg/*.dSAMPLE drawings, one per domain:
-                                                amp logic (schematics), flow lan struct
-                                                (diagrams), bracket (mechanical, with
-                                                dimensions), feed oneline office (P&ID,
-                                                one-line, floor plan), psu1 psu2 (a two-
-                                                sheet set for -net merging).  Open one, or
-                                                feed them to the exporters, to see every
-                                                feature working.
-
-SSEEEE AALLSSOO
-     ssyymmeeddiitt , zzvviieeww , llpprr
 
 NNOOTTEESS
      Wires connect only through junction dots; connectors never

@@ -1,0 +1,62 @@
+.TH veldxf "" "Command"
+.SH NAME
+veldxf \- convert a DXF drawing to vellum format
+.SH SYNOPSIS
+\fBveldxf [\fB\-layer\fR \fIname=n\fR] [\fB\-scale\fR \fIN\fR] \fIfile.dxf\fR > \fIfile.d\fR
+.SH DESCRIPTION
+.HS
+veldxf -- convert a DXF drawing to vellum format
+Usage:	veldxf [ -layer name=n ] [ -scale N ] file.dxf > file.d
+Options:
+	-layer name=n	fold DXF layer `name' onto vellum layer n (0-3)
+	-scale N	drawing units per grid unit (default 1 = 1 mm)
+.HE
+.B veldxf
+reads a DXF file (the R10-era plain-text format the office CAD
+writes) and prints an ordinary
+.B vellum
+drawing on standard output: nothing drawn elsewhere is locked out.
+Import is a CONVERSION, not a link \- run it once, and the result is
+a drawing like any other; nothing remembers where it came from.
+.PP
+The scope is the honest entity subset:
+.DS
+.ta 14n
+	LINE	a vellum L line
+	CIRCLE	a C circle
+	ARC	an A arc (centre, radius and angles land exactly)
+	TEXT	a T label at the nearest of the three sizes
+	POLYLINE	a P polyline (LWPOLYLINE too; split at the
+		20-point ceiling)
+.DE
+Everything else is SKIPPED AND COUNTED: the run ends with a report
+like ``dropped: 12 SPLINE, 3 INSERT'' on the diagnostic output,
+because a silent partial import is how drawings lose limbs.
+Flatten blocks at the source; a SPLINE can be chorded by whatever
+exported it.
+.PP
+DXF layer names fold onto vellum's four layers through the
+.B \-layer
+map; a bare digit name (``0''..``3'') folds onto itself and anything
+unmapped lands on layer 0.
+.B \-scale
+gives the number of drawing units in one grid unit \- the default 1
+takes one unit as one millimetre \- and the matching
+.B U
+units header is emitted.
+Coordinates may carry decimals; they are handled in fixed point (no
+floating point anywhere).
+The drawing's minimum corner lands at grid 0,0 with the y axis
+flipped (DXF y runs up), so the
+.B "vellum \-dxf"
+export and this import FIX-POINT: a converted drawing re-exports and
+re-imports byte-identically.
+.SH "SEE ALSO"
+.B vellum ,
+.B zfile
+.SH NOTES
+The Edit button of
+.B zfile
+runs this automatically for a selected .dxf and opens the conversion
+in
+.BR vellum .

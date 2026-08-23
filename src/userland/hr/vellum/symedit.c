@@ -111,7 +111,18 @@ char	ecode[8], epfx[4];
 
 short	epin[2 * MAXPIN];
 char	epname[MAXPIN][8];	/* pin NAMES (netlists say Q1.B)          */
+char	eptyp[MAXPIN];		/* pin TYPES (v4.4): 'i' 'o' 'p' 'b' / 0  */
 int	npin;
+
+/* ---- the one-level undo snapshot (v4.5): the edit buffer copied
+ * before each mutating commit, 'u' swaps back (once more redoes) ---- */
+short	ueops[MAXEOP];
+int	uneop;
+short	uepin[2 * MAXPIN];
+char	uepname[MAXPIN][8];
+char	ueptyp[MAXPIN];
+int	unpin;
+int	uvalid;
 
 /* ---- the in-memory library ---- */
 typedef struct {
@@ -121,6 +132,7 @@ typedef struct {
 	short	cs_nop;			/* shorts before the SEND         */
 	short	cs_pin[2 * MAXPIN];
 	char	cs_pnm[MAXPIN][8];	/* pin names ("" = none)          */
+	char	cs_ptyp[MAXPIN];	/* pin types (0 = untyped)        */
 	short	cs_npin;
 } CSYM;
 
@@ -149,6 +161,8 @@ int	arccx, arccy, arcr, arca0;
 char	eselm[MAXEOP];
 char	pselm[MAXPIN];
 int	nselm;			/* selected elements + pins               */
+
+static	mselclear();
 
 /* ---- integer trig for arcs (no floats anywhere) ---- */
 static short sintab[10] = { 0, 44, 88, 128, 165, 196, 222, 241, 252, 256 };
@@ -955,11 +969,72 @@ rubdmg()
 /* the buffer                                                         */
 /* ------------------------------------------------------------------ */
 
+/* Snapshot the edit buffer before a mutating commit ('u' swaps back;
+ * swapping again redoes) -- vellum's one-level undo, scaled down. */
+static
+usnap()
+{
+	register int i;
+
+	for ( i = 0; i < neop; i++ )
+		ueops[i] = eops[i];
+	uneop = neop;
+	for ( i = 0; i < 2 * npin; i++ )
+		uepin[i] = epin[i];
+	for ( i = 0; i < npin; i++ )
+	{
+		strcpy(uepname[i], epname[i]);
+		ueptyp[i] = eptyp[i];
+	}
+	unpin = npin;
+	uvalid = 1;
+	return 0;
+}
+
+static
+undo()
+{
+	short ts;
+	char tb[8];
+	register int i;
+	int tn, n;
+
+	if ( !uvalid )
+		return 0;
+	n = neop > uneop ? neop : uneop;
+	for ( i = 0; i < n; i++ )
+	{
+		ts = eops[i];  eops[i] = ueops[i];  ueops[i] = ts;
+	}
+	tn = neop;  neop = uneop;  uneop = tn;
+	n = npin > unpin ? npin : unpin;
+	for ( i = 0; i < 2 * n; i++ )
+	{
+		ts = epin[i];  epin[i] = uepin[i];  uepin[i] = ts;
+	}
+	for ( i = 0; i < n; i++ )
+	{
+		strcpy(tb, epname[i]);
+		strcpy(epname[i], uepname[i]);
+		strcpy(uepname[i], tb);
+		ts = eptyp[i];  eptyp[i] = ueptyp[i];  ueptyp[i] = ts;
+	}
+	tn = npin;  npin = unpin;  unpin = tn;
+	mselclear();			/* selection offsets are stale */
+	arcpend = 0;
+	edited = 1;
+	ddcanv = 1;
+	ddprev = 1;
+	statdirty = 1;
+	return 1;
+}
+
 static
 addseg(x0, y0, x1, y1)
 {
 	if ( neop + 5 > MAXEOP || (x0 == x1 && y0 == y1) )
 		return 0;
+	usnap();
 	eops[neop++] = SE;
 	eops[neop++] = x0;
 	eops[neop++] = y0;
@@ -977,6 +1052,7 @@ addcirc(cx, cy, r)
 {
 	if ( neop + 4 > MAXEOP || r <= 0 )
 		return 0;
+	usnap();
 	eops[neop++] = SC_;
 	eops[neop++] = cx;
 	eops[neop++] = cy;
@@ -993,6 +1069,7 @@ addchar(x, y, c)
 {
 	if ( neop + 4 > MAXEOP )
 		return 0;
+	usnap();
 	eops[neop++] = ST;
 	eops[neop++] = x;
 	eops[neop++] = y;
@@ -1014,9 +1091,11 @@ addpin(x, y)
 			return 0;		/* already there */
 	if ( npin >= MAXPIN )
 		return 0;
+	usnap();
 	epin[2 * npin] = x;
 	epin[2 * npin + 1] = y;
 	epname[npin][0] = 0;
+	eptyp[npin] = 0;
 	npin++;
 	edited = 1;
 	dmgpin(x, y);
@@ -1148,6 +1227,7 @@ register int bp;
 		epin[2*i] = epin[2*i + 2];
 		epin[2*i + 1] = epin[2*i + 3];
 		strcpy(epname[i], epname[i + 1]);
+		eptyp[i] = eptyp[i + 1];
 	}
 	npin--;
 	edited = 1;
@@ -1163,6 +1243,7 @@ delnear(px, py)
 
 	if ( !findnear(px, py, &bp, &bi) )
 		return 0;
+	usnap();
 	if ( bp >= 0 )
 	{
 		delpin(bp);
@@ -1298,6 +1379,7 @@ mseldel()
 
 	if ( nselm == 0 )
 		return 0;
+	usnap();
 	dmgmsel();
 	no = 0;
 	for ( i = 0; i < neop; i += opsz(&eops[i]) )
@@ -1334,6 +1416,7 @@ addarc(cx, cy, r, a0, a1)
 {
 	if ( neop + 6 > MAXEOP || r <= 0 || a0 == a1 )
 		return 0;
+	usnap();
 	eops[neop++] = SA_;
 	eops[neop++] = cx;
 	eops[neop++] = cy;
@@ -1366,6 +1449,7 @@ rotbuf()
 	register int i;
 	int t;
 
+	usnap();
 	for ( i = 0; i < neop; i += opsz(&eops[i]) )
 	{
 		p = &eops[i];
@@ -1404,6 +1488,7 @@ mirbuf()
 	register int i;
 	int t;
 
+	usnap();
 	for ( i = 0; i < neop; i += opsz(&eops[i]) )
 	{
 		p = &eops[i];
@@ -1449,7 +1534,10 @@ commit()
 	for ( i = 0; i < 2 * npin; i++ )
 		c->cs_pin[i] = epin[i];
 	for ( i = 0; i < npin; i++ )
+	{
 		strcpy(c->cs_pnm[i], epname[i]);
+		c->cs_ptyp[i] = eptyp[i];
+	}
 	c->cs_npin = npin;
 	return 0;
 }
@@ -1470,7 +1558,10 @@ fetch(sl)
 	for ( i = 0; i < 2 * c->cs_npin; i++ )
 		epin[i] = c->cs_pin[i];
 	for ( i = 0; i < c->cs_npin; i++ )
+	{
 		strcpy(epname[i], c->cs_pnm[i]);
+		eptyp[i] = c->cs_ptyp[i];
+	}
 	npin = c->cs_npin;
 	cursl = sl;
 	mselclear();			/* selection offsets are stale */
@@ -1608,10 +1699,16 @@ loadlib()
 				continue;
 			c->cs_pin[2 * c->cs_npin + 1] = atoi(t);
 			c->cs_pnm[c->cs_npin][0] = 0;
-			if ( (t = tok(&p)) != 0 && strcmp(t, "-") != 0 )
+			c->cs_ptyp[c->cs_npin] = 0;
+			if ( (t = tok(&p)) != 0 )
 			{
-				strncpy(c->cs_pnm[c->cs_npin], t, 7);
-				c->cs_pnm[c->cs_npin][7] = 0;
+				if ( strcmp(t, "-") != 0 )
+				{
+					strncpy(c->cs_pnm[c->cs_npin], t, 7);
+					c->cs_pnm[c->cs_npin][7] = 0;
+				}
+				if ( (t = tok(&p)) != 0 && t[0] && t[1] == 0 )
+					c->cs_ptyp[c->cs_npin] = t[0];
 			}
 			c->cs_npin++;
 		}
@@ -1666,12 +1763,16 @@ savelib()
 		}
 		for ( i = 0; i < c->cs_npin; i++ )
 		{
-			if ( c->cs_pnm[i][0] )
-				fprintf(fp, "p %d %d %s\n", c->cs_pin[2*i],
-					c->cs_pin[2*i + 1], c->cs_pnm[i]);
-			else
-				fprintf(fp, "p %d %d\n",
-					c->cs_pin[2*i], c->cs_pin[2*i + 1]);
+			/* p x y [NAME|-] [TYPE] -- "-" holds the name slot
+			 * when only a type is set (v4.4) */
+			fprintf(fp, "p %d %d",
+				c->cs_pin[2*i], c->cs_pin[2*i + 1]);
+			if ( c->cs_pnm[i][0] || c->cs_ptyp[i] )
+				fprintf(fp, " %s",
+					c->cs_pnm[i][0] ? c->cs_pnm[i] : "-");
+			if ( c->cs_ptyp[i] )
+				fprintf(fp, " %c", c->cs_ptyp[i]);
+			fprintf(fp, "\n");
 		}
 		fprintf(fp, "end\n");
 	}
@@ -1917,6 +2018,7 @@ char *path, *code;
 			in = 0;
 			if ( (t = tok(&p)) != 0 && strcmp(t, code) == 0 )
 			{
+				usnap();
 				neop = 0;
 				npin = 0;
 				in = 1;
@@ -1995,10 +2097,16 @@ char *path, *code;
 				continue;
 			epin[2 * npin + 1] = atoi(t);
 			epname[npin][0] = 0;
-			if ( (t = tok(&p)) != 0 && strcmp(t, "-") != 0 )
+			eptyp[npin] = 0;
+			if ( (t = tok(&p)) != 0 )
 			{
-				strncpy(epname[npin], t, 7);
-				epname[npin][7] = 0;
+				if ( strcmp(t, "-") != 0 )
+				{
+					strncpy(epname[npin], t, 7);
+					epname[npin][7] = 0;
+				}
+				if ( (t = tok(&p)) != 0 && t[0] && t[1] == 0 )
+					eptyp[npin] = t[0];
 			}
 			npin++;
 		}
@@ -2052,41 +2160,31 @@ docopyfrom()
 	return 1;
 }
 
-HRWIDGET hwg[] = {
-    { DW_LABEL,  12,  10, 0, 0, "Draws ONE symbol for Vellum's palette;" },
-    { DW_LABEL,  12,  28, 0, 0, "the whole library is saved together." },
-    { DW_LABEL,  12,  54, 0, 0, "Seg/Circ: drag.  Arc: drag centre out," },
-    { DW_LABEL,  12,  72, 0, 0, "then drag the sweep.  Pin: click a" },
-    { DW_LABEL,  12,  90, 0, 0, "grid mark; click AGAIN to name it." },
-    { DW_LABEL,  12, 108, 0, 0, "Move: drag one, or marquee + drag;" },
-    { DW_LABEL,  12, 126, 0, 0, "x deletes the selection." },
-    { DW_LABEL,  12, 152, 0, 0, "r/m rotate/mirror the WHOLE symbol." },
-    { DW_LABEL,  12, 170, 0, 0, "f copies one in from another library." },
-    { DW_LABEL,  12, 196, 0, 0, "The cross is the ORIGIN.  < > step" },
-    { DW_LABEL,  12, 214, 0, 0, "through the library; Menu: New, Open," },
-    { DW_LABEL,  12, 232, 0, 0, "Save.  Vellum rereads on restart." },
-    { DW_BUTTON, 150, 258, 70, DLG_BTNH, "OK", 0, 0, (char *)0, 0,
-      DWF_DEF | DWF_CANCEL | DWF_END },
-};
-#define	NHWG	(sizeof(hwg) / sizeof(hwg[0]))
-
+/* Help: the MANUAL PAGE is the help -- open it in the zman browser
+ * (vellum's convention: the old key-list dialog duplicated the page
+ * and drifted).  Double fork so init reaps; fd 4 (the command pipe)
+ * stays open so zman can connect and get a window. */
 static
 dohelp()
 {
-	int w, h, r;
+	static char *av[] = { "/usr/hr/bin/zman", "symedit", (char *)0 };
+	register int fd;
+	int pid, st;
 
-	w = 372;
-	h = 296;
-	r = hr_dlgopen(&w, &h);
-	if ( r == -2 )
+	if ( (pid = fork()) == 0 )
+	{
+		if ( fork() == 0 )
+		{
+			for ( fd = 5; fd < 20; fd++ )
+				close(fd);
+			execv(av[0], av);
+			_exit(1);
+		}
 		exit(0);
-	if ( r < 0 )
-		return 0;
-	hr_dlgdraw(hwg, NHWG);
-	r = hr_dlgrun(hwg, NHWG);
-	hr_dlgclose();
-	if ( r == -1 )
-		exit(0);
+	}
+	if ( pid > 0 )
+		while ( wait(&st) >= 0 )
+			;
 	return 0;
 }
 
@@ -2113,9 +2211,17 @@ dokey(c)
 	case 'x':
 	case 0x7f:
 		return mseldel();
+	case 'u':
+		return undo();
 	case 0x1b:
-		tool = T_SEG;
-		arcpend = 0;
+		/* vellum's two-stage cancel (v4.5 parity): first back to
+		 * Seg KEEPING the selection; a second Esc drops that too */
+		if ( tool != T_SEG || arcpend )
+		{
+			tool = T_SEG;
+			arcpend = 0;
+			return 1;
+		}
 		if ( nselm )
 		{
 			dmgmsel();
@@ -2126,19 +2232,30 @@ dokey(c)
 	return 0;
 }
 
-/* Ask for a pin's NAME (netlists print Q1.B); empty clears it. */
+/* Ask for a pin's NAME (netlists print Q1.B) and its TYPE (v4.4: the
+ * -check ERC rules -- input / output / power / bidirectional); an
+ * empty name clears it, None clears the type. */
 char	pnbuf[8];
 
 HRWIDGET pwg[] = {
     { DW_LABEL,   12,  16,   0,  0, "Pin name:" },
     { DW_TEXT,   120,  12,  90, 22, (char *)0, 0, 0, pnbuf, sizeof(pnbuf) },
-    { DW_BUTTON,  40,  46,  70, DLG_BTNH, "OK",     0, 0, (char *)0, 0,
+    { DW_LABEL,   12,  46,   0,  0, "Type:" },
+    { DW_RADIO,   80,  46,   0,  0, "None",  0, 1 },
+    { DW_RADIO,  156,  46,   0,  0, "In",    0, 1 },
+    { DW_RADIO,  210,  46,   0,  0, "Out",   0, 1 },
+    { DW_RADIO,  274,  46,   0,  0, "Pwr",   0, 1 },
+    { DW_RADIO,  338,  46,   0,  0, "Bidir", 0, 1 },
+    { DW_BUTTON,  90,  76,  70, DLG_BTNH, "OK",     0, 0, (char *)0, 0,
       DWF_DEF | DWF_END },
-    { DW_BUTTON, 150,  46,  80, DLG_BTNH, "Cancel", 0, 0, (char *)0, 0,
+    { DW_BUTTON, 200,  76,  80, DLG_BTNH, "Cancel", 0, 0, (char *)0, 0,
       DWF_CANCEL | DWF_END },
 };
 #define	NPWG	(sizeof(pwg) / sizeof(pwg[0]))
-#define	PW_OK	2
+#define	PW_T0	3
+#define	PW_OK	8
+
+static char	ptmap[5] = { 0, 'i', 'o', 'p', 'b' };
 
 static
 pinnamedlg(i)
@@ -2146,8 +2263,13 @@ pinnamedlg(i)
 	int w, h, r;
 
 	strcpy(pnbuf, epname[i]);
-	w = 260;
-	h = 90;
+	for ( r = 4; r > 0; r-- )
+		if ( eptyp[i] == ptmap[r] )
+			break;
+	for ( w = 0; w < 5; w++ )
+		pwg[PW_T0 + w].dw_val = w == r;
+	w = 430;
+	h = 76 + DLG_BTNH + DLG_BSHAD + 10;
 	r = hr_dlgopen(&w, &h);
 	if ( r == -2 )
 		exit(0);
@@ -2160,7 +2282,11 @@ pinnamedlg(i)
 		exit(0);
 	if ( r == PW_OK )
 	{
+		usnap();
 		strcpy(epname[i], pnbuf);
+		for ( r = 0; r < 5; r++ )
+			if ( pwg[PW_T0 + r].dw_val )
+				eptyp[i] = ptmap[r];
 		edited = 1;
 		dmgpin(epin[2*i], epin[2*i + 1]);
 		statdirty = 1;
@@ -2335,6 +2461,7 @@ canvrelease()
 	case DG_MOVE:
 		if ( cqx != dqx || cqy != dqy )
 		{
+			usnap();
 			dmgmsel();		/* where it was */
 			mselmove(cqx - dqx, cqy - dqy);
 			dmgmsel();		/* where it is  */

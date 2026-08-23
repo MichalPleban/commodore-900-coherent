@@ -19,847 +19,11 @@
 
 extern char	*malloc();
 
-/* ---- the backend contract ---- */
-typedef struct {
-	int	(*b_line)();	/* x0,y0,x1,y1 (device px)                */
-	int	(*b_box)();	/* x0,y0,x1,y1, fill (-1 none/0 blk/     */
-				/* 1 wht/2 gray)                          */
-	int	(*b_circle)();	/* cx,cy,r, fill                          */
-	int	(*b_text)();	/* x,y, size, str (y = cell top)          */
-	int	(*b_span)();	/* x0,x1,y, val -- 0: backend can't fill  */
-	int	(*b_style)();	/* style bits (OF_STYLE|OF_BOLD) for the  */
-				/* following lines                        */
-	int	(*b_vtext)();	/* x,y, size, str VERTICAL (glyph
-				 * transpose) -- 0: fall back to b_text   */
-	int	(*b_poly)();	/* xy[], n: a SMOOTH polyline as the
-				 * backend's own curve (pic spline) --
-				 * 0: the walker chords it via bspline    */
-} XB;
-
-int	xsc	= 8;		/* device px per grid unit (-scale N;     */
-#define	XSC	xsc		/* print only -- pic/hpgl pin it back)    */
-int	widef;			/* -wide: landscape raster (print)        */
+/* The walker, its geometry and the XB backend contract live in velwalk.c
+ * now (shared with the velprev preview window -- VELLUM.md sec. 25); this
+ * file keeps the exporter BACKENDS (print / pic / hpgl / bom / net) and
+ * the entry point. */
 int	nsheets;		/* the sheet SET on the command line      */
-
-int	xorgx, xorgy;		/* device origin (print: the used extent) */
-
-static
-dx(gx)
-{
-	return gx * XSC - xorgx;
-}
-
-static
-dy(gy)
-{
-	return gy * XSC - xorgy;
-}
-
-/* ---- small math (the GUI half lives in velgfx.c; the exporters keep
- * their own copies so a headless build never touches clgfx) ---- */
-
-static long
-xsqrt(v)
-long v;
-{
-	register long r, b;
-
-	r = 0;
-	b = 0x40000000L;
-	while ( b > v )
-		b >>= 2;
-	while ( b )
-	{
-		if ( v >= r + b )
-		{
-			v -= r + b;
-			r = (r >> 1) + b;
-		}
-		else
-			r >>= 1;
-		b >>= 2;
-	}
-	return r;
-}
-
-static short xsintab[10] = { 0, 44, 88, 128, 165, 196, 222, 241, 252, 256 };
-
-static
-xsin(a)
-{
-	register int s, i, f;
-
-	a %= 360;
-	if ( a < 0 )
-		a += 360;
-	s = 1;
-	if ( a >= 180 )
-	{
-		a -= 180;
-		s = -1;
-	}
-	if ( a > 90 )
-		a = 180 - a;
-	i = a / 10;
-	f = a % 10;
-	return s * (xsintab[i] + (xsintab[i + 1 > 9 ? 9 : i + 1] -
-		    xsintab[i]) * f / 10);
-}
-
-static
-xcos(a)
-{
-	return xsin(a + 90);
-}
-
-/* symbol-space transform (vellum.c txq's twin), q -> device px */
-static
-xtxq(x, y, rot, mir, ox, oy, ppq, px, py)
-int *px, *py;
-{
-	register int t;
-
-	if ( mir )
-		x = -x;
-	switch ( rot & 3 )
-	{
-	case 1:	t = x;  x = -y;  y = t;  break;
-	case 2:	x = -x;  y = -y;  break;
-	case 3:	t = x;  x = y;  y = -t;  break;
-	}
-	*px = ox + x * ppq;
-	*py = oy + y * ppq;
-}
-
-/* chorded arc through the backend's line */
-static
-xarc(xb, cx, cy, r, a0, a1)
-XB *xb;
-{
-	register int a, step;
-	int x0, y0, x1, y1;
-
-	if ( r <= 0 )
-		return 0;
-	while ( a1 <= a0 )
-		a1 += 360;
-	step = 200 / r + 3;
-	if ( step > 30 )
-		step = 30;
-	x0 = cx + (r * xcos(a0) + 128) / 256;
-	y0 = cy - (r * xsin(a0) + 128) / 256;
-	for ( a = a0 + step; a < a1 + step; a += step )
-	{
-		if ( a > a1 )
-			a = a1;
-		x1 = cx + (r * xcos(a) + 128) / 256;
-		y1 = cy - (r * xsin(a) + 128) / 256;
-		(*xb->b_line)(x0, y0, x1, y1);
-		x0 = x1;
-		y0 = y1;
-	}
-	return 0;
-}
-
-/* the drum/doc shallow bulge, chorded */
-static
-xflat(xb, x0, x1, y, e)
-XB *xb;
-{
-	register int x, xn;
-	int w, ly, ny;
-	long m;
-
-	w = x1 - x0;
-	if ( w <= 0 )
-		return 0;
-	ly = y;
-	for ( x = x0; x < x1; x = xn )
-	{
-		xn = x + 4;
-		if ( xn > x1 )
-			xn = x1;
-		m = (long)(2 * (xn - x0) - w);
-		ny = (xn == x1) ? y
-		   : y + e - (int)((long)e * m * m / ((long)w * w));
-		(*xb->b_line)(x, ly, xn, ny);
-		ly = ny;
-	}
-	return 0;
-}
-
-/* row-span fill of a shape kind (velgfx fillshape's device twin) */
-static
-xfill(xb, kind, x0, y0, x1, y1, val)
-XB *xb;
-{
-	register int y, k;
-	int w2, h2, cx, cy, r, e, s, xo, yb;
-
-	if ( xb->b_span == 0 )
-		return 0;
-	w2 = (x1 - x0) / 2;
-	h2 = (y1 - y0) / 2;
-	cx = (x0 + x1) / 2;
-	cy = (y0 + y1) / 2;
-	switch ( kind )
-	{
-	case SH_BOX:
-		for ( y = y0; y <= y1; y++ )
-			(*xb->b_span)(x0, x1, y, val);
-		break;
-	case SH_RBOX:
-		r = (w2 < h2 ? w2 : h2) / 2;
-		if ( r > 12 ) r = 12;
-		for ( y = y0; y <= y1; y++ )
-		{
-			k = (y < y0 + r) ? y0 + r - y :
-			    (y > y1 - r) ? y - (y1 - r) : 0;
-			xo = k ? r - (int)xsqrt((long)r * r - (long)k * k)
-			       : 0;
-			(*xb->b_span)(x0 + xo, x1 - xo, y, val);
-		}
-		break;
-	case SH_DIAM:
-		if ( h2 <= 0 )
-			break;
-		for ( y = y0; y <= y1; y++ )
-		{
-			k = y - cy;
-			if ( k < 0 ) k = -k;
-			xo = (h2 - k) * w2 / h2;
-			(*xb->b_span)(cx - xo, cx + xo, y, val);
-		}
-		break;
-	case SH_OVAL:
-		r = w2 < h2 ? w2 : h2;
-		for ( y = y0; y <= y1; y++ )
-		{
-			if ( w2 >= h2 )
-			{
-				k = y - cy;
-				if ( k < 0 ) k = -k;
-				if ( k > r )
-					continue;
-				xo = (int)xsqrt((long)r * r - (long)k * k);
-				(*xb->b_span)(x0 + r - xo, x1 - r + xo, y,
-					      val);
-			}
-			else
-			{
-				k = (y < y0 + r) ? y0 + r - y :
-				    (y > y1 - r) ? y - (y1 - r) : 0;
-				xo = k ? r - (int)xsqrt((long)r * r -
-							(long)k * k) : 0;
-				(*xb->b_span)(x0 + xo, x1 - xo, y, val);
-			}
-		}
-		break;
-	case SH_PAR:
-		s = (x1 - x0) / 4;
-		if ( s > y1 - y0 ) s = y1 - y0;
-		if ( y1 <= y0 )
-			break;
-		for ( y = y0; y <= y1; y++ )
-			(*xb->b_span)(x0 + s * (y1 - y) / (y1 - y0),
-				      x1 - s * (y - y0) / (y1 - y0), y, val);
-		break;
-	case SH_DRUM:
-		e = (y1 - y0) / 6;
-		if ( e < 2 ) e = 2;
-		for ( y = y0; y <= y1; y++ )
-		{
-			if ( y < y0 + e )
-				k = y0 + e - y;
-			else if ( y > y1 - e )
-				k = y - (y1 - e);
-			else
-				k = 0;
-			if ( k >= e )
-				continue;
-			xo = k ? w2 * (int)xsqrt((long)e * e -
-						 (long)k * k) / e : w2;
-			(*xb->b_span)(cx - xo, cx + xo, y, val);
-		}
-		break;
-	case SH_DOC:
-		e = (y1 - y0) / 6;
-		if ( e < 2 ) e = 2;
-		yb = y1 - e;
-		for ( y = y0; y <= yb; y++ )
-			(*xb->b_span)(x0, x1, y, val);
-		break;
-	case SH_CIRC:
-		r = w2 < h2 ? w2 : h2;
-		for ( y = cy - r; y <= cy + r; y++ )
-		{
-			k = y - cy;
-			if ( k < 0 ) k = -k;
-			xo = (int)xsqrt((long)r * r - (long)k * k);
-			(*xb->b_span)(cx - xo, cx + xo, y, val);
-		}
-		break;
-	case SH_ELL:
-		if ( h2 <= 0 )
-			break;
-		for ( y = cy - h2; y <= cy + h2; y++ )
-		{
-			k = y - cy;
-			if ( k < 0 ) k = -k;
-			xo = (int)((long)w2 *
-				   xsqrt((long)h2 * h2 - (long)k * k) / h2);
-			(*xb->b_span)(cx - xo, cx + xo, y, val);
-		}
-		break;
-	}
-	return 0;
-}
-
-/* shape outline through the backend */
-static
-xshape(xb, kind, x0, y0, x1, y1)
-XB *xb;
-{
-	int w2, h2, cx, cy, r, e, s, yb;
-
-	w2 = (x1 - x0) / 2;
-	h2 = (y1 - y0) / 2;
-	cx = (x0 + x1) / 2;
-	cy = (y0 + y1) / 2;
-	switch ( kind )
-	{
-	case SH_BOX:
-		(*xb->b_box)(x0, y0, x1, y1, -1);
-		break;
-	case SH_RBOX:
-		r = (w2 < h2 ? w2 : h2) / 2;
-		if ( r > 12 ) r = 12;
-		(*xb->b_line)(x0 + r, y0, x1 - r, y0);
-		(*xb->b_line)(x0 + r, y1, x1 - r, y1);
-		(*xb->b_line)(x0, y0 + r, x0, y1 - r);
-		(*xb->b_line)(x1, y0 + r, x1, y1 - r);
-		xarc(xb, x0 + r, y0 + r, r, 90, 180);
-		xarc(xb, x1 - r, y0 + r, r, 0, 90);
-		xarc(xb, x0 + r, y1 - r, r, 180, 270);
-		xarc(xb, x1 - r, y1 - r, r, 270, 360);
-		break;
-	case SH_DIAM:
-		(*xb->b_line)(cx, y0, x1, cy);
-		(*xb->b_line)(x1, cy, cx, y1);
-		(*xb->b_line)(cx, y1, x0, cy);
-		(*xb->b_line)(x0, cy, cx, y0);
-		break;
-	case SH_OVAL:
-		r = w2 < h2 ? w2 : h2;
-		if ( w2 >= h2 )
-		{
-			(*xb->b_line)(x0 + r, y0, x1 - r, y0);
-			(*xb->b_line)(x0 + r, y1, x1 - r, y1);
-			xarc(xb, x0 + r, cy, r, 90, 270);
-			xarc(xb, x1 - r, cy, r, 270, 90);
-		}
-		else
-		{
-			(*xb->b_line)(x0, y0 + r, x0, y1 - r);
-			(*xb->b_line)(x1, y0 + r, x1, y1 - r);
-			xarc(xb, cx, y0 + r, r, 0, 180);
-			xarc(xb, cx, y1 - r, r, 180, 360);
-		}
-		break;
-	case SH_PAR:
-		s = (x1 - x0) / 4;
-		if ( s > y1 - y0 ) s = y1 - y0;
-		(*xb->b_line)(x0 + s, y0, x1, y0);
-		(*xb->b_line)(x1, y0, x1 - s, y1);
-		(*xb->b_line)(x1 - s, y1, x0, y1);
-		(*xb->b_line)(x0, y1, x0 + s, y0);
-		break;
-	case SH_DRUM:
-		e = (y1 - y0) / 6;
-		if ( e < 2 ) e = 2;
-		xflat(xb, x0, x1, y0 + e, -e);
-		xflat(xb, x0, x1, y0 + e, e);
-		(*xb->b_line)(x0, y0 + e, x0, y1 - e);
-		(*xb->b_line)(x1, y0 + e, x1, y1 - e);
-		xflat(xb, x0, x1, y1 - e, e);
-		break;
-	case SH_DOC:
-		e = (y1 - y0) / 6;
-		if ( e < 2 ) e = 2;
-		yb = y1 - e;
-		(*xb->b_line)(x0, y0, x1, y0);
-		(*xb->b_line)(x0, y0, x0, yb);
-		(*xb->b_line)(x1, y0, x1, yb);
-		xflat(xb, x0, cx, yb, e);
-		xflat(xb, cx, x1, yb, -e);
-		break;
-	case SH_CIRC:
-		(*xb->b_circle)(cx, cy, w2 < h2 ? w2 : h2, -1);
-		break;
-	case SH_ELL:
-		{
-			register int a, step;
-			int lx, ly, nx, ny;
-
-			r = w2 > h2 ? w2 : h2;
-			if ( r <= 0 )
-				break;
-			step = 200 / r + 3;
-			if ( step > 30 )
-				step = 30;
-			lx = cx + w2;
-			ly = cy;
-			for ( a = step; a - step < 360; a += step )
-			{
-				if ( a > 360 )
-					a = 360;
-				nx = cx + (w2 * xcos(a) + 128) / 256;
-				ny = cy - (h2 * xsin(a) + 128) / 256;
-				(*xb->b_line)(lx, ly, nx, ny);
-				lx = nx;
-				ly = ny;
-			}
-		}
-		break;
-	}
-	return 0;
-}
-
-/* arrowhead barbs at (bx,by), coming from direction (dxv,dyv) */
-static
-xarrow(xb, bx, by, dxv, dyv)
-XB *xb;
-{
-	long len;
-	int hx, hy, px, py;
-
-	len = xsqrt((long)dxv * dxv + (long)dyv * dyv);
-	if ( len == 0 )
-		return 0;
-	hx = (int)((long)dxv * 7 / len);
-	hy = (int)((long)dyv * 7 / len);
-	px = (int)(-(long)dyv * 3 / len);
-	py = (int)((long)dxv * 3 / len);
-	(*xb->b_line)(bx, by, bx - hx + px, by - hy + py);
-	(*xb->b_line)(bx, by, bx - hx - px, by - hy - py);
-	return 0;
-}
-
-/* the chord emitter for smooth polylines on backends without a native
- * curve (print, hpgl): bspline calls xseg per chord */
-static XB	*xbcur;
-
-static
-xseg(x0, y0, x1, y1)
-{
-	(*xbcur->b_line)(x0, y0, x1, y1);
-	return 0;
-}
-
-/* dimension: extension ticks + the line + arrowheads both ends + label */
-static
-xdim(xb, o)
-XB *xb;
-register DOBJ *o;
-{
-	char db[24];
-	int x0, y0, x1, y1, ax, ay, mx, my, lw;
-
-	x0 = dx((int)o->o_x);   y0 = dy((int)o->o_y);
-	x1 = dx((int)o->o_x2);  y1 = dy((int)o->o_y2);
-	ax = x1 - x0;	if ( ax < 0 ) ax = -ax;
-	ay = y1 - y0;	if ( ay < 0 ) ay = -ay;
-	if ( ax >= ay )
-	{
-		(*xb->b_line)(x0, y0 - 4, x0, y0 + 4);
-		(*xb->b_line)(x1, y1 - 4, x1, y1 + 4);
-	}
-	else
-	{
-		(*xb->b_line)(x0 - 4, y0, x0 + 4, y0);
-		(*xb->b_line)(x1 - 4, y1, x1 + 4, y1);
-	}
-	(*xb->b_line)(x0, y0, x1, y1);
-	xarrow(xb, x0, y0, x0 - x1, y0 - y1);
-	xarrow(xb, x1, y1, x1 - x0, y1 - y0);
-	dimlbl(o, db);
-	mx = (x0 + x1) / 2;
-	my = (y0 + y1) / 2;
-	lw = strlen(db) * 6;
-	if ( ax >= ay )
-		(*xb->b_text)(mx - lw / 2, my - 12, 0, db);
-	else
-		(*xb->b_text)(mx + 5, my - 4, 0, db);
-	return 0;
-}
-
-/* multi-line text: split o_val on '|', b_text per line */
-static
-xtext(xb, x, y, sz, s)
-XB *xb;
-char *s;
-{
-	char lb[VALL];
-	register char *e;
-	register int n;
-	int ch;
-
-	ch = sz == 0 ? 8 : sz == 1 ? 15 : 16;
-	for (;;)
-	{
-		for ( e = s, n = 0; *e && *e != '|'; e++ )
-			lb[n++] = *e;
-		lb[n] = 0;
-		(*xb->b_text)(x, y, sz, lb);
-		if ( *e == 0 )
-			break;
-		s = e + 1;
-		y += ch;
-	}
-	return 0;
-}
-
-/* Is a layer printable? */
-static
-xprn(l)
-{
-	return l >= 0 && l < NLAYER && layprn[l] && l != 3;
-}
-
-/* ---- THE WALKER: every printable object through the backend ---- */
-static
-xwalk(xb)
-register XB *xb;
-{
-	register DOBJ *o;
-	register int i;
-	int x0, y0, x1, y1, t, k, fl, fill;
-	long r;
-
-	for ( i = 0; i < nobj; i++ )
-	{
-		o = &obj[i];
-		if ( !xprn((int)o->o_layer) )
-			continue;
-		fl = o->o_flags;
-		t = fl & OF_FILL;
-		fill = (t == 0) ? -1 : (t == OF_FILLW) ? 1 :
-		       (t == OF_FILLG) ? 2 : 0;
-		if ( fill == 2 && (fl & OF_HATCH) )
-			fill = 3;	/* gray modified to 45-deg hatch */
-		(*xb->b_style)(fl & (OF_STYLE | OF_BOLD));
-		switch ( o->o_type )
-		{
-		case OT_WIRE:
-			x0 = dx(o->o_x);   y0 = dy(o->o_y);
-			x1 = dx(o->o_x2);  y1 = dy(o->o_y2);
-			if ( y0 == y1 || x0 == x1 )
-				(*xb->b_line)(x0, y0, x1, y1);
-			else
-			{
-				(*xb->b_line)(x0, y0, x1, y0);
-				(*xb->b_line)(x1, y0, x1, y1);
-			}
-			break;
-
-		case OT_LINE:
-			(*xb->b_line)(dx(o->o_x), dy(o->o_y),
-				      dx(o->o_x2), dy(o->o_y2));
-			break;
-
-		case OT_BOX:
-			x0 = dx(o->o_x);   y0 = dy(o->o_y);
-			x1 = dx(o->o_x2);  y1 = dy(o->o_y2);
-			if ( x1 < x0 ) { t = x0; x0 = x1; x1 = t; }
-			if ( y1 < y0 ) { t = y0; y0 = y1; y1 = t; }
-			(*xb->b_box)(x0, y0, x1, y1, fill);
-			break;
-
-		case OT_CIRC:
-			r = xsqrt((long)(o->o_x2 - o->o_x) * XSC *
-				  (o->o_x2 - o->o_x) * XSC +
-				  (long)(o->o_y2 - o->o_y) * XSC *
-				  (o->o_y2 - o->o_y) * XSC);
-			(*xb->b_circle)(dx(o->o_x), dy(o->o_y), (int)r,
-					fill);
-			break;
-
-		case OT_ARC:
-			xarc(xb, dx(o->o_x), dy(o->o_y), o->o_x2 * XSC,
-			     (int)OA0(o), (int)OA1(o));
-			break;
-
-		case OT_TEXT:
-			if ( (fl & OF_VERT) && xb->b_vtext )
-				(*xb->b_vtext)(dx(o->o_x), dy(o->o_y),
-					       (int)o->o_rot, o->o_val);
-			else
-				xtext(xb, dx(o->o_x), dy(o->o_y),
-				      (int)o->o_rot, o->o_val);
-			break;
-
-		case OT_NNAME:
-			(*xb->b_box)(dx(o->o_x) - 1, dy(o->o_y) - 1,
-				     dx(o->o_x) + 1, dy(o->o_y) + 1, 0);
-			(*xb->b_text)(dx(o->o_x) + 3, dy(o->o_y) - 9, 0,
-				      o->o_name);
-			break;
-
-		case OT_DIM:
-			(*xb->b_style)(0);
-			xdim(xb, o);
-			break;
-
-		case OT_POLY:
-			if ( (fl & OF_SMOOTH) && o->o_sym >= 3 )
-			{
-				int pxy[2 * PMAXPT];
-
-				for ( k = 0; k < o->o_sym; k++ )
-				{
-					pxy[2*k] = dx(ppool[o->o_x2 + 2*k]);
-					pxy[2*k + 1] =
-					    dy(ppool[o->o_x2 + 2*k + 1]);
-				}
-				if ( xb->b_poly )
-					(*xb->b_poly)(pxy, (int)o->o_sym);
-				else
-				{
-					xbcur = xb;
-					bspline(pxy, (int)o->o_sym, xseg);
-				}
-				break;
-			}
-			for ( k = 1; k < o->o_sym; k++ )
-				(*xb->b_line)(
-				    dx(ppool[o->o_x2 + 2*k - 2]),
-				    dy(ppool[o->o_x2 + 2*k - 1]),
-				    dx(ppool[o->o_x2 + 2*k]),
-				    dy(ppool[o->o_x2 + 2*k + 1]));
-			break;
-
-		case OT_SHAPE:
-			x0 = dx(o->o_x);   y0 = dy(o->o_y);
-			x1 = dx(o->o_x2);  y1 = dy(o->o_y2);
-			if ( x1 < x0 ) { t = x0; x0 = x1; x1 = t; }
-			if ( y1 < y0 ) { t = y0; y0 = y1; y1 = t; }
-			if ( fill >= 0 &&
-			     (o->o_sym == SH_BOX || o->o_sym == SH_CIRC) )
-				;	/* b_box/b_circle carry the fill */
-			else if ( fill >= 0 )
-				xfill(xb, (int)o->o_sym, x0, y0, x1, y1,
-				      fill);
-			if ( o->o_sym == SH_BOX )
-				(*xb->b_box)(x0, y0, x1, y1, fill);
-			else if ( o->o_sym == SH_CIRC )
-				(*xb->b_circle)((x0 + x1) / 2,
-					(y0 + y1) / 2,
-					((x1 - x0) < (y1 - y0) ?
-					 (x1 - x0) : (y1 - y0)) / 2, fill);
-			else
-				xshape(xb, (int)o->o_sym, x0, y0, x1, y1);
-			if ( o->o_val[0] && y1 - y0 >= 18 )
-			{
-				char tb[VALL];
-
-				k = (x1 - x0 - 4) / 9;
-				for ( t = 0; o->o_val[t] && t < k &&
-					     t < VALL - 1; t++ )
-					tb[t] = o->o_val[t];
-				tb[t] = 0;
-				(*xb->b_text)((x0 + x1 - t * 9) / 2 + 1,
-					      (y0 + y1 - 16) / 2 + 1, 2, tb);
-			}
-			break;
-
-		case OT_CONN:
-			x0 = dx(o->o_x);   y0 = dy(o->o_y);
-			x1 = dx(o->o_x2);  y1 = dy(o->o_y2);
-			if ( o->o_sym == CS_HV || o->o_sym == CS_HARROW )
-			{
-				if ( y0 == y1 || x0 == x1 )
-					(*xb->b_line)(x0, y0, x1, y1);
-				else
-				{
-					(*xb->b_line)(x0, y0, x1, y0);
-					(*xb->b_line)(x1, y0, x1, y1);
-				}
-			}
-			else
-				(*xb->b_line)(x0, y0, x1, y1);
-			(*xb->b_style)(0);
-			if ( o->o_sym == CS_ARROW )
-				xarrow(xb, x1, y1, x1 - x0, y1 - y0);
-			else if ( o->o_sym == CS_HARROW )
-			{
-				if ( y1 != y0 )
-					xarrow(xb, x1, y1, 0, y1 - y0);
-				else
-					xarrow(xb, x1, y1, x1 - x0, 0);
-			}
-			break;
-
-		case OT_SYM:
-			{
-				register short *p;
-				int ox, oy, a0, a1;
-				char tb[2];
-
-				ox = dx(o->o_x);
-				oy = dy(o->o_y);
-				(*xb->b_style)(0);
-				p = symtab[o->o_sym].sy_ops;
-				while ( *p != SEND )
-				{
-					if ( *p == SE )
-					{
-						xtxq(p[1], p[2],
-						     (int)o->o_rot,
-						     (int)o->o_mir, ox, oy,
-						     XSC / 4, &x0, &y0);
-						xtxq(p[3], p[4],
-						     (int)o->o_rot,
-						     (int)o->o_mir, ox, oy,
-						     XSC / 4, &x1, &y1);
-						(*xb->b_line)(x0, y0,
-							      x1, y1);
-						p += 5;
-					}
-					else if ( *p == SC )
-					{
-						xtxq(p[1], p[2],
-						     (int)o->o_rot,
-						     (int)o->o_mir, ox, oy,
-						     XSC / 4, &x0, &y0);
-						(*xb->b_circle)(x0, y0,
-						    p[3] * (XSC / 4), -1);
-						p += 4;
-					}
-					else if ( *p == SA )
-					{
-						xtxq(p[1], p[2],
-						     (int)o->o_rot,
-						     (int)o->o_mir, ox, oy,
-						     XSC / 4, &x0, &y0);
-						a0 = p[4];
-						a1 = p[5];
-						if ( o->o_mir )
-						{
-							t = a0;
-							a0 = 180 - a1;
-							a1 = 180 - t;
-						}
-						a0 -= 90 * (o->o_rot & 3);
-						a1 -= 90 * (o->o_rot & 3);
-						xarc(xb, x0, y0,
-						     p[3] * (XSC / 4),
-						     a0, a1);
-						p += 6;
-					}
-					else
-					{
-						xtxq(p[1], p[2],
-						     (int)o->o_rot,
-						     (int)o->o_mir, ox, oy,
-						     XSC / 4, &x0, &y0);
-						tb[0] = p[3];
-						tb[1] = 0;
-						(*xb->b_text)(x0, y0, 0, tb);
-						p += 4;
-					}
-				}
-				/* designator + value beside the body */
-				symdbox(i, &x0, &y0, &x1, &y1);
-				if ( o->o_rot & 1 )
-				{
-					if ( o->o_name[0] )
-						(*xb->b_text)(x1 + 3,
-						    y0 + 2, 0, o->o_name);
-					if ( o->o_val[0] )
-						(*xb->b_text)(x1 + 3,
-						    y0 + 11, 0, o->o_val);
-				}
-				else
-				{
-					if ( o->o_name[0] )
-						(*xb->b_text)(x0, y0 - 9,
-						    0, o->o_name);
-					if ( o->o_val[0] )
-						(*xb->b_text)(x0, y1 + 2,
-						    0, o->o_val);
-				}
-			}
-			break;
-		}
-	}
-	(*xb->b_style)(0);
-	return 0;
-}
-
-/* device bbox of symbol i's body (for its labels) */
-static
-symdbox(i, bx0, by0, bx1, by1)
-int *bx0, *by0, *bx1, *by1;
-{
-	register DOBJ *o;
-	register SYMDEF *s;
-	int cx[4], cy[4], k, ox, oy, x, y;
-
-	o = &obj[i];
-	s = &symtab[o->o_sym];
-	ox = dx(o->o_x);
-	oy = dy(o->o_y);
-	xtxq(s->sy_x0, s->sy_y0, (int)o->o_rot, (int)o->o_mir, ox, oy,
-	     XSC / 4, &cx[0], &cy[0]);
-	xtxq(s->sy_x1, s->sy_y0, (int)o->o_rot, (int)o->o_mir, ox, oy,
-	     XSC / 4, &cx[1], &cy[1]);
-	xtxq(s->sy_x0, s->sy_y1, (int)o->o_rot, (int)o->o_mir, ox, oy,
-	     XSC / 4, &cx[2], &cy[2]);
-	xtxq(s->sy_x1, s->sy_y1, (int)o->o_rot, (int)o->o_mir, ox, oy,
-	     XSC / 4, &cx[3], &cy[3]);
-	*bx0 = *bx1 = cx[0];
-	*by0 = *by1 = cy[0];
-	for ( k = 1; k < 4; k++ )
-	{
-		x = cx[k];
-		y = cy[k];
-		if ( x < *bx0 ) *bx0 = x;
-		if ( x > *bx1 ) *bx1 = x;
-		if ( y < *by0 ) *by0 = y;
-		if ( y > *by1 ) *by1 = y;
-	}
-	return 0;
-}
-
-/* grid extent of the printable drawing; 0 when empty */
-static
-xextent(gx0, gy0, gx1, gy1)
-int *gx0, *gy0, *gx1, *gy1;
-{
-	register int i;
-	int x0, y0, x1, y1, got;
-
-	got = 0;
-	for ( i = 0; i < nobj; i++ )
-	{
-		if ( !xprn((int)obj[i].o_layer) )
-			continue;
-		objgbox(i, &x0, &y0, &x1, &y1);
-		if ( !got )
-		{
-			*gx0 = x0;  *gy0 = y0;  *gx1 = x1;  *gy1 = y1;
-			got = 1;
-		}
-		else
-		{
-			if ( x0 < *gx0 ) *gx0 = x0;
-			if ( y0 < *gy0 ) *gy0 = y0;
-			if ( x1 > *gx1 ) *gx1 = x1;
-			if ( y1 > *gy1 ) *gy1 = y1;
-		}
-	}
-	return got;
-}
 
 /* ================================================================== */
 /* -print: raster into 24-row bands, ESC * 39 to stdout               */
@@ -1160,7 +324,11 @@ char *s;
 }
 
 XB	printxb = { pb_line, pb_box, pb_circle, pb_text, pb_span, pb_style,
-		    pb_vtext, (int (*)())0 };
+		    pb_vtext, (int (*)())0, (int (*)())0 };
+
+int	fitf;			/* -fit: fill the page (print: the        */
+				/* discrete ladder; ps: + a PostScript-   */
+				/* side remainder scale)                  */
 
 static
 doprint()
@@ -1172,6 +340,15 @@ doprint()
 	{
 		fprintf(stderr, "vellum: nothing to print\n");
 		return 1;
+	}
+	if ( fitf )
+	{
+		/* the largest scale on the discrete 2..32 ladder whose
+		 * printed width still fits the head */
+		r = (widef ? gy1 - gy0 : gx1 - gx0) + 2;
+		xsc = MAXDOTS / r;
+		if ( xsc > 32 ) xsc = 32;
+		if ( xsc < 2 ) xsc = 2;
 	}
 	xorgx = (gx0 - 1) * XSC;
 	xorgy = (gy0 - 1) * XSC;
@@ -1358,7 +535,7 @@ int *xy;
 }
 
 XB	picxb = { cb_line, cb_box, cb_circle, cb_text, (int (*)())0,
-		  cb_style, (int (*)())0, cb_poly };
+		  cb_style, (int (*)())0, cb_poly, (int (*)())0 };
 
 static
 dopic()
@@ -1380,6 +557,10 @@ dopic()
 
 int	hpsty;
 int	hymax;			/* device y of the sheet bottom (flip)    */
+int	hppen;			/* pen in the holder (pen-by-layer, v4.0: */
+				/* annotation draws in the second pen --  */
+				/* the cheapest two-color printing this   */
+				/* machine will ever do)                  */
 
 static
 hp_xy(x, y, buf)
@@ -1394,6 +575,12 @@ hb_style(fl)
 {
 	register int s;
 
+	s = (xlay == 1) ? 2 : 1;
+	if ( s != hppen )
+	{
+		printf("SP%d;", s);
+		hppen = s;
+	}
 	s = fl & OF_STYLE;
 	if ( s != (hpsty & OF_STYLE) )
 	{
@@ -1463,7 +650,7 @@ char *s;
 }
 
 XB	hpglxb = { hb_line, hb_box, hb_circle, hb_text, (int (*)())0,
-		   hb_style, hb_vtext, (int (*)())0 };
+		   hb_style, hb_vtext, (int (*)())0, (int (*)())0 };
 
 static
 dohpgl()
@@ -1479,9 +666,437 @@ dohpgl()
 	xorgy = (gy0 - 1) * XSC;
 	hymax = (gy1 - gy0 + 2) * XSC;
 	hpsty = 0;
+	hppen = 1;
 	printf("IN;SP1;LT;\n");
 	xwalk(&hpglxb);
 	printf("PU0,0;SP0;\n");
+	return 0;
+}
+
+/* ================================================================== */
+/* -ps: PostScript Level 1 -- the laser release (VELLUM.md sec. 35).   */
+/* User space is DEVICE PX: the prolog scales 16 grid units per inch   */
+/* onto the page (72/128 pt per px at the pinned xsc 8), y flipped per */
+/* sheet like hpgl.  Text is Courier sized so the MONOSPACE ADVANCE    */
+/* matches the editor's cell (6/8/9 px -> ~6/8/10 pt on paper):        */
+/* nothing collides on the page that did not collide on screen, which  */
+/* is the whole reason it is Courier and not Times.  Smooth polylines  */
+/* emit real curveto through the same midpoint control points the pic  */
+/* splines and the chord walker use; vertical text is a -90 rotate     */
+/* around the anchor -- the transpose loop stays the bitmap printers'  */
+/* problem.  One %%Page per sheet, showpage between.                   */
+/* ================================================================== */
+
+int	pssty;
+int	psymax;			/* device y of the sheet bottom (flip)    */
+int	pspage;			/* %%Page counter across the sheet set    */
+int	psfont;			/* size set by the last selectfont (-1)   */
+
+static
+ps_y(y)
+{
+	return psymax - y;
+}
+
+static
+ps_style(fl)
+{
+	if ( (fl & (OF_STYLE | OF_BOLD)) == (pssty & (OF_STYLE | OF_BOLD)) )
+		return 0;
+	if ( (fl & OF_STYLE) == OF_DASH )
+		printf("[4 4] 0 setdash ");
+	else if ( (fl & OF_STYLE) == OF_DOT )
+		printf("[1 2] 0 setdash ");
+	else
+		printf("[] 0 setdash ");
+	printf("%d setlinewidth\n", (fl & OF_BOLD) ? 2 : 1);
+	pssty = fl;
+	return 0;
+}
+
+static
+ps_line(x0, y0, x1, y1)
+{
+	printf("%d %d %d %d L\n", x0, ps_y(y0), x1, ps_y(y1));
+	return 0;
+}
+
+/* Paint the current path per the walker's fill (-1 outline only; else
+ * setgray fill first, then the outline) -- z-order composes exactly as
+ * on screen.  Hatch prints as the same 0.5 gray pic uses. */
+static
+ps_paint(fill)
+{
+	if ( fill >= 0 )
+		printf(" gsave %s setgray fill grestore",
+		       fill == 0 ? "0" : fill == 1 ? "1" : ".5");
+	printf(" stroke\n");
+	return 0;
+}
+
+static
+ps_box(x0, y0, x1, y1, fill)
+{
+	printf("%d %d %d %d BX", x0, ps_y(y0), x1, ps_y(y1));
+	ps_paint(fill);
+	return 0;
+}
+
+static
+ps_circle(cx, cy, r, fill)
+{
+	printf("newpath %d %d %d 0 360 arc closepath", cx, ps_y(cy), r);
+	ps_paint(fill);
+	return 0;
+}
+
+/* a TRUE arc (b_varc): our angles are degrees CCW y-up, which the per-
+ * sheet flip maps exactly onto PostScript's arc convention */
+static
+ps_varc(cx, cy, r, a0, a1)
+{
+	while ( a1 <= a0 )
+		a1 += 360;
+	printf("newpath %d %d %d %d %d arc stroke\n",
+	       cx, ps_y(cy), r, a0, a1);
+	return 0;
+}
+
+/* (s) with the PS specials escaped */
+static
+ps_str(s)
+register char *s;
+{
+	putchar('(');
+	for ( ; *s; s++ )
+	{
+		if ( *s == '(' || *s == ')' || *s == '\\' )
+			putchar('\\');
+		putchar(*s);
+	}
+	putchar(')');
+	return 0;
+}
+
+/* font sizes in device px, chosen so 0.6 x size = the editor cell */
+static short	psfsz[3] = { 10, 13, 15 };
+
+static
+ps_setf(sz)
+{
+	if ( sz < 0 ) sz = 0;
+	if ( sz > 2 ) sz = 2;
+	if ( sz != psfont )
+	{
+		printf("/Courier findfont %d scalefont setfont\n", psfsz[sz]);
+		psfont = sz;
+	}
+	return sz;
+}
+
+/* y is the CELL TOP (the walker's convention); baseline near its foot */
+static short	psbase[3] = { 7, 12, 13 };
+
+static
+ps_text(x, y, sz, s)
+char *s;
+{
+	sz = ps_setf(sz);
+	printf("%d %d moveto ", x, ps_y(y + psbase[sz]));
+	ps_str(s);
+	printf(" show\n");
+	return 0;
+}
+
+static
+ps_vtext(x, y, sz, s)
+char *s;
+{
+	char lb[TVMAX];
+	register char *e;
+	register int n;
+	int ch;
+
+	sz = ps_setf(sz);
+	ch = sz == 0 ? 8 : sz == 1 ? 15 : 16;
+	for (;;)
+	{
+		for ( e = s, n = 0; *e && *e != '|'; e++ )
+			lb[n++] = *e;
+		lb[n] = 0;
+		printf("gsave %d %d translate -90 rotate 0 0 moveto ",
+		       x + psbase[sz], ps_y(y));
+		ps_str(lb);
+		printf(" show grestore\n");
+		if ( *e == 0 )
+			break;
+		s = e + 1;
+		x += ch;
+	}
+	return 0;
+}
+
+/* smooth polylines as real curveto: the quadratic (a, c, b) knots the
+ * chord walker subdivides, lifted to cubics with integer thirds */
+static
+ps_curve(ax, ay, cx, cy, bx, by)
+{
+	printf("%d %d %d %d %d %d curveto\n",
+	       (ax + 2 * cx) / 3, ps_y((ay + 2 * cy) / 3),
+	       (bx + 2 * cx) / 3, ps_y((by + 2 * cy) / 3),
+	       bx, ps_y(by));
+	return 0;
+}
+
+static
+ps_poly(xy, n)
+register int *xy;
+{
+	register int i;
+	int ax, ay, bx, by;
+
+	if ( n < 2 )
+		return 0;
+	printf("newpath %d %d moveto\n", xy[0], ps_y(xy[1]));
+	if ( n == 2 )
+		printf("%d %d lineto\n", xy[2], ps_y(xy[3]));
+	ax = xy[0];
+	ay = xy[1];
+	for ( i = 1; i < n - 1; i++ )
+	{
+		if ( i == n - 2 )
+		{
+			bx = xy[2*n - 2];
+			by = xy[2*n - 1];
+		}
+		else
+		{
+			bx = (xy[2*i] + xy[2*i + 2]) / 2;
+			by = (xy[2*i + 1] + xy[2*i + 3]) / 2;
+		}
+		ps_curve(ax, ay, xy[2*i], xy[2*i + 1], bx, by);
+		ax = bx;
+		ay = by;
+	}
+	printf("stroke\n");
+	return 0;
+}
+
+XB	psxb = { ps_line, ps_box, ps_circle, ps_text, (int (*)())0,
+		 ps_style, ps_vtext, ps_poly, ps_varc };
+
+/* One sheet = one page.  -fit adds a PostScript-side scale filling the
+ * A4 usable box (523 x 770 pt inside 36 pt margins): the ratio is
+ * emitted as a PS rational -- OUR side stays integer. */
+static
+dops()
+{
+	int gx0, gy0, gx1, gy1, w, h;
+
+	if ( !xextent(&gx0, &gy0, &gx1, &gy1) )
+	{
+		fprintf(stderr, "vellum: nothing to print\n");
+		return 1;
+	}
+	xorgx = (gx0 - 1) * XSC;
+	xorgy = (gy0 - 1) * XSC;
+	psymax = (gy1 - gy0 + 2) * XSC;
+	w = gx1 - gx0 + 2;		/* extent, grid units */
+	h = gy1 - gy0 + 2;
+	if ( pspage == 0 )
+	{
+		printf("%%!PS-Adobe-1.0\n");
+		printf("%%%%Creator: vellum\n");
+		printf("%%%%EndComments\n");
+		printf("/L { newpath 4 2 roll moveto lineto stroke } def\n");
+		printf("/BX { /by1 exch def /bx1 exch def /by0 exch def\n");
+		printf("  /bx0 exch def newpath bx0 by0 moveto bx1 by0 lineto\n");
+		printf("  bx1 by1 lineto bx0 by1 lineto closepath } def\n");
+	}
+	pspage++;
+	printf("%%%%Page: %d %d\n", pspage, pspage);
+	printf("gsave 36 36 translate\n");
+	if ( fitf )
+	{
+		/* fill = min(523 / 4.5w, 770 / 4.5h) = min(1046/9w, 1540/9h) */
+		if ( (long)1046 * h < (long)1540 * w )
+			printf("1046 %d div dup scale\n", 9 * w);
+		else
+			printf("1540 %d div dup scale\n", 9 * h);
+	}
+	printf("72 %d div dup scale\n", 16 * XSC);
+	printf("1 setlinecap 1 setlinewidth [] 0 setdash\n");
+	pssty = 0;
+	psfont = -1;
+	xwalk(&psxb);
+	printf("grestore showpage\n");
+	return 0;
+}
+
+/* ================================================================== */
+/* -dxf: DXF (R10 entity subset) out -- the interchange release        */
+/* (VELLUM.md sec. 36).  ENTITIES section only; coordinates in GRID    */
+/* units (the walker runs at the pinned xsc 4, so symbol geometry's    */
+/* quarter units emit exactly as .25 steps), y flipped (DXF y is up),  */
+/* our layer number as the DXF layer name.  Arcs ride b_varc: a        */
+/* chorded arc is correct on paper but wrong in a file another CAD     */
+/* will edit.                                                          */
+/* ================================================================== */
+
+int	dxymax;			/* device y of the sheet top (flip)       */
+
+/* one coordinate group: device px (xsc 4) as grid units, 2 decimals */
+static
+dx_g(code, v)
+{
+	register int neg;
+
+	printf("%d\n", code);
+	neg = v < 0;
+	if ( neg )
+		v = -v;
+	printf("%s%d.%02d\n", neg ? "-" : "", v / 4, (v % 4) * 25);
+	return 0;
+}
+
+static
+dx_hdr(ent)
+char *ent;
+{
+	printf("0\n%s\n8\n%d\n", ent, xlay);
+	return 0;
+}
+
+static
+dx_line(x0, y0, x1, y1)
+{
+	dx_hdr("LINE");
+	dx_g(10, x0);
+	dx_g(20, dxymax - y0);
+	dx_g(11, x1);
+	dx_g(21, dxymax - y1);
+	return 0;
+}
+
+static
+dx_box(x0, y0, x1, y1, fill)
+{
+	dx_line(x0, y0, x1, y0);
+	dx_line(x1, y0, x1, y1);
+	dx_line(x1, y1, x0, y1);
+	dx_line(x0, y1, x0, y0);
+	return 0;
+}
+
+static
+dx_circle(cx, cy, r, fill)
+{
+	dx_hdr("CIRCLE");
+	dx_g(10, cx);
+	dx_g(20, dxymax - cy);
+	dx_g(40, r);
+	return 0;
+}
+
+static
+dx_varc(cx, cy, r, a0, a1)
+{
+	while ( a1 < 0 )
+		a1 += 360;
+	while ( a0 < 0 )
+		a0 += 360;
+	dx_hdr("ARC");
+	dx_g(10, cx);
+	dx_g(20, dxymax - cy);
+	dx_g(40, r);
+	printf("50\n%d\n51\n%d\n", a0 % 360, a1 % 360);
+	return 0;
+}
+
+/* the shared TEXT emitter; rot = the group-50 rotation (vertical text) */
+static
+dx_text1(x, y, sz, s, rot)
+char *s;
+{
+	static short ch[3] = { 8, 15, 16 };
+
+	if ( sz < 0 ) sz = 0;
+	if ( sz > 2 ) sz = 2;
+	dx_hdr("TEXT");
+	dx_g(10, x);
+	dx_g(20, dxymax - y - ch[sz] * 4 / 8);	/* cell top -> baseline */
+	dx_g(40, ch[sz] * 4 / 8);	/* height = the cell, grid units --
+					 * veldxf's size thresholds map it
+					 * straight back (round trip)      */
+	printf("1\n%s\n", s);
+	if ( rot )
+		printf("50\n%d\n", rot);
+	return 0;
+}
+
+static
+dx_text(x, y, sz, s)
+char *s;
+{
+	return dx_text1(x, y, sz, s, 0);
+}
+
+static
+dx_vtext(x, y, sz, s)
+char *s;
+{
+	return dx_text1(x, y, sz, s, 270);
+}
+
+/* smooth polylines keep their POINTS (POLYLINE/VERTEX/SEQEND) */
+static
+dx_poly(xy, n)
+register int *xy;
+{
+	register int k;
+
+	dx_hdr("POLYLINE");
+	printf("66\n1\n70\n0\n");
+	for ( k = 0; k < n; k++ )
+	{
+		dx_hdr("VERTEX");
+		dx_g(10, xy[2*k]);
+		dx_g(20, dxymax - xy[2*k + 1]);
+	}
+	printf("0\nSEQEND\n");
+	return 0;
+}
+
+static
+dx_style(fl)
+{
+	return 0;
+}
+
+XB	dxfxb = { dx_line, dx_box, dx_circle, dx_text, (int (*)())0,
+		  dx_style, dx_vtext, dx_poly, dx_varc };
+
+int	dxopen;			/* the ENTITIES section is open           */
+
+static
+dodxf()
+{
+	int gx0, gy0, gx1, gy1;
+
+	if ( !xextent(&gx0, &gy0, &gx1, &gy1) )
+	{
+		fprintf(stderr, "vellum: nothing to export\n");
+		return 1;
+	}
+	xorgx = gx0 * XSC;		/* the extent's min corner at 0,0 */
+	xorgy = gy0 * XSC;
+	dxymax = (gy1 - gy0) * XSC;
+	if ( !dxopen )
+	{
+		printf("0\nSECTION\n2\nENTITIES\n");
+		dxopen = 1;
+	}
+	xwalk(&dxfxb);
 	return 0;
 }
 
@@ -1567,6 +1182,136 @@ dobomout()
 }
 
 /* ================================================================== */
+/* -check: prove the set (VELLUM.md sec. 26) -- the netlist's checks   */
+/* promoted to a first-class pass and aimed at make(1): one finding    */
+/* per line on stdout, exit status = the finding count, so a Makefile  */
+/* gates on it the way cc gates on -Werror.                            */
+/* ================================================================== */
+
+int	checkf;			/* -check: report findings, print no nets */
+int	chkn;			/* finding count = the exit status        */
+char	*chksheet = "";		/* file name for the report lines         */
+
+/* One finding: "file: message".  a/b ride printf %s/%d holes. */
+static
+chk(msg, a, b)
+char *msg, *a, *b;
+{
+	printf("%s: ", chksheet);
+	printf(msg, a, b);
+	printf("\n");
+	chkn++;
+	return 0;
+}
+
+/* set-wide designators, for the across-sheets duplicate check */
+#define	MAXDES	200
+char	desnm[MAXDES][NAMEL];
+char	dessh[MAXDES][14];
+int	ndes;
+
+/* per-sheet: duplicate designators (across the SET) and designated
+ * parts with no value (the BOM's "-" rows, at the source) */
+static
+chkparts()
+{
+	register DOBJ *o;
+	register int i, k;
+
+	for ( i = 0; i < nobj; i++ )
+	{
+		o = &obj[i];
+		if ( o->o_type != OT_SYM || o->o_name[0] == 0 )
+			continue;
+		for ( k = 0; k < ndes; k++ )
+			if ( strcmp(desnm[k], o->o_name) == 0 )
+				break;
+		if ( k < ndes )
+			chk("duplicate designator %s (also in %s)",
+			    o->o_name, dessh[k]);
+		else if ( ndes < MAXDES )
+		{
+			strcpy(desnm[ndes], o->o_name);
+			strncpy(dessh[ndes], chksheet, 13);
+			dessh[ndes][13] = 0;
+			ndes++;
+		}
+		if ( o->o_val[0] == 0 )
+			chk("%s has no value", o->o_name, 0);
+	}
+	return 0;
+}
+
+/* per-sheet: dangling wire ends -- an endpoint touching no pin, no
+ * other wire and no net-name marker is the classic drawing slip */
+static
+chkwires()
+{
+	register DOBJ *o;
+	register int i, j;
+	int e, px, py, ok;
+	char pt[16];
+
+	for ( i = 0; i < nobj; i++ )
+	{
+		o = &obj[i];
+		if ( o->o_type != OT_WIRE )
+			continue;
+		for ( e = 0; e < 2; e++ )
+		{
+			px = e ? o->o_x2 : o->o_x;
+			py = e ? o->o_y2 : o->o_y;
+			ok = pinat(px, py);
+			for ( j = 0; j < nobj && !ok; j++ )
+			{
+				if ( j == i )
+					continue;
+				if ( obj[j].o_type == OT_WIRE &&
+				     xonwire(&obj[j], px, py) )
+					ok = 1;
+				else if ( obj[j].o_type == OT_NNAME &&
+					  obj[j].o_x == px && obj[j].o_y == py )
+					ok = 1;
+			}
+			if ( !ok )
+			{
+				sprintf(pt, "%d,%d", px, py);
+				chk("dangling wire end at %s", pt, 0);
+			}
+		}
+	}
+	return 0;
+}
+
+/* per-sheet: symbol codes no loaded library defines.  loadfile SKIPS
+ * unknown Y lines by design, so a hand-edited or generated file loses
+ * parts silently -- this is where that surfaces.  Re-reads the raw
+ * file: the skipped lines are, by definition, not in the model. */
+static
+chkcodes(fn)
+char *fn;
+{
+	register FILE *fp;
+	char lb[220];
+	char *p, *t;
+
+	if ( (fp = fopen(fn, "r")) == (FILE *)0 )
+		return 0;
+	while ( fgets(lb, sizeof(lb), fp) != 0 )
+	{
+		p = lb;
+		if ( (t = tok(&p)) == 0 || t[0] != 'Y' || t[1] != 0 )
+			continue;
+		if ( (t = tok(&p)) == 0 )
+			continue;
+		if ( symbycode(t) < 0 )
+			chk("unknown symbol %s (line dropped)", t, 0);
+	}
+	fclose(fp);
+	return 0;
+}
+
+/* ================================================================== */
 /* -net: union-find over wire endpoints, junctions and pins           */
 /* ================================================================== */
 
@@ -1645,7 +1390,27 @@ int *gx, *gy;
 char	mnname[MAXMNET][10];
 char	mnpins[MAXMNET][120];
 short	mncnt[MAXMNET];
+short	mno[MAXMNET], mnp[MAXMNET];	/* ERC (v4.4): typed-pin counts   */
+short	mni[MAXMNET], mnt[MAXMNET];	/* over the whole merged net      */
 int	nmnet;
+
+/* The ERC verdicts on one net's typed-pin counts (VELLUM.md sec. 38):
+ * two outputs conflict, an output on a power net drives a rail, a net
+ * whose typed pins are all inputs is undriven.  The rules fire ONLY
+ * between typed pins -- an old library produces silence, not noise,
+ * and a half-typed one checks exactly as far as it is typed. */
+static
+erc1(nm, no, npw, ni, nt)
+char *nm;
+{
+	if ( no >= 2 )
+		chk("net %s: driver conflict (%d outputs)", nm, no);
+	if ( no >= 1 && npw >= 1 )
+		chk("net %s: output drives a power rail", nm, 0);
+	if ( nt >= 1 && ni == nt )
+		chk("net %s: undriven (typed pins all inputs)", nm, 0);
+	return 0;
+}
 
 /* one pin as " REF.PIN" (pin NAMES when the library has them) */
 static
@@ -1664,7 +1429,10 @@ char *buf;
 	return 0;
 }
 
-/* after the last sheet: the merged named nets, and their pin check */
+/* After the last sheet: the merged named nets, and their pin check.
+ * In -check mode nothing lists; a named net with fewer than two pins
+ * across the WHOLE set is the finding -- which is also the bus rule
+ * (sec. 28): a bus bit name appearing exactly once is a typo. */
 static
 donetend()
 {
@@ -1672,6 +1440,15 @@ donetend()
 
 	for ( i = 0; i < nmnet; i++ )
 	{
+		if ( checkf )
+		{
+			if ( mncnt[i] < 2 )
+				chk("named net %s has fewer than 2 pins in the set",
+				    mnname[i], 0);
+			erc1(mnname[i], (int)mno[i], (int)mnp[i],
+			     (int)mni[i], (int)mnt[i]);
+			continue;
+		}
 		printf("%s:%s\n", mnname[i], mnpins[i]);
 		if ( mncnt[i] < 2 )
 			fprintf(stderr,
@@ -1687,6 +1464,7 @@ donet(sheet)
 	register DOBJ *o;
 	register int i, j;
 	int k, np, gx, gy, e, px, py;
+	int to, tp, ti, tt;		/* ERC typed-pin counts, per net */
 	short pobj[MAXNPIN], ppin[MAXNPIN], pnet[MAXNPIN];
 	char nnm[MAXOBJ / 4][10];	/* net root -> name (GND/VCC/N)   */
 	short nroot[MAXOBJ / 4];
@@ -1845,26 +1623,54 @@ donet(sheet)
 					strcpy(mnname[m], nnm[k]);
 					mnpins[m][0] = 0;
 					mncnt[m] = 0;
+					mno[m] = mnp[m] = 0;
+					mni[m] = mnt[m] = 0;
 					nmnet++;
 				}
 			}
 		}
-		else if ( nsheets > 1 )
-			printf("NET-%d.%d:", sheet, nid);
-		else
-			printf("NET-%d:", nid);
+		else if ( !checkf )
+		{
+			if ( nsheets > 1 )
+				printf("NET-%d.%d:", sheet, nid);
+			else
+				printf("NET-%d:", nid);
+		}
 		cnt = 0;
+		to = tp = ti = tt = 0;
 		for ( j = 0; j < np; j++ )
 		{
 			if ( pnet[j] != r )
 				continue;
 			o = &obj[pobj[j]];
+			cnt++;		/* EVERY pin counts toward the
+					 * single-pin test: a feeder segment
+					 * from a breaker to a designator-less
+					 * bus tap is two connections, not a
+					 * loose end */
+			if ( checkf )
+			{
+				/* ERC counts EVERY pin's type -- a GND
+				 * stencil's 'p' names the rail even though
+				 * it is never a listed pin */
+				register int pt;
+
+				pt = pintyp[PINSLOT(&symtab[o->o_sym],
+						    (int)ppin[j])];
+				if ( pt )
+				{
+					tt++;
+					if ( pt == 'o' )	to++;
+					else if ( pt == 'p' )	tp++;
+					else if ( pt == 'i' )	ti++;
+				}
+			}
 			if ( symtab[o->o_sym].sy_pfx[0] == 0 )
-				continue;	/* a designator-less stencil
-						 * (rails, taps, off-page
-						 * markers) only NAMES or
-						 * carries the net -- it is
-						 * never a listed pin */
+				continue;	/* ... but a designator-less
+						 * stencil (rails, taps,
+						 * off-page markers) only NAMES
+						 * or carries the net -- it is
+						 * never a LISTED pin */
 			pinstr(o, (int)ppin[j], pb);
 			if ( k < nnames )
 			{
@@ -1873,14 +1679,26 @@ donet(sheet)
 				     sizeof(mnpins[0]) )
 					strcat(mnpins[m], pb);
 			}
-			else
+			else if ( !checkf )
 				printf("%s", pb);
-			cnt++;
 		}
 		if ( k < nnames )
 		{
 			if ( m >= 0 )
+			{
 				mncnt[m] += cnt;
+				mno[m] += to;
+				mnp[m] += tp;
+				mni[m] += ti;
+				mnt[m] += tt;
+			}
+		}
+		else if ( checkf )
+		{
+			sprintf(pb, "NET-%d", nid);
+			if ( cnt < 2 )
+				chk("net %s has fewer than 2 pins", pb, 0);
+			erc1(pb, to, tp, ti, tt);
 		}
 		else
 		{
@@ -1900,11 +1718,93 @@ donet(sheet)
 			o = &obj[pobj[i]];
 			if ( symtab[o->o_sym].sy_pfx[0] == 0 )
 				continue;
-			fprintf(stderr,
-				"vellum: warning: %s pin %d unconnected\n",
-				o->o_name[0] ? o->o_name : "?",
-				ppin[i] + 1);
+			if ( checkf )
+			{
+				char nb[8];
+
+				sprintf(nb, "%d", ppin[i] + 1);
+				chk("%s pin %s unconnected",
+				    o->o_name[0] ? o->o_name : "?", nb);
+			}
+			else
+				fprintf(stderr,
+					"vellum: warning: %s pin %d unconnected\n",
+					o->o_name[0] ? o->o_name : "?",
+					ppin[i] + 1);
 		}
+	return 0;
+}
+
+/* ================================================================== */
+/* -renum: canonical designators (VELLUM.md sec. 38) -- symbols sorted */
+/* by (y, x), numbered per prefix from -base N (default 1), the whole  */
+/* drawing re-emitted through fmtobj to stdout.  Designators live      */
+/* nowhere else in the format (nets are positional), so the rewrite    */
+/* cannot dangle a reference.  ONE sheet per run: a set renumbers      */
+/* sheet by sheet with -base carrying the count across -- the          */
+/* Makefile owns the set, as always.                                   */
+/* ================================================================== */
+
+static
+dorenum(base)
+{
+	register DOBJ *o;
+	register int i, j;
+	short ix[MAXOBJ];
+	int n, k, t;
+	char lb[220];
+
+	n = 0;
+	for ( i = 0; i < nobj; i++ )
+		if ( obj[i].o_type == OT_SYM && obj[i].o_name[0] )
+			ix[n++] = i;
+	for ( i = 1; i < n; i++ )		/* insertion sort by (y, x) */
+		for ( j = i; j > 0; j-- )
+		{
+			register DOBJ *a, *b;
+
+			a = &obj[ix[j - 1]];
+			b = &obj[ix[j]];
+			if ( a->o_y < b->o_y ||
+			     (a->o_y == b->o_y && a->o_x <= b->o_x) )
+				break;
+			t = ix[j];  ix[j] = ix[j - 1];  ix[j - 1] = t;
+		}
+	for ( i = 0; i < n; i++ )
+	{
+		register char *pfx;
+		int cnt;
+
+		o = &obj[ix[i]];
+		pfx = symtab[o->o_sym].sy_pfx;
+		if ( pfx[0] == 0 )
+			continue;
+		cnt = 0;
+		for ( j = 0; j < i; j++ )
+			if ( strcmp(symtab[obj[ix[j]].o_sym].sy_pfx,
+				    pfx) == 0 )
+				cnt++;
+		sprintf(o->o_name, "%.3s%d", pfx, base + cnt);
+	}
+	/* re-emit the whole drawing (velfile writefile's shape, stdout) */
+	printf("vellum1\n");
+	if ( unum != 1 || uname[0] )
+		printf("U %d %s\n", unum, uname[0] ? uname : "-");
+	for ( i = 0; i < nobj; i++ )
+	{
+		if ( obj[i].o_grp &&
+		     (i == 0 || obj[i - 1].o_grp != obj[i].o_grp) )
+		{
+			k = 0;
+			for ( j = i; j < nobj &&
+				     obj[j].o_grp == obj[i].o_grp; j++ )
+				k++;
+			printf("G %d\n", k);
+		}
+		fmtobj(i, lb);
+		if ( lb[0] )
+			printf("%s\n", lb);
+	}
 	return 0;
 }
 
@@ -1920,15 +1820,20 @@ char **argv;
 {
 	register char *mode;
 	register int i;
-	int r, first;
+	int r, first, rbase;
 
+	rbase = 1;
 	mode = (char *)0;
 	for ( i = 1; i < argc && argv[i][0] == '-'; i++ )
 	{
 		if ( strcmp(argv[i], "-wide") == 0 )
 			widef = 1;
+		else if ( strcmp(argv[i], "-fit") == 0 )
+			fitf = 1;
 		else if ( strcmp(argv[i], "-scale") == 0 && i + 1 < argc )
 			xsc = atoi(argv[++i]);
+		else if ( strcmp(argv[i], "-base") == 0 && i + 1 < argc )
+			rbase = atoi(argv[++i]);
 		else if ( mode == (char *)0 )
 			mode = argv[i] + 1;
 		else
@@ -1940,12 +1845,18 @@ char **argv;
 	if ( mode == (char *)0 || nsheets < 1 ||
 	     (strcmp(mode, "print") != 0 && strcmp(mode, "pic") != 0 &&
 	      strcmp(mode, "net") != 0 && strcmp(mode, "hpgl") != 0 &&
-	      strcmp(mode, "bom") != 0) )
+	      strcmp(mode, "bom") != 0 && strcmp(mode, "check") != 0 &&
+	      strcmp(mode, "ps") != 0 && strcmp(mode, "dxf") != 0 &&
+	      strcmp(mode, "renum") != 0) ||
+	     (strcmp(mode, "renum") == 0 && nsheets != 1) )
 	{
 		fprintf(stderr,
-	"usage: vellum -print|-pic|-net|-hpgl|-bom [-wide] [-scale N] file.d ...\n");
+	"usage: vellum -print|-pic|-net|-hpgl|-bom|-check|-ps|-dxf [-wide] [-fit] [-scale N] file.d ...\n");
+		fprintf(stderr,
+	"       vellum -renum [-base N] file.d > out.d\n");
 		return 1;
 	}
+	checkf = strcmp(mode, "check") == 0;
 	loadsyms();
 	r = 0;
 	first = i;
@@ -1956,7 +1867,50 @@ char **argv;
 			fprintf(stderr, "vellum: cannot open %s\n", argv[i]);
 			return 1;
 		}
-		if ( strcmp(mode, "print") == 0 )
+		if ( checkf )
+		{
+			/* the whole -check pass: parts, wires, dropped Y
+			 * lines, units agreement, then the net checks */
+			static int u0;
+			static char un0[UNAMEL];
+			register int k, hasw;
+
+			chksheet = argv[i];
+			if ( i == first )
+			{
+				u0 = unum;
+				strcpy(un0, uname);
+			}
+			else if ( unum != u0 || strcmp(uname, un0) != 0 )
+			{
+				char ub[UNAMEL + 8];
+
+				sprintf(ub, "%d %s", unum, uname);
+				chk("units U %s disagree with the set's",
+				    ub, 0);
+			}
+			chkparts();
+			chkcodes(argv[i]);
+			/* the CONDUCTOR checks (dangling ends, nets, pins)
+			 * apply only to a sheet that draws circuits -- one
+			 * that contains WIRES.  A diagram sheet (flowchart,
+			 * floor plan, structure chart) uses stencils whose
+			 * pins are attachment points, not terminals, and
+			 * flagging those is noise, not findings. */
+			hasw = 0;
+			for ( k = 0; k < nobj; k++ )
+				if ( obj[k].o_type == OT_WIRE )
+				{
+					hasw = 1;
+					break;
+				}
+			if ( hasw )
+			{
+				chkwires();
+				donet(i - first + 1);
+			}
+		}
+		else if ( strcmp(mode, "print") == 0 )
 			r |= doprint();
 		else if ( strcmp(mode, "pic") == 0 )
 		{
@@ -1965,10 +1919,34 @@ char **argv;
 		}
 		else if ( strcmp(mode, "hpgl") == 0 )
 			r |= dohpgl();
+		else if ( strcmp(mode, "ps") == 0 )
+		{
+			xsc = 8;	/* pinned like pic: 16 units/inch */
+			r |= dops();
+		}
+		else if ( strcmp(mode, "dxf") == 0 )
+		{
+			xsc = 4;	/* grid units out, quarter-unit exact */
+			r |= dodxf();
+		}
+		else if ( strcmp(mode, "renum") == 0 )
+			r |= dorenum(rbase);
 		else if ( strcmp(mode, "bom") == 0 )
 			bomsheet();
 		else
 			donet(i - first + 1);
+	}
+	if ( pspage )
+		printf("%%%%Trailer\n%%%%Pages: %d\n", pspage);
+	if ( dxopen )
+		printf("0\nENDSEC\n0\nEOF\n");
+	if ( checkf )
+	{
+		chksheet = "set";
+		donetend();
+		if ( chkn == 0 )
+			fprintf(stderr, "vellum: check clean\n");
+		return chkn > 254 ? 254 : chkn;
 	}
 	if ( strcmp(mode, "bom") == 0 )
 		dobomout();

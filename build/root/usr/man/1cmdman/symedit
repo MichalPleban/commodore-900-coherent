@@ -37,7 +37,11 @@ DDEESSCCRRIIPPTTIIOONN
                   PPiinnclick places a connection pin, snapped to WHOLE
                             grid units - pins are where wires snap in vveelllluumm.
                             A second click on a pin asks for its NAME, which
-                            the netlist export prints (Q1.B instead of Q1.2)
+                            the netlist export prints (Q1.B instead of Q1.2),
+                            and its TYPE - in, out, power or bidirectional -
+                            which the B-checkR electrical rules test (two
+                            outputs on a net conflict, an output must not
+                            drive a power rail, all-input nets are undriven)
                   CChhaarrclick asks for one small-font character
                   MMoovveedrag an element to move it; a drag on empty
                             canvas marquee-selects, and the set then moves
@@ -48,17 +52,13 @@ DDEESSCCRRIIPPTTIIOONN
      WHOLE symbol around the origin - draw one gate half, mirror
      it.  The ff key copies a symbol IN from another library file
      as the starting point (asks for the file and the code; the
-     buffer is replaced, the code and prefix stay).  The two tri-
-     angle cells under the preview step to the previous and next
-     symbol in the library, keeping any edits in memory.
-
-     The window menu carries New (asks for the symbol's code and
-     its designator prefix), Open (by code; the dialog lists what
-     the library holds), Save and Help.  Switching symbols keeps
-     every edit in memory; SSaavvee writes the whole library back to
-     the file.  A running vveelllluumm reads the library only at start-
-     up, so open a fresh one to see saved changes.
-
+     buffer is replaced, the code and prefix stay).  The uu key
+     UNDOES the last edit (one level; pressing it again redoes)
+     and EEsscc cancels in two stages: the first returns to Seg
+     keeping the selection, a second drops the selection too.
+     The two triangle cells under the preview step to the pre-
+     vious and next symbol in the library, keeping any edits in
+     memory.
 
 
 COHERENT Command Manual                                    Page 1
@@ -70,17 +70,25 @@ ssyymmeeddiitt                                                   ssyym
 
 
 
+     The window menu carries New (asks for the symbol's code and
+     its designator prefix), Open (by code; the dialog lists what
+     the library holds), Save and Help - which opens this page in
+     zzmmaann. Switching symbols keeps every edit in memory; SSaavvee
+     writes the whole library back to the file.  A running vveelllluumm
+     reads the library only at start-up, so open a fresh one to
+     see saved changes.
+
 FFIILLEESS
                   /usr/vellum/etc/symbolsthe user scratch library (default)
                   /usr/vellum/lib/*.symthe stock libraries (discrete, logic,
-                            flow, net, arch)
+                            flow, net, arch, pid, power, plan)
                   /usr/vellum/etc/libswhich libraries vellum loads at start-up
 
      The format is the plain text described in vveelllluumm; it can
      also be edited by hand.
 
 SSEEEE AALLSSOO
-     vveelllluumm , zzvviieeww
+     vveelllluumm , zzvviieeww , zzmmaann
 
 NNOOTTEESS
      The library holds up to 12 symbols of up to 8 pins each.

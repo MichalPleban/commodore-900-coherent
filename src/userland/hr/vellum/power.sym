@@ -5,8 +5,8 @@ c 0 -4 5
 c 0 4 5
 s 0 -9 0 -12
 s 0 9 0 12
-p 0 -12
-p 0 12
+p 0 -12 - b
+p 0 12 - b
 end
 symbol BRKR Q
 s -4 -4 4 -4
@@ -15,45 +15,41 @@ s 4 4 -4 4
 s -4 4 -4 -4
 s 0 -4 0 -8
 s 0 4 0 8
-p 0 -8
-p 0 8
+p 0 -8 - b
+p 0 8 - b
 end
 symbol DISC S
 s 0 8 0 4
 s 0 4 -4 -4
 s 0 -4 0 -8
 c 0 -4 1
-p 0 -8
-p 0 8
+p 0 -8 - b
+p 0 8 - b
 end
 symbol MOT M
 c 0 0 6
 t -1 -2 M
 s 0 -6 0 -8
-s 0 6 0 8
-p 0 -8
-p 0 8
+p 0 -8 - b
 end
 symbol GEN G
 c 0 0 6
 t -1 -2 G
-s 0 -6 0 -8
 s 0 6 0 8
-p 0 -8
-p 0 8
+p 0 8 - b
 end
 symbol BTAP -
 s -12 0 12 0
 s -12 1 12 1
 s 0 1 0 8
-p -12 0
-p 12 0
-p 0 8
+p -12 0 - b
+p 12 0 - b
+p 0 8 - b
 end
 symbol GNDG -
 s 0 -4 0 0
 s -6 0 6 0
 s -4 2 4 2
 s -2 4 2 4
-p 0 -4
+p 0 -4 - p
 end

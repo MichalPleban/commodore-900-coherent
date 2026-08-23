@@ -250,12 +250,28 @@ HRWIDGET *wp;
 		cl_fillrect(x + 1, y + 1, x + w - 1, y + h - 1, 1);
 		dborder(x, y, w, h);
 		ly = y + (h - fh) / 2 + 1;
-		cl_ptext(SHM_FUI, x + DLG_THPAD + 2, ly, wp->dw_buf);
-		if ( focus )
-		{			/* caret: a bar after the last char */
-			cx = x + DLG_THPAD + 2 + strlen(wp->dw_buf) * fw;
-			if ( cx < x + w - 2 )
-				cl_fillrect(cx, ly, cx + 2, ly + fh, 0);
+		{
+			/* content longer than the box shows its TAIL (that
+			 * is where the caret lives), clipped to whole cells
+			 * so nothing paints over the field's border */
+			register char *sp;
+			register int mc;
+
+			sp = wp->dw_buf;
+			mc = (w - DLG_THPAD - 7) / fw;
+			lw = strlen(sp);
+			if ( lw > mc )
+			{
+				sp += lw - mc;
+				lw = mc;
+			}
+			cl_ptext(SHM_FUI, x + DLG_THPAD + 2, ly, sp);
+			if ( focus )
+			{		/* caret: a bar after the last char */
+				cx = x + DLG_THPAD + 2 + lw * fw;
+				if ( cx < x + w - 2 )
+					cl_fillrect(cx, ly, cx + 2, ly + fh, 0);
+			}
 		}
 		break;
 

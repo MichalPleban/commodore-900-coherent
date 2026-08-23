@@ -808,11 +808,44 @@ doopen()
 	return 0;
 }
 
-/* Edit the selected file: hand it to the editor.  Only an ordinary file --
- * a directory is navigated, not edited. */
+/* Like launch(), but through the shell -- the .dxf opener is a two-step
+ * command (convert, then open the conversion). */
+static
+launchsh(cmdstr)
+char *cmdstr;
+{
+	register int fd;
+	int pid, st;
+
+	if ( (pid = fork()) == 0 )
+	{
+		if ( fork() == 0 )
+		{
+			for ( fd = 5; fd < 20; fd++ )
+				close(fd);
+			execl("/bin/sh", "sh", "-c", cmdstr, (char *)0);
+			_exit(1);
+		}
+		exit(0);
+	}
+	if ( pid > 0 )
+		while ( wait(&st) >= 0 )
+			;
+	return 0;
+}
+
+/* Edit the selected file: hand it to its OPENER.  The suffix picks it
+ * (v4.5): a .d drawing opens in vellum; a .dxf is CONVERTED first
+ * (veldxf) and the conversion opened -- import is a conversion, not a
+ * link; everything else goes to the text editor.  Only an ordinary
+ * file -- a directory is navigated, not edited. */
 static
 doedit()
 {
+	register char *nm, *dot;
+	char base[DIRSIZ + 2], cmd[140];
+	register int n;
+
 	if ( self < 0 )
 		return 0;
 	if ( (files[self].mode & S_IFMT) != S_IFREG )
@@ -820,7 +853,22 @@ doedit()
 		notice("Select a file to edit");
 		return 0;
 	}
-	launch(EDITOR, files[self].nm);
+	nm = files[self].nm;
+	dot = strrchr(nm, '.');
+	if ( dot != 0 && strcmp(dot, ".d") == 0 )
+		launch("/usr/vellum/bin/vellum", nm);
+	else if ( dot != 0 && strcmp(dot, ".dxf") == 0 )
+	{
+		n = dot - nm;
+		strncpy(base, nm, n);
+		base[n] = 0;
+		sprintf(cmd,
+"/usr/vellum/bin/veldxf %s > %s.d && exec /usr/vellum/bin/vellum %s.d",
+			nm, base, base);
+		launchsh(cmd);
+	}
+	else
+		launch(EDITOR, nm);
 	return 0;
 }
 

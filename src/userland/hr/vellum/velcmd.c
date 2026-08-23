@@ -35,7 +35,8 @@ short *idx;
 	return n;
 }
 
-tofront()
+static
+tomove(front)
 {
 	short idx[MAXOBJ];
 	register int j;
@@ -46,25 +47,22 @@ tofront()
 		return 0;
 	snapshot();
 	for ( j = 0; j < n; j++ )
-		objmove(idx[j] - j, nobj - 1);
+		if ( front )
+			objmove(idx[j] - j, nobj - 1);
+		else
+			objmove(idx[n - 1 - j] + j, 0);
 	dmgsel();		/* the moved objects repaint in new order */
 	return 1;
 }
 
+tofront()
+{
+	return tomove(1);
+}
+
 toback()
 {
-	short idx[MAXOBJ];
-	register int j;
-	int n;
-
-	n = selidx(idx);
-	if ( n == 0 || n == nobj )
-		return 0;
-	snapshot();
-	for ( j = n - 1; j >= 0; j-- )
-		objmove(idx[j] + (n - 1 - j), 0);
-	dmgsel();
-	return 1;
+	return tomove(0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -243,23 +241,9 @@ docopy()
 
 docut()
 {
-	register int j;
-
-	if ( nsel == 0 )
+	if ( nsel == 0 || !docopy() )
 		return 0;
-	if ( !docopy() )
-		return 0;
-	snapshot();
-	for ( j = nobj - 1; j >= 0; j-- )
-		if ( osel[j] )
-		{
-			dmgobj(j);
-			delobj(j);
-		}
-	selclear();
-	reroute();
-	statdirty = 1;
-	return 1;
+	return delsel();
 }
 
 /* Paste at grid (gx,gy): parse the lines (unknown ones skip -- pasting
@@ -363,87 +347,97 @@ dopaste(gx, gy, clip)
 }
 
 /* ------------------------------------------------------------------ */
-/* the frame stamp: border + title block as ORDINARY objects on the    */
-/* frame layer -- editable afterwards, nothing magic.                  */
+/* the frame stamp: a TEMPLATE, /usr/vellum/etc/frame.d -- ordinary    */
+/* .d lines fed through the parser onto the frame layer, with $F $D    */
+/* $S $R substituted in text values (VELLUM.md sec. 24).  The title    */
+/* block is USER CONTENT: a company block is an edit, not a rebuild.   */
 /* ------------------------------------------------------------------ */
 
-extern long	time();
-extern char	*ctime();
+#define	FRAMED	"/usr/vellum/etc/frame.d"
+
+/* The date the stamp substitutes for $D: computed by the HELPER (it has
+ * ctime and 90% of a segment to spare) and carried back in the Settings
+ * payload -- dostamp only ever runs from that dialog's Frame button, so
+ * the string is always fresh and the editor carries no calendar code. */
+char	stampdate[14];
+char	stampsheet[14];		/* "Sheet n/m", probed by the helper too  */
+
+/* Substitute the four macros into o_val, bounded by VALL; an unknown
+ * $x passes through.  shs = the "Sheet n/m" text ("" = not a set). */
+static
+stampsub(o, shs)
+register DOBJ *o;
+char *shs;
+{
+	char in[TVMAX], out[TVMAX], db[16];
+	register char *s, *r;
+	register int n;
+
+	static char mk[] = "FDSR";
+	char *mv[4];
+	register int k;
+
+	mv[0] = fname[0] ? fname : "(untitled)";
+	mv[1] = stampdate;
+	mv[2] = shs;
+	mv[3] = "Rev A";
+	strcpy(in, oval(o));
+	n = 0;
+	for ( s = in; *s; s++ )
+	{
+		r = (char *)0;
+		if ( *s == '$' && s[1] )
+			for ( k = 0; k < 4; k++ )
+				if ( s[1] == mk[k] )
+				{
+					r = mv[k];
+					break;
+				}
+		if ( r == (char *)0 )
+		{
+			if ( n < TVMAX - 1 )
+				out[n++] = *s;
+			continue;
+		}
+		s++;
+		while ( *r && n < TVMAX - 1 )
+			out[n++] = *r++;
+	}
+	out[n] = 0;
+	setoval(o, out);
+	return 0;
+}
 
 dostamp()
 {
+	register FILE *fp;
 	register int i;
-	int n0, bx;
-	long t;
-	char db[16];
+	int n0;
+	char lb[220];
 
-	if ( nobj + 7 > MAXOBJ )
+	if ( (fp = fopen(FRAMED, "r")) == (FILE *)0 )
 		return 0;
 	snapshot();
 	n0 = nobj;
-	i = addobj(OT_BOX, 1, 1, SHW - 1, SHH - 1);	/* sheet border */
-	if ( i >= 0 )
-		obj[i].o_flags = OF_BOLD;
-	bx = SHW - 45;
-	addobj(OT_BOX, bx, SHH - 7, SHW - 1, SHH - 1);	/* title block */
-	addobj(OT_LINE, bx, SHH - 4, SHW - 1, SHH - 4);
-	i = addobj(OT_TEXT, bx + 1, SHH - 7, 0, 0);	/* file name */
-	if ( i >= 0 )
-	{
-		obj[i].o_rot = 0;
-		strncpy(obj[i].o_val, fname[0] ? fname : "(untitled)",
-			VALL - 1);
-		obj[i].o_val[VALL - 1] = 0;
-	}
-	time(&t);
-	strncpy(db, ctime(&t) + 4, 6);		/* "Aug 21" */
-	db[6] = ' ';
-	strncpy(db + 7, ctime(&t) + 20, 4);	/* year */
-	db[11] = 0;
-	i = addobj(OT_TEXT, bx + 1, SHH - 4, 0, 0);	/* date */
-	if ( i >= 0 )
-	{
-		obj[i].o_rot = 0;
-		strcpy(obj[i].o_val, db);
-	}
-	i = addobj(OT_TEXT, SHW - 9, SHH - 4, 0, 0);	/* revision */
-	if ( i >= 0 )
-	{
-		obj[i].o_rot = 0;
-		strcpy(obj[i].o_val, "Rev A");
-	}
-	/* a numbered-set member stamps "Sheet n/m" (sec. 19): m = the
-	 * highest sheet the set holds on disk */
-	{
-		char pre[FNLEN], suf[8], nn[FNLEN + 4];
-		int n, m, fd;
-
-		if ( sheetsplit(pre, &n, suf) )
-		{
-			m = n;
-			for ( i = 1; i <= 40; i++ )
-			{
-				sprintf(nn, "%s%d%s", pre, i, suf);
-				if ( (fd = open(nn, 0)) >= 0 )
-				{
-					close(fd);
-					if ( i > m )
-						m = i;
-				}
-				else if ( i > n )
-					break;
-			}
-			i = addobj(OT_TEXT, SHW - 20, SHH - 7, 0, 0);
-			if ( i >= 0 )
-			{
-				obj[i].o_rot = 0;
-				sprintf(obj[i].o_val, "Sheet %d/%d", n, m);
-			}
-		}
-	}
+	parsereset();
+	while ( fgets(lb, sizeof(lb), fp) != 0 && nobj < MAXOBJ )
+		parseobj(lb);
+	fclose(fp);
+	if ( nobj == n0 )
+		return 0;
 	for ( i = n0; i < nobj; i++ )
 	{
+		if ( obj[i].o_type == OT_TEXT || obj[i].o_type == OT_SHAPE )
+			stampsub(&obj[i], stampsheet);
 		obj[i].o_layer = 2;		/* the frame layer */
+		if ( obj[i].o_type == OT_TEXT && obj[i].o_val[0] == 0 )
+		{
+			/* a text a macro emptied ($S outside a set) goes
+			 * away rather than into the drawing */
+			delobj(i);
+			i--;
+			continue;
+		}
 		dmgobj(i);
 	}
 	modified = 1;
@@ -458,9 +452,28 @@ dostamp()
 
 extern char	*dlgspawn();	/* veldlg.c: run one helper dialog        */
 
+/* One blank token into buf, '_' unpacked to ' ' (the helper joins a
+ * blank-carrying field with underscores to ride the tokenizer). */
+static
+undertok(pp, buf, n)
+char **pp, *buf;
+{
+	register char *t, *q;
+
+	if ( (t = tok(pp)) == 0 )
+		return 0;
+	strncpy(buf, t, n - 1);
+	buf[n - 1] = 0;
+	for ( q = buf; *q; q++ )
+		if ( *q == '_' )
+			*q = ' ';
+	return 1;
+}
+
 settingsdlg()
 {
 	char ag[4], as[6], au[8], vv[6], pp[5];
+	char pre[FNLEN], sn[8], suf[8];
 	register char *p, *t;
 	register int i;
 	int vch, nv;
@@ -474,7 +487,16 @@ settingsdlg()
 	for ( i = 0; i < 3; i++ )
 		pp[i] = '0' + layprn[i];
 	pp[3] = 0;
-	p = dlgspawn("set", ag, as, au, uname[0] ? uname : "-", vv, pp);
+	if ( sheetsplit(pre, &i, suf) )
+		sprintf(sn, "%d", i);
+	else
+	{
+		strcpy(pre, "-");
+		strcpy(sn, "0");
+		strcpy(suf, "-");
+	}
+	p = dlgspawn("set", ag, as, au, uname[0] ? uname : "-", vv, pp,
+		     pre, sn, suf);
 	if ( p == (char *)0 )
 		return 0;
 	/* payload: GRID SHW UNUM UNAME VVVV PPP FRAME */
@@ -482,19 +504,19 @@ settingsdlg()
 		gridstep = atoi(t) == 2 ? 2 : 1;
 	if ( (t = tok(&p)) != 0 )
 	{
+		/* the sheet presets: 160x120, A4/A3/A2 at 8 dots per unit */
+		static short sht[8] = { 160, 120, 120, 168,
+					168, 240, 240, 336 };
+		register int k;
+
 		i = atoi(t);
-		if ( i != 160 && SHW == 160 )
-		{
-			SHW = 120;		/* A4 at 8 dots per unit */
-			SHH = 168;
-			viewdirty();
-		}
-		else if ( i == 160 && SHW != 160 )
-		{
-			SHW = 160;
-			SHH = 120;
-			viewdirty();
-		}
+		for ( k = 0; k < 8; k += 2 )
+			if ( sht[k] == i && SHW != i )
+			{
+				SHW = i;
+				SHH = sht[k + 1];
+				viewdirty();
+			}
 	}
 	clampvo();
 	if ( (t = tok(&p)) != 0 )
@@ -537,8 +559,13 @@ settingsdlg()
 	/* construction never prints: layprn[3] stays 0 */
 	if ( vch )
 		viewdirty();		/* visibility is a view change */
-	if ( (t = tok(&p)) != 0 && atoi(t) )
-		dostamp();		/* the Frame button */
+	vch = (t = tok(&p)) != 0 && atoi(t);	/* the Frame button */
+	undertok(&p, stampdate, sizeof(stampdate));	/* the helper's $D */
+	if ( !undertok(&p, stampsheet, sizeof(stampsheet)) ||
+	     stampsheet[0] == '-' )
+		stampsheet[0] = 0;			/* ... and its $S */
+	if ( vch )
+		dostamp();
 	statdirty = 1;
 	return 1;
 }
@@ -547,7 +574,7 @@ styledlg(oi)
 {
 	register DOBJ *o;
 	register char *p, *t;
-	char af[6], al[4], az[4], txt[VALL];
+	char af[6], al[4], az[4], txt[TVMAX];
 	int hastext;
 
 	o = &obj[oi];
@@ -559,7 +586,7 @@ styledlg(oi)
 	if ( o->o_type == OT_NNAME )
 		strcpy(txt, o->o_name);
 	else if ( hastext )
-		strcpy(txt, o->o_val);
+		strcpy(txt, oval(o));
 	else
 		strcpy(txt, "-");
 	p = dlgspawn("style", af, al, az, txt, (char *)0);
@@ -590,10 +617,7 @@ styledlg(oi)
 		o->o_name[NAMEL - 1] = 0;
 	}
 	else if ( hastext && (t[0] || o->o_type == OT_DIM) )
-	{
-		strncpy(o->o_val, t, VALL - 1);
-		o->o_val[VALL - 1] = 0;	/* an emptied dim goes AUTO */
-	}
+		setoval(o, t);		/* an emptied dim goes AUTO */
 	dmgobj(oi);
 	modified = 1;
 	statdirty = 1;

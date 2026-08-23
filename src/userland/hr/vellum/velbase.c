@@ -86,6 +86,87 @@ int	opuse, pinuse;		/* pool cursors                           */
 char	pnmpool[PNMPOOL];
 int	pnmuse	= 1;		/* [0] reserved: 0 means unnamed          */
 short	pinnm[SYMPINS / 2];
+char	pintyp[SYMPINS / 2];	/* pin TYPES (v4.4): 'i' 'o' 'p' 'b' / 0  */
+
+/* ---- the TEXT pool (v3.3, VELLUM.md sec. 29): long T/S/D values.
+ * A value longer than VALL-1 keeps a marker in the DOBJ (o_val[0] == 1,
+ * pool offset as a short at o_val+2) and the string lives here; readers
+ * go through oval()/ovalp(), writers through setoval(), and tvfree()
+ * compacts on delete -- ppool's exact pattern.  (1 cannot begin a real
+ * text: resttext never stores control bytes.) ---- */
+char	tpool[TPOOL];
+int	tpuse;
+
+char *
+ovalp(o, tp)
+register DOBJ *o;
+char *tp;
+{
+	if ( o->o_val[0] == 1 )
+		return tp + *(short *)(o->o_val + 2);
+	return o->o_val;
+}
+
+char *
+oval(o)
+DOBJ *o;
+{
+	return ovalp(o, tpool);
+}
+
+/* Drop o's pool block (delete / overwrite): compact, fix every offset. */
+tvfree(o)
+register DOBJ *o;
+{
+	register int i;
+	int off, len;
+
+	if ( o->o_val[0] != 1 )
+		return 0;
+	off = *(short *)(o->o_val + 2);
+	len = strlen(&tpool[off]) + 1;
+	for ( i = off; i + len <= tpuse; i++ )
+		tpool[i] = tpool[i + len];
+	tpuse -= len;
+	for ( i = 0; i < nobj; i++ )
+		if ( obj[i].o_val[0] == 1 &&
+		     *(short *)(obj[i].o_val + 2) > off )
+			*(short *)(obj[i].o_val + 2) -= len;
+	o->o_val[0] = 0;
+	return 0;
+}
+
+/* Store s as o's value: inline when it fits, else pooled (truncated to
+ * the pool's TVMAX ceiling; a FULL pool falls back to the inline
+ * truncation -- old behaviour, never an error). */
+setoval(o, s)
+register DOBJ *o;
+register char *s;
+{
+	register int n;
+
+	tvfree(o);
+	n = strlen(s);
+	if ( n < VALL )
+	{
+		strcpy(o->o_val, s);
+		return 0;
+	}
+	if ( n > TVMAX - 1 )
+		n = TVMAX - 1;
+	if ( tpuse + n + 1 > TPOOL )
+	{
+		strncpy(o->o_val, s, VALL - 1);
+		o->o_val[VALL - 1] = 0;
+		return 0;
+	}
+	o->o_val[0] = 1;
+	*(short *)(o->o_val + 2) = tpuse;
+	strncpy(&tpool[tpuse], s, n);
+	tpool[tpuse + n] = 0;
+	tpuse += n + 1;
+	return 0;
+}
 
 /* Integer square root -- radius math everywhere. */
 long
@@ -121,10 +202,12 @@ register DOBJ *o;
 char *buf;
 {
 	long d, dx, dy;
+	register char *v;
 
-	if ( o->o_val[0] )
+	v = oval(o);
+	if ( v[0] )
 	{
-		strcpy(buf, o->o_val);
+		strcpy(buf, v);
 		return 0;
 	}
 	dx = o->o_x2 - o->o_x;	if ( dx < 0 ) dx = -dx;
@@ -297,13 +380,16 @@ int *bx0, *by0, *bx1, *by1;
 	int cx[4], cy[4];
 	register SYMDEF *s;
 
+	register int ppq;
+
 	s = &symtab[si];
 	ox = gtopx(gx);
 	oy = gtopy(gy);
-	txq(s->sy_x0, s->sy_y0, rot, mir, ox, oy, gsc / 4, &cx[0], &cy[0]);
-	txq(s->sy_x1, s->sy_y0, rot, mir, ox, oy, gsc / 4, &cx[1], &cy[1]);
-	txq(s->sy_x0, s->sy_y1, rot, mir, ox, oy, gsc / 4, &cx[2], &cy[2]);
-	txq(s->sy_x1, s->sy_y1, rot, mir, ox, oy, gsc / 4, &cx[3], &cy[3]);
+	ppq = gsc >= 4 ? gsc / 4 : 1;	/* the overview zoom floors at 1 */
+	txq(s->sy_x0, s->sy_y0, rot, mir, ox, oy, ppq, &cx[0], &cy[0]);
+	txq(s->sy_x1, s->sy_y0, rot, mir, ox, oy, ppq, &cx[1], &cy[1]);
+	txq(s->sy_x0, s->sy_y1, rot, mir, ox, oy, ppq, &cx[2], &cy[2]);
+	txq(s->sy_x1, s->sy_y1, rot, mir, ox, oy, ppq, &cx[3], &cy[3]);
 	*bx0 = *bx1 = cx[0];
 	*by0 = *by1 = cy[0];
 	for ( i = 1; i < 4; i++ )
@@ -343,11 +429,13 @@ int *pnl;
 	return mw;
 }
 
-/* Pixel bbox of object *o whose polyline points live in pool pp (the live
- * list passes ppool; the undo differ passes the snapshot's pool). */
-objpbox2(o, pp, bx0, by0, bx1, by1)
+/* Pixel bbox of object *o whose polyline points live in pool pp and
+ * whose long text lives in pool tp (the live list passes ppool/tpool;
+ * the undo differ passes the snapshot's pools). */
+objpbox2(o, pp, tp, bx0, by0, bx1, by1)
 DOBJ *o;
 short *pp;
+char *tp;
 int *bx0, *by0, *bx1, *by1;
 {
 	register int k;
@@ -388,7 +476,7 @@ int *bx0, *by0, *bx1, *by1;
 		 * headless (exports), where the VRAM tail is unmapped */
 		x0 = gtopx(o->o_x);
 		y0 = gtopy(o->o_y);
-		t = textdims(o->o_val, &nl);
+		t = textdims(ovalp(o, tp), &nl);
 		*bx0 = x0;
 		*by0 = y0;
 		if ( o->o_flags & OF_VERT )	/* turned 90: w and h swap */
@@ -415,14 +503,16 @@ int *bx0, *by0, *bx1, *by1;
 
 	case OT_DIM:
 		{
-			char db[24];
 			int lw;
 
 			/* generous: covers ticks, arrows and the label in
 			 * either placement (above a horizontal line, right
-			 * of a vertical one) without placement math */
-			dimlbl(o, db);
-			lw = strlen(db) * 3 + 6;
+			 * of a vertical one) without placement math.  A
+			 * FIXED label allowance (the pool ceiling), so this
+			 * path never resolves the text -- the undo differ
+			 * passes snapshot objects whose pooled labels are
+			 * not reachable through the live pool. */
+			lw = TVMAX * 3 + 6;
 			x0 = gtopx(o->o_x);   y0 = gtopy(o->o_y);
 			x1 = gtopx(o->o_x2);  y1 = gtopy(o->o_y2);
 			if ( x1 < x0 ) { t = x0; x0 = x1; x1 = t; }
@@ -466,7 +556,7 @@ int *bx0, *by0, *bx1, *by1;
 objpbox(i, bx0, by0, bx1, by1)
 int *bx0, *by0, *bx1, *by1;
 {
-	return objpbox2(&obj[i], ppool, bx0, by0, bx1, by1);
+	return objpbox2(&obj[i], ppool, tpool, bx0, by0, bx1, by1);
 }
 
 /* Floor/ceil px -> grid conversions (negatives round correctly). */
