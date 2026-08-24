@@ -3228,8 +3228,8 @@ char	*g_winitems[] = { "Move", "Stretch", "Front", "Back", "Hide", "Quit" };
 
 /* Labels for the HRM_* bits, LSB first: entry i is bit (1 << i). */
 char	*g_appitems[] = { "New", "Open", "Save", "Cut", "Copy", "Paste",
-			  "Settings", "Help", "Print", "Find" };
-#define NAPPITEMS	10
+			  "Settings", "Help", "Print", "Find", "Search" };
+#define NAPPITEMS	11
 
 winmenu(w, x, y)
 {

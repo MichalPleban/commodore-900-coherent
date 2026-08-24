@@ -330,35 +330,63 @@ int	fitf;			/* -fit: fill the page (print: the        */
 				/* discrete ladder; ps: + a PostScript-   */
 				/* side remainder scale)                  */
 
+/* ---- -tile: the sheet bigger than the paper (VELLUM.md sec. 58) ----
+ * A drawing office tapes pages together.  The chosen backend runs ONCE
+ * PER PAGE with the walker's device origin stepped -- xorgx/xorgy
+ * already exist and already carry the used extent, so a page is an
+ * origin and a size, and there is no new rendering path.  One grid unit
+ * of OVERLAP on each seam gives the tape something to align on; the crop
+ * marks and the seam label are drawn with the backend's OWN b_line and
+ * b_text, so the XB struct does not grow (v4.1's promise kept). */
+#define	TLABH	12		/* margin strip for the seam label, px    */
+#define	TCROP	8		/* crop-mark tick length, px              */
+#define	PGLONG	1920		/* the Epson's page down the paper, dots  */
+
+int	tilef;			/* -tile                                  */
+int	tilen;			/* -tile -n: count the pages and stop     */
+static int	tpw, tph;	/* the page's CONTENT box, device px      */
+static int	trow, tcol;	/* the page being drawn, 0-based          */
+static int	tnr, tnc;	/* rows and columns of pages              */
+
+/* the seam furniture of the page just walked */
 static
-doprint()
+tfurn(xb)
+register XB *xb;
+{
+	char lb[40];
+
+	if ( !tilef )
+		return 0;
+	(*xb->b_style)(0);
+	(*xb->b_line)(0, 0, TCROP, 0);
+	(*xb->b_line)(0, 0, 0, TCROP);
+	(*xb->b_line)(tpw - TCROP, 0, tpw, 0);
+	(*xb->b_line)(tpw, 0, tpw, TCROP);
+	(*xb->b_line)(0, tph - TCROP, 0, tph);
+	(*xb->b_line)(0, tph, TCROP, tph);
+	(*xb->b_line)(tpw - TCROP, tph, tpw, tph);
+	(*xb->b_line)(tpw, tph - TCROP, tpw, tph);
+	sprintf(lb, "%d/%d row %c col %d", trow * tnc + tcol + 1, tnr * tnc,
+		'A' + trow, tcol + 1);
+	(*xb->b_text)(0, tph + 2, 0, lb);
+	return 0;
+}
+
+/* ONE PAGE of Epson raster, banded into 24-row head passes with the
+ * origin already stepped.  pw/ph are the page in DRAWING device px;
+ * -wide exchanges them on the way to the head (bset's transform). */
+static
+prpage(pw, ph)
 {
 	register int b, x, r;
-	int gx0, gy0, gx1, gy1, hdots, nb, devh;
+	int hdots, nb;
 
-	if ( !xextent(&gx0, &gy0, &gx1, &gy1) )
-	{
-		fprintf(stderr, "vellum: nothing to print\n");
-		return 1;
-	}
-	if ( fitf )
-	{
-		/* the largest scale on the discrete 2..32 ladder whose
-		 * printed width still fits the head */
-		r = (widef ? gy1 - gy0 : gx1 - gx0) + 2;
-		xsc = MAXDOTS / r;
-		if ( xsc > 32 ) xsc = 32;
-		if ( xsc < 2 ) xsc = 2;
-	}
-	xorgx = (gx0 - 1) * XSC;
-	xorgy = (gy0 - 1) * XSC;
-	devw = (gx1 - gx0 + 2) * XSC;
-	devh = (gy1 - gy0 + 2) * XSC;
-	bandw = widef ? devh : devw;	/* -wide: x/y exchanged */
+	devw = pw;
+	bandw = widef ? ph : pw;	/* -wide: x/y exchanged */
 	if ( bandw > MAXDOTS )
 		bandw = MAXDOTS;
 	bandwb = (bandw + 7) / 8;
-	hdots = widef ? devw : devh;
+	hdots = widef ? pw : ph;
 	if ( band == 0 )		/* once: a SET prints many sheets */
 		band = malloc(BANDH * ((MAXDOTS + 7) / 8));
 	if ( band == 0 )
@@ -377,6 +405,7 @@ doprint()
 		for ( x = 0; x < BANDH * bandwb; x++ )
 			band[x] = 0;
 		xwalk(&printxb);
+		tfurn(&printxb);
 		/* ESC * 39: 24-pin triple-density, 3 bytes per column */
 		printf("\033*%c%c%c", 39, bandw & 0xff,
 		       (bandw >> 8) & 0xff);
@@ -401,6 +430,38 @@ doprint()
 	putchar('\f');			/* eject */
 	printf("\033@");
 	return 0;
+}
+
+static
+doprint()
+{
+	int gx0, gy0, gx1, gy1, r;
+
+	if ( !xextent(&gx0, &gy0, &gx1, &gy1) )
+	{
+		fprintf(stderr, "vellum: nothing to print\n");
+		return 1;
+	}
+	if ( fitf )
+	{
+		/* the largest scale on the discrete 2..32 ladder whose
+		 * printed width still fits the head */
+		r = (widef ? gy1 - gy0 : gx1 - gx0) + 2;
+		xsc = MAXDOTS / r;
+		if ( xsc > 32 ) xsc = 32;
+		if ( xsc < 2 ) xsc = 2;
+	}
+	xorgx = (gx0 - 1) * XSC;
+	xorgy = (gy0 - 1) * XSC;
+	/* the live bug -print has carried since v1.2: the head is 960 dots
+	 * and the default sheet is 160 units wide.  It is no longer SILENT,
+	 * and -tile is the answer that keeps the edge (sec. 58). */
+	r = ((widef ? gy1 - gy0 : gx1 - gx0) + 2) * XSC;
+	if ( r > MAXDOTS )
+		fprintf(stderr,
+	"vellum: print: %d dots wide, the head prints %d -- use -tile or -fit\n",
+			r, MAXDOTS);
+	return prpage((gx1 - gx0 + 2) * XSC, (gy1 - gy0 + 2) * XSC);
 }
 
 /* ================================================================== */
@@ -652,6 +713,26 @@ char *s;
 XB	hpglxb = { hb_line, hb_box, hb_circle, hb_text, (int (*)())0,
 		   hb_style, hb_vtext, (int (*)())0, (int (*)())0 };
 
+/* ONE PAGE of HP-GL, with the origin already stepped: the plotter's own
+ * page is fixed, so -tile steps a big drawing across several of them. */
+static
+hpone(pw, ph)
+{
+	hymax = ph;
+	hpsty = 0;
+	hppen = 1;
+	printf("IN;SP1;LT;\n");
+	if ( tilef )			/* clip the walk to this page */
+		printf("IW0,%d,%d,%d;\n", TLABH * 4, tpw * 4,
+		       (tph + TLABH) * 4);
+	xwalk(&hpglxb);
+	if ( tilef )
+		printf("IW;\n");	/* ... the furniture rides outside it */
+	tfurn(&hpglxb);
+	printf("PU0,0;SP0;\n");
+	return 0;
+}
+
 static
 dohpgl()
 {
@@ -664,13 +745,7 @@ dohpgl()
 	}
 	xorgx = (gx0 - 1) * XSC;
 	xorgy = (gy0 - 1) * XSC;
-	hymax = (gy1 - gy0 + 2) * XSC;
-	hpsty = 0;
-	hppen = 1;
-	printf("IN;SP1;LT;\n");
-	xwalk(&hpglxb);
-	printf("PU0,0;SP0;\n");
-	return 0;
+	return hpone((gx1 - gx0 + 2) * XSC, (gy1 - gy0 + 2) * XSC);
 }
 
 /* ================================================================== */
@@ -885,24 +960,17 @@ register int *xy;
 XB	psxb = { ps_line, ps_box, ps_circle, ps_text, (int (*)())0,
 		 ps_style, ps_vtext, ps_poly, ps_varc };
 
-/* One sheet = one page.  -fit adds a PostScript-side scale filling the
- * A4 usable box (523 x 770 pt inside 36 pt margins): the ratio is
- * emitted as a PS rational -- OUR side stays integer. */
+/* ONE PAGE of PostScript, with the origin already stepped.  pw/ph are
+ * the page in device px; -fit's page-fill ratio reads them back as grid
+ * units, which is the same quantity it has always measured. */
 static
-dops()
+psone(pw, ph)
 {
-	int gx0, gy0, gx1, gy1, w, h;
+	int w, h;
 
-	if ( !xextent(&gx0, &gy0, &gx1, &gy1) )
-	{
-		fprintf(stderr, "vellum: nothing to print\n");
-		return 1;
-	}
-	xorgx = (gx0 - 1) * XSC;
-	xorgy = (gy0 - 1) * XSC;
-	psymax = (gy1 - gy0 + 2) * XSC;
-	w = gx1 - gx0 + 2;		/* extent, grid units */
-	h = gy1 - gy0 + 2;
+	psymax = ph;
+	w = pw / XSC;			/* extent, grid units */
+	h = ph / XSC;
 	if ( pspage == 0 )
 	{
 		printf("%%!PS-Adobe-1.0\n");
@@ -928,9 +996,138 @@ dops()
 	printf("1 setlinecap 1 setlinewidth [] 0 setdash\n");
 	pssty = 0;
 	psfont = -1;
+	/* -tile: CLIP the walk to this page.  The device clips anyway --
+	 * paper has edges -- but a page that draws the whole drawing and
+	 * lets the printer sort it out overprints its own crop marks, and
+	 * the marks are the reason the page has a margin. */
+	if ( tilef )
+	{
+		printf("gsave newpath 0 %d moveto %d %d lineto %d %d lineto\n",
+		       TLABH, tpw, TLABH, tpw, tph + TLABH);
+		printf("0 %d lineto closepath clip\n", tph + TLABH);
+	}
 	xwalk(&psxb);
+	if ( tilef )
+	{
+		printf("grestore\n");	/* the state gsave saw: style 0, no font */
+		pssty = 0;
+		psfont = -1;
+	}
+	tfurn(&psxb);
 	printf("grestore showpage\n");
 	return 0;
+}
+
+/* One sheet = one page.  -fit adds a PostScript-side scale filling the
+ * A4 usable box (523 x 770 pt inside 36 pt margins): the ratio is
+ * emitted as a PS rational -- OUR side stays integer. */
+static
+dops()
+{
+	int gx0, gy0, gx1, gy1;
+
+	if ( !xextent(&gx0, &gy0, &gx1, &gy1) )
+	{
+		fprintf(stderr, "vellum: nothing to print\n");
+		return 1;
+	}
+	xorgx = (gx0 - 1) * XSC;
+	xorgy = (gy0 - 1) * XSC;
+	return psone((gx1 - gx0 + 2) * XSC, (gy1 - gy0 + 2) * XSC);
+}
+
+/* ================================================================== */
+/* -tile: the drawing across as many pages as it takes (sec. 58)      */
+/* ================================================================== */
+
+static
+dotile(mode)
+char *mode;
+{
+	int gx0, gy0, gx1, gy1, pw, ph, fw, fh, w, h, ovl, sx, sy, r;
+
+	if ( !xextent(&gx0, &gy0, &gx1, &gy1) )
+	{
+		fprintf(stderr, "vellum: nothing to print\n");
+		return 1;
+	}
+	/* the PHYSICAL page of the chosen backend, device px */
+	if ( strcmp(mode, "ps") == 0 )
+	{
+		xsc = 8;		/* pinned like pic: 16 units/inch */
+		/* A4's usable box inside 36 pt margins: 16 units per inch
+		 * is 16/72 px per point, written 2/9 because 523 * 16 * 8
+		 * does not fit a 16-bit int */
+		pw = 523 * XSC * 2 / 9;
+		ph = 770 * XSC * 2 / 9;
+	}
+	else if ( strcmp(mode, "hpgl") == 0 )
+	{
+		pw = 10870 / 4;		/* A4 plotting area, HP-GL units  */
+		ph = 7600 / 4;		/* ... at 4 plotter units per px  */
+	}
+	else if ( widef )
+	{
+		pw = PGLONG;		/* -wide: the head runs down the  */
+		ph = MAXDOTS;		/* drawing's y instead            */
+	}
+	else
+	{
+		pw = MAXDOTS;		/* the head's printable width     */
+		ph = PGLONG;
+	}
+	fw = pw;			/* the full CONTENT box: the page */
+	fh = ph - TLABH;		/* less the seam label's margin   */
+	ovl = XSC;			/* one grid unit of overlap       */
+	w = (gx1 - gx0 + 2) * XSC;
+	h = (gy1 - gy0 + 2) * XSC;
+	sx = fw - ovl;
+	sy = fh - ovl;
+	if ( sx < ovl || sy < ovl )	/* a page smaller than its seam   */
+	{
+		fprintf(stderr, "vellum: -tile: the page is too small\n");
+		return 1;
+	}
+	tnc = w <= fw ? 1 : (w - ovl + sx - 1) / sx;
+	tnr = h <= fh ? 1 : (h - ovl + sy - 1) / sy;
+	if ( tilen )			/* how many pages, and stop */
+	{
+		printf("%d page%s: %d row%s of %d\n", tnr * tnc,
+		       tnr * tnc == 1 ? "" : "s", tnr, tnr == 1 ? "" : "s",
+		       tnc);
+		return 0;
+	}
+	r = 0;
+	/* row-major, so the pile tapes up in reading order */
+	for ( trow = 0; trow < tnr; trow++ )
+		for ( tcol = 0; tcol < tnc; tcol++ )
+		{
+			/* the LAST row and column are trimmed to what is
+			 * left of the drawing: nothing tapes to the outside
+			 * edge, so a full blank page there is paper (and,
+			 * for the Epson, minutes) spent on nothing */
+			tpw = w - tcol * sx;
+			if ( tpw > fw )
+				tpw = fw;
+			tph = h - trow * sy;
+			if ( tph > fh )
+				tph = fh;
+			xorgx = (gx0 - 1) * XSC + tcol * sx;
+			xorgy = (gy0 - 1) * XSC + trow * sy;
+			xclipon = 1;
+			xclipx0 = 0;
+			xclipy0 = 0;
+			xclipx1 = tpw;
+			xclipy1 = tph;
+			if ( strcmp(mode, "ps") == 0 )
+				r |= psone(tpw, tph + TLABH);
+			else if ( strcmp(mode, "hpgl") == 0 )
+				r |= hpone(tpw, tph + TLABH);
+			else
+				r |= prpage(tpw, tph + TLABH);
+		}
+	xclipon = 0;
+	return r;
 }
 
 /* ================================================================== */
@@ -1317,7 +1514,9 @@ char *fn;
 
 short	wnet[MAXOBJ];		/* wire object -> net root (union-find)   */
 
-static
+/* nfind/nunion/xonwire/xpinpos and netbuild() below are NOT static: the
+ * v5 asking modes (-len, -spice) are the same question asked twice, and
+ * a second union-find would be a second answer (VELLUM.md sec. 46). */
 nfind(i)
 {
 	while ( wnet[i] != i )
@@ -1325,7 +1524,6 @@ nfind(i)
 	return i;
 }
 
-static
 nunion(a, b)
 {
 	a = nfind(a);
@@ -1336,7 +1534,6 @@ nunion(a, b)
 }
 
 /* Is grid point (px,py) ON wire o (either leg)? */
-static
 xonwire(o, px, py)
 DOBJ *o;
 {
@@ -1364,7 +1561,6 @@ DOBJ *o;
 }
 
 /* device-independent pin position of pin k of symbol object i */
-static
 xpinpos(i, k, gx, gy)
 int *gx, *gy;
 {
@@ -1382,6 +1578,7 @@ int *gx, *gy;
 }
 
 #define	MAXNPIN	256
+#define	MAXNNAME (MAXOBJ / 4)	/* named nets one sheet can carry         */
 
 /* Named nets MERGE across the sheet set (sec. 19): a net named VBUS on
  * sheet 1 is the same conductor as VBUS on sheet 3.  Their pins pool
@@ -1458,19 +1655,25 @@ donetend()
 	return 0;
 }
 
-static
-donet(sheet)
+/* ------------------------------------------------------------------ */
+/* netbuild(): the CONNECTIVITY, with nothing said about it -- wires    */
+/* unioned, pins attached, nets named.  -net reports it, -check judges  */
+/* it, and the v5 modes -len and -spice ask it their own questions      */
+/* (VELLUM.md sec. 44 rule 1: every new verb is machinery that ships).  */
+/* The results are FILE-SCOPE, not donet's locals, exactly so.          */
+/* ------------------------------------------------------------------ */
+
+short	pobj[MAXNPIN], ppin[MAXNPIN], pnet[MAXNPIN];
+int	np;			/* pins found on this sheet               */
+char	nnm[MAXNNAME][10];	/* net root -> name (GND/VCC/N)           */
+short	nroot[MAXNNAME];
+int	nnames;
+
+netbuild()
 {
 	register DOBJ *o;
 	register int i, j;
-	int k, np, gx, gy, e, px, py;
-	int to, tp, ti, tt;		/* ERC typed-pin counts, per net */
-	short pobj[MAXNPIN], ppin[MAXNPIN], pnet[MAXNPIN];
-	char nnm[MAXOBJ / 4][10];	/* net root -> name (GND/VCC/N)   */
-	short nroot[MAXOBJ / 4];
-	int nnames;
-	int nid, first, cnt;
-	short outed[MAXOBJ];
+	int k, gx, gy, px, py;
 
 	for ( i = 0; i < nobj; i++ )
 		wnet[i] = i;
@@ -1586,6 +1789,20 @@ donet(sheet)
 				break;
 			}
 	}
+	return 0;
+}
+
+static
+donet(sheet)
+{
+	register DOBJ *o;
+	register int i, j;
+	int k;
+	int to, tp, ti, tt;		/* ERC typed-pin counts, per net */
+	int nid, cnt;
+	short outed[MAXOBJ];
+
+	netbuild();
 	/* output: one line per net with pins on it.  A NAMED net is not
 	 * printed here: its pins pool into the set-wide merge table and
 	 * print after the last sheet (donetend); unnamed nets print now,
@@ -1812,60 +2029,227 @@ dorenum(base)
 /* entry                                                              */
 /* ================================================================== */
 
+/* Is `m' one of the modes this binary knows?  (The editor forwards ANY
+ * lowercase -mode here without a relink -- the v2.5 decision that keeps
+ * paying, and the one that makes every v5 verb cost the editor zero.) */
+static
+knownmode(m)
+char *m;
+{
+	static char *mv[] = {
+		"print", "pic", "net", "hpgl", "bom", "check", "ps", "dxf",
+		"renum", "diff", "len", "where", "spice", "symsheet",
+		"mksym", "symcheck", "book",
+		(char *)0
+	};
+	register char **p;
+
+	for ( p = mv; *p; p++ )
+		if ( strcmp(*p, m) == 0 )
+			return 1;
+	return 0;
+}
+
 /* Every file argument is a SHEET; shell globs are the set syntax
  * (sec. 19): -print emits a form feed between sheets, -net merges
- * named nets across them, -bom yields ONE parts list for the design. */
+ * named nets across them, -bom yields ONE parts list for the design.
+ * The v5 modes (sec. 44) take their own shapes -- two revisions for
+ * -diff, a pattern then sheets for -where, one .sym for -symsheet --
+ * and are dispatched from the same loop. */
 velxport(argc, argv)
 char **argv;
 {
 	register char *mode;
 	register int i;
-	int r, first, rbase;
+	int r, first, rbase, markf, v5;
+	char *wpat;
 
 	rbase = 1;
+	markf = 0;
+	wpat = "";
 	mode = (char *)0;
-	for ( i = 1; i < argc && argv[i][0] == '-'; i++ )
+	/* a bare "-" is a FILE (stdin), not an option (sec. 49) */
+	for ( i = 1; i < argc && argv[i][0] == '-' && argv[i][1]; i++ )
 	{
 		if ( strcmp(argv[i], "-wide") == 0 )
 			widef = 1;
 		else if ( strcmp(argv[i], "-fit") == 0 )
 			fitf = 1;
+		else if ( strcmp(argv[i], "-mark") == 0 )
+			markf = 1;
+		else if ( strcmp(argv[i], "-tile") == 0 )
+			tilef = 1;
+		else if ( strcmp(argv[i], "-n") == 0 )
+			tilen = 1;
 		else if ( strcmp(argv[i], "-scale") == 0 && i + 1 < argc )
+		{
 			xsc = atoi(argv[++i]);
+			mksc = xsc;	/* -mksym DIVIDES by it (sec. 55) */
+		}
 		else if ( strcmp(argv[i], "-base") == 0 && i + 1 < argc )
 			rbase = atoi(argv[++i]);
+		/* -mksym carries its CODE, then more options, then the
+		 * sketch: the stencil's name is not a file (sec. 55) */
+		else if ( strcmp(argv[i], "-mksym") == 0 && i + 1 < argc )
+		{
+			mode = "mksym";
+			mkcode = argv[++i];
+		}
+		else if ( strcmp(argv[i], "-pfx") == 0 && i + 1 < argc )
+			mkpfx = argv[++i];
+		else if ( strcmp(argv[i], "-org") == 0 && i + 1 < argc )
+		{
+			register char *q;
+
+			q = argv[++i];
+			mkorgx = atoi(q);
+			while ( *q && *q != ',' )
+				q++;
+			mkorgy = *q ? atoi(q + 1) : 0;
+			mkorgf = 1;
+		}
+		else if ( strcmp(argv[i], "-type") == 0 && i + 1 < argc )
+		{
+			if ( !mktype(argv[++i]) )
+			{
+				fprintf(stderr,
+				    "vellum: -type wants NAME=t\n");
+				return 1;
+			}
+		}
 		else if ( mode == (char *)0 )
 			mode = argv[i] + 1;
 		else
 			mode = "?";
 	}
+	if ( mksc < 1 || mksc > 32 )
+		mksc = 1;
 	if ( xsc < 2 || xsc > 32 )
 		xsc = 8;
+	/* -tile with no backend named is the page COUNT (sec. 58) */
+	if ( tilef && mode == (char *)0 && tilen )
+		mode = "print";
 	nsheets = argc - i;
-	if ( mode == (char *)0 || nsheets < 1 ||
-	     (strcmp(mode, "print") != 0 && strcmp(mode, "pic") != 0 &&
-	      strcmp(mode, "net") != 0 && strcmp(mode, "hpgl") != 0 &&
-	      strcmp(mode, "bom") != 0 && strcmp(mode, "check") != 0 &&
-	      strcmp(mode, "ps") != 0 && strcmp(mode, "dxf") != 0 &&
-	      strcmp(mode, "renum") != 0) ||
-	     (strcmp(mode, "renum") == 0 && nsheets != 1) )
+	/* -where takes its PATTERN first, then the sheets */
+	if ( mode != (char *)0 && strcmp(mode, "where") == 0 && nsheets >= 2 )
+	{
+		wpat = argv[i++];
+		nsheets--;
+	}
+	if ( mode == (char *)0 || nsheets < 1 || !knownmode(mode) ||
+	     ((strcmp(mode, "renum") == 0 || strcmp(mode, "mksym") == 0 ||
+	       strcmp(mode, "symsheet") == 0) && nsheets != 1) ||
+	     (strcmp(mode, "diff") == 0 && nsheets != 2) ||
+	     (strcmp(mode, "where") == 0 && wpat[0] == 0) )
 	{
 		fprintf(stderr,
-	"usage: vellum -print|-pic|-net|-hpgl|-bom|-check|-ps|-dxf [-wide] [-fit] [-scale N] file.d ...\n");
+	"usage: vellum -print|-pic|-net|-hpgl|-bom|-check|-ps|-dxf|-len|-spice [-wide] [-fit] [-scale N] file.d ...\n");
 		fprintf(stderr,
 	"       vellum -renum [-base N] file.d > out.d\n");
+		fprintf(stderr,
+	"       vellum -diff [-mark] old.d new.d\n");
+		fprintf(stderr,
+	"       vellum -where STR file.d ...\n");
+		fprintf(stderr,
+	"       vellum -symsheet lib.sym > card.d\n");
+		fprintf(stderr,
+	"       vellum -mksym CODE [-pfx P] [-org x,y] [-scale n] [-type NAME=t] file.d >> lib.sym\n");
+		fprintf(stderr,
+	"       vellum -symcheck lib.sym ...\n");
+		fprintf(stderr,
+	"       vellum -book sheet.d ... > contents.d\n");
+		fprintf(stderr,
+	"       vellum -tile [-n] -print|-ps|-hpgl big.d\n");
 		return 1;
 	}
+	/* -tile means "as many pages as it takes" and -fit means "make
+	 * this ONE page": that is the opposite instruction, and it is an
+	 * error in one line rather than a silent precedence rule. */
+	if ( tilef && fitf )
+	{
+		fprintf(stderr,
+		    "vellum: -tile and -fit are opposite instructions\n");
+		return 1;
+	}
+	if ( tilef && strcmp(mode, "print") != 0 && strcmp(mode, "ps") != 0 &&
+	     strcmp(mode, "hpgl") != 0 )
+	{
+		fprintf(stderr,
+		    "vellum: -tile applies to -print, -ps and -hpgl\n");
+		return 1;
+	}
+	/* -symcheck reads symbol LIBRARIES, not drawings, and it reads
+	 * ONLY the ones it is given: the standard set is not loaded
+	 * underneath, so "defined in both" means these files (sec. 56) */
+	if ( strcmp(mode, "symcheck") == 0 )
+	{
+		for ( ; i < argc; i++ )
+			dosymcheck(argv[i]);
+		return dosymcheckend();
+	}
+	/* -symsheet reads a symbol LIBRARY, not a drawing, and it reads
+	 * only the one it is given: the card is THAT library's card */
+	if ( strcmp(mode, "symsheet") == 0 )
+		return dosymsheet(argv[i]);
 	checkf = strcmp(mode, "check") == 0;
+	v5 = strcmp(mode, "len") == 0 || strcmp(mode, "where") == 0 ||
+	     strcmp(mode, "spice") == 0;
+	/* -tile pins the scale its backend pins, before the first page */
+	if ( tilef && strcmp(mode, "ps") == 0 )
+		xsc = 8;
 	loadsyms();
+	if ( strcmp(mode, "spice") == 0 )
+		printf("* vellum -spice\n");
 	r = 0;
 	first = i;
 	for ( ; i < argc; i++ )
 	{
-		if ( loadfile(argv[i]) < 0 )
+		if ( (argv[i][0] == '-' && argv[i][1] == 0 ?
+		      loadstdin() : loadfile(argv[i])) < 0 )
 		{
 			fprintf(stderr, "vellum: cannot open %s\n", argv[i]);
 			return 1;
+		}
+		/* -len adds no millimetres to inches: a set whose sheets
+		 * disagree about the unit is refused in one line (sec. 46),
+		 * and that disagreement is already a -check finding.  Only
+		 * -len: -where and -spice never multiply by a unit, and a
+		 * -diff across a unit change REPORTS it (dodiff) instead of
+		 * refusing to look. */
+		if ( strcmp(mode, "len") == 0 )
+		{
+			static int u0;
+			static char un0[UNAMEL];
+
+			if ( i == first )
+			{
+				u0 = unum;
+				strcpy(un0, uname);
+			}
+			else if ( unum != u0 || strcmp(uname, un0) != 0 )
+			{
+				fprintf(stderr,
+		"vellum: %s: units U %d %s disagree with the set's\n",
+					argv[i], unum, uname);
+				return 1;
+			}
+		}
+		if ( strcmp(mode, "diff") == 0 )
+		{
+			/* the OLD revision is shadowed whole, the NEW one
+			 * stays live: the only mode that holds two */
+			if ( i == first )
+			{
+				dsave();
+				continue;
+			}
+			velv5diff(argv[i], markf);
+			return velv5end(mode);
+		}
+		if ( v5 )
+		{
+			velv5(mode, i - first + 1, argv[i], wpat);
+			continue;
 		}
 		if ( checkf )
 		{
@@ -1910,6 +2294,8 @@ char **argv;
 				donet(i - first + 1);
 			}
 		}
+		else if ( tilef )
+			r |= dotile(mode);
 		else if ( strcmp(mode, "print") == 0 )
 			r |= doprint();
 		else if ( strcmp(mode, "pic") == 0 )
@@ -1924,6 +2310,10 @@ char **argv;
 			xsc = 8;	/* pinned like pic: 16 units/inch */
 			r |= dops();
 		}
+		else if ( strcmp(mode, "mksym") == 0 )
+			r |= domksym(argv[i]);
+		else if ( strcmp(mode, "book") == 0 )
+			dobook(i - first + 1, argv[i]);
 		else if ( strcmp(mode, "dxf") == 0 )
 		{
 			xsc = 4;	/* grid units out, quarter-unit exact */
@@ -1948,6 +2338,8 @@ char **argv;
 			fprintf(stderr, "vellum: check clean\n");
 		return chkn > 254 ? 254 : chkn;
 	}
+	if ( v5 )
+		return velv5end(mode);
 	if ( strcmp(mode, "bom") == 0 )
 		dobomout();
 	else if ( strcmp(mode, "net") == 0 )

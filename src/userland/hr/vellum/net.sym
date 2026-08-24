@@ -12,7 +12,7 @@ p 0 8
 p -8 0
 p 8 0
 end
-symbol TERM T
+symbol VDU T
 s -8 -8 8 -8
 s 8 -8 8 2
 s 8 2 -8 2

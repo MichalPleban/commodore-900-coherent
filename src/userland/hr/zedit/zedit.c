@@ -17,7 +17,10 @@
  *
  * Commands live in the window menu (wire.h HRM_*): New, Open, Save, Cut,
  * Copy, Paste, Help.  Open and Save put up a modal file-name dialog (hrdlg); Save
- * comes prefilled with the current name.  Cut/Copy write the mouse selection
+ * comes prefilled with the current name.  The window menu's Search entry
+ * (wire.h HRM_SEARCH) opens the Find/Replace card -- Find, Replace (one
+ * match, two-phase) and All (from the cursor to the end of the buffer).
+ * Cut/Copy write the mouse selection
  * to the CLIPBOARD store; Paste inserts the clipboard at the cursor.  The
  * select-drag also publishes the PRIMARY selection on release, and a
  * middle-click E_PASTE inserts PRIMARY at the click -- both system gestures
@@ -33,12 +36,13 @@
  *      so ^K^K takes text + newline -- the classic line-moving idiom)
  *   ^W kill the selection into the kill buffer    ^Y yank it back
  *   ^O open a line below the cursor   ^T transpose   ^L recentre + redraw
- *   ^S find next (a Find dialog asks for the pattern the first time)
+ *   ^S find next (the Search dialog asks for the pattern the first time)
  *   ^G abort (drop the selection)
  *   ^X^C quit -- the MicroEMACS exit chord; asks only when the buffer is
  *      modified (the window-menu Quit asks the server's generic question)
  *   ESC is Meta:  M-< / M-> buffer start/end   M-v page up
- *                 M-f / M-b word forward/back  M-s new search pattern
+ *                 M-f / M-b word forward/back  M-s the Search dialog
+ *                 M-r replace this match and step to the next
  * and the function keys (wire.h HRK_*):
  *   Help (F11) = this list as a dialog     F2 = save (dialog only if unnamed)
  *   F3 = Open   F4 = New   F5/F6/F7 = Cut/Copy/Paste   F8 = find next
@@ -82,7 +86,7 @@ extern char	*malloc();
  * match windows to catalog entries by it, so it must equal the catalog name. */
 HRAPP	me = { "Editor", "edit.icn", 0, 0, HRF_STRETCH | HRF_CONFIRM, 0, 0,
 	       HRM_NEW | HRM_OPEN | HRM_SAVE | HRM_CUT | HRM_COPY | HRM_PASTE |
-	       HRM_HELP };
+	       HRM_SEARCH | HRM_HELP };
 
 int	mywid;
 int	cellw, cellh;		/* cell metrics (terminal font)               */
@@ -128,6 +132,7 @@ int	metap;			/* 1 = ESC seen: next key is a Meta command   */
 int	ctlxp;			/* 1 = ^X seen: next key completes the chord  */
 
 char	srchbuf[32];		/* the search pattern (^S / M-s)              */
+char	replbuf[32];		/* the replacement text (Search dialog, M-r)  */
 
 /* ------------------------------------------------------------------ */
 /* line storage                                                       */
@@ -1443,38 +1448,55 @@ char *msg;
 	return r == 1;		/* the Discard button */
 }
 
-/* ---- the Find dialog (^S / M-s) ------------------------------------ */
+/* ---- the Search dialog (window menu / ^S / M-s) --------------------- *
+ * Find and Replace on one card -- the window menu's "Search" entry (wire.h
+ * HRM_SEARCH).  Find CLOSES the dialog on a hit: the point of finding
+ * something is to look at it, and the card sits over the text.  Replace
+ * and All keep it up and answer on the message line instead, because what
+ * the user wants back from them is a count, not a view. */
 
-char	smsg[24];
+char	smsg[32];
 
 HRWIDGET sfw[] = {
     { DW_LABEL,   12,  16,   0,  0, "Find:" },
-    { DW_TEXT,    70,  12, 200, 22, (char *)0, 0, 0, srchbuf, sizeof(srchbuf) },
-    { DW_LABEL,   12,  46,   0,  0, smsg },
-    { DW_BUTTON,  60,  72,  70, DLG_BTNH, "Find",   0, 0, (char *)0, 0,
+    { DW_TEXT,   100,  12, 200, 22, (char *)0, 0, 0, srchbuf, sizeof(srchbuf) },
+    { DW_LABEL,   12,  48,   0,  0, "Replace:" },
+    { DW_TEXT,   100,  44, 200, 22, (char *)0, 0, 0, replbuf, sizeof(replbuf) },
+    { DW_LABEL,   12,  78,   0,  0, smsg },
+    { DW_BUTTON,  12, 104,  70, DLG_BTNH, "Find",    0, 0, (char *)0, 0,
       DWF_DEF | DWF_END },
-    { DW_BUTTON, 170,  72,  80, DLG_BTNH, "Cancel", 0, 0, (char *)0, 0,
+    { DW_BUTTON,  98, 104,  90, DLG_BTNH, "Replace", 0, 0, (char *)0, 0,
+      DWF_END },
+    { DW_BUTTON, 204, 104,  70, DLG_BTNH, "All",     0, 0, (char *)0, 0,
+      DWF_END },
+    { DW_BUTTON, 290, 104,  80, DLG_BTNH, "Cancel",  0, 0, (char *)0, 0,
       DWF_CANCEL | DWF_END },
 };
 #define	NSFW	(sizeof(sfw) / sizeof(sfw[0]))
-#define	SF_MSG	2
-#define	SF_OK	3
+#define	SF_MSG	4
+#define	SF_FIND	5
+#define	SF_REPL	6
+#define	SF_ALL	7
 
-/* Move the cursor to the next occurrence of srchbuf after it, scanning
- * forward and wrapping past the end (matches never span a newline).
- * Returns 1 and moves the cursor, or 0. */
+/* Move the cursor to the next occurrence of srchbuf at or after column c0
+ * of the current line, scanning forward; `wrap' carries on past the end of
+ * the document back to the top (matches never span a newline).  Returns 1
+ * and moves the cursor, or 0 and leaves it where it was. */
 static
-findnext()
+findfrom(c0, wrap)
 {
 	register char *p;
 	register int c;
-	int i, l, c0, len, plen;
+	int i, l, len, plen;
 
 	plen = strlen(srchbuf);
 	if ( plen == 0 )
 		return 0;
+	if ( c0 < 0 )
+		c0 = 0;
 	l = dotl;
-	c0 = dotc + 1;
+	/* nln + 1 passes, so a wrap comes back to the starting line and a
+	 * match BEFORE the cursor on it is found too */
 	for ( i = 0; i <= nln; i++ )
 	{
 		p = ln[l];
@@ -1488,16 +1510,102 @@ findnext()
 			}
 		l++;
 		if ( l >= nln )
+		{
+			if ( !wrap )
+				return 0;
 			l = 0;
+		}
 		c0 = 0;
 	}
 	return 0;
 }
 
-/* ^S: find the next match; the first ^S (or M-s, any time) asks for the
- * pattern with a dialog, which stays up saying "Not found" rather than
- * silently doing nothing.  A repeat ^S that finds nothing just leaves the
- * cursor where it is. */
+static
+findnext()
+{
+	return findfrom(dotc + 1, 1);
+}
+
+/* Replace the srchbuf match AT the cursor with replbuf, leaving the cursor
+ * just past what was put in.  0 = the cursor is not on a match, or the
+ * result would not fit a stored line (nothing is ever truncated). */
+static
+replhere()
+{
+	register char *p;
+	register int i;
+	int len, plen, rlen, n;
+
+	plen = strlen(srchbuf);
+	if ( plen == 0 )
+		return 0;
+	rlen = strlen(replbuf);
+	p = ln[dotl];
+	len = strlen(p);
+	if ( dotc + plen > len || strncmp(p + dotc, srchbuf, plen) != 0 )
+		return 0;
+	if ( len - plen + rlen > MAXLL )
+		return 0;
+	n = 0;
+	for ( i = 0; i < dotc; i++ )
+		wk[n++] = p[i];
+	for ( i = 0; i < rlen; i++ )
+		wk[n++] = replbuf[i];
+	for ( i = dotc + plen; i < len; i++ )
+		wk[n++] = p[i];
+	if ( setline(dotl, wk, n) < 0 )
+		return 0;
+	dotc += rlen;
+	modified = 1;
+	return 1;
+}
+
+/* Replace the match under the cursor (if it is on one) and step to the
+ * next.  Returns 1 when something was rewritten.  Shared by the dialog's
+ * Replace button and by M-r, which is the see-as-you-go path: the dialog
+ * covers the text, M-r does not. */
+static
+replnext()
+{
+	int did;
+
+	did = replhere();
+	/* from dotc, NOT dotc + 1, after a replacement: an empty or shorter
+	 * replacement can leave the cursor exactly where the next match
+	 * begins, and that one must not be skipped */
+	findfrom(did ? dotc : dotc + 1, 1);
+	return did;
+}
+
+/* Replace every match from the cursor to the END of the buffer (the
+ * MicroEMACS rule: Replace All is not a whole-file promise), then put the
+ * cursor back where it started.  Returns the count. */
+static
+replall()
+{
+	int l0, c0, n;
+
+	if ( srchbuf[0] == 0 )
+		return 0;
+	l0 = dotl;
+	c0 = dotc;
+	n = 0;
+	while ( findfrom(dotc, 0) )
+		if ( replhere() )
+			n++;
+		else
+			dotc++;		/* would not fit: step over it */
+	dotl = l0;
+	dotc = c0;
+	if ( dotc > strlen(ln[dotl]) )
+		dotc = strlen(ln[dotl]);
+	return n;
+}
+
+/* ^S: find the next match; the first ^S (or M-s, or the window menu's
+ * Search, any time) puts up the dialog, which stays up saying "Not found"
+ * rather than silently doing nothing.  A repeat ^S that finds nothing just
+ * leaves the cursor where it is. */
 static
 dosearch(newpat)
 {
@@ -1506,8 +1614,8 @@ dosearch(newpat)
 	if ( newpat || srchbuf[0] == 0 )
 	{
 		smsg[0] = 0;
-		w = 284;
-		h = 116;
+		w = 384;
+		h = 140;
 		r = hr_dlgopen(&w, &h);
 		if ( r == -2 )
 			exit(0);
@@ -1524,16 +1632,36 @@ dosearch(newpat)
 				hr_dlgclose();
 				exit(0);
 			}
-			if ( r != SF_OK )
+			if ( r != SF_FIND && r != SF_REPL && r != SF_ALL )
 				break;
 			if ( srchbuf[0] == 0 )
 			{
 				strcpy(smsg, "Enter text to find");
 				continue;
 			}
-			if ( findnext() )
-				break;
-			strcpy(smsg, "Not found");
+			if ( r == SF_FIND )
+			{
+				if ( findnext() )
+					break;	/* go and look at it */
+				strcpy(smsg, "Not found");
+			}
+			else if ( r == SF_REPL )
+			{
+				/* two-phase, as everywhere: the first
+				 * Replace on a cursor that is not yet on
+				 * a match only goes to one */
+				if ( replhere() )
+				{
+					findfrom(dotc, 1);
+					strcpy(smsg, "Replaced");
+				}
+				else if ( findfrom(dotc + 1, 1) )
+					strcpy(smsg, "Replace again to change it");
+				else
+					strcpy(smsg, "Not found");
+			}
+			else
+				sprintf(smsg, "%d replaced", replall());
 		}
 		hr_dlgclose();
 	}
@@ -1554,13 +1682,14 @@ HRWIDGET hwg[] = {
     { DW_LABEL, 12,  72, 0, 0, "^W kill selection   ^Y yank it back" },
     { DW_LABEL, 12,  92, 0, 0, "^O open line  ^T transpose  ^L recentre" },
     { DW_LABEL, 12, 112, 0, 0, "^S find next  ^G abort selection" },
-    { DW_LABEL, 12, 132, 0, 0, "ESC then:  < > top/end   v page up" },
-    { DW_LABEL, 12, 152, 0, 0, "           f b word   s new search" },
-    { DW_LABEL, 12, 172, 0, 0, "F2 Save    F3 Open     F4 New" },
-    { DW_LABEL, 12, 192, 0, 0, "F5 Cut     F6 Copy     F7 Paste   F8 Find" },
-    { DW_LABEL, 12, 212, 0, 0, "Clear/Home top of file   Stop/Cont abort" },
-    { DW_LABEL, 12, 232, 0, 0, "F10 or ^X^C quit (asks if unsaved)" },
-    { DW_BUTTON, 171, 264, 70, DLG_BTNH, "OK", 0, 0, (char *)0, 0,
+    { DW_LABEL, 12, 132, 0, 0, "Search (window menu): Find / Replace / All" },
+    { DW_LABEL, 12, 152, 0, 0, "ESC then:  < > top/end   v page up" },
+    { DW_LABEL, 12, 172, 0, 0, "           f b word   s Search   r replace" },
+    { DW_LABEL, 12, 192, 0, 0, "F2 Save    F3 Open     F4 New" },
+    { DW_LABEL, 12, 212, 0, 0, "F5 Cut     F6 Copy     F7 Paste   F8 Find" },
+    { DW_LABEL, 12, 232, 0, 0, "Clear/Home top of file   Stop/Cont abort" },
+    { DW_LABEL, 12, 252, 0, 0, "F10 or ^X^C quit (asks if unsaved)" },
+    { DW_BUTTON, 189, 284, 70, DLG_BTNH, "OK", 0, 0, (char *)0, 0,
       DWF_DEF | DWF_CANCEL | DWF_END },
 };
 #define	NHWG	(sizeof(hwg) / sizeof(hwg[0]))
@@ -1570,8 +1699,8 @@ dohelp()
 {
 	int w, h, r;
 
-	w = 412;
-	h = 308;
+	w = 448;
+	h = 328;
 	r = hr_dlgopen(&w, &h);
 	if ( r == -2 )
 		exit(0);
@@ -1660,6 +1789,7 @@ dokey(c)
 		case 'f': case 'F':	wordfwd();			break;
 		case 'b': case 'B':	wordback();			break;
 		case 's': case 'S':	dosearch(1);			break;
+		case 'r': case 'R':	replnext();			break;
 		}				/* unknown Meta: ignored */
 		fixview();
 		return 0;
@@ -1880,6 +2010,7 @@ char **argv;
 				case HRM_CUT:	putsel(1);  delsel();	break;
 				case HRM_COPY:	putsel(1);		break;
 				case HRM_PASTE:	insstream(1);		break;
+				case HRM_SEARCH: dosearch(1);		break;
 				case HRM_HELP:	dohelp();		break;
 				}
 				need = 1;

@@ -356,8 +356,13 @@ usage()
 didnt(reason)
 char *reason;
 {
+	/* -f means "and do not complain", so it must also mean "and do
+	 * not FAIL": the bare `return' here left remove()'s value --
+	 * and rm's exit status -- indeterminate, so `rm -f nosuchfile'
+	 * failed at random.  make(1) recipes open with exactly that
+	 * line, and one of ours died on it.  (Aug 2026.) */
 	if (fflag)
-	   return;
+	   return (0);
 	if (reason == NULL)
    	   lerror(fname);
 	else

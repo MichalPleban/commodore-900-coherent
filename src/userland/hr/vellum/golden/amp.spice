@@ -1,0 +1,10 @@
+* vellum -spice
+* sheet amp.d
+R1 1 2 47K
+R2 1 3 4.7K
+Q1 3 2 4 BC237
+R3 2 0 10K
+R4 4 0 1K
+C1 5 2 100N
+C2 3 6 100N
+.END

@@ -175,6 +175,8 @@ typedef struct {
 	short	*sy_ops;
 	short	*sy_pins;	/* count-prefixed q pairs (0 = none)      */
 	char	sy_lib;		/* library group it belongs to            */
+	short	sy_nfile;	/* p lines the FILE had (the loader keeps */
+				/* 8: -symcheck says so, sec. 56)         */
 	short	sy_x0, sy_y0;	/* q bbox, computed once at start-up      */
 	short	sy_x1, sy_y1;
 } SYMDEF;
@@ -240,8 +242,11 @@ extern int	dohelp();
 extern int	libdlg();	/* the scrollable library chooser         */
 extern int	doedit();	/* open the current library in SymEdit    */
 extern int	printdlg();	/* Print/Preview from the board (v3.1)    */
-extern int	finddlg();	/* Find + Sheets... (v3.2)                */
+extern int	searchdlg();	/* Search + Sheets... (v3.2, v7.0)        */
+extern int	searchgo();	/* step to the next/prev hit              */
+extern int	searchagain();	/* `a': repeat, no dialog                 */
 extern int	arraydlg();	/* array duplicate (v3.4)                 */
+extern int	mksymdlg();	/* Make Symbol: selection -> stencil      */
 extern int	doarray();	/* vellum.c: the nx x ny duplicate loop   */
 extern int	dodup2();	/* vellum.c: one offset duplicate         */
 extern int	palview();	/* vellum.c: rebuild the palette view     */
@@ -354,6 +359,8 @@ extern int	xextent();	/* grid extent of the printable drawing   */
 extern char	*tok();		/* velfile.c: tokenizer                   */
 extern int	symbycode();	/* velfile.c                              */
 extern int	loadlib();	/* velfile.c: one .sym library file       */
+extern int	libdrop;	/* ... symbols it dropped (pool full)     */
+extern char	*libpool;	/* ... which pool filled, named           */
 extern int	loadsyms();	/* velfile.c: LIBLIST + user scratch      */
 extern int	fmtobj();	/* velfile.c: object -> .d line           */
 extern int	writefile();	/* velfile.c: save, modified untouched    */
@@ -367,3 +374,45 @@ extern int	rejunc();	/* vellum.c: junction dots                */
 extern int	symbounds();	/* vellum.c: symbol q bboxes              */
 extern int	resolveatt();	/* vellum.c: re-resolve one conn end      */
 extern int	velxport();	/* velport.c: headless -print/-pic/-net   */
+
+/* ---- velport.c: the CONNECTIVITY, computed once and asked several
+ * questions -- -net reports it, -check judges it, and the v5 modes
+ * -len and -spice measure and translate it (VELLUM.md sec. 44 rule 1:
+ * every new verb is machinery that already ships) ---- */
+extern int	netbuild();	/* wires unioned, pins attached, nets named */
+extern int	nfind();	/* union-find root of wire object i       */
+extern int	nunion();
+extern int	xonwire();	/* is a grid point on wire o?             */
+extern int	xpinpos();	/* grid position of pin k of symbol i     */
+extern short	wnet[];
+extern short	pobj[], ppin[], pnet[];	/* the sheet's pins and nets      */
+extern int	np;
+extern int	nnames;		/* named nets: nnm[k] at root nroot[k]    */
+extern int	nsheets;
+
+/* ---- velv5.c: the ASKING modes (VELLUM.md secs. 45-49) -- velxport
+ * only; the editor forwards the flag and links none of it ---- */
+extern int	loadstdin();	/* velv5.c: load the "-" pipe form        */
+extern int	dsave();	/* live drawing -> the diff's shadow copy */
+extern int	dodiff();	/* dodiff(mark): the whole comparison     */
+extern int	velv5();	/* velv5(mode, sheet, file, pat): one sheet */
+extern int	velv5end();	/* ... after the last one; exit status    */
+extern int	velv5diff();	/* velv5diff(newname, mark)               */
+extern int	dosymsheet();	/* one .sym library -> a reference card   */
+
+/* ---- velv6.c: the CONTENT modes (VELLUM.md secs. 55, 56, 59) -- what
+ * the shop draws becomes what the shop draws with.  velxport only. ---- */
+extern char	*mkcode, *mkpfx;	/* -mksym CODE, -pfx P            */
+extern int	mkorgx, mkorgy, mkorgf;	/* -org x,y                       */
+extern int	mksc;			/* -scale n (the sketch's size)   */
+extern int	mktype();	/* velv6: record one -type NAME=t         */
+extern int	domksym();	/* a drawing -> one symbol ... end block  */
+extern int	dosymcheck();	/* one .sym library, judged               */
+extern int	dosymcheckend();/* ... after the last; the exit status    */
+extern int	dobook();	/* one sheet's contents row               */
+
+/* ---- velwalk.c: the device-space PAGE REJECT (sec. 58) -- while
+ * xclipon, xwalk skips an object whose device bbox misses the window,
+ * so an N-page -tile is not N full walks of the drawing ---- */
+extern int	xclipon;
+extern int	xclipx0, xclipy0, xclipx1, xclipy1;

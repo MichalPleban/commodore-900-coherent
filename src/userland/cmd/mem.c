@@ -37,6 +37,8 @@
 #define	aasize		nl[3].n_value
 #define	aend		nl[4].n_value
 #define	aromconf	nl[5].n_value
+#define	asegpacks	nl[6].n_value
+#define	asegpackc	nl[7].n_value
 
 struct nlist nl[] ={
 	"segmq_",	0,	0,
@@ -45,6 +47,8 @@ struct nlist nl[] ={
 	"asize_",	0,	0,
 	"end_",		0,	0,
 	"romconf_",	0,	0,
+	"segpacks_",	0,	0,
+	"segpackc_",	0,	0,
 	/* The terminator must be a COMPLETE initializer group: the z8001 PCC
 	 * drops a trailing partial group, so a bare "" left the array one
 	 * element short and nlist() scanned (and zeroed!) past its end. */
@@ -66,6 +70,7 @@ char *argv[];
 	saddr_t corebot, coretop, prev;
 	unsigned total, used, sharedk, savedk, stackk, systk;
 	unsigned nseg, nshared, ngap, gap, biggap;
+	unsigned packs, packc;
 	char *cp;
 
 	for (i = 1; i < argc; i++)
@@ -94,6 +99,8 @@ char *argv[];
 	kread((long)acorebot, (char *)&corebot, sizeof (corebot));
 	kread((long)acoretop, (char *)&coretop, sizeof (coretop));
 	kread((long)aromconf, (char *)&rc, sizeof (rc));
+	kread((long)asegpacks, (char *)&packs, sizeof (packs));
+	kread((long)asegpackc, (char *)&packc, sizeof (packc));
 
 	/* rom_bram/rom_eram are 1 Kb clicks despite romconf.h's stale
 	 * "512 byte click" comment: mcheck() assigns rom_bram straight into
@@ -171,6 +178,13 @@ char *argv[];
 		printf("system  %5uK\n", systk);
 	printf("free    %5uK  in %u holes, largest %uK\n",
 		total - used, ngap, biggap);
+	/* Compaction (segpack, seg.c) runs only when an allocation could
+	 * not be met from any one hole, so a rising count is the direct
+	 * measure of how often fragmentation -- rather than a plain
+	 * shortage -- was what stood in the way. */
+	if (packs != 0)
+		printf("packed  %5uK  moved in %u compactions\n",
+			packc, packs);
 	exit(0);
 }
 

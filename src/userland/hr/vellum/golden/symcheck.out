@@ -1,0 +1,2 @@
+vellum: symcheck clean
+symcheck=0

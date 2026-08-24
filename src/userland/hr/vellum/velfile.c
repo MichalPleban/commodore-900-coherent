@@ -82,6 +82,14 @@ char **pp;
 	return 1;
 }
 
+/* Why loadlib DROPPED something, for -symcheck (VELLUM.md sec. 56):
+ * the loader has always dropped silently when a pool filled, and the
+ * load order then decides which stencil a drawing gets.  libdrop counts
+ * the symbols lost in the last loadlib call and libpool names the pool
+ * that filled -- the caller clears them; nothing else pays. */
+int	libdrop;
+char	*libpool = "";
+
 /* Load ONE symbol library file, appending its symbols as a new palette
  * group named after the file (basename, extension dropped).  Returns the
  * group index, or -1 (unreadable / empty / tables full).  A path already
@@ -101,7 +109,7 @@ char *path;
 	char lb[80];
 	char *p, *t;
 	register SYMDEF *s;
-	int i, in, n0, o0, p0;
+	int i, in, n0, o0, p0, cut;
 
 	for ( i = 0; i < nlib; i++ )
 		if ( strcmp(libpath[i], path) == 0 )
@@ -114,6 +122,7 @@ char *path;
 	o0 = opuse;
 	p0 = pinuse;
 	in = 0;
+	cut = 0;
 	s = (SYMDEF *)0;
 	while ( fgets(lb, sizeof(lb), fp) != 0 )
 	{
@@ -123,9 +132,16 @@ char *path;
 		if ( strcmp(t, "symbol") == 0 )
 		{
 			in = 0;
+			cut = 0;
 			if ( nsym >= MAXSYM ||
 			     opuse + 1 >= SYMOPS || pinuse >= SYMPINS )
+			{
+				libdrop++;
+				libpool = nsym >= MAXSYM ? "MAXSYM (80)" :
+					  opuse + 1 >= SYMOPS ?
+					  "SYMOPS (4800)" : "SYMPINS (600)";
 				continue;
+			}
 			if ( (t = tok(&p)) == 0 || t[0] == 0 )
 				continue;
 			s = &symtab[nsym];
@@ -142,6 +158,7 @@ char *path;
 			s->sy_ops = &symops[opuse];
 			s->sy_pins = &sympin[pinuse];
 			s->sy_lib = nlib;
+			s->sy_nfile = 0;
 			sympin[pinuse++] = 0;	/* pin count, grows below */
 			in = 1;
 			continue;
@@ -153,22 +170,43 @@ char *path;
 			symops[opuse++] = SEND;
 			nsym++;
 			in = 0;
+			if ( cut )		/* geometry lost: a part */
+				libdrop++;	/* that draws wrong      */
+			cut = 0;
 			continue;
 		}
-		if ( strcmp(t, "s") == 0 && opuse + 6 < SYMOPS )
+		if ( strcmp(t, "s") == 0 )
 		{
+			if ( opuse + 6 >= SYMOPS )
+			{
+				cut = 1;
+				libpool = "SYMOPS (4800)";
+				continue;
+			}
 			symops[opuse] = SE;
 			if ( oprd(&p, 4) )
 				opuse += 5;
 		}
-		else if ( strcmp(t, "c") == 0 && opuse + 5 < SYMOPS )
+		else if ( strcmp(t, "c") == 0 )
 		{
+			if ( opuse + 5 >= SYMOPS )
+			{
+				cut = 1;
+				libpool = "SYMOPS (4800)";
+				continue;
+			}
 			symops[opuse] = SC;
 			if ( oprd(&p, 3) )
 				opuse += 4;
 		}
-		else if ( strcmp(t, "t") == 0 && opuse + 5 < SYMOPS )
+		else if ( strcmp(t, "t") == 0 )
 		{
+			if ( opuse + 5 >= SYMOPS )
+			{
+				cut = 1;
+				libpool = "SYMOPS (4800)";
+				continue;
+			}
 			symops[opuse] = ST;
 			if ( oprd(&p, 2) && (t = tok(&p)) != 0 )
 			{
@@ -176,15 +214,31 @@ char *path;
 				opuse += 4;
 			}
 		}
-		else if ( strcmp(t, "a") == 0 && opuse + 7 < SYMOPS )
+		else if ( strcmp(t, "a") == 0 )
 		{
+			if ( opuse + 7 >= SYMOPS )
+			{
+				cut = 1;
+				libpool = "SYMOPS (4800)";
+				continue;
+			}
 			symops[opuse] = SA;
 			if ( oprd(&p, 5) )
 				opuse += 6;
 		}
-		else if ( strcmp(t, "p") == 0 && pinuse + 2 < SYMPINS &&
-			  s->sy_pins[0] < 8 )
+		else if ( strcmp(t, "p") == 0 )
 		{
+			/* the file's pin count, kept or not: -symcheck
+			 * says so when the loader keeps only the first 8 */
+			s->sy_nfile++;
+			if ( pinuse + 2 >= SYMPINS )
+			{
+				cut = 1;
+				libpool = "SYMPINS (600)";
+				continue;
+			}
+			if ( s->sy_pins[0] >= 8 )
+				continue;
 			if ( (t = tok(&p)) == 0 )
 				continue;
 			sympin[pinuse] = atoi(t);

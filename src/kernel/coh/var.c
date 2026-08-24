@@ -63,6 +63,8 @@ PLINK	linkq[NHPLINK];			/* proc.h */
 struct	ptrace pts;			/* ptrace.h */
 
 int	sexflag;			/* seg.h */
+unsigned segpacks;			/* seg.h */
+unsigned segpackc;			/* seg.h */
 GATE	seglink;			/* seg.h */
 #ifndef NOMONITOR
 int	swmflag;			/* seg.h */

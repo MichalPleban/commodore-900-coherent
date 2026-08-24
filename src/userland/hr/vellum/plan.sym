@@ -35,7 +35,7 @@ s 4 0 8 0
 p -8 0
 p 8 0
 end
-symbol SW -
+symbol WSW -
 t -1 -2 S
 s 0 2 0 4
 s 0 -2 0 -4

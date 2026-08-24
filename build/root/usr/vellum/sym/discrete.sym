@@ -68,8 +68,8 @@ s 2 -3 6 0
 s 2 3 6 0
 s 6 -3 6 3
 s 6 0 8 0
-p 0 0 - b
-p 8 0 - b
+p 0 0 A b
+p 8 0 K b
 end
 symbol Z D
 s 0 0 2 0
@@ -80,8 +80,8 @@ s 6 -3 6 3
 s 6 -3 4 -4
 s 6 3 8 4
 s 6 0 8 0
-p 0 0 - b
-p 8 0 - b
+p 0 0 A b
+p 8 0 K b
 end
 symbol LED D
 s 0 0 2 0
@@ -96,8 +96,8 @@ s 5 -7 5 -6
 s 6 -3 8 -6
 s 8 -6 7 -6
 s 8 -6 8 -5
-p 0 0 - b
-p 8 0 - b
+p 0 0 A b
+p 8 0 K b
 end
 symbol NPN Q
 s 0 0 4 0
@@ -109,9 +109,9 @@ s 4 2 8 6
 s 8 6 8 8
 s 8 6 5 5
 s 8 6 7 3
-p 0 0 - b
-p 8 -8 - b
-p 8 8 - b
+p 0 0 B b
+p 8 -8 C b
+p 8 8 E b
 end
 symbol PNP Q
 s 0 0 4 0
@@ -123,9 +123,9 @@ s 4 2 8 6
 s 8 6 8 8
 s 4 2 7 3
 s 4 2 5 5
-p 0 0 - b
-p 8 -8 - b
-p 8 8 - b
+p 0 0 B b
+p 8 -8 C b
+p 8 8 E b
 end
 symbol SW S
 s 0 0 3 0

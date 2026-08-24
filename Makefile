@@ -1243,9 +1243,12 @@ $(HRGUIBIN)/zpuzzle: $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(SHLIB) $(CRT) $(LIBC)
 
 # Vellum: the schematic / diagram editor, and SymEdit, its symbol-library
 # editor.  A ZView client pair, but installed under their OWN prefix
-# (/usr/vellum/{bin,lib,etc}) like a proper application suite: bin/ the two
-# programs, lib/ the stock symbol libraries (discrete.sym, logic.sym),
-# etc/ the start-up library list and the user scratch library.
+# (/usr/vellum/{bin,lib,sym,etc}) like a proper application suite: bin/ the
+# two programs, lib/ the helper BINARIES they exec (velxport, veldlg,
+# velprev, velpal), sym/ the stock stencil libraries (discrete.sym,
+# logic.sym, ...), etc/ the start-up library list, the Makefile
+# skeletons and the user scratch library.  Libraries and executables
+# used to share lib/, which read as one kind of thing and was two.
 # No floats anywhere: circle radii come from an integer square root.
 VELBIN := $(ROOT)/usr/vellum/bin
 # vellum is several objects (one module outgrew both the assembler's
@@ -1260,8 +1263,9 @@ VELOBJ := $(HRGUIOBJ)/vellum/vellum.o $(HRGUIOBJ)/vellum/velgfx.o \
 	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velcmd.o \
 	$(HRGUIOBJ)/vellum/veldlg.o $(HRGUIOBJ)/vellum/velbase.o
 VELXOBJ := $(HRGUIOBJ)/vellum/velxmain.o $(HRGUIOBJ)/vellum/velport.o \
-	$(HRGUIOBJ)/vellum/velwalk.o \
-	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velbase.o
+	$(HRGUIOBJ)/vellum/velwalk.o $(HRGUIOBJ)/vellum/velv5.o \
+	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velbase.o \
+	$(HRGUIOBJ)/vellum/velv6.o
 # velprev: the print-preview window (VELLUM.md sec. 25) -- the exporters'
 # walker (velwalk) behind a cl_* backend built from velgfx's styled
 # primitives, over the same model/format units, so the preview window
@@ -1271,6 +1275,15 @@ VELPOBJ := $(HRGUIOBJ)/vellum/velprev.o $(HRGUIOBJ)/vellum/velwalk.o \
 	$(HRGUIOBJ)/vellum/velbase.o
 $(VELOBJ) $(VELXOBJ) $(VELPOBJ) $(HRGUIOBJ)/vellum/velgraph.o: \
 	src/userland/hr/vellum/vellum.h
+# v6.0 (VELLUM.md sec. 54.1) measured the TEXT ceiling instead of
+# assuming it: a `-n -L' image whose shared text spans two hardware
+# segments links, loads and runs -- calls cross the boundary in both
+# directions and function-pointer dispatch works -- because the kernel
+# maps a segment run across as many hardware segments as it needs and
+# ld pads any module that would straddle up to the next segment start.
+# The one rule is that no single MODULE may exceed 64 K.  So the editor
+# links -L and its tripwire measures against TWO segments; the 64 K wall
+# that has rationed editor features since v2 is a wall no longer.
 # The EDITOR's units compile WITHOUT -Wa,-S: their string literals then
 # live in the (roomy) DATA segment instead of the text segment, whose 64 K
 # is the v2 wall (VELLUM.md sec. 13 -- editor features are rationed by
@@ -1281,16 +1294,23 @@ VELEDCFLAGS := -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRGFXDIR) \
 $(VELOBJ): $(HRGUIOBJ)/%.o: $(HRGUISRC)/%.c $(HRGUIHDRS)
 	@mkdir -p $(dir $@)
 	$(CC) $(VELEDCFLAGS) -c $< -o $@
-$(VELBIN)/vellum: LDNFLAGS := -n
+$(VELBIN)/vellum: LDNFLAGS := -n -L
 $(VELBIN)/vellum: $(VELOBJ) $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(VELOBJ) $(SHLIB) $(LIBC)
-	@python tools/segtrip.py --gate 95 $@
+	@python tools/segtrip.py --gate 95 --tsegs 2 $@
 
+# velxport links LARGE MODEL (-L): v5's -diff holds a SECOND object table
+# and its pools (velv5.c, ~19 K), which takes the exporter's data past one
+# 64 K hardware segment.  The kernel has always mapped a data segment
+# across several (commodore.c uproto's `while (l > 0)'), and ld bumps an
+# object that would STRADDLE a boundary to the next segment start, so this
+# is a link-line change and nothing else.  Only velxport pays: the editor
+# is untouched (VELLUM.md sec. 44 rule 1) and its 64 K text wall unmoved.
 $(ROOT)/usr/vellum/lib/velxport: $(VELXOBJ) $(CRT) $(LIBC) $(LIBC_SL)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(VELXOBJ) $(LIBC_SL) $(LIBC)
-	@python tools/segtrip.py --gate 95 $@
+	$(LD) -s -L -o $@ $(CRT) $(VELXOBJ) $(LIBC_SL) $(LIBC)
+	@python tools/segtrip.py --gate 95 --tsegs 2 $@
 
 $(ROOT)/usr/vellum/lib/velprev: $(VELPOBJ) $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
@@ -1337,7 +1357,7 @@ $(ROOT)/usr/vellum/lib/veldlg: $(HRGUIOBJ)/vellum/veldlgm.o $(SHLIB) $(CRT) $(LI
 	$(LD) -s -n -o $@ $(CRT) $(HRGUIOBJ)/vellum/veldlgm.o $(SHLIB) $(LIBC)
 
 # Vellum's data files (src/userland/hr/vellum -> the /usr/vellum tree).
-$(ROOT)/usr/vellum/lib/%.sym: src/userland/hr/vellum/%.sym
+$(ROOT)/usr/vellum/sym/%.sym: src/userland/hr/vellum/%.sym
 	@mkdir -p $(dir $@)
 	cp $< $@
 # The sample gallery (/usr/vellum/eg): one drawing per domain, each a
@@ -1345,15 +1365,50 @@ $(ROOT)/usr/vellum/lib/%.sym: src/userland/hr/vellum/%.sym
 # network, structure chart, mechanical sketch, P&ID, one-line, floor
 # plan, and a two-sheet set for the sheet-set/netlist-merge story.
 VELEG := amp logic flow lan struct bracket feed oneline office psu1 psu2 \
-	curve plate
+	curve plate panel
+# amp.d.A is amp.d's APPROVED REVISION, shipped beside it: a revision is
+# a FILE and the record is the directory (VELLUM.md sec. 50), so the
+# -diff / -diff -mark demo is a pair of gallery files and nothing else.
 VELEG_TARGETS := $(patsubst %,$(ROOT)/usr/vellum/eg/%.d,$(VELEG)) \
-	$(ROOT)/usr/vellum/eg/plate.dxf
+	$(ROOT)/usr/vellum/eg/plate.dxf $(ROOT)/usr/vellum/eg/amp.d.A
 $(ROOT)/usr/vellum/eg/%.d: src/userland/hr/vellum/eg/%.d
+	@mkdir -p $(dir $@)
+	cp $< $@
+$(ROOT)/usr/vellum/eg/amp.d.A: src/userland/hr/vellum/eg/amp.d.A
+	@mkdir -p $(dir $@)
+	cp $< $@
+# The FRAGMENT library (/usr/vellum/frag, sec. 50): shop-standard details
+# as ordinary drawings.  No code ships with them -- `hrclip < frag/x.d'
+# and a middle click in the editor is the whole mechanism.
+VELFRAG := legend north cloud scale tolnote
+VELFRAG_TARGETS := $(patsubst %,$(ROOT)/usr/vellum/frag/%.d,$(VELFRAG)) \
+	$(ROOT)/usr/vellum/frag/README
+$(ROOT)/usr/vellum/frag/%.d: src/userland/hr/vellum/frag/%.d
+	@mkdir -p $(dir $@)
+	cp $< $@
+$(ROOT)/usr/vellum/frag/README: src/userland/hr/vellum/frag/README
 	@mkdir -p $(dir $@)
 	cp $< $@
 # the DXF import demo ships its SOURCE beside the imported .d, so the
 # border crossing is demonstrated by a file you can rebuild (sec. 40)
 $(ROOT)/usr/vellum/eg/plate.dxf: src/userland/hr/vellum/eg/plate.dxf
+	@mkdir -p $(dir $@)
+	cp $< $@
+# The stencil SKETCH gallery (/usr/vellum/eg/sk, VELLUM.md sec. 57): the
+# nine ordinary drawings that BUILD /usr/vellum/sym/pid.sym through
+# `vellum -mksym', driven by etc/library.mk.  A library is a build
+# product, its sources are drawings, and the shop's stencils therefore
+# get the whole revision workflow because they ARE drawings.
+VELSK := pump vgate vchk vctl tank vess hx comp inst
+VELSK_TARGETS := $(patsubst %,$(ROOT)/usr/vellum/eg/sk/%.d,$(VELSK)) \
+	$(ROOT)/usr/vellum/eg/sk/HEADER
+$(ROOT)/usr/vellum/eg/sk/%.d: src/userland/hr/vellum/sk/%.d
+	@mkdir -p $(dir $@)
+	cp $< $@
+$(ROOT)/usr/vellum/eg/sk/HEADER: src/userland/hr/vellum/sk/HEADER
+	@mkdir -p $(dir $@)
+	cp $< $@
+$(ROOT)/usr/vellum/etc/library.mk: src/userland/hr/vellum/library.mk
 	@mkdir -p $(dir $@)
 	cp $< $@
 $(ROOT)/usr/vellum/etc/libs: src/userland/hr/vellum/libs
@@ -1507,11 +1562,12 @@ HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(SHLIB) $(HRGUIBIN)/gfxtest $(HRGUIBI
 	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/dock $(ROOT)/usr/hr/etc/rc \
 	$(ROOT)/usr/vellum/etc/symbols $(ROOT)/usr/vellum/etc/libs \
 	$(ROOT)/usr/vellum/etc/frame.d $(ROOT)/usr/vellum/etc/project.mk \
-	$(VELEG_TARGETS) \
-	$(ROOT)/usr/vellum/lib/discrete.sym $(ROOT)/usr/vellum/lib/logic.sym \
-	$(ROOT)/usr/vellum/lib/flow.sym $(ROOT)/usr/vellum/lib/net.sym \
-	$(ROOT)/usr/vellum/lib/arch.sym $(ROOT)/usr/vellum/lib/pid.sym \
-	$(ROOT)/usr/vellum/lib/power.sym $(ROOT)/usr/vellum/lib/plan.sym \
+	$(ROOT)/usr/vellum/etc/library.mk \
+	$(VELEG_TARGETS) $(VELFRAG_TARGETS) $(VELSK_TARGETS) \
+	$(ROOT)/usr/vellum/sym/discrete.sym $(ROOT)/usr/vellum/sym/logic.sym \
+	$(ROOT)/usr/vellum/sym/flow.sym $(ROOT)/usr/vellum/sym/net.sym \
+	$(ROOT)/usr/vellum/sym/arch.sym $(ROOT)/usr/vellum/sym/pid.sym \
+	$(ROOT)/usr/vellum/sym/power.sym $(ROOT)/usr/vellum/sym/plan.sym \
 	$(HRGUIICONS)
 
 # Build the ZView desktop and its clients standalone (they are otherwise only

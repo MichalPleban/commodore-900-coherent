@@ -193,7 +193,13 @@ typedef struct {
  *
  * Picking one sends E_MENU with the bit in arg0, and nothing else: the server
  * does not know what "Save" means to the client, it only routes the click.  The
- * bits are what a client declared, so it can dispatch on them directly. */
+ * bits are what a client declared, so it can dispatch on them directly.
+ *
+ * "Find" and "Search" are not synonyms and a client should declare only one of
+ * them: Find GOES TO a thing the document already names (a page, a record, an
+ * entry picked from a list); Search looks for TEXT the user types, walks the
+ * hits, and -- in a client that can rewrite its content -- offers Replace on
+ * the same dialog.  Editors want Search. */
 #define HRM_NEW		0x0001		/* "New"        */
 #define HRM_OPEN	0x0002		/* "Open"       */
 #define HRM_SAVE	0x0004		/* "Save"       */
@@ -204,7 +210,8 @@ typedef struct {
 #define HRM_HELP	0x0080		/* "Help"       */
 #define HRM_PRINT	0x0100		/* "Print"      */
 #define HRM_FIND	0x0200		/* "Find"       */
-#define HRM_ALL		0x03ff		/* every bit above: what the server knows */
+#define HRM_SEARCH	0x0400		/* "Search"     */
+#define HRM_ALL		0x07ff		/* every bit above: what the server knows */
 
 /* ---- server -> client event codes ---- */
 #define E_CONNECTED	1		/* arg0=wid arg1=width arg2=height      */

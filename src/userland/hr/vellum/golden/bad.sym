@@ -1,0 +1,46 @@
+# A DELIBERATELY BROKEN library, shipped only to the golden battery
+# (VELLUM.md sec. 56): every -symcheck finding, one per stencil, so the
+# gate proves the checker and not merely that a clean library is clean.
+# It is not in /usr/vellum/etc/libs and no drawing uses it.
+symbol GOOD G
+s 0 0 8 0
+p 0 0 A i
+p 8 0 B o
+end
+symbol BLANK -
+end
+symbol NOPIN J
+s 0 0 4 0
+end
+symbol OFFGRID X
+s 0 0 8 0
+p 0 0 A i
+p 6 -3 B o
+end
+symbol REPEAT R
+s 0 0 8 0
+p 0 0 A i
+p 8 0 A o
+end
+symbol UNTYPED U
+s 0 0 8 0
+p 0 0 A i
+p 8 0 B
+end
+symbol NINE N
+s 0 0 32 0
+p 0 0 P1 i
+p 4 0 P2 i
+p 8 0 P3 i
+p 12 0 P4 i
+p 16 0 P5 i
+p 20 0 P6 i
+p 24 0 P7 i
+p 28 0 P8 i
+p 32 0 P9 i
+end
+symbol GOOD G
+s 0 0 4 0
+p 0 0 A i
+p 4 0 B o
+end

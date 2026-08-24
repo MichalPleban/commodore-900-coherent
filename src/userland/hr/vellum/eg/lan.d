@@ -11,7 +11,7 @@ K hv 44 26 44 32 - -
 K hv 60 26 60 32 - -
 Y HOST 28 34 0 0 H1 server
 T 20 37 s0 /0.1 files
-Y TERM 44 34 0 0 T1 desk
+Y VDU 44 34 0 0 T1 desk
 Y PRT 60 34 0 0 P1 laser
 K hv 28 36 28 40 - -
 Y DSK 28 43 0 0 D1 disks

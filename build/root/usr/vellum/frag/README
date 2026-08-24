@@ -1,0 +1,13 @@
+# /usr/vellum/frag - the shop's FRAGMENT library (VELLUM.md sec. 50).
+#
+# A fragment is a DRAWING.  There is no fragment format, no fragment
+# index and no fragment code: a shop-standard detail is a .d file in
+# this directory, its index is `ls', and it reaches the editor the way
+# any other drawing text does -- through the PRIMARY selection:
+#
+#	hrclip < /usr/vellum/frag/legend.d
+#
+# from any shell puts it on the selection; a MIDDLE CLICK in the editor
+# pastes it at the pointer, because dopaste has parsed .d text out of
+# the selection since v1.3.  Copy this directory, add your own, delete
+# ours: it is a directory of drawings, and that is all it is.

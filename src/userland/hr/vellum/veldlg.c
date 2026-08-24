@@ -25,6 +25,8 @@
 #include "vellum.h"
 
 #define	VELDLG	"/usr/vellum/lib/veldlg"
+#define	VELXPORT "/usr/vellum/lib/velxport"
+#define	MKTMP	"/tmp/velmk.d"
 
 char	nbuf[NAMEL];
 char	vbuf[TVMAX];	/* the text dialog carries long labels (v3.3) */
@@ -222,21 +224,25 @@ libdlg()
 	return 1;
 }
 
-/* ---- Find (VELLUM.md sec. 27): a case-blind substring over
- * designators, values, text and net names; each Find steps to the NEXT
- * hit from the current selection, selects it and pans it to centre.
- * The dialog's second button lists the numbered sheet set and jumps. */
+/* ---- Search (VELLUM.md sec. 27, 64): a substring over designators,
+ * values, text and net names; Next/Prev step to the following hit from
+ * the current selection either way round the object list, select it and
+ * pan it to centre.  The pattern and the Match-case box are REMEMBERED,
+ * so `a' (search again) repeats without the dialog.
+ * The dialog's third button lists the numbered sheet set and jumps. */
 
-static char	fstr[VALL];	/* the remembered search string */
+static char	fstr[VALL];	/* the remembered search string  */
+static int	fcase;		/* 1 = match case exactly        */
+static int	fdir = 1;	/* the last direction: 1 / -1    */
 
-/* case-blind substring: needle n anywhere in haystack h? */
+/* substring: needle n anywhere in haystack h?  Case-blind unless fcase. */
 static
 cifind(h, n)
 char *h;
 register char *n;
 {
 	register int j;
-	int i, c, d;
+	int i;
 
 	for ( i = 0; h[i]; i++ )
 	{
@@ -244,7 +250,9 @@ register char *n;
 		 * the couple of symbol pairs it also equates ('[' with '{')
 		 * are harmless in a drawing search */
 		for ( j = 0; n[j]; j++ )
-			if ( ((h[i + j] ^ n[j]) & 0xdf) != 0 )
+			if ( h[i + j] == 0 ||	/* 0xdf folds NUL onto ' ' */
+			     (fcase ? h[i + j] != n[j]
+				    : ((h[i + j] ^ n[j]) & 0xdf) != 0) )
 				break;
 		if ( n[j] == 0 )
 			return 1;
@@ -274,40 +282,23 @@ objmatch(i)
 	return 0;
 }
 
-finddlg()
+/* Step to the next hit `dir' (1 forward, -1 back) from the current
+ * selection, wrapping; select it and pan it to centre.  Shared by the
+ * dialog's Next/Prev buttons and by the `a' repeat key. */
+searchgo(dir)
 {
-	register char *p;
 	register int i, n;
 	int from, x0, y0, x1, y1;
-	char pre[FNLEN], suf[8], ns[8];
 
-	/* the helper's Sheets... list needs the set's name parts */
-	if ( sheetsplit(pre, &i, suf) )
-		sprintf(ns, "%d", i);
-	else
-	{
-		pre[0] = 0;
-		suf[0] = 0;
-		ns[0] = '0';
-		ns[1] = 0;
-	}
-	p = dlgspawn("find", fstr[0] ? fstr : "-", pre[0] ? pre : "-", ns,
-		     suf[0] ? suf : "-", (char *)0);
-	if ( p == (char *)0 )
+	if ( fstr[0] == 0 || nobj == 0 )
 		return 0;
-	/* payload: "s N" = go to sheet N; "f STR" = search for STR */
-	if ( p[0] == 's' && p[1] == ' ' )
-		return sheetto(atoi(p + 2), 0);
-	if ( p[0] != 'f' || p[1] != ' ' || p[2] == 0 )
-		return 0;
-	strncpy(fstr, p + 2, VALL - 1);
-	fstr[VALL - 1] = 0;
-	if ( nobj == 0 )
-		return 0;
-	from = (nsel == 1 && selobj >= 0) ? selobj : nobj - 1;
+	fdir = dir;
+	/* with no selection, start OUTSIDE the list so a forward walk opens
+	 * at object 0 and a backward one at the last object */
+	from = (nsel == 1 && selobj >= 0) ? selobj : (dir > 0 ? nobj - 1 : 0);
 	for ( n = 1; n <= nobj; n++ )
 	{
-		i = (from + n) % nobj;
+		i = (from + (dir > 0 ? n : nobj - (n % nobj))) % nobj;
 		if ( !objmatch(i) )
 			continue;
 		dmgsel();			/* the old rings come off */
@@ -324,6 +315,172 @@ finddlg()
 		return 1;
 	}
 	return 0;
+}
+
+/* `a': search again, same pattern and direction, no dialog.  With no
+ * pattern yet it opens the dialog instead, so the key is never dead. */
+searchagain()
+{
+	if ( fstr[0] == 0 )
+		return searchdlg();
+	return searchgo(fdir);
+}
+
+searchdlg()
+{
+	register char *p, *q;
+	int i, dir;
+	char pre[FNLEN], suf[8], ns[8], cs[4];
+
+	/* the helper's Sheets... list needs the set's name parts */
+	if ( sheetsplit(pre, &i, suf) )
+		sprintf(ns, "%d", i);
+	else
+	{
+		pre[0] = 0;
+		suf[0] = 0;
+		ns[0] = '0';
+		ns[1] = 0;
+	}
+	cs[0] = fcase ? '1' : '0';
+	cs[1] = 0;
+	p = dlgspawn("search", fstr[0] ? fstr : "-", pre[0] ? pre : "-", ns,
+		     suf[0] ? suf : "-", cs, (char *)0);
+	if ( p == (char *)0 )
+		return 0;
+	/* payload: "s N" = go to sheet N;
+	 *          "f DIR CASE<TAB>STR" = search STR, DIR 1 / -1 */
+	if ( p[0] == 's' && p[1] == ' ' )
+		return sheetto(atoi(p + 2), 0);
+	if ( p[0] != 'f' || p[1] != ' ' )
+		return 0;
+	q = p + 2;
+	dir = (*q == '-') ? -1 : 1;
+	while ( *q && *q != ' ' )
+		q++;
+	while ( *q == ' ' )
+		q++;
+	fcase = (*q == '1');
+	while ( *q && *q != '	' )
+		q++;
+	if ( *q++ != '	' || *q == 0 )
+		return 0;
+	strncpy(fstr, q, VALL - 1);
+	fstr[VALL - 1] = 0;
+	return searchgo(dir);
+}
+
+/* Make Symbol (v6.7, VELLUM.md sec. 60): the GUI face of `-mksym'.
+ * The selection is written out as an ordinary drawing and the EXPORTER
+ * converts it, so sec. 55's rules live in exactly ONE place and a
+ * stencil made from the board is byte-identical to one made from make.
+ * The library is appended to, the way the shell form appends. */
+mksymdlg()
+{
+	static char code[8] = "";
+	static char pfx[4] = "";
+	static char scl[4] = "1";
+	static char lib[44] = "";
+	char cmd[160], lb[224], msg[40];
+	register char *p, *q;
+	register int i;
+	register FILE *fp;
+	int pid, st, n;
+	unsigned left;
+
+	if ( nsel == 0 )
+		return 0;
+	if ( lib[0] == 0 )
+		strncpy(lib, libpath[curlib][0] ? libpath[curlib] : USERLIB,
+			sizeof(lib) - 1);
+	strcpy(msg, "-");
+	for (;;)
+	{
+		p = dlgspawn("mksym", code[0] ? code : "-",
+			     pfx[0] ? pfx : "-", lib, scl, msg, (char *)0);
+		if ( p == (char *)0 )
+			return 0;
+		/* CODE PFX LIB SCALE, space separated */
+		for ( i = 0; i < 4; i++ )
+		{
+			for ( q = p; *q && *q != ' '; q++ )
+				;
+			n = q - p;
+			if ( n == 0 )
+				return 0;
+			if ( i == 0 )
+			{
+				if ( n > 7 ) n = 7;
+				strncpy(code, p, n);
+				code[n] = 0;
+			}
+			else if ( i == 1 )
+			{
+				if ( n > 3 ) n = 3;
+				strncpy(pfx, p, n);
+				pfx[n] = 0;
+				if ( pfx[0] == '-' && pfx[1] == 0 )
+					pfx[0] = 0;
+			}
+			else if ( i == 2 )
+			{
+				if ( n > sizeof(lib) - 1 )
+					n = sizeof(lib) - 1;
+				strncpy(lib, p, n);
+				lib[n] = 0;
+			}
+			else
+			{
+				if ( n > 3 ) n = 3;
+				strncpy(scl, p, n);
+				scl[n] = 0;
+			}
+			p = *q ? q + 1 : q;
+		}
+		if ( (fp = fopen(MKTMP, "w")) == (FILE *)0 )
+		{
+			strcpy(msg, "Cannot write /tmp");
+			continue;
+		}
+		fprintf(fp, "vellum1\n");
+		for ( i = 0; i < nobj; i++ )
+		{
+			if ( !osel[i] )
+				continue;
+			fmtobj(i, lb);
+			if ( lb[0] )
+				fprintf(fp, "%s\n", lb);
+		}
+		fclose(fp);
+		sprintf(cmd,
+		    "%s -mksym %s -pfx %s -scale %s %s >>%s",
+			VELXPORT, code, pfx[0] ? pfx : "-", scl, MKTMP, lib);
+		left = alarm(0);
+		st = 0x100;		/* a fork that fails IS a failure */
+		if ( (pid = fork()) == 0 )
+		{
+			for ( i = 5; i < 20; i++ )
+				close(i);
+			execl("/bin/sh", "sh", "-c", cmd, (char *)0);
+			_exit(1);
+		}
+		/* wait for OUR child, not merely for one: the velpal
+		 * helper is a child too, and its status is not ours */
+		if ( pid > 0 )
+			while ( (n = wait(&st)) >= 0 && n != pid )
+				;
+		unlink(MKTMP);
+		if ( left )
+			alarm(left);
+		if ( (st & 0xff00) != 0 )
+		{
+			strcpy(msg, "Cannot append to that library");
+			continue;
+		}
+		break;
+	}
+	statdirty = 1;
+	return 1;
 }
 
 /* Launch a worker, zfile's pattern -- fork twice so init reaps it and no

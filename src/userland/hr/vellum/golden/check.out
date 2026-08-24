@@ -21,4 +21,6 @@ curve=0
 vellum: check clean
 plate=0
 vellum: check clean
+panel=0
+vellum: check clean
 psu=0

@@ -53,6 +53,7 @@ extern	SEG	*segdupd();		/* seg.c */
 extern	SEG	*sdalloc();		/* seg.c */
 extern	SEG	*smalloc();		/* seg.c */
 extern	SEG	*shalloc();		/* seg.c */
+extern	int	segpack();		/* seg.c */
 extern	SEG	*exaread();		/* exec.c */
 extern	SEG	*exsread();		/* exec.c */
 extern	SEG	*exstack();		/* exec.c */
@@ -64,6 +65,8 @@ extern	SEG	*exstack();		/* exec.c */
  * Global variables.
  */
 extern	int	sexflag;		/* Swapper existant */
+extern	unsigned segpacks;		/* Core compaction passes */
+extern	unsigned segpackc;		/* Clicks relocated by them */
 extern	GATE	seglink;		/* Gate for s_forw and s_back */
 extern	SEG	segswap;		/* Segments reserved for the swapper */
 extern	SEG	segmq;			/* Memory segment queue */

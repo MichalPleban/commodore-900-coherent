@@ -1,0 +1,6 @@
+NET-1.2: 4
+NET-1.3: 4
+VBUS: 13
+GND: 16
+NET-2.2: 4
+total: 41

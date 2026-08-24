@@ -2122,7 +2122,7 @@ docopyfrom()
 
 	cfmsg[0] = 0;
 	if ( cfpath[0] == 0 )
-		strcpy(cfpath, "/usr/vellum/lib/");
+		strcpy(cfpath, "/usr/vellum/sym/");
 	w = 360;
 	h = 100 + DLG_BTNH + DLG_BSHAD + 10;
 	r = hr_dlgopen(&w, &h);
@@ -2154,6 +2154,505 @@ docopyfrom()
 			continue;
 		}
 		break;
+	}
+	hr_dlgclose();
+	statdirty = 1;
+	return 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* v6.6: Import drawing, and Check -- the INTERACTIVE half of this     */
+/* wind.  Rule 3 (VELLUM.md sec. 54): the headless half of a           */
+/* capability goes to velxport and the interactive half to whichever   */
+/* binary can afford it, which is this one.  The conversion rules are  */
+/* sec. 55's, the findings are sec. 56's, and the wording matches      */
+/* `vellum -mksym' and `vellum -symcheck' exactly, because a shop      */
+/* should get the same answer from the board and from make(1).         */
+/* ------------------------------------------------------------------ */
+
+static int	idox, idoy, idsc;	/* origin and -scale, this import */
+static int	got0;			/* ... the origin was given       */
+static int	iddrop[4];		/* S / K+Y / D / long text        */
+
+/* grid -> quarter-grid, velv6 mqx's twin: a drawing is in whole units
+ * and a stencil in quarter ones, so the conversion is x4; -scale n
+ * divides instead, and at 4 a drawing unit IS a quarter unit. */
+static
+idq(g, org)
+{
+	register int v;
+
+	v = (g - org) * 4;
+	return v >= 0 ? (v + idsc / 2) / idsc : -((-v + idsc / 2) / idsc);
+}
+
+static
+idseg(x0, y0, x1, y1)
+{
+	if ( neop + 5 > MAXEOP )
+		return 0;
+	eops[neop] = SE;
+	eops[neop + 1] = idq(x0, idox);
+	eops[neop + 2] = idq(y0, idoy);
+	eops[neop + 3] = idq(x1, idox);
+	eops[neop + 4] = idq(y1, idoy);
+	neop += 5;
+	return 1;
+}
+
+/* the next token as a number; 0 when the line ran out */
+static
+idnum(pp, v)
+char **pp;
+int *v;
+{
+	register char *t;
+
+	if ( (t = tok(pp)) == 0 )
+		return 0;
+	*v = atoi(t);
+	return 1;
+}
+
+/* the optional " /flags.layer" attribute: returns the layer, or 0 when
+ * the token that follows is not one (it is then pushed back through
+ * *keep for the caller -- T lines carry their text after it) */
+static
+idlay(pp, keep)
+char **pp;
+char **keep;
+{
+	register char *t;
+
+	*keep = (char *)0;
+	if ( (t = tok(pp)) == (char *)0 )
+		return 0;
+	if ( t[0] != '/' )
+	{
+		*keep = t;
+		return 0;
+	}
+	while ( *t && *t != '.' )
+		t++;
+	return *t == '.' ? atoi(t + 1) & 3 : 0;
+}
+
+/* One drawing into the edit buffer.  Returns the object count, or -1
+ * when the file will not open. */
+static
+impdraw(path)
+char *path;
+{
+	register FILE *fp;
+	char lb[128];
+	char *p, *t, *keep;
+	int i, n, x[2 * 20], v, lay;		/* PMAXPT points */
+	long dx, dy;
+
+	if ( (fp = fopen(path, "r")) == (FILE *)0 )
+		return -1;
+	for ( i = 0; i < 4; i++ )
+		iddrop[i] = 0;
+	/* the origin: the caller's, else the FIRST PIN -- a stencil's
+	 * origin is where it snaps (sec. 55) */
+	if ( !got0 )
+	{
+		idox = idoy = 0;
+		while ( fgets(lb, sizeof(lb), fp) != 0 )
+		{
+			p = lb;
+			if ( (t = tok(&p)) == 0 || strcmp(t, "N") != 0 )
+				continue;
+			if ( idnum(&p, &idox) && idnum(&p, &idoy) )
+				break;
+			idox = idoy = 0;
+		}
+		rewind(fp);
+	}
+	usnap();
+	neop = 0;
+	npin = 0;
+	n = 0;
+	while ( fgets(lb, sizeof(lb), fp) != 0 )
+	{
+		p = lb;
+		if ( (t = tok(&p)) == 0 || t[0] == '#' )
+			continue;
+		if ( strcmp(t, "L") == 0 || strcmp(t, "W") == 0 ||
+		     strcmp(t, "B") == 0 || strcmp(t, "C") == 0 )
+		{
+			v = t[0];
+			for ( i = 0; i < 4; i++ )
+				if ( !idnum(&p, &x[i]) )
+					break;
+			if ( i < 4 )
+				continue;
+			if ( idlay(&p, &keep) == 3 )
+				continue;
+			if ( v == 'C' )
+			{
+				dx = x[2] - x[0];
+				dy = x[3] - x[1];
+				if ( neop + 4 > MAXEOP )
+					continue;
+				eops[neop] = SC_;
+				eops[neop + 1] = idq(x[0], idox);
+				eops[neop + 2] = idq(x[1], idoy);
+				eops[neop + 3] = (int)((isqrt(dx * dx +
+					dy * dy) * 4 + idsc / 2) / idsc);
+				neop += 4;
+			}
+			else if ( v == 'B' )
+			{
+				/* four honest lines: the .sym format has
+				 * no box, and four segments beat a new op */
+				idseg(x[0], x[1], x[2], x[1]);
+				idseg(x[2], x[1], x[2], x[3]);
+				idseg(x[2], x[3], x[0], x[3]);
+				idseg(x[0], x[3], x[0], x[1]);
+			}
+			else
+				idseg(x[0], x[1], x[2], x[3]);
+			n++;
+		}
+		else if ( strcmp(t, "A") == 0 )
+		{
+			for ( i = 0; i < 5; i++ )
+				if ( !idnum(&p, &x[i]) )
+					break;
+			if ( i < 5 || idlay(&p, &keep) == 3 ||
+			     neop + 6 > MAXEOP )
+				continue;
+			eops[neop] = SA_;
+			eops[neop + 1] = idq(x[0], idox);
+			eops[neop + 2] = idq(x[1], idoy);
+			eops[neop + 3] = (int)(((long)x[2] * 4 + idsc / 2) /
+					       idsc);
+			eops[neop + 4] = x[3];
+			eops[neop + 5] = x[4];
+			neop += 6;
+			n++;
+		}
+		else if ( strcmp(t, "P") == 0 )
+		{
+			if ( !idnum(&p, &v) || v < 2 || v > 20 )
+				continue;
+			for ( i = 0; i < 2 * v; i++ )
+				if ( !idnum(&p, &x[i]) )
+					break;
+			if ( i < 2 * v || idlay(&p, &keep) == 3 )
+				continue;
+			for ( i = 1; i < v; i++ )
+				idseg(x[2*i - 2], x[2*i - 1], x[2*i],
+				      x[2*i + 1]);
+			n++;
+		}
+		else if ( strcmp(t, "T") == 0 )
+		{
+			if ( !idnum(&p, &x[0]) || !idnum(&p, &x[1]) ||
+			     tok(&p) == 0 )
+				continue;
+			lay = idlay(&p, &keep);
+			if ( keep == (char *)0 )
+				keep = tok(&p);
+			if ( lay == 3 || keep == (char *)0 )
+				continue;
+			/* the stencil font is one glyph per op */
+			if ( keep[1] || tok(&p) != (char *)0 )
+			{
+				iddrop[3]++;
+				continue;
+			}
+			if ( neop + 4 > MAXEOP )
+				continue;
+			eops[neop] = ST;
+			eops[neop + 1] = idq(x[0], idox);
+			eops[neop + 2] = idq(x[1], idoy);
+			eops[neop + 3] = keep[0];
+			neop += 4;
+			n++;
+		}
+		else if ( strcmp(t, "N") == 0 )
+		{
+			if ( !idnum(&p, &x[0]) || !idnum(&p, &x[1]) ||
+			     npin >= MAXPIN )
+				continue;
+			epin[2 * npin] = idq(x[0], idox);
+			epin[2 * npin + 1] = idq(x[1], idoy);
+			epname[npin][0] = 0;
+			eptyp[npin] = 0;
+			/* the .sym format spells "no name" as "-", and so
+			 * does a sketch's N marker */
+			if ( (t = tok(&p)) != 0 && strcmp(t, "-") != 0 )
+			{
+				strncpy(epname[npin], t, 7);
+				epname[npin][7] = 0;
+			}
+			npin++;
+			n++;
+		}
+		/* Everything a stencil has no form for is SKIPPED AND
+		 * COUNTED -- a silently half-converted stencil is a part
+		 * that draws wrong forever (sec. 55) */
+		else if ( strcmp(t, "S") == 0 )
+			iddrop[0]++;
+		else if ( strcmp(t, "K") == 0 || strcmp(t, "Y") == 0 )
+			iddrop[1]++;
+		else if ( strcmp(t, "D") == 0 )
+			iddrop[2]++;
+	}
+	fclose(fp);
+	edited = 1;
+	ddcanv = 1;
+	ddprev = 1;
+	statdirty = 1;
+	mselclear();
+	return n;
+}
+
+char	idpath[44];
+char	idorg[16];
+char	idscl[4];
+char	idmsg[40];
+
+HRWIDGET iwg[] = {
+    { DW_LABEL,   12,  16,   0,  0, "Drawing:" },
+    { DW_TEXT,   120,  12, 250, 22, (char *)0, 0, 0, idpath, sizeof(idpath) },
+    { DW_LABEL,   12,  46,   0,  0, "Origin x,y:" },
+    { DW_TEXT,   120,  42,  90, 22, (char *)0, 0, 0, idorg, sizeof(idorg) },
+    { DW_LABEL,  232,  46,   0,  0, "Scale:" },
+    { DW_TEXT,   300,  42,  40, 22, (char *)0, 0, 0, idscl, sizeof(idscl) },
+    { DW_LABEL,   12,  76,   0,  0, idmsg },
+    { DW_BUTTON,  70, 100,  70, DLG_BTNH, "OK",     0, 0, (char *)0, 0,
+      DWF_DEF | DWF_END },
+    { DW_BUTTON, 190, 100,  80, DLG_BTNH, "Cancel", 0, 0, (char *)0, 0,
+      DWF_CANCEL | DWF_END },
+};
+#define	NIWG	(sizeof(iwg) / sizeof(iwg[0]))
+#define	IW_MSG	6
+#define	IW_OK	7
+
+static
+doimport()
+{
+	int w, h, r;
+	register char *q;
+
+	idmsg[0] = 0;
+	if ( idpath[0] == 0 )
+		strcpy(idpath, "/usr/vellum/eg/sk/");
+	if ( idscl[0] == 0 )
+		strcpy(idscl, "1");
+	w = 390;
+	h = 100 + DLG_BTNH + DLG_BSHAD + 10;
+	r = hr_dlgopen(&w, &h);
+	if ( r == -2 )
+		exit(0);
+	if ( r < 0 )
+		return 0;
+	for (;;)
+	{
+		cl_fillrect(iwg[IW_MSG].dw_x, iwg[IW_MSG].dw_y, w,
+			    iwg[IW_MSG].dw_y + 16, 1);
+		hr_dlgdraw(iwg, NIWG);
+		r = hr_dlgrun(iwg, NIWG);
+		if ( r == -1 )
+		{
+			hr_dlgclose();
+			exit(0);
+		}
+		if ( r != IW_OK )
+			break;
+		if ( idpath[0] == 0 )
+		{
+			strcpy(idmsg, "Enter a drawing");
+			continue;
+		}
+		idsc = atoi(idscl);
+		if ( idsc < 1 || idsc > 32 )
+			idsc = 1;
+		got0 = 0;
+		if ( idorg[0] )
+		{
+			idox = atoi(idorg);
+			for ( q = idorg; *q && *q != ','; q++ )
+				;
+			idoy = *q ? atoi(q + 1) : 0;
+			got0 = 1;
+		}
+		if ( (r = impdraw(idpath)) < 0 )
+		{
+			strcpy(idmsg, "Cannot open that");
+			continue;
+		}
+		if ( r == 0 )
+		{
+			strcpy(idmsg, "Nothing in it converts");
+			continue;
+		}
+		break;
+	}
+	hr_dlgclose();
+	statdirty = 1;
+	return 1;
+}
+
+/* ---- Check: sec. 56's findings for the OPEN library ---- */
+
+#define	MAXFIND	40
+#define	FINDW	46
+#define	FPAGE	8		/* findings shown at once             */
+
+static char	findb[MAXFIND][FINDW];
+static char	fline[FPAGE][FINDW];
+static char	fttl[40];
+static int	nfind, ftop;
+
+static
+addfind(s)
+char *s;
+{
+	if ( nfind < MAXFIND )
+	{
+		strncpy(findb[nfind], s, FINDW - 1);
+		findb[nfind][FINDW - 1] = 0;
+		nfind++;
+	}
+	return 0;
+}
+
+/* judge lib[]: the same rules and the same wording as -symcheck */
+static
+libcheck()
+{
+	register CSYM *c;
+	register int i, k, j;
+	int typed;
+	char b[FINDW];
+
+	nfind = 0;
+	ftop = 0;
+	commit();			/* judge what is on the canvas too */
+	typed = 0;
+	for ( i = 0; i < nlib; i++ )
+		for ( k = 0; k < lib[i].cs_npin; k++ )
+			if ( lib[i].cs_ptyp[k] )
+				typed = 1;
+	for ( i = 0; i < nlib; i++ )
+	{
+		c = &lib[i];
+		for ( k = 0; k < i; k++ )
+			if ( strcmp(lib[k].cs_code, c->cs_code) == 0 )
+			{
+				sprintf(b, "code %s defined twice",
+					c->cs_code);
+				addfind(b);
+				break;
+			}
+		if ( c->cs_nop == 0 )
+		{
+			sprintf(b, "code %s: no geometry", c->cs_code);
+			addfind(b);
+		}
+		if ( c->cs_npin == 0 )
+		{
+			if ( c->cs_pfx[0] )
+			{
+				sprintf(b,
+				    "code %s: prefix but no pins",
+					c->cs_code);
+				addfind(b);
+			}
+			continue;
+		}
+		for ( k = 0; k < c->cs_npin; k++ )
+		{
+			if ( (c->cs_pin[2*k] & 3) || (c->cs_pin[2*k+1] & 3) )
+			{
+				sprintf(b,
+				    "code %s: pin %d not on a whole unit",
+					c->cs_code, k + 1);
+				addfind(b);
+			}
+			if ( typed && c->cs_ptyp[k] == 0 )
+			{
+				sprintf(b,
+				    "code %s: pin %d untyped in a typed lib",
+					c->cs_code, k + 1);
+				addfind(b);
+			}
+			if ( c->cs_pnm[k][0] == 0 )
+				continue;
+			for ( j = 0; j < k; j++ )
+				if ( strcmp(c->cs_pnm[j], c->cs_pnm[k]) == 0 )
+				{
+					sprintf(b,
+					    "code %s: pin name %s repeats",
+						c->cs_code, c->cs_pnm[k]);
+					addfind(b);
+					break;
+				}
+		}
+	}
+	return nfind;
+}
+
+HRWIDGET kwg[] = {
+    { DW_LABEL,   12,  14,   0,  0, fttl },
+    { DW_LABEL,   12,  36,   0,  0, fline[0] },
+    { DW_LABEL,   12,  52,   0,  0, fline[1] },
+    { DW_LABEL,   12,  68,   0,  0, fline[2] },
+    { DW_LABEL,   12,  84,   0,  0, fline[3] },
+    { DW_LABEL,   12, 100,   0,  0, fline[4] },
+    { DW_LABEL,   12, 116,   0,  0, fline[5] },
+    { DW_LABEL,   12, 132,   0,  0, fline[6] },
+    { DW_LABEL,   12, 148,   0,  0, fline[7] },
+    { DW_BUTTON,  90, 172,  80, DLG_BTNH, "More",  0, 0, (char *)0, 0,
+      DWF_END },
+    { DW_BUTTON, 250, 172,  80, DLG_BTNH, "Close", 0, 0, (char *)0, 0,
+      DWF_DEF | DWF_CANCEL | DWF_END },
+};
+#define	NKWG	(sizeof(kwg) / sizeof(kwg[0]))
+#define	KW_MORE	9
+
+/* the findings, a page at a time -- More wraps round */
+static
+docheck()
+{
+	int w, h, r;
+	register int i;
+
+	libcheck();
+	if ( nfind == 0 )
+		strcpy(fttl, "Library checks clean.");
+	else
+		sprintf(fttl, "%d finding%s:", nfind,
+			nfind == 1 ? "" : "s");
+	w = 470;
+	h = 172 + DLG_BTNH + DLG_BSHAD + 10;
+	r = hr_dlgopen(&w, &h);
+	if ( r == -2 )
+		exit(0);
+	if ( r < 0 )
+		return 0;
+	for (;;)
+	{
+		for ( i = 0; i < FPAGE; i++ )
+			strcpy(fline[i], ftop + i < nfind ?
+			       findb[ftop + i] : "");
+		cl_fillrect(0, 30, w, 168, 1);
+		hr_dlgdraw(kwg, NKWG);
+		r = hr_dlgrun(kwg, NKWG);
+		if ( r == -1 )
+		{
+			hr_dlgclose();
+			exit(0);
+		}
+		if ( r != KW_MORE )
+			break;
+		ftop += FPAGE;
+		if ( ftop >= nfind )
+			ftop = 0;
 	}
 	hr_dlgclose();
 	statdirty = 1;
@@ -2208,6 +2707,8 @@ dokey(c)
 	case 'r':	return rotbuf();	/* whole buffer */
 	case 'm':	return mirbuf();
 	case 'f':	return docopyfrom();	/* pull from another lib */
+	case 'i':	return doimport();	/* v6.6: a DRAWING -> stencil */
+	case 'k':	return docheck();	/* v6.6: sec. 56 over lib[]   */
 	case 'x':
 	case 0x7f:
 		return mseldel();

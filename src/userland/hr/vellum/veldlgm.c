@@ -31,6 +31,8 @@
  *	                                -> =GRID SHW UNUM UNAME VVVV PPP F
  *	                                   (F 1 = the Frame button)
  *	style   FLAGS LAYER SIZE TEXT   -> =FLAGS LAYER SIZE<TAB>TEXT
+ *	search  STR PRE N SUF CASE      -> =f DIR CASE<TAB>STR  (DIR 1/-1)
+ *	                                or =s N   (the Sheets button)
  */
 #include <stdio.h>
 #include <types.h>
@@ -276,7 +278,7 @@ char *name, *val;
 /* the scrollable library chooser                                     */
 /* ------------------------------------------------------------------ */
 
-#define	LIBDIR	"/usr/vellum/lib"
+#define	LIBDIR	"/usr/vellum/sym"
 #define	NDLGL	16		/* list capacity                          */
 #define	LVIS	6		/* rows visible at once                   */
 #define	LROWH	16
@@ -852,34 +854,39 @@ char **av;
 }
 
 /* ------------------------------------------------------------------ */
-/* Find: case-blind substring + the Sheets... jump (sec. 27)          */
+/* Search: substring, either direction, + the Sheets... jump (sec. 27)*/
 /* ------------------------------------------------------------------ */
 
 char	fndbuf[VALL];
 short	shnum[NDLGL];		/* sheet numbers behind the list rows     */
 
 HRWIDGET gwg[] = {
-    { DW_LABEL,   12,  16,   0,  0, "Find:" },
-    { DW_TEXT,    70,  12, 180, 22, (char *)0, 0, 0, fndbuf, sizeof(fndbuf) },
-    { DW_BUTTON,  12,  46,  70, DLG_BTNH, "Find",    0, 0, (char *)0, 0,
+    { DW_LABEL,   12,  16,   0,  0, "Search:" },
+    { DW_TEXT,    82,  12, 180, 22, (char *)0, 0, 0, fndbuf, sizeof(fndbuf) },
+    { DW_CHECK,   12,  44,   0,  0, "Match case" },
+    { DW_BUTTON,  12,  74,  70, DLG_BTNH, "Next",    0, 0, (char *)0, 0,
       DWF_DEF | DWF_END },
-    { DW_BUTTON, 100,  46,  92, DLG_BTNH, "Sheets",  0, 0, (char *)0, 0,
+    { DW_BUTTON,  98,  74,  70, DLG_BTNH, "Prev",    0, 0, (char *)0, 0,
       DWF_END },
-    { DW_BUTTON, 212,  46,  80, DLG_BTNH, "Cancel",  0, 0, (char *)0, 0,
+    { DW_BUTTON, 184,  74,  80, DLG_BTNH, "Sheets",  0, 0, (char *)0, 0,
+      DWF_END },
+    { DW_BUTTON, 280,  74,  80, DLG_BTNH, "Cancel",  0, 0, (char *)0, 0,
       DWF_CANCEL | DWF_END },
 };
 #define	NGWG	(sizeof(gwg) / sizeof(gwg[0]))
-#define	GW_FIND	2
-#define	GW_SHTS	3
+#define	GW_CASE	2
+#define	GW_NEXT	3
+#define	GW_PREV	4
+#define	GW_SHTS	5
 
-/* argv: FSTR PRE N SUF ("-" = empty / not a numbered set)
- * result: =f STR (search) or =s N (jump to sheet N) */
+/* argv: FSTR PRE N SUF CASE ("-" = empty / not a numbered set)
+ * result: =f DIR CASE<TAB>STR (search) or =s N (jump to sheet N) */
 static
-d_find(av)
+d_search(av)
 char **av;
 {
 	register FILE *fp;
-	char out[VALL + 4], nn[60];
+	char out[VALL + 12], nn[60];
 	int w, h, r, i, cur;
 
 	if ( strcmp(av[0], "-") != 0 )
@@ -887,8 +894,9 @@ char **av;
 		strncpy(fndbuf, av[0], VALL - 1);
 		fndbuf[VALL - 1] = 0;
 	}
-	w = 304;
-	h = 46 + DLG_BTNH + DLG_BSHAD + 10;
+	gwg[GW_CASE].dw_val = av[4][0] == '1';
+	w = 372;
+	h = 74 + DLG_BTNH + DLG_BSHAD + 10;
 	r = hr_dlgopen(&w, &h);
 	if ( r == -2 )
 		sayquit();
@@ -899,11 +907,12 @@ char **av;
 	hr_dlgclose();
 	if ( r == -1 )
 		sayquit();
-	if ( r == GW_FIND )
+	if ( r == GW_NEXT || r == GW_PREV )
 	{
 		if ( fndbuf[0] == 0 )
 			saycancel();
-		sprintf(out, "=f %s", fndbuf);
+		sprintf(out, "=f %d %d	%s", r == GW_PREV ? -1 : 1,
+			gwg[GW_CASE].dw_val ? 1 : 0, fndbuf);
 		say(out);
 	}
 	if ( r != GW_SHTS || strcmp(av[1], "-") == 0 )
@@ -1061,6 +1070,66 @@ char **av;
 }
 
 /* ------------------------------------------------------------------ */
+/* Make Symbol: the GUI face of `vellum -mksym' (v6.7, sec. 60)        */
+/* ------------------------------------------------------------------ */
+
+char	mscode[8], mspfx[4], mslib[44], msscl[4];
+char	msmsg[40];
+
+HRWIDGET mswg[] = {
+    { DW_LABEL,   12,  16,   0,  0, "Code:" },
+    { DW_TEXT,   110,  12,  90, 22, (char *)0, 0, 0, mscode, sizeof(mscode) },
+    { DW_LABEL,  220,  16,   0,  0, "Prefix:" },
+    { DW_TEXT,   300,  12,  60, 22, (char *)0, 0, 0, mspfx, sizeof(mspfx) },
+    { DW_LABEL,   12,  46,   0,  0, "Library:" },
+    { DW_TEXT,   110,  42, 250, 22, (char *)0, 0, 0, mslib, sizeof(mslib) },
+    { DW_LABEL,   12,  76,   0,  0, "Scale:" },
+    { DW_TEXT,   110,  72,  40, 22, (char *)0, 0, 0, msscl, sizeof(msscl) },
+    { DW_LABEL,   12, 102,   0,  0, msmsg },
+    { DW_BUTTON,  80, 126,  70, DLG_BTNH, "OK",     0, 0, (char *)0, 0,
+      DWF_DEF | DWF_END },
+    { DW_BUTTON, 200, 126,  80, DLG_BTNH, "Cancel", 0, 0, (char *)0, 0,
+      DWF_CANCEL | DWF_END },
+};
+#define	NMSWG	(sizeof(mswg) / sizeof(mswg[0]))
+#define	MSW_OK	9
+
+/* argv: CODE PFX LIB SCALE MSG -> =CODE PFX LIB SCALE */
+static
+d_mksym(av)
+char **av;
+{
+	char out[80];
+	int w, h, r;
+
+	strcpy(mscode, strcmp(av[0], "-") == 0 ? "" : av[0]);
+	strcpy(mspfx, strcmp(av[1], "-") == 0 ? "" : av[1]);
+	strncpy(mslib, av[2], sizeof(mslib) - 1);
+	mslib[sizeof(mslib) - 1] = 0;
+	strcpy(msscl, av[3]);
+	strncpy(msmsg, strcmp(av[4], "-") == 0 ? "" : av[4],
+		sizeof(msmsg) - 1);
+	msmsg[sizeof(msmsg) - 1] = 0;
+	w = 410;
+	h = 126 + DLG_BTNH + DLG_BSHAD + 10;
+	r = hr_dlgopen(&w, &h);
+	if ( r == -2 )
+		sayquit();
+	if ( r < 0 )
+		saycancel();
+	hr_dlgdraw(mswg, NMSWG);
+	r = hr_dlgrun(mswg, NMSWG);
+	hr_dlgclose();
+	if ( r == -1 )
+		sayquit();
+	if ( r != MSW_OK || mscode[0] == 0 || mslib[0] == 0 )
+		saycancel();
+	sprintf(out, "=%s %s %s %s", mscode, mspfx[0] ? mspfx : "-", mslib,
+		msscl[0] ? msscl : "1");
+	say(out);
+}
+
+/* ------------------------------------------------------------------ */
 /* entry                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -1089,8 +1158,10 @@ char **argv;
 		d_style(&argv[3]);
 	else if ( strcmp(k, "print") == 0 && argc >= 5 )
 		d_print(&argv[3]);
-	else if ( strcmp(k, "find") == 0 && argc >= 7 )
-		d_find(&argv[3]);
+	else if ( strcmp(k, "search") == 0 && argc >= 8 )
+		d_search(&argv[3]);
+	else if ( strcmp(k, "mksym") == 0 && argc >= 8 )
+		d_mksym(&argv[3]);
 	else if ( strcmp(k, "array") == 0 )
 		d_array();
 	exit(1);

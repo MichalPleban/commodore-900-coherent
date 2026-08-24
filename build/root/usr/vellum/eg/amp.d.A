@@ -1,0 +1,32 @@
+# Common-emitter amplifier, REVISION A -- the approved print, kept
+# beside amp.d the way sec. 50 says a revision is kept: as a FILE.
+#	vellum -diff       amp.d.A amp.d	what changed
+#	vellum -diff -mark amp.d.A amp.d > mark.d	... on paper
+# Since A: the output coupling (C2, J2, the OUT net) was added, the
+# emitter bypass C3 came off, R2 was re-valued and R3 moved down.
+vellum1
+T 32 8 s2 Common emitter amp
+Y VCC 44 14 0 0 - -
+Y VCC 52 14 0 0 - -
+Y R 44 18 1 0 R1 47k
+Y R 52 18 1 0 R2 3k3
+Y NPN 50 30 0 0 Q1 BC237
+Y R 44 32 1 0 R3 10k
+Y R 52 34 1 0 R4 1k
+Y C 58 34 1 0 C3 10u
+Y GND 44 40 0 0 - -
+Y GND 52 40 0 0 - -
+Y C 36 30 0 0 C1 100n
+Y J 28 30 0 0 J1 in
+W 44 14 44 18
+W 52 14 52 18
+W 44 22 44 30
+W 44 30 44 32
+W 44 30 50 30
+W 52 22 52 28
+W 52 32 52 34
+W 44 36 44 40
+W 52 38 52 40
+W 30 30 36 30
+W 38 30 44 30
+N 32 30 IN

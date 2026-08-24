@@ -1,0 +1,8 @@
+/bad.sym: code BLANK: no geometry
+/bad.sym: code NOPIN: designator prefix but no pins
+/bad.sym: code OFFGRID: pin 2 at 6,-3 is not on a whole unit
+/bad.sym: code REPEAT: pin name A repeats
+/bad.sym: code UNTYPED: pin 2 untyped in a typed library
+/bad.sym: code NINE: 9 pins, the loader keeps 8
+/bad.sym: code GOOD defined twice
+bad=7

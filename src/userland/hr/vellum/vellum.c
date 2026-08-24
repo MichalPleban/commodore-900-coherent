@@ -129,7 +129,7 @@ int	midpx, midpy, panvx, panvy;
 HRAPP	me = { "Vellum", "vellum.icn", 0, 0,
 	       HRF_STRETCH | HRF_CONFIRM | HRF_TRACK | HRF_MIDBTN, 0, 0,
 	       HRM_NEW | HRM_OPEN | HRM_SAVE | HRM_CUT | HRM_COPY |
-	       HRM_PASTE | HRM_SETTINGS | HRM_HELP | HRM_PRINT | HRM_FIND };
+	       HRM_PASTE | HRM_SETTINGS | HRM_HELP | HRM_PRINT | HRM_SEARCH };
 
 int	mywid;
 int	contw, conth;		/* granted content size, px               */
@@ -2881,14 +2881,16 @@ static
 dokey(c)
 {
 	c &= 0xff;
-	if ( c >= (HRK_F2 & 0xff) && c <= (HRK_F8 & 0xff) )
+	if ( c >= (HRK_F2 & 0xff) && c <= (HRK_F9 & 0xff) )
 	{
 		/* zedit's function-key set, routed through the menu
 		 * dispatcher: F2 Save, F3 Open, F4 New, F5/F6/F7
-		 * Cut/Copy/Paste, F8 Settings (F11 Help below; F10
-		 * never arrives -- zvpump turns it into ^X^C) */
-		static short fnmenu[7] = { HRM_SAVE, HRM_OPEN, HRM_NEW,
-			HRM_CUT, HRM_COPY, HRM_PASTE, HRM_SETTINGS };
+		 * Cut/Copy/Paste, F8 Settings, F9 Search (F11 Help
+		 * below; F10 never arrives -- zvpump turns it into
+		 * ^X^C) */
+		static short fnmenu[8] = { HRM_SAVE, HRM_OPEN, HRM_NEW,
+			HRM_CUT, HRM_COPY, HRM_PASTE, HRM_SETTINGS,
+			HRM_SEARCH };
 
 		evmenu(fnmenu[c - (HRK_F2 & 0xff)]);
 		return 1;
@@ -2911,11 +2913,14 @@ dokey(c)
 		return zoomto(gsc * 2);
 	case '-':
 		return zoomto(gsc / 2);
+	case 'a':	return searchagain();	/* next hit, no dialog    */
 	case 'u':	return undo();
 	case 'v':	return zoomfit();
 	case '*':	return scalesel(1);
 	case '/':	return scalesel(0);
 	case 'f':	return tofront();
+	case 'y':	return mksymdlg();	/* v6.7: the selection ->
+						 * a library stencil       */
 	case 'j':	return dogroup();
 	case 'J':	return doungroup();
 	case '1':
@@ -4094,12 +4099,44 @@ dobak()
 /* ------------------------------------------------------------------ */
 /* main                                                               */
 /* ------------------------------------------------------------------ */
+/* v6.7 (VELLUM.md sec. 60): centre the view on a grid point and SELECT
+ * the object there.  Every asking mode already prints "file: ... at
+ * x,y"; `vellum +x,y file.d' hands that straight back to the board, so
+ * `vellum -where TODO *.d' stops being a report and becomes a work
+ * list.  Topmost hit wins, and a visible layer is a hittable one -- the
+ * Find dialog's rule (veldlg.c), because they are the same act. */
+static
+gotopt(gx, gy)
+{
+	register int i;
+	int x0, y0, x1, y1;
+
+	voxg = gx - (contw - SBW - PALW) / (2 * gsc);
+	voyg = gy - (conth - STH - SBW - CANY) / (2 * gsc);
+	clampvo();
+	for ( i = nobj - 1; i >= 0; i-- )
+	{
+		if ( !layvis[obj[i].o_layer] )
+			continue;
+		objgbox(i, &x0, &y0, &x1, &y1);
+		if ( gx >= x0 && gx <= x1 && gy >= y0 && gy <= y1 )
+		{
+			selclear();
+			osel[i] = 1;
+			nsel = 1;
+			selobj = i;
+			break;
+		}
+	}
+	statdirty = 1;
+	return 0;
+}
 
 main(argc, argv)
 char **argv;
 {
 	WMSG e;
-	int i;
+	int i, gotoc, gotox, gotoy;
 
 	/* headless exports run WITHOUT a window: every LOWERCASE -mode
 	 * (-print -pic -net -hpgl -bom ...) goes to the velxport HELPER
@@ -4127,6 +4164,31 @@ char **argv;
 	alarm(300);			/* the autosave tick */
 	vpspawn();			/* the palette-bank helper */
 
+	/* `+x,y': the grid point to open ON (v6.7, sec. 60).  It is not
+	 * an option hr_open eats and not a file, so it is picked out of
+	 * argv here and the rest of the line closes over it. */
+	gotoc = 0;
+	gotox = gotoy = 0;
+	for ( i = 1; i < argc; i++ )
+		if ( argv[i][0] == '+' && argv[i][1] )
+		{
+			register char *q;
+
+			q = argv[i] + 1;
+			gotox = atoi(q);
+			while ( *q && *q != ',' )
+				q++;
+			gotoy = *q ? atoi(q + 1) : 0;
+			gotoc = 1;
+			while ( i + 1 < argc )
+			{
+				argv[i] = argv[i + 1];
+				i++;
+			}
+			argc--;
+			break;
+		}
+
 	/* An optional file argument (options were consumed by hr_open):
 	 * open it, or start empty under that name if it does not exist. */
 	if ( argc > 1 && argv[1][0] )
@@ -4136,6 +4198,8 @@ char **argv;
 		fname[i] = 0;
 		loadfile(fname);
 	}
+	if ( gotoc )
+		gotopt(gotox, gotoy);
 
 	alldirty();			/* drawn below, or by the first loop
 					 * pass if a server overlay is up now */
@@ -4260,15 +4324,17 @@ static
 evmenu(code)
 {
 	/* the HRM_* bits in LSB order; Paste is special-cased (it takes
-	 * the pointer position) */
-	static int (*mfn[10])() = { donew, doopen, dosave, docut, docopy,
-		(int (*)())0, settingsdlg, dohelp, printdlg, finddlg };
+	 * the pointer position).  HRM_FIND (bit 9) is not ours: an editor
+	 * declares Search, which is the one it can act on. */
+	static int (*mfn[11])() = { donew, doopen, dosave, docut, docopy,
+		(int (*)())0, settingsdlg, dohelp, printdlg, (int (*)())0,
+		searchdlg };
 	register int i;
 
 	if ( code == HRM_PASTE )
 		dopaste(lastgx, lastgy, 1);
 	else
-		for ( i = 0; i < 10; i++ )
+		for ( i = 0; i < 11; i++ )
 			if ( code == (1 << i) && mfn[i] )
 			{
 				(*mfn[i])();

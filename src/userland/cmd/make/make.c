@@ -206,8 +206,16 @@ char *s0, *s1;
 
 /* Return 1 if c is EOS, EOF, or one of the characters in s */
 
+/* The parameter must be an INT.  nextc() returns EOS (0200) and EOF
+ * (-1), and neither survives a SIGNED char: 0200 truncates to -128, so
+ * `c == EOS' was never true and every statement ran on past its own end
+ * into the next line.  The symptom was that make(1) rejected EVERY
+ * makefile -- including its own /usr/lib/makemacros, at the `YACC =
+ * yacc' on line 4 -- with "= in or after dependency".  The original
+ * compiler evidently made plain char unsigned; this one does not, and
+ * an int parameter is right for either.  (Aug 2026.) */
 delim(c, s)
-register char	c;
+register int	c;
 char	*s;
 {
 	char	*index();

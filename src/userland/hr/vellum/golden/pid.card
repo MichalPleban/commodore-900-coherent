@@ -1,0 +1,20 @@
+vellum1
+T 2 2 s2 pid library
+Y PUMP 6 12 0 0 - -
+T 4 16 s0 /0.1 PUMP P
+Y VGATE 21 11 0 0 - -
+T 19 14 s0 /0.1 VGATE V
+Y VCHK 36 11 0 0 - -
+T 34 14 s0 /0.1 VCHK V
+Y VCTL 51 13 0 0 - -
+T 49 16 s0 /0.1 VCTL V
+Y TANK 66 12 0 0 - -
+T 64 16 s0 /0.1 TANK TK
+Y VESS 81 13 0 0 - -
+T 79 18 s0 /0.1 VESS VS
+Y HX 7 27 0 0 - -
+T 4 31 s0 /0.1 HX E
+Y COMP 21 27 0 0 - -
+T 19 31 s0 /0.1 COMP K
+Y INST 35 26 0 0 - -
+T 34 30 s0 /0.1 INST I

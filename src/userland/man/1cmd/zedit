@@ -9,6 +9,7 @@ zedit -- GUI text editor
 Usage:	zedit [ options ] [ file ]
 Keys:	^B/^F/^P/^N move, ^A/^E line start/end, ^Z/^V page up/down
 	^K kill line, ^W kill selection, ^Y yank, ^S find, ^X^C quit
+	ESC s search/replace dialog, ESC r replace this match
 	F2 save, F3 open, F4 new, F5 cut, F6 copy, F7 paste, F8 find
 .HE
 .B zedit
@@ -77,10 +78,40 @@ Editing:
 Search and file commands:
 .DS
 .ta 6n 18n
-	\fB^S\fR	find next (asks for a pattern the first time)
-	\fBESC s\fR	new search (always asks for the pattern)
+	\fB^S\fR	find next (opens the Search dialog the first time)
+	\fBESC s\fR	the Search dialog (always)
+	\fBESC r\fR	replace the match under the cursor and step to
+		the next, using the dialog's two patterns
 	\fB^X^C\fR	quit (confirms if the buffer is modified)
 .DE
+The window menu's
+.B Search
+entry opens the same dialog: a
+.B Find
+pattern, a
+.B Replace
+text, and three verbs.
+.B Find
+goes to the next match, wrapping past the end of the buffer, and
+closes the dialog so the hit can be seen; a match that does not exist
+leaves the dialog up saying so.
+.B Replace
+rewrites the match under the cursor and steps to the next \- so the
+first
+.B Replace
+after opening the dialog only finds a match, and the second changes
+it.
+.B All
+replaces every match from the cursor to the END of the buffer (not the
+whole file) and reports the count.
+Matching is case-sensitive and a match never spans a newline; a
+replacement that would push a line past its stored length is refused
+rather than truncated.
+.B "ESC r"
+does what
+.B Replace
+does but without the dialog covering the text, which is the way to
+work through a buffer match by match.
 Function keys:
 .DS
 .ta 6n 18n
@@ -106,8 +137,8 @@ middle click pastes in any GUI window (at the click point).
 Cut and Copy instead use the clipboard, a separate store, so a
 clipboard paste and a middle-click paste can carry different text.
 .PP
-The window menu offers New, Open, Save, Cut, Copy, Paste and Help
-above the standard window entries.
+The window menu offers New, Open, Save, Cut, Copy, Paste, Help and
+Search above the standard window entries.
 Menu Save always shows the file-name dialog, prefilled with the
 current name;
 .B F2

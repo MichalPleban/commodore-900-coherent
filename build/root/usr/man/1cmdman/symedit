@@ -52,16 +52,16 @@ DDEESSCCRRIIPPTTIIOONN
      WHOLE symbol around the origin - draw one gate half, mirror
      it.  The ff key copies a symbol IN from another library file
      as the starting point (asks for the file and the code; the
-     buffer is replaced, the code and prefix stay).  The uu key
-     UNDOES the last edit (one level; pressing it again redoes)
-     and EEsscc cancels in two stages: the first returns to Seg
-     keeping the selection, a second drops the selection too.
-     The two triangle cells under the preview step to the pre-
-     vious and next symbol in the library, keeping any edits in
-     memory.
+     buffer is replaced, the code and prefix stay).  The ii key
+     IMPORTS A DRAWING as the stencil (VELLUM.md sec. 55): it
+     asks for the .dd file, the grid point that becomes the symbol
+     origin (blank = the drawing's first NN marker) and the scale,
+     then converts under exactly the rules vveelllluumm -mmkkssyymm uses -
+     lines, wires, boxes and polylines become segments, circles
+     and arcs themselves, a ONE-CHARACTER text a glyph, and the NN
 
 
-COHERENT Command Manual                                    Page 1
+CCOOHHEERREENNTT CCoommmmaanndd MMaannuuaall                                    PPaaggee 11
 
 
 
@@ -69,6 +69,29 @@ COHERENT Command Manual                                    Page 1
 ssyymmeeddiitt                                                   ssyymmeeddiitt
 
 
+
+     markers become the pins in file order (an NN called - is an
+     unnamed pin).  Shapes, connectors, dimensions, nested sym-
+     bols and longer text have no stencil form and are dropped.
+     Drawing at -ssccaallee 44 makes one drawing unit a quarter unit,
+     which is the detail a hand-cut stencil has.  The buffer is
+     replaced and uu undoes it, so the promote-then-touch-up
+     workflow is one program.
+
+     The kk key CHECKS the open library: the same findings vveelllluumm
+     -ssyymmcchheecckk reports - a code defined twice, a symbol with no
+     geometry, a designator prefix with no pins, a pin off a
+     whole unit, a pin name that repeats, a pin left untyped in a
+     library that types the others - a page at a time, More wrap-
+     ping round.
+
+
+     The uu key UNDOES the last edit (one level; pressing it again
+     redoes) and EEsscc cancels in two stages: the first returns to
+     Seg keeping the selection, a second drops the selection too.
+     The two triangle cells under the preview step to the pre-
+     vious and next symbol in the library, keeping any edits in
+     memory.
 
      The window menu carries New (asks for the symbol's code and
      its designator prefix), Open (by code; the dialog lists what
@@ -80,7 +103,7 @@ ssyymmeeddiitt                                                   ssyym
 
 FFIILLEESS
                   /usr/vellum/etc/symbolsthe user scratch library (default)
-                  /usr/vellum/lib/*.symthe stock libraries (discrete, logic,
+                  /usr/vellum/sym/*.symthe stock libraries (discrete, logic,
                             flow, net, arch, pid, power, plan)
                   /usr/vellum/etc/libswhich libraries vellum loads at start-up
 

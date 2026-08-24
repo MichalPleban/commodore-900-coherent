@@ -1,0 +1,18 @@
+rm -f pid.sym
+cat /usr/vellum/eg/sk/HEADER > pid.sym
+/usr/vellum/lib/velxport -mksym PUMP  -pfx P  -org 40,30 -scale 4 /usr/vellum/eg/sk/pump.d  >> pid.sym
+/usr/vellum/lib/velxport -mksym VGATE -pfx V  -org 40,30 -scale 4 /usr/vellum/eg/sk/vgate.d >> pid.sym
+/usr/vellum/lib/velxport -mksym VCHK  -pfx V  -org 40,30 -scale 4 /usr/vellum/eg/sk/vchk.d  >> pid.sym
+/usr/vellum/lib/velxport -mksym VCTL  -pfx V  -org 40,30 -scale 4 /usr/vellum/eg/sk/vctl.d  >> pid.sym
+/usr/vellum/lib/velxport -mksym TANK  -pfx TK -org 40,30 -scale 4 /usr/vellum/eg/sk/tank.d  >> pid.sym
+/usr/vellum/lib/velxport -mksym VESS  -pfx VS -org 40,30 -scale 4 /usr/vellum/eg/sk/vess.d  >> pid.sym
+/usr/vellum/lib/velxport -mksym HX    -pfx E  -org 40,30 -scale 4 /usr/vellum/eg/sk/hx.d    >> pid.sym
+/usr/vellum/lib/velxport -mksym COMP  -pfx K  -org 40,30 -scale 4 /usr/vellum/eg/sk/comp.d  >> pid.sym
+/usr/vellum/lib/velxport -mksym INST  -pfx I  -org 40,30 -scale 4 /usr/vellum/eg/sk/inst.d  >> pid.sym
+/usr/vellum/lib/velxport -symcheck pid.sym
+vellum: symcheck clean
+make=0
+cmp=0
+ /usr/vellum/lib/velxport -symcheck pid.sym
+vellum: symcheck clean
+check=0

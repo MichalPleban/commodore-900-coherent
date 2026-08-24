@@ -23,6 +23,15 @@ int	xorgx, xorgy;		/* device origin (print: the used extent) */
 int	xlay;			/* layer of the object being walked (the  */
 				/* hpgl backend picks its pen by it)      */
 
+/* The device-space PAGE REJECT (VELLUM.md sec. 58, the v6.0 groundwork).
+ * While xclipon, xwalk skips an object whose device bbox misses the
+ * window -- otherwise a six-page -tile is six full walks of the whole
+ * drawing on a 6 MHz machine.  The window is in the same device px the
+ * backend sees (the origin is already subtracted), so a tiling driver
+ * just says 0,0 .. pagew,pageh. */
+int	xclipon;
+int	xclipx0, xclipy0, xclipx1, xclipy1;
+
 static
 dx(gx)
 {
@@ -594,6 +603,20 @@ int *bx0, *by0, *bx1, *by1;
 	return 0;
 }
 
+/* Is object i entirely outside the page window?  objgbox is the extent
+ * routine's own bbox, so labels and symbol geometry are already in it;
+ * one grid unit of slack covers the bold line's doubled pixel and the
+ * arrowhead barbs, which are drawn past the geometry. */
+static
+xoff(i)
+{
+	int gx0, gy0, gx1, gy1;
+
+	objgbox(i, &gx0, &gy0, &gx1, &gy1);
+	return dx(gx1) + XSC < xclipx0 || dx(gx0) - XSC > xclipx1 ||
+	       dy(gy1) + XSC < xclipy0 || dy(gy0) - XSC > xclipy1;
+}
+
 /* ---- THE WALKER: every printable object through the backend ---- */
 xwalk(xb)
 register XB *xb;
@@ -607,6 +630,8 @@ register XB *xb;
 	{
 		o = &obj[i];
 		if ( !xprn((int)o->o_layer) )
+			continue;
+		if ( xclipon && xoff(i) )
 			continue;
 		xlay = o->o_layer;
 		fl = o->o_flags;

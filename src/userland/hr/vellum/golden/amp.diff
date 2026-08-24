@@ -1,0 +1,14 @@
+amp.d: T "Common emitter" changed
+amp.d: R2 changed (R 4k7)
+amp.d: R3 moved 44,32 -> 44,34
+amp.d: C3 removed (C 10u)
+amp.d: W 44,30-44,32 removed
+amp.d: W 44,36-44,40 removed
+amp.d: C2 added (C 100n)
+amp.d: J2 added (J out)
+amp.d: W 44,30-44,34 added
+amp.d: W 52,26-56,26 added
+amp.d: W 44,38-44,40 added
+amp.d: W 58,26-62,26 added
+amp.d: N OUT added
+diff=13
