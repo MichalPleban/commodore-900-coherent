@@ -1,12 +1,17 @@
 /*
- * vellum.h - shared types and externs of the Vellum drawing tool.
+ * vellum.h - the shared types and externs of the Vellum SUITE.
  *
- * Vellum is several translation units now (vellum.c the editor proper,
- * velfile.c the plain-text file format, velport.c the headless print /
- * pic / netlist exporters): one .c grew past what the Z8001 assembler's
- * fix-up tables can track in a single module.  Everything the units
- * share -- the object model, the symbol-library pools, the layer state
- * -- is declared here and defined once in vellum.c.
+ * Vellum is a set of small tools over one model, not one program with
+ * a mode flag: the editor draws, velplot puts a drawing on a page,
+ * velpic makes a figure, veldxf crosses the border both ways, velnet
+ * extracts what it is connected as, velcheck judges it, veldiff
+ * compares two revisions, velinfo measures and lists it, velsym turns
+ * a drawing into a stencil.  What they all share -- the object model,
+ * the symbol-library pools, the layer state, the file format, the
+ * device walker, the connectivity -- is declared here and lives once
+ * in libvellum.a (velbase velfile velwalk velnetc velgfx).
+ *
+ * A tool links the library; the library never calls a tool.
  */
 
 /* ---- objects ---- */
@@ -143,13 +148,17 @@ extern int	curlayer;
 extern char	layvis[NLAYER];
 extern char	layprn[NLAYER];
 
-/* ---- the one-level undo snapshot (vellum.c data -- editor-only, so
- * the headless exporter does not carry the 17 KB; velbase keeps only
- * the uvalid flag, which velfile clears on load) ---- */
-extern DOBJ	uobj[MAXOBJ];
-extern int	unobj;
-extern short	uppool[PPOOL];
-extern int	uppuse;
+/* ---- velsnap.c: the model packed into ONE block, sized to the
+ * drawing -- the editor's undo pre-image (and the only thing that ever
+ * needs a second copy of the model).  n/pp/tp are the block's shape as
+ * usnappack() left it; the offsets are all even, so these stay
+ * aligned. ---- */
+#define	USOBJ(b)		((DOBJ *)(b))
+#define	USPP(b, n)		((short *)((b) + (n) * sizeof(DOBJ)))
+#define	USTP(b, n, pp)		((b) + (n) * sizeof(DOBJ) + (pp) * 2)
+extern int	usnapsize();	/* what the live model packs into        */
+extern char	*usnappack();	/* ... packed, or 0                      */
+extern int	usnaprestore();	/* usnaprestore(b, n, pp, tp)            */
 
 /* ---- the sheet (Settings presets; SHW/SHH read the live size) ---- */
 extern int	v_shw, v_shh;
@@ -176,7 +185,7 @@ typedef struct {
 	short	*sy_pins;	/* count-prefixed q pairs (0 = none)      */
 	char	sy_lib;		/* library group it belongs to            */
 	short	sy_nfile;	/* p lines the FILE had (the loader keeps */
-				/* 8: -symcheck says so, sec. 56)         */
+				/* 8: velcheck -sym says so, sec. 56)     */
 	short	sy_x0, sy_y0;	/* q bbox, computed once at start-up      */
 	short	sy_x1, sy_y1;
 } SYMDEF;
@@ -320,10 +329,10 @@ extern int	dimdraw();	/* dimension: ticks + arrows + label      */
 extern int	vtext();	/* vertical (transposed) text via cl_blit */
 
 /* ---- velwalk.c: the device-coordinate object WALKER and its 8-function
- * backend contract, shared by the velxport exporters (print/pic/hpgl) AND
- * the velprev preview window (VELLUM.md sec. 25: the same walker feeds the
- * Epson bands and the preview, so what the window shows is what the paper
- * gets). ---- */
+ * backend contract, shared by the exporting TOOLS (velplot, velpic,
+ * veldxf) AND the velprev preview window (VELLUM.md sec. 25: the same
+ * walker feeds the Epson bands and the preview, so what the window shows
+ * is what the paper gets). ---- */
 typedef struct {
 	int	(*b_line)();	/* x0,y0,x1,y1 (device px)                */
 	int	(*b_box)();	/* x0,y0,x1,y1, fill (-1 none/0 blk/     */
@@ -356,7 +365,11 @@ extern int	xwalk();	/* every printable object -> the backend  */
 extern int	xextent();	/* grid extent of the printable drawing   */
 
 /* ---- cross-unit functions ---- */
-extern char	*tok();		/* velfile.c: tokenizer                   */
+extern char	*velprog;	/* velbase.c: the tool's own name         */
+extern int	ddesc();	/* velrept.c: an object, as a report names it */
+extern int	ddet();		/* velrept.c: ... its part detail         */
+extern char	*tok();		/* vellib.c: tokenizer                    */
+extern int	pnum();		/* vellib.c: ... one token as a short     */
 extern int	symbycode();	/* velfile.c                              */
 extern int	loadlib();	/* velfile.c: one .sym library file       */
 extern int	libdrop;	/* ... symbols it dropped (pool full)     */
@@ -368,16 +381,17 @@ extern int	savefile();	/* velfile.c: save + clear modified       */
 extern int	parsereset();	/* velfile.c: reset the line parser       */
 extern int	parseobj();	/* velfile.c: one .d line -> obj[nobj]    */
 extern int	loadfile();	/* velfile.c: whole file                  */
+extern int	loadstdin();	/* velsheet.c: the "-" pipe form          */
+extern int	loadsheet();	/* velsheet.c: one sheet of a command line */
 extern int	newgid();	/* velfile.c: first free group id         */
 extern int	selclear();	/* vellum.c                               */
 extern int	rejunc();	/* vellum.c: junction dots                */
 extern int	symbounds();	/* vellum.c: symbol q bboxes              */
 extern int	resolveatt();	/* vellum.c: re-resolve one conn end      */
-extern int	velxport();	/* velport.c: headless -print/-pic/-net   */
 
-/* ---- velport.c: the CONNECTIVITY, computed once and asked several
- * questions -- -net reports it, -check judges it, and the v5 modes
- * -len and -spice measure and translate it (VELLUM.md sec. 44 rule 1:
+/* ---- velnetc.c: the CONNECTIVITY, computed once and asked several
+ * questions -- velnet reports it, velcheck judges it, and velinfo -len
+ * and velnet -spice measure and translate it (VELLUM.md sec. 44 rule 1:
  * every new verb is machinery that already ships) ---- */
 extern int	netbuild();	/* wires unioned, pins attached, nets named */
 extern int	nfind();	/* union-find root of wire object i       */
@@ -388,28 +402,13 @@ extern short	wnet[];
 extern short	pobj[], ppin[], pnet[];	/* the sheet's pins and nets      */
 extern int	np;
 extern int	nnames;		/* named nets: nnm[k] at root nroot[k]    */
-extern int	nsheets;
-
-/* ---- velv5.c: the ASKING modes (VELLUM.md secs. 45-49) -- velxport
- * only; the editor forwards the flag and links none of it ---- */
-extern int	loadstdin();	/* velv5.c: load the "-" pipe form        */
-extern int	dsave();	/* live drawing -> the diff's shadow copy */
-extern int	dodiff();	/* dodiff(mark): the whole comparison     */
-extern int	velv5();	/* velv5(mode, sheet, file, pat): one sheet */
-extern int	velv5end();	/* ... after the last one; exit status    */
-extern int	velv5diff();	/* velv5diff(newname, mark)               */
-extern int	dosymsheet();	/* one .sym library -> a reference card   */
-
-/* ---- velv6.c: the CONTENT modes (VELLUM.md secs. 55, 56, 59) -- what
- * the shop draws becomes what the shop draws with.  velxport only. ---- */
-extern char	*mkcode, *mkpfx;	/* -mksym CODE, -pfx P            */
-extern int	mkorgx, mkorgy, mkorgf;	/* -org x,y                       */
-extern int	mksc;			/* -scale n (the sketch's size)   */
-extern int	mktype();	/* velv6: record one -type NAME=t         */
-extern int	domksym();	/* a drawing -> one symbol ... end block  */
-extern int	dosymcheck();	/* one .sym library, judged               */
-extern int	dosymcheckend();/* ... after the last; the exit status    */
-extern int	dobook();	/* one sheet's contents row               */
+extern int	nsheets;	/* the sheet SET on the command line      */
+extern int	donet();	/* one sheet's nets: report or judge      */
+extern int	donetend();	/* ... after the last; the merged names   */
+extern int	chk();		/* one finding: "file: message"           */
+extern int	checkf;		/* judging, not listing                   */
+extern int	chkn;		/* findings so far = the exit status      */
+extern char	*chksheet;	/* the file the findings name             */
 
 /* ---- velwalk.c: the device-space PAGE REJECT (sec. 58) -- while
  * xclipon, xwalk skips an object whose device bbox misses the window,

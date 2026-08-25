@@ -1,0 +1,120 @@
+.TH velinfo "" "Command"
+.SH NAME
+velinfo \- measure, find and list a vellum drawing set
+.SH SYNOPSIS
+\fBvelinfo \-len\fR \fIfile.d ...\fR
+.br
+\fBvelinfo \-where\fR \fIstring file.d ...\fR
+.br
+\fBvelinfo \-symsheet\fR \fIlib.sym\fR > \fIcard.d\fR
+.br
+\fBvelinfo \-book\fR \fIsheet.d ...\fR > \fIcontents.d\fR
+.SH DESCRIPTION
+.HS
+velinfo -- measure, find and list a vellum drawing set
+Usage:	velinfo -len file.d ...		the takeoff: lengths, areas
+	velinfo -where str file.d ...	the set-wide Find
+	velinfo -symsheet lib.sym	a library's reference card
+	velinfo -book sheet.d ...	the set's contents page
+	-len and -where answer in prose; -symsheet and -book
+	answer with an ordinary DRAWING.  - is standard input.
+.HE
+A drawing set lives for years, and the questions the shop asks about
+it \- what it takes, where anything is, what a library holds and what
+the set contains \-
+.B velinfo
+answers.
+These are the shell's questions, not the window's, and their natural
+asker is
+.BR make (1).
+.PP
+Two of the four answer in prose on standard output and two answer with
+an ordinary DRAWING \- which is the point: a drawing is the format the
+rest of the suite already prints, so a generated card goes to paper
+with no new backend and no temporary file.
+The file name
+.B \-
+is standard input.
+.PP
+.B \-len
+.br
+The TAKEOFF.
+Wires, connectors and polylines are measured in sheet units, per NET
+where the conductors have names and per LAYER otherwise, with a set
+total.
+H-V routes measure both legs; diagonals measure an integer square
+root.
+.PP
+A closed FILLED polyline reports AREA instead \- integer shoelace,
+halved, with the odd half shown as ``.5'' \- because sheet metal is
+ordered by area the way cable is ordered by length.
+.PP
+A set whose sheets disagree about the
+.B U
+unit is refused in one line rather than adding millimetres to inches.
+(That disagreement is also a
+.B velcheck
+finding, which is where a build should catch it.)
+.PP
+.B \-where
+.br
+The set-wide Find: a case-blind substring over designators, values,
+text and net names \- the editor's Find contract re-stated over
+FILES \- one line per hit with the grid position.
+The EXIT STATUS is the hit count.
+.PP
+Zero hits exits 0 silently, so the INVERTED use is free:
+.B "velinfo -where TODO *.d"
+in a
+.B check:
+rule fails the build while a sheet still carries a TODO note.
+.PP
+.B \-symsheet
+.br
+The library ON PAPER: a grid of every stencil in ONE
+.B .sym
+file with its code, designator prefix and pin types, emitted as an
+ordinary drawing, so the shop's binder fills itself from make:
+.DS
+.ta 8n
+	velinfo -symsheet pid.sym | velplot -T ps -fit -
+.DE
+The card names its stencils by CODE like any drawing, so whatever
+reads it back must have that library loaded: put a library of your own
+in /usr/vellum/etc/libs first.
+.PP
+.B \-book
+.br
+The set as a DOCUMENT: an ordinary drawing listing the sheets given \-
+number, file name, and the sheet's own title, which it takes from the
+first text object on the FRAME layer (where the frame stamp puts
+.BR $F ,
+so a stamped set titles itself), falling back to the largest text on
+the sheet and then to the file name.
+.PP
+It is
+.B .d
+out, so it prints on every device,
+.B velplot \-tile s
+if it has to, and opens in the editor when somebody wants to fix a
+title by hand:
+.DS
+.ta 8n
+	velinfo -book amp?.d > contents.d
+	velplot -T ps contents.d amp?.d | lpr
+.DE
+The sheets stay FILES.
+A book is a contents drawing plus a shell glob in the right order, not
+a container format.
+.SH "SEE ALSO"
+.B vellum ,
+.B velnet ,
+.B velcheck ,
+.B velplot ,
+.B velsym ,
+.B make
+.SH NOTES
+.B \-len
+measures the nets the same union-find found for
+.BR velnet ,
+so a run length and a netlist can never disagree.

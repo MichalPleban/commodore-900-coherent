@@ -1,17 +1,34 @@
 /*
- * velbase.c - Vellum's MODEL layer: the object list, the symbol-library
- * pools, layer/sheet/selection state, and every piece of geometry that
- * never touches the screen (bboxes, symbol transforms, junction dots,
- * attachment points).  cl_*-free ON PURPOSE: the headless export binary
- * (velxport = velbase + velfile + velport) links this WITHOUT the gfx
- * shared library, so -print/-pic/-net run even on a machine with no
- * hi-res card.
+ * velbase.c - Vellum's DRAWING: the object list, the pools, the
+ * layer / sheet / selection / view state, and every piece of geometry
+ * that never touches the screen (bboxes, junction dots, attachment
+ * points).  cl_*-free ON PURPOSE: the headless TOOLS (velplot, velpic,
+ * velnet, velcheck, ...) link this WITHOUT the gfx shared library, so
+ * they run on a machine with no hi-res card.
+ *
+ * The SYMBOL half is velsymg.c and the stateless geometry is velmath.c,
+ * both separate members: this one carries 20 000 bytes of drawing
+ * table and pools, and a client that only paints stencils (velpal)
+ * should not link a byte of it.  Coherent's ld pulls a member whole,
+ * so what shares a file is a decision about what a client pays for.
  */
 #include <stdio.h>
 #include "vellum.h"
 
 /* The object model, kinds, flags and pools are declared in vellum.h
- * (shared with velfile.c / velport.c); defined here. */
+ * (shared by every unit of the suite); the DRAWING's are defined here.
+ * velprog and nsheets live here too: every tool that says its own name
+ * holds a drawing as well, and nothing that only paints stencils does. */
+/* The tool's own name, for its messages: every command in the suite
+ * links this library, and a diagnostic says which one spoke. */
+char	*velprog = "vellum";
+
+/* How many sheets this run was given.  A SET is the unit of work --
+ * named nets merge across it, a parts list is one list -- so the
+ * count is a fact about the command line that every tool states and
+ * the library reads. */
+int	nsheets;
+
 DOBJ	obj[MAXOBJ];
 int	nobj;
 
@@ -61,32 +78,6 @@ int	modified;
 short	juncx[MAXJUNC], juncy[MAXJUNC];
 int	njunc;
 
-/* EVERY symbol is parsed from a library FILE (velfile.c loadlib) --
- * nothing is compiled in.  /usr/vellum/etc/libs names the libraries
- * loaded at start-up, the user scratch library is always tried after
- * them, and the toolbar Lib button loads more.  ALL loaded symbols stay
- * resolvable at once; the palette shows ONE group at a time. */
-SYMDEF	symtab[MAXSYM];
-int	nsym;
-
-char	libname[MAXLIB][12];	/* palette-header name (file basename)    */
-char	libpath[MAXLIB][44];	/* the file itself, for the Edit button   */
-int	nlib;
-int	curlib;			/* group the palette shows                */
-
-/* Pools the parsed symbol data lives in (linear; a library that would
- * overflow them is truncated, never overrun). */
-short	symops[SYMOPS];
-short	sympin[SYMPINS];
-char	symcode[MAXSYM][8];
-char	symprefix[MAXSYM][4];
-int	opuse, pinuse;		/* pool cursors                           */
-
-/* Pin NAMES (v1.4, for netlists: Q1.B instead of Q1.2) -- see vellum.h. */
-char	pnmpool[PNMPOOL];
-int	pnmuse	= 1;		/* [0] reserved: 0 means unnamed          */
-short	pinnm[SYMPINS / 2];
-char	pintyp[SYMPINS / 2];	/* pin TYPES (v4.4): 'i' 'o' 'p' 'b' / 0  */
 
 /* ---- the TEXT pool (v3.3, VELLUM.md sec. 29): long T/S/D values.
  * A value longer than VALL-1 keeps a marker in the DOBJ (o_val[0] == 1,
@@ -168,31 +159,6 @@ register char *s;
 	return 0;
 }
 
-/* Integer square root -- radius math everywhere. */
-long
-isqrt(v)
-long v;
-{
-	register long r, b;
-
-	r = 0;
-	b = 0x40000000L;
-	while ( b > v )
-		b >>= 2;
-	while ( b )
-	{
-		if ( v >= r + b )
-		{
-			v -= r + b;
-			r = (r >> 1) + b;
-		}
-		else
-			r >>= 1;
-		b >>= 2;
-	}
-	return r;
-}
-
 /* The dimension label: any text overrides; empty = AUTO, the measured
  * distance times the sheet unit, integer formatted ("85 mm").  A
  * horizontal or vertical dimension measures its axis, a diagonal one
@@ -226,83 +192,7 @@ char *buf;
 	return 0;
 }
 
-/* Chorded quadratic B-spline through a polyline's DEVICE points (2n ints
- * in xy[]): the curve runs from the first point, through the midpoint of
- * each interior edge with the vertex as control, to the last -- chords
- * from integer midpoint subdivision (the flatarc trick generalized).
- * cl_-free: the editor's emit draws styled canvas lines, the exporters'
- * emit feeds a backend. */
-static
-bsseg(x0, y0, cx, cy, x1, y1, emit, dep)
-int (*emit)();
-{
-	int mx0, my0, mx1, my1, mx, my;
 
-	if ( dep <= 0 )
-	{
-		(*emit)(x0, y0, x1, y1);
-		return 0;
-	}
-	mx0 = (x0 + cx) / 2;	my0 = (y0 + cy) / 2;
-	mx1 = (cx + x1) / 2;	my1 = (cy + y1) / 2;
-	mx = (mx0 + mx1) / 2;	my = (my0 + my1) / 2;
-	bsseg(x0, y0, mx0, my0, mx, my, emit, dep - 1);
-	bsseg(mx, my, mx1, my1, x1, y1, emit, dep - 1);
-	return 0;
-}
-
-bspline(xy, n, emit)
-register int *xy;
-int (*emit)();
-{
-	register int i;
-	int ax, ay, bx, by;
-
-	if ( n < 3 )
-	{
-		if ( n == 2 )
-			(*emit)(xy[0], xy[1], xy[2], xy[3]);
-		return 0;
-	}
-	ax = xy[0];
-	ay = xy[1];
-	for ( i = 1; i < n - 1; i++ )
-	{
-		if ( i == n - 2 )
-		{
-			bx = xy[2 * n - 2];
-			by = xy[2 * n - 1];
-		}
-		else
-		{
-			bx = (xy[2*i] + xy[2*i + 2]) / 2;
-			by = (xy[2*i + 1] + xy[2*i + 3]) / 2;
-		}
-		bsseg(ax, ay, xy[2*i], xy[2*i + 1], bx, by, emit, 3);
-		ax = bx;
-		ay = by;
-	}
-	return 0;
-}
-
-/* Transform a symbol-space q point (mirror, then rot quarter turns) and
- * scale it onto the screen: ppq px per q unit around (ox,oy). */
-txq(x, y, rot, mir, ox, oy, ppq, px, py)
-int *px, *py;
-{
-	register int t;
-
-	if ( mir )
-		x = -x;
-	switch ( rot & 3 )
-	{
-	case 1:	t = x;  x = -y;  y = t;  break;
-	case 2:	x = -x;  y = -y;  break;
-	case 3:	t = x;  x = y;  y = -t;  break;
-	}
-	*px = ox + x * ppq;
-	*py = oy + y * ppq;
-}
 
 /* grid <-> canvas pixels, through the zoom scale gsc */
 gtopx(gx)
@@ -315,62 +205,6 @@ gtopy(gy)
 	return CANY + (gy - voyg) * gsc;
 }
 
-/* Compute every symbol's q bbox once, from its op list (ST counts as a
- * 3x4 q char cell). */
-symbounds()
-{
-	register short *p;
-	register int i;
-	int x0, y0, x1, y1;
-
-	for ( i = 0; i < nsym; i++ )
-	{
-		x0 = y0 = 999;
-		x1 = y1 = -999;
-		p = symtab[i].sy_ops;
-		while ( *p != SEND )
-		{
-			if ( *p == SE )
-			{
-				if ( p[1] < x0 ) x0 = p[1];
-				if ( p[3] < x0 ) x0 = p[3];
-				if ( p[1] > x1 ) x1 = p[1];
-				if ( p[3] > x1 ) x1 = p[3];
-				if ( p[2] < y0 ) y0 = p[2];
-				if ( p[4] < y0 ) y0 = p[4];
-				if ( p[2] > y1 ) y1 = p[2];
-				if ( p[4] > y1 ) y1 = p[4];
-				p += 5;
-			}
-			else if ( *p == SC || *p == SA )
-			{
-				if ( p[1] - p[3] < x0 ) x0 = p[1] - p[3];
-				if ( p[1] + p[3] > x1 ) x1 = p[1] + p[3];
-				if ( p[2] - p[3] < y0 ) y0 = p[2] - p[3];
-				if ( p[2] + p[3] > y1 ) y1 = p[2] + p[3];
-				p += (*p == SA) ? 6 : 4;
-			}
-			else
-			{
-				if ( p[1] < x0 ) x0 = p[1];
-				if ( p[1] + 3 > x1 ) x1 = p[1] + 3;
-				if ( p[2] < y0 ) y0 = p[2];
-				if ( p[2] + 4 > y1 ) y1 = p[2] + 4;
-				p += 4;
-			}
-		}
-		if ( x0 > x1 )			/* an empty (custom) symbol */
-		{
-			x0 = y0 = 0;
-			x1 = y1 = 4;
-		}
-		symtab[i].sy_x0 = x0;
-		symtab[i].sy_y0 = y0;
-		symtab[i].sy_x1 = x1;
-		symtab[i].sy_y1 = y1;
-	}
-	return 0;
-}
 
 /* Pixel bbox of symbol si at (rot,mir) around canvas grid point (gx,gy). */
 sympbox(si, rot, mir, gx, gy, bx0, by0, bx1, by1)

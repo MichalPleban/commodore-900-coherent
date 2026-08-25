@@ -27,16 +27,16 @@ DDEESSCCRRIIPPTTIIOONN
      The 1-2-5 ladder is exact in fixed point, which is precisely
      why it is the 1-2-5 ladder and not ``nice numbers''.  With
      -ssmmooootthh each series carries the spline flag, so the curve is
-     real all the way to the -ppiicc and -ppss exports.
+     real all the way to the vveellppiicc and vveellpplloott outputs.
 
      make(1) composition is the point:
 
                   report.ps: bench.log plot.d
                             velgraph -t "Settling time" < bench.log > plot.d
-                            vellum -ps plot.d > report.ps
+                            velplot -T ps plot.d > report.ps
 
 SSEEEE AALLSSOO
-     vveelllluumm , vveellddxxff
+     vveelllluumm , vveellpplloott , vveellddxxff
 
 NNOOTTEESS
      Up to 280 points over up to 12 series; a series longer than

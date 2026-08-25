@@ -1,4 +1,4 @@
-* vellum -spice
+* velnet -spice
 * sheet amp.d
 R1 1 2 47K
 R2 1 3 4.7K

@@ -1,24 +1,37 @@
 .TH veldxf "" "Command"
 .SH NAME
-veldxf \- convert a DXF drawing to vellum format
+veldxf \- convert between DXF and vellum drawings
 .SH SYNOPSIS
-\fBveldxf [\fB\-layer\fR \fIname=n\fR] [\fB\-scale\fR \fIN\fR] \fIfile.dxf\fR > \fIfile.d\fR
+\fBveldxf\fR [\fB\-layer\fR \fIname=n\fR] [\fB\-scale\fR \fIN\fR] \fIfile.dxf\fR > \fIfile.d\fR
+.br
+\fBveldxf \-x\fR \fIfile.d ...\fR > \fIfile.dxf\fR
 .SH DESCRIPTION
 .HS
-veldxf -- convert a DXF drawing to vellum format
+veldxf -- convert between DXF and vellum drawings
 Usage:	veldxf [ -layer name=n ] [ -scale N ] file.dxf > file.d
+	veldxf -x file.d ... > file.dxf
 Options:
 	-layer name=n	fold DXF layer `name' onto vellum layer n (0-3)
 	-scale N	drawing units per grid unit (default 1 = 1 mm)
+	-x	the other direction: drawings OUT as DXF
 .HE
 .B veldxf
-reads a DXF file (the R10-era plain-text format the office CAD
-writes) and prints an ordinary
+is the border with the office CAD, and it crosses in both directions.
+Read a DXF file (the R10-era plain-text format) and it prints an
+ordinary
 .B vellum
-drawing on standard output: nothing drawn elsewhere is locked out.
-Import is a CONVERSION, not a link \- run it once, and the result is
-a drawing like any other; nothing remembers where it came from.
+drawing on standard output; give it
+.B \-x
+and it reads drawings and prints a DXF ENTITIES section instead.
+The two directions are one program because they are one format, and
+because the pair has to FIX-POINT: a drawing exported and re-imported
+is the same drawing, and the shipped regression gate proves it on
+every run.
 .PP
+Conversion is not a link.
+Run it once; the result is a drawing like any other, and nothing
+remembers where it came from.
+.SH IMPORT
 The scope is the honest entity subset:
 .DS
 .ta 14n
@@ -47,16 +60,32 @@ units header is emitted.
 Coordinates may carry decimals; they are handled in fixed point (no
 floating point anywhere).
 The drawing's minimum corner lands at grid 0,0 with the y axis
-flipped (DXF y runs up), so the
-.B "vellum \-dxf"
-export and this import FIX-POINT: a converted drawing re-exports and
-re-imports byte-identically.
+flipped (DXF y runs up).
+.SH EXPORT
+.B \-x
+writes the sheets named after it into ONE ENTITIES section on
+standard output, the way a set prints onto one roll.
+Coordinates are in GRID units at a pinned quarter-unit resolution, so
+symbol geometry emits exactly as .25 steps; y is flipped (DXF y runs
+up); arcs are true ARC entities, not chords, because a chorded arc is
+correct on paper and wrong in a file another CAD will edit; and our
+layer number is the DXF layer name.
+Layers marked no-print, and the construction layer, are skipped.
+.SH EXAMPLES
+.DS
+.ta 8n
+	veldxf plate.dxf > plate.d
+	veldxf -x bracket.d > bracket.dxf
+	veldxf -x amp1.d amp2.d > amps.dxf
+.DE
 .SH "SEE ALSO"
 .B vellum ,
+.B velplot ,
+.B velpic ,
 .B zfile
 .SH NOTES
 The Edit button of
 .B zfile
-runs this automatically for a selected .dxf and opens the conversion
-in
+runs the import automatically for a selected .dxf and opens the
+conversion in
 .BR vellum .

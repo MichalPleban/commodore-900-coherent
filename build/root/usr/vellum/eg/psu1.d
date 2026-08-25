@@ -1,7 +1,7 @@
 # Supply, SHEET 1 of 2 -- a numbered sheet set: press > in the
 # editor to walk to psu2.d (and < back).  The VBUS marker and the
 # off-page stencil continue the rail on sheet 2:
-#	vellum -net /usr/vellum/eg/psu1.d /usr/vellum/eg/psu2.d
+#	velnet /usr/vellum/eg/psu1.d /usr/vellum/eg/psu2.d
 # merges the named nets across the set and gives one netlist.
 vellum1
 T 26 12 s2 Supply, sheet 1

@@ -156,6 +156,8 @@ int	lastuw = -1;		/* bar fill width on screen; -1 = unknown */
 HRSBAR	sbl;
 int	sblforce = 1;
 int	pollflag;		/* SIGALRM: time to resample              */
+int	stale;			/* a tick fired but we could not paint:   */
+				/* resample when we can (see main)        */
 
 static char vbuf[MAXCOLS];	/* view-row expansion buffer              */
 
@@ -966,16 +968,36 @@ char **argv;
 			invalidate();
 			need = 1;
 		}
-		if ( pollflag )			/* resample the kernel */
-		{
-			pollflag = 0;
-			if ( snap() )
-				memdirty = 1;	/* values only: no pane backfill */
-			need = 1;
-		}
+		if ( pollflag )
+			pollflag = 0, stale = 1;
 		cl_refresh();
 		if ( !cl_frozen() && cl_mapped() )
 		{
+			/* Resample ONLY when we are about to paint.  A tick
+			 * behind a minimised window used to cost the whole of
+			 * snap(): the 33 Kb /dev/kmem copy of the kalloc arena,
+			 * plus TWO segreads per process (u-area, then argv) out
+			 * of /dev/mem or /dev/swap -- four syscalls each, so
+			 * seventy-odd at a typical process count, every 3
+			 * seconds, thrown away unpainted.  (A /dev/kmem read
+			 * measures ~440 us on this machine whatever its size.)
+			 * It also puts the sample AFTER cl_refresh(), so it is
+			 * decided on the map state the server has just told us
+			 * about rather than the previous pass's.
+			 *
+			 * The arena snapshot itself STAYS: unlike zwmem's two
+			 * fields per segment, this walk chases pointers all over
+			 * the arena (procq, then each p_segp[] for sizek), so
+			 * reading in place would be dozens of syscalls where one
+			 * bulk copy does. */
+			if ( stale )
+			{
+				stale = 0;
+				if ( snap() )
+					memdirty = 1;	/* values only: no
+							 * pane backfill */
+				need = 1;
+			}
 			if ( cl_dropped() )	/* a draw was lost against a freeze */
 			{
 				invalidate();

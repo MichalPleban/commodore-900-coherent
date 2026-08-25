@@ -1,0 +1,143 @@
+.TH velsym "" "Command"
+.SH NAME
+velsym \- a drawing becomes a stencil
+.SH SYNOPSIS
+\fBvelsym\fR [\fB\-pfx\fR \fIp\fR] [\fB\-org\fR \fIx,y\fR] [\fB\-scale\fR \fIn\fR] [\fB\-type\fR \fINAME=t\fR] \fICODE file.d\fR >> \fIlib.sym\fR
+.SH DESCRIPTION
+.HS
+velsym -- a drawing becomes a stencil
+Usage:	velsym [-pfx p] [-org x,y] [-scale n] [-type NAME=t]
+		CODE file.d >> lib.sym
+	-pfx p	designator prefix (R, C, U, ...)
+	-org x,y	the grid point that becomes 0,0 (default: 1st pin)
+	-scale n	the sketch is n times oversize
+	-type NAME=t	pin NAME has type t (i o p b)
+.HE
+.B velsym
+promotes an ordinary drawing into one
+.B "symbol ... end"
+block on standard output, so a shop's own standards get made ON THE
+BOARD instead of hand-cut in
+.B symedit
+at quarter-grid coordinates.
+.I CODE
+is the name drawings will call the stencil by.
+.PP
+.B L
+and
+.B W
+become
+.B s
+segments, a
+.B B
+box its four, a
+.B P
+polyline its n\-1,
+.B C
+a circle,
+.B A
+an arc angles and all, and a
+.B T
+whose text is ONE CHARACTER a
+.B t
+glyph.
+Everything else \- shapes, connectors, dimensions, nested symbols and
+multi-character text \- is SKIPPED AND COUNTED on standard error,
+because a silently half-converted stencil is a part that draws wrong
+forever.
+.SH PINS
+The pins come from the
+.B N
+net-name markers, in the order they appear in the file (which is the
+z-order, and which
+.B "velnet -spice"
+reads when a library does not name its pins); the net name becomes the
+pin name, and an
+.B N
+called
+.B \-
+is a pin with no name.
+.PP
+Pin TYPES come from
+.BI \-type " NAME=t"
+on the command line and NEVER from the drawing: a type is a property
+of the library, and a guessed type builds a wrong ERC.
+.I t
+is
+.B i
+input,
+.B o
+output,
+.B p
+power or
+.B b
+bidirectional.
+.SH COORDINATES
+Coordinates are exact by construction.
+A stencil is in quarter-grid units and a drawing in whole ones, so the
+conversion is x4 and every pin lands on a multiple of 4 \- which is
+what the loader wants.
+.PP
+.BI \-scale " n"
+divides instead, for a stencil sketched n times oversize so its detail
+was drawable at all; at
+.B "-scale 4"
+a drawing unit IS a quarter unit, and a hand-cut stencil's detail is
+available.
+.PP
+.BI \-org " x,y"
+names the grid point that becomes (0,0); the default is the FIRST PIN,
+because a stencil's origin is where it snaps.
+A sketch with no
+.B N
+markers at all falls back to the top-left of its printable extent, and
+is told on standard error that it has no pins.
+.SH "LIBRARIES AS BUILD PRODUCTS"
+A stencil is a drawing, and a library is a build product:
+.DS
+.ta 8n
+	STENCILS = pump.d valve.d tank.d
+	pid.sym: $(STENCILS)
+		rm -f $@
+		velsym -pfx P  PUMP  pump.d  >> $@
+		velsym -pfx V  VALVE valve.d >> $@
+		velsym -pfx TK TANK  tank.d  >> $@
+		velcheck -sym $@
+	card: pid.sym ; velinfo -symsheet pid.sym | velplot -T ps -fit -
+.DE
+A stencil SKETCH is an ordinary drawing: it opens in the editor,
+prints,
+.BR velpic s
+into the manual, and takes the whole revision workflow (see
+.BR veldiff )
+unchanged \- so the shop's stencils get revision control because they
+ARE drawings.
+Adding a stencil is adding a line; deleting one is deleting a file;
+there is no library format to learn and no state anywhere but files.
+.PP
+/usr/vellum/etc/library.mk is the skeleton, and /usr/vellum/eg/sk holds
+the nine sketches that build the stock
+.B pid
+library \- byte for byte, which is also this converter's fix point.
+.SH "SEE ALSO"
+.B vellum ,
+.B symedit ,
+.B velcheck ,
+.B velinfo ,
+.B make
+.SH NOTES
+The same conversion has an interactive face.
+The editor's
+.B "Make Symbol"
+item (the
+.B y
+key) runs this program on the SELECTION, and
+.B symedit
+grows
+.B "Import drawing"
+(the
+.B i
+key), which brings a drawing into the edit buffer under exactly these
+rules \- so the promote-then-touch-up workflow is one set of rules in
+one place, and a stencil made from the board is byte-identical to one
+made from a Makefile.

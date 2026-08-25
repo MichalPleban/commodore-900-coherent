@@ -1,2 +1,2 @@
-vellum: symcheck clean
+velcheck: symcheck clean
 symcheck=0

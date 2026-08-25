@@ -1,0 +1,106 @@
+.TH velcheck "" "Command"
+.SH NAME
+velcheck \- prove a vellum drawing set, or a stencil library
+.SH SYNOPSIS
+\fBvelcheck\fR \fIfile.d ...\fR
+.br
+\fBvelcheck \-sym\fR \fIlib.sym ...\fR
+.SH DESCRIPTION
+.HS
+velcheck -- prove a vellum drawing set, or a stencil library
+Usage:	velcheck file.d ...	judge the drawings
+	velcheck -sym lib.sym ...	judge the stencils
+	One finding per line on stdout; the EXIT STATUS is the
+	finding count, so make(1) gates on it like cc -Werror.
+.HE
+.B velcheck
+proves a set of drawings made with
+.B vellum
+before any paper moves.
+It writes one finding per line on standard output as
+.IR file ": " message ,
+and its EXIT STATUS is the finding count (capped at 254), so
+.BR make (1)
+gates on it exactly the way it gates on
+.BR cc " " \-Werror :
+.DS
+.ta 8n
+	check: ; velcheck amp?.d
+	print: check ; velplot amp?.d | lpr
+.DE
+A clean run says so on standard error and exits 0.
+The file name
+.B \-
+is standard input.
+.SH "DRAWING FINDINGS"
+.DS
+.ta 4n
+	duplicate designators \- across the whole SET, naming the
+	other sheet
+	a designated part with no value
+	dangling wire ends: an endpoint touching no pin, no other
+	wire and no net-name marker
+	symbol codes no loaded library defines \- the lines the
+	loader would silently DROP, caught by re-reading the file
+	sheets whose \fBU\fR units disagree with the set's
+	single-pin nets, and unconnected pins
+.DE
+.PP
+Then the ERC, between TYPED pins (see
+.BR symedit ):
+two outputs on one net conflict, an output must not drive a power
+rail, and a net whose typed pins are all inputs is undriven.
+The rules fire only where the library types its pins, so an old
+library produces silence, not noise, and a half-typed one checks
+exactly as far as it is typed.
+.PP
+The CONDUCTOR findings \- dangling ends, nets, pins, ERC \- apply only
+to a sheet that contains WIRES.
+A diagram sheet (flowchart, floor plan, structure chart) uses stencils
+whose pins are attachment points, not terminals, and flagging those
+would be noise rather than findings.
+.SH "LIBRARY FINDINGS"
+.B \-sym
+proves the stencil LIBRARIES the same way, and it matters more: a
+wrong stencil is wrong in EVERY drawing.
+It reads only the libraries it is given \- the standard set is not
+loaded underneath \- so ``defined in both'' means these files.
+.DS
+.ta 4n
+	a code defined twice, or defined in two of the libraries given
+	a symbol with no geometry
+	a designator prefix with no pins
+	a pin off a whole grid unit, or a pin name that repeats
+	a pin left untyped in a library that types the others
+	pins past the eight the loader keeps
+	symbols the loader DROPPED because a pool filled
+.DE
+The last two nothing else can say, and the loader has always done both
+silently \- after which the load ORDER decides which stencil a drawing
+gets.
+.SH EXAMPLES
+.DS
+.ta 8n
+	velcheck amp1.d amp2.d
+	velcheck -sym pid.sym
+	velcheck -sym /usr/vellum/sym/*.sym
+.DE
+The second form is the gate in /usr/vellum/etc/library.mk, so a wrong
+stencil never reaches a drawing.
+The third finds the cross-library duplicate (``code R defined in both
+discrete.sym and power.sym'') that no single file can produce.
+.SH "SEE ALSO"
+.B vellum ,
+.B velnet ,
+.B veldiff ,
+.B velsym ,
+.B symedit ,
+.B make
+.SH NOTES
+.B symedit
+has the same findings behind its
+.B Check
+key, for the library open on the board.
+.PP
+A drawing that fails to load at all is an error, not a finding: the
+program says so and exits 1.

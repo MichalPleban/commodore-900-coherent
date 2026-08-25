@@ -1,6 +1,6 @@
 # Sheet-metal front panel -- the TAKEOFF demo (VELLUM.md sec. 46).
 # A closed FILLED polyline is an AREA, so
-#	vellum -len /usr/vellum/eg/panel.d
+#	velinfo -len /usr/vellum/eg/panel.d
 # orders the plate and the cut-outs without anyone retyping a number:
 # the plate is 24000 mm2, the window 1200, the vent 1237.5 (the odd
 # half a shoelace leaves, shown as ".5" -- fixed point, no floats).

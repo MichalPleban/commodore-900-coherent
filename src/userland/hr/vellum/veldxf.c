@@ -3,7 +3,12 @@
  * sec. 36): the office PC runs AutoCAD, and refusing its files makes
  * Vellum an island.
  *
- *	veldxf [-layer name=n] [-scale N] file.dxf > file.d
+ *	veldxf [-layer name=n] [-scale N] file.dxf > file.d	(in)
+ *	veldxf -x file.d ... > file.dxf				(out)
+ *
+ * The two directions are one tool because they are one FORMAT,
+ * and because the pair has to fix-point: the writer half lives in
+ * veldxfo.c (the only half that links the model), this half reads.
  *
  * A headless binary of its own -- no velbase, no gfx: it parses DXF
  * group-code pairs and PRINTS .d lines.  Scope is the honest subset:
@@ -446,6 +451,10 @@ char **argv;
 	register int i;
 	register char *p;
 
+	/* -x is the OTHER direction, and it takes a sheet SET: hand the
+	 * rest of the line to the writer half and be done. */
+	if ( argc > 2 && strcmp(argv[1], "-x") == 0 )
+		exit(dxfmain(argc, argv, 2));
 	for ( i = 1; i < argc && argv[i][0] == '-'; i++ )
 	{
 		if ( strcmp(argv[i], "-scale") == 0 && i + 1 < argc )
@@ -476,6 +485,7 @@ char **argv;
 	{
 		fprintf(stderr,
 		    "usage: veldxf [-layer name=n] [-scale N] file.dxf\n");
+		fprintf(stderr, "       veldxf -x file.d ...\n");
 		exit(1);
 	}
 	if ( (in = fopen(argv[i], "r")) == (FILE *)0 )

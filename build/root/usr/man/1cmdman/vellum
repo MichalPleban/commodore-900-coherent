@@ -10,17 +10,6 @@ NNAAMMEE
 SSYYNNOOPPSSIISS
      vveelllluumm [_o_p_t_i_o_n_s] [_f_i_l_e]
      vveelllluumm [_o_p_t_i_o_n_s] +_x,_y [_f_i_l_e]
-     vveelllluumm -pprriinntt|-ppiicc|-nneett|-hhppggll|-bboomm|-cchheecckk-
-     |-ppss|-ddxxff|-lleenn|-ssppiiccee [-wwiiddee] [-ffiitt] [-ssccaallee _n] _f_i_l_e._d ...
-     vveelllluumm -rreennuumm [-bbaassee _n] _f_i_l_e._d > _o_u_t._d
-     vveelllluumm -ddiiffff [-mmaarrkk] _o_l_d._d _n_e_w._d
-     vveelllluumm -wwhheerree _s_t_r_i_n_g _f_i_l_e._d ...
-     vveelllluumm -ssyymmsshheeeett _l_i_b._s_y_m > _c_a_r_d._d
-     vveelllluumm -mmkkssyymm _C_O_D_E [-ppffxx _p] [-oorrgg _x,_y] [-ssccaallee _n] [-ttyyppee
-     _N_A_M_E=_t] _f_i_l_e._d >> _l_i_b._s_y_m
-     vveelllluumm -ssyymmcchheecckk _l_i_b._s_y_m ...
-     vveelllluumm -bbooookk _s_h_e_e_t._d ... > _c_o_n_t_e_n_t_s._d
-     vveelllluumm -ttiillee [-nn] -pprriinntt|-ppss|-hhppggll _b_i_g._d
 
 DDEESSCCRRIIPPTTIIOONN
      vveelllluumm is the drawing board of this workstation: electronic
@@ -59,17 +48,6 @@ DDEESSCCRRIIPPTTIIOONN
 
      The tools:
 
-
-
-COHERENT Command Manual                                    Page 1
-
-
-
-
-vveelllluumm                                                     vveelllluumm
-
-
-
                   SSeell     click selects (a grouped object selects its whole
                           group), drag moves; a drag on EMPTY canvas selects
                           everything inside the rectangle.  A selected SHAPE
@@ -81,6 +59,17 @@ vveelllluumm                                                     vveell
                           to pins and re-anchor so a run chains corner by
                           corner - EEsscc or a click back on the anchor
                           ends the run
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+vveelllluumm                                                     vveelllluumm
+
+
+
                   LLiinnee    like Wire but straight - and a chained run folds
                           into ONE polyline object
                   BBooxx     drag draws a rectangle
@@ -125,6 +114,17 @@ vveelllluumm                                                     vveell
      solid/dashed/dotted line style, white/gray/black fill (fills
      stack in z-order), bold (width 2), HHaattcchh (a gray fill
      renders as 45-degree hatching - cross-section shading), the
+     object's layer, its text and - for a text label - one of
+     three sizes and VVeerrtt , which turns the label 90 degrees
+     (axis labels, vertical dimensions).  A text label may hold
+     several lines separated by `|'.  A polyline checked SSmmooootthh
+     renders as a spline through its points, and vveellppiicc exports
+     it as one.  A FILLED polyline is a closed even-odd fill over
+     its points - the arbitrary solid shape mechanical sketches
+     want - on screen, in every export and in the preview.
+
+LLAAYYEERRSS
+     Four fixed layers: 0 ddrraawwiinngg (the default), 1 aannnnoottaattiioonn , 2
 
 
 COHERENT Command Manual                                    Page 2
@@ -136,17 +136,6 @@ vveelllluumm                                                     vveell
 
 
 
-     oobbjjeecctt'ss layer, its text and - for a text label - one of
-     three sizes and VVeerrtt , which turns the label 90 degrees
-     (axis labels, vertical dimensions).  A text label may hold
-     several lines separated by `|'.  A polyline checked SSmmooootthh
-     renders as a spline through its points, and -ppiicc exports it
-     as one.  A FILLED polyline is a closed even-odd fill over
-     its points - the arbitrary solid shape mechanical sketches
-     want - on screen, in every export and in the preview.
-
-LLAAYYEERRSS
-     Four fixed layers: 0 ddrraawwiinngg (the default), 1 aannnnoottaattiioonn , 2
      ffrraammee (title block, sheet border) and 3 ccoonnssttrruuccttiioonn , which
      never prints.  The Settings dialog (window menu) checks
      which layers are VISIBLE and which PRINT, picks the snap
@@ -191,6 +180,17 @@ EEDDIITTIINNGG
                 FF99              the Search dialog
                 FF1111             Help: this page, opened in zzmmaann
                                 (also the window menu's Help entry)
+                arrows          pan; CClleeaarr/HHoommee pans to the origin
+
+     The window menu's PPrriinntt entry opens the print dialog: scale,
+     wide, and the three verbs - PPrriinntt spools the drawing through
+     vveellpplloott into llpprr, PPrreevviieeww opens a window (velprev) drawing
+     the printable extent through the SAME renderer that feeds
+     the printer, so what it shows is what the paper gets.  The
+     SSeeaarrcchh entry searches designators, values, text and net
+     names for a substring, selects the hit and pans it to
+     centre.  NNeexxtt and PPrreevv walk the object list either way round
+     from the current selection, wrapping; with nothing selected
 
 
 COHERENT Command Manual                                    Page 3
@@ -202,18 +202,7 @@ vveelllluumm                                                     vveell
 
 
 
-                arrows          pan; CClleeaarr/HHoommee pans to the origin
-
-     The window menu's PPrriinntt entry opens the print dialog: scale,
-     wide, and the three verbs - PPrriinntt spools the drawing through
-     velxport into llpprr, PPrreevviieeww opens a window (velprev) drawing
-     the printable extent through the SAME renderer that feeds
-     the printer, so what it shows is what the paper gets.  The
-     SSeeaarrcchh entry searches designators, values, text and net
-     names for a substring, selects the hit and pans it to
-     centre.  NNeexxtt and PPrreevv walk the object list either way round
-     from the current selection, wrapping; with nothing selected
-     they open at the first and the last object respectively.
+     tthheeyy open at the first and the last object respectively.
      Matching ignores case unless MMaattcchh ccaassee is ticked.  The pat-
      tern, the direction and the box are remembered, so aa on the
      canvas (or a second SSeeaarrcchh) steps to the next hit without
@@ -240,26 +229,37 @@ vveelllluumm                                                     vveell
      vveelllluumm +_x,_y _f_i_l_e._d opens with the view CENTRED on that grid
      point and the object there selected.  Every asking mode
      prints its hits as _f_i_l_e: ... _a_t _x,_y, so this hands a report
-     straight back to the board: vveelllluumm -wwhheerree TTOODDOO *.dd stops
+     straight back to the board: vveelliinnffoo -wwhheerree TTOODDOO *.dd stops
      being a report and becomes a work list.
 
      The yy key turns the SELECTION into a library stencil - the
-     editor's face of vveelllluumm -mmkkssyymm. It asks for the stencil's
-     code, its designator prefix, the library file to append to,
-     and the scale, then writes the selection out as an ordinary
-     drawing and runs the exporter on it, so a stencil made here
-     and one made from make(1) are the same bytes.  The NN net-
-     name markers in the selection become the PINS, in z-order;
-     pin types are set afterwards in ssyymmeeddiitt, because a type is a
+     editor's face of vveellssyymm. It asks for the stencil's code, its
+     designator prefix, the library file to append to, and the
+     scale, then writes the selection out as an ordinary drawing
+     and runs that command on it, so a stencil made here and one
+     made from make(1) are the same bytes.  The NN net-name
+     markers in the selection become the PINS, in z-order; pin
+     types are set afterwards in ssyymmeeddiitt, because a type is a
      property of the library and a guessed one builds a wrong
      ERC.  A running vveelllluumm reads its libraries only at start-up,
      so the new stencil appears in the palette next time.
 
 
 SSHHEEEETT SSEETTSS
+     A sheet is a file; a drawing that spans sheets is a SET of
+     numbered files (_a_m_p_1._d _a_m_p_2._d, ...).  The > key saves the
+     current sheet and loads the next - past the last one it of-
+     fers to create it, which is how a set grows - and < walks
+     back.  The Frame stamp adds ``Sheet n/m'' when the file name
+     carries a number.  Shell globs are the set syntax for the
+     whole suite: vveellnneett aammpp?.dd computes nets per sheet and
+     MERGES them BY NAME - a net named (by an N marker or
+     GND/VCC) VBUS on sheet 1 is the same conductor as VBUS on
+     sheet 3; unnamed nets stay sheet-local and print qualified
+     (NET-2.3 = sheet 2, net 3).  vveellpplloott emits the form feed be-
 
 
-CCOOHHEERREENNTT CCoommmmaanndd MMaannuuaall                                    PPaaggee 44
+COHERENT Command Manual                                    Page 4
 
 
 
@@ -268,61 +268,61 @@ vveelllluumm                                                     vveell
 
 
 
-     A sheet is a file; a drawing that spans sheets is a SET of
-     numbered files (_a_m_p_1._d _a_m_p_2._d, ...).  The > key saves the
-     current sheet and loads the next - past the last one it of-
-     fers to create it, which is how a set grows - and < walks
-     back.  The Frame stamp adds ``Sheet n/m'' when the file name
-     carries a number.  Shell globs are the set syntax for the
-     exporters: vveelllluumm -nneett aammpp?.dd computes nets per sheet and
-     MERGES them BY NAME - a net named (by an N marker or
-     GND/VCC) VBUS on sheet 1 is the same conductor as VBUS on
-     sheet 3; unnamed nets stay sheet-local and print qualified
-     (NET-2.3 = sheet 2, net 3).  -pprriinntt emits the form feed be-
-     tween sheets, and -bboomm yields ONE parts list for the whole
-     set.  An off-page reference is the OFFP stencil with its
-     value reading ``3'' and an N net name on its pin - the net-
-     list merge makes it electrically true.
+     ttwweeeenn sheets, and vveellnneett -bboomm yields ONE parts list for the
+     whole set.  An off-page reference is the OFFP stencil with
+     its value reading ``3'' and an N net name on its pin - the
+     netlist merge makes it electrically true.
 
      A BUS is an idiom, not an object: draw the trunk as a BOLD
      wire - graphics, not electricity - and tap it with short
      wires carrying NN DD00 ...  NN DD77; same-named taps merge across
-     the whole sheet set, which is what a bus MEANS.  -cchheecckk
+     the whole sheet set, which is what a bus MEANS.  vveellcchheecckk
      flags a net name appearing on fewer than two pins in the set
      - the typo'd bit (D3 on one end, D8 on the other) that eyes
      cannot see.
 
-HHEEAADDLLEESSSS EEXXPPOORRTT
-     The export modes run WITHOUT a window - from make(1), from
-     scripts, from a serial terminal.  vveelllluumm hands any lowercase
-     -_m_o_d_e straight to the helper /usr/vellum/lib/velxport, which
-     carries the model, the format and every backend and links no
-     graphics at all.  On a machine with NO BITMAP CARD, run that
-     helper directly: vveelllluumm itself is a graphics client and can-
-     not exec where the shared graphics library is not loaded,
-     even to pass its arguments on.  That is why the shipped
-     Makefile skeletons say VV=/uussrr/vveelllluumm/lliibb/vveellxxppoorrtt. Each mode
-     takes ONE OR MORE sheet files:
+TTHHEE SSUUIITTEE
+     vveelllluumm DRAWS, and does nothing else.  Everything the shop
+     does WITH a drawing is a command of its own, over the same
+     model and the same plain-text format:
 
-              vveelllluumm -pprriinntt f.d       Epson raster on stdout (ESC * bands,
-                                      1 grid unit = 8 dots; pipe to llpprr).
-                                      -wwiiddee prints landscape (the page turned a
-                                      quarter), -ssccaallee _n picks n dots per
-                                      grid unit - small drawings print big
-              vveelllluumm -ppiicc f.d         troff pic source on stdout (16 units
-                                      per inch), for figures in manuals; smooth
-                                      polylines come out as pic splines
-              vveelllluumm -hhppggll f.d        HPGL pen-plotter commands on stdout;
-                                      the annotation layer draws in the SECOND
-                                      pen (SP2) - the cheapest two-color print
-                                      this machine will ever do
-              vveelllluumm -ppss f.d ...      PostScript (Level 1) on stdout, one
-                                      page per sheet - the laser's page.  Text
-                                      is Courier sized so the monospace advance
-                                      matches the editor cell: nothing collides
-                                      on paper that did not collide on screen.
-                                      Smooth polylines emit real curveto,
-                                      vertical text rotates, arcs are true arcs.
+              vveellpplloott     a drawing onto a page - Epson raster,
+                          PostScript or HPGL, -ffiitt to the page or
+                          -ttiilleed across as many as it takes
+              vveellppiicc      a drawing as troff ppiicc source, for figures
+              vveellddxxff      the border with the office CAD, both ways
+              vveellnneett      what it is CONNECTED as: the netlist, the
+                          parts list, a SPICE deck, canonical designators
+              vveellcchheecckk    prove it - one finding per line, the exit
+                          status the finding count, so make(1) gates on
+                          it like cc -Werror.  -ssyymm judges the stencil
+                          LIBRARIES the same way
+              vveellddiiffff     what changed between two revisions, as a list
+                          or as a marked-up DRAWING
+              vveelliinnffoo     the takeoff, the set-wide Find, a library's
+                          reference card, the set's contents page
+              vveellssyymm      a drawing becomes a stencil
+              vveellggrraapphh    x/y data becomes a drawing
+
+     Not one of them is a graphics client, so the whole pipeline
+     runs from mmaakkee(1), from a script, or down a serial line on a
+     machine with no bitmap card.  That is the reason for the
+     split: the editor needs a screen, and nothing else here
+     does.
+
+     They compose with each other, because the file name - is
+     standard input everywhere:
+
+                  velinfo -symsheet pid.sym | velplot -T ps -fit -
+                  veldiff -mark amp.d.A amp.d | velpic -
+
+     A lowercase option given to vveelllluumm itself is an error naming
+     these commands, not a mode: the editor will not quietly do
+     another program's job.
+
+     The board reaches two of them directly - Print runs vveellpplloott
+     on a snapshot of the live drawing, and Make Symbol runs vveell-
+     ssyymm on the selection - so a page or a stencil made on the
 
 
 COHERENT Command Manual                                    Page 5
@@ -334,338 +334,22 @@ vveelllluumm                                                     vveell
 
 
 
-                                      -ffiitt scales the drawing to fill the
-                                      page (for -pprriinntt it picks the widest
-                                      step of the discrete 2..32 ladder instead)
-              vveelllluumm -ddxxff f.d ...     DXF (R10 entities) on stdout, for
-                                      the office CAD: coordinates in grid units,
-                                      arcs as true ARC entities, our layer
-                                      number as the DXF layer name.  vveellddxxff
-                                      converts the other way, and the pair
-                                      fix-points
-              vveelllluumm -rreennuumm f.d       canonical designators: symbols
-                                      sorted by (y, x), numbered per prefix from
-                                      -bbaassee _n (default 1), the drawing
-                                      re-emitted on stdout.  One sheet per run; a
-                                      set renumbers sheet by sheet with -base
-                                      carrying the count across
-              vveelllluumm -nneett f.d ...     netlist: one line per net, R1.2-style
-                                      pins (named pins print Q1.B), GND/VCC and
-                                      N markers name nets - MERGED by name across
-                                      the sheet set; designator-less stencils
-                                      (rails, taps, off-page markers) carry nets
-                                      but are never listed; warnings for single-
-                                      pin nets and unconnected pins on stderr
-              vveelllluumm -bboomm f.d ...     bill of materials over the whole
-                                      set: count, stencil, value and the
-                                      designators, sorted
-              vveelllluumm -cchheecckk f.d ...   prove the set: duplicate
-                                      designators, dangling wire ends, parts with
-                                      no value, symbol codes no library defines
-                                      (lines the loader would DROP), sheets whose
-                                      U units disagree, single-pin nets and
-                                      unconnected pins - plus the ERC: between
-                                      TYPED pins (see ssyymmeeddiitt), two outputs
-                                      on a net conflict, an output must not drive
-                                      a power rail, and a net whose typed pins
-                                      are all inputs is undriven.  An untyped
-                                      library produces silence, not noise.  The
-                                      conductor checks
-                                      (dangling ends, nets, pins) apply only to
-                                      sheets that contain WIRES - a diagram
-                                      sheet's stencil pins are attachment
-                                      points, not terminals.  One finding per
-                                      line on stdout; the EXIT STATUS is the
-                                      finding count, so make(1) gates on it:
-                                        check: ; vellum -check amp?.d
-                                        print: check ; vellum -print amp?.d | lpr
-              vveelllluumm -ttiillee f.d        the sheet BIGGER than the paper: the
-                                      chosen backend runs once per PAGE with the
-                                      drawing origin stepped, so a drawing wider
-                                      than the head comes out as pages that TAPE
-                                      TOGETHER - one grid unit of overlap on each
-                                      seam, crop marks at the corners and a
-                                      "2/6 row B col 2" label in the margin, row-
-                                      major so the pile is in reading order.
-                                      Applies to -pprriinntt, -ppss and -hhppggll, and composes
-                                      with -wwiiddee and -ssccaallee.  It does NOT compose
-
-
-COHERENT Command Manual                                    Page 6
-
-
-
-
-vveelllluumm                                                     vveelllluumm
-
-
-
-                                      with -ffiitt, which means "make this ONE
-                                      page" and is the opposite instruction: that
-                                      combination is an error, not a precedence
-                                      rule.  -nn prints how many pages and
-                                      stops.  Without -ttiillee, -pprriinntt still clips at
-                                      the head's 960 dots - but says so on stderr
-
-     Layers marked no-print and the construction layer are
-     skipped.  The file name - is standard input, so the modes
-     compose with each other: vveelllluumm -ssyymmsshheeeett ppiidd.ssyymm | vveelllluumm
-     -ppss -ffiitt - .
-
-AASSKKIINNGG TTHHEE SSEETT
-     A drawing set lives for years, and every question the shop
-     asks about it - what changed, what it takes, where anything
-     is, and what everything means - the set answers itself.
-     These modes are the shell's, not the window's; their natural
-     asker is make(1).
-
-              vveelllluumm -ddiiffff _o_l_d _n_e_w    what CHANGED between two
-                                      revisions. Matching is by IDENTITY, not by
-                                      line: diff(1) on two .d files drowns in
-                                      reordering, because the line order is the
-                                      z-order, not the content. Symbols match by
-                                      DESIGNATOR first (R7 is R7 wherever it
-                                      moved in the list), everything else by
-                                      exact (type, geometry, value) equality - no
-                                      fuzzy matching and no tolerance: an object
-                                      that moved one unit is a remove plus an
-                                      add, and that is the honest answer on a
-                                      grid. An object still standing exactly
-                                      where it stood, saying something else,
-                                      reports as CHANGED. One line each, the
-                                      -check shape:
-                                        new.d: R7 moved 40,20 -> 40,28
-                                        new.d: R9 added (R 47k)
-                                        new.d: C2 removed (C 100n)
-                                        new.d: T "Supply, sheet 1" changed
-                                      The EXIT STATUS is the change count (capped
-                                      254), so a Makefile gates a release print
-                                      on "no drift since the approved revision"
-                                      exactly the way it gates on -check
-              vveelllluumm -ddiiffff -mmaarrkk _o _n  ... the answer AS A DRAWING on
-                                      stdout: everything unchanged on its own
-                                      layers, ADDED objects bold, REMOVED objects
-                                      dashed on the annotation layer. No new
-                                      viewer and no new UI - the markup is
-                                      ordinary objects, so vveelllluumm -ppiicc draws it,
-                                      -pprriinntt prints it and the editor opens it
-              vveelllluumm -lleenn f.d ...     the TAKEOFF: wires, connectors and
-                                      polylines measured in sheet units, per NET
-                                      where the conductors have names and per
-                                      LAYER otherwise, with a set total. H-V
-                                      routes measure both legs, diagonals measure
-                                      an integer square root. A closed FILLED
-
-
-COHERENT Command Manual                                    Page 7
-
-
-
-
-vveelllluumm                                                     vveelllluumm
-
-
-
-                                      polyline reports AREA instead (integer
-                                      shoelace, halved with the odd half shown as
-                                      ".5"): sheet metal is ordered by area the
-                                      way cable is ordered by length. A set whose
-                                      sheets disagree about the unit is refused
-                                      in one line rather than adding millimetres
-                                      to inches
-              vveelllluumm -wwhheerree _s_t_r f.d   the set-wide Find: a case-blind
-                                      substring over designators, values, text
-                                      and net names - the editor's Find contract
-                                      re-stated over FILES - one line per hit
-                                      with the grid position, EXIT STATUS the hit
-                                      count. Zero hits exits 0 silently, so the
-                                      INVERTED use is free: vveelllluumm -wwhheerree TTOODDOO
-                                      *.dd in a check: rule fails the build while
-                                      a sheet still carries a TODO note
-              vveelllluumm -ssppiiccee f.d ...   a SPICE 2G6 deck on stdout: the
-                                      same nets as -nneett, numbered (0 for the
-                                      GND-named net), one card per designated
-                                      R/C/L/D/Q, values parsed from the value
-                                      field ("4k7", "100n", "2.2M" - the suffix
-                                      letter doubles as the decimal point, and
-                                      the schematic's M emits as MEG). A D or Q
-                                      card ends with its stencil CODE as the
-                                      model name unless its value names one; pin
-                                      ORDER is the library's, except that a
-                                      library which NAMES its pins B/C/E (or A/K)
-                                      orders the card the way SPICE wants - the
-                                      stock ddiissccrreettee library does. Everything the
-                                      subset cannot say is SKIPPED AND COUNTED on
-                                      stderr ("dropped: 1 OPA, 2 J"): a silent
-                                      partial netlist is how simulations lie.
-                                      Models are yours by design - the deck ends
-                                      .END and a wrapper file .INCLUDEs it beside
-                                      the .MODEL lines
-              vveelllluumm -ssyymmsshheeeett _l._s_y_m  the library ON PAPER: a grid of
-                                      every stencil in ONE .sym file with its
-                                      code, designator prefix and pin types,
-                                      emitted as an ordinary drawing. It is .d
-                                      out, so it prints on any of the backends
-                                      and the shop's binder fills itself from
-                                      make:
-                                        vellum -symsheet pid.sym |
-                                          vellum -ps -fit -
-                                      The card names its stencils by CODE like
-                                      any drawing, so whatever reads it back must
-                                      have that library loaded: put a library of
-                                      your own in /usr/vellum/etc/libs first
-
-LLIIBBRRAARRIIEESS AASS BBUUIILLDD PPRROODDUUCCTTSS
-     A stencil is a drawing, and a library is a build product.
-
-     vveelllluumm -mmkkssyymm _C_O_D_E promotes an ordinary drawing into one
-     ssyymmbbooll ...  eenndd block on stdout, so a shop's own standards
-     get made on the board instead of hand-cut in ssyymmeeddiitt at
-
-
-COHERENT Command Manual                                    Page 8
-
-
-
-
-vveelllluumm                                                     vveelllluumm
-
-
-
-     qquuaarrtteerr-ggrriidd coordinates.  LL and WW become ss segments, a BB
-     box its four, a PP polyline its n-1, CC a circle, AA an arc
-     angles and all, and a TT whose text is ONE CHARACTER a tt
-     glyph.  Everything else - shapes, connectors, dimensions,
-     nested symbols and multi-character text - is SKIPPED AND
-     COUNTED on stderr, because a silently half-converted stencil
-     is a part that draws wrong forever.
-
-     The PINS come from the NN net-name markers, in the order they
-     appear in the file (which is the z-order, and which -ssppiiccee
-     reads when a library does not name its pins); the net name
-     becomes the pin name, and an NN called - is a pin with no
-     name.  Pin TYPES come from -ttyyppee _N_A_M_E=_t on the command line
-     and never from the drawing: a type is a property of the
-     LIBRARY, and a guessed type builds a wrong ERC.
-
-     Coordinates are exact by construction.  A stencil is in
-     quarter-grid units and a drawing in whole ones, so the con-
-     version is x4 and every pin lands on a multiple of 4 - which
-     is what the loader wants.  -ssccaallee _n divides instead, for a
-     stencil sketched n times oversize so its detail was drawable
-     at all; at -ssccaallee 44 a drawing unit IS a quarter unit and a
-     hand-cut stencil's detail is available.  -oorrgg _x,_y names the
-     grid point that becomes (0,0); the default is the FIRST PIN,
-     because a stencil's origin is where it snaps (a sketch with
-     no NN markers at all falls back to the top-left of its print-
-     able extent, and is told on stderr that it has no pins).
-
-     vveelllluumm -ssyymmcchheecckk proves the libraries the way -cchheecckk proves
-     the drawings, and it matters more: a wrong stencil is wrong
-     in EVERY drawing.  One finding per line as _l_i_b._s_y_m:  _m_e_s-
-     _s_a_g_e, the exit status the finding count capped at 254 - the
-     -cchheecckk shape exactly, so make(1) gates on it the same way.
-     It reports a code defined twice, a code defined in two of
-     the libraries given, a symbol with no geometry, a designator
-     prefix with no pins, a pin off a whole unit, a pin name that
-     repeats, a pin left untyped in a library that types the
-     others, and - the two that nothing else can say - pins past
-     the eight the loader keeps, and symbols the loader DROPPED
-     because a pool filled.  Both of those the loader has always
-     done silently, and the load order then decides which stencil
-     a drawing gets.
-
-     Together with make(1) that changes what a library IS, and
-     costs no code at all:
-
-                  STENCILS = pump.d valve.d tank.d
-                  pid.sym: $(STENCILS)
-                            rm -f $@
-                            $(V) -mksym PUMP -pfx P pump.d >> $@
-                            $(V) -mksym VALVE -pfx V valve.d >> $@
-                            $(V) -mksym TANK -pfx TK tank.d >> $@
-                            $(V) -symcheck $@
-                  card: pid.sym ; $(V) -symsheet pid.sym | $(V) -ps -fit -
-
-
-
-COHERENT Command Manual                                    Page 9
-
-
-
-
-vveelllluumm                                                     vveelllluumm
-
-
-
-     A stencil SKETCH is an ordinary drawing: it opens in the
-     editor, prints, -ppiiccs into the manual, and takes the whole
-     revision workflow above unchanged - so the shop's stencils
-     get revision control because they ARE drawings.  Adding a
-     stencil is adding a line; deleting one is deleting a file;
-     there is no library format to learn and no state anywhere
-     but files.  /usr/vellum/etc/library.mk is the skeleton, and
-     /usr/vellum/eg/sk holds the nine sketches that build the
-     stock ppiidd library - byte for byte, which is also the conver-
-     ter's fix point.
-
-     The same conversion has an interactive face: ssyymmeeddiitt grows
-     IImmppoorrtt ddrraawwiinngg (the ii key), which brings a drawing into the
-     edit buffer under exactly these rules so the promote-then-
-     touch-up workflow is one program, and CChheecckk (the kk key),
-     which shows these findings for the open library.
-
-TTHHEE SSEETT AASS AA DDOOCCUUMMEENNTT
-     vveelllluumm -bbooookk emits an ORDINARY DRAWING listing the sheets
-     given - number, file name, and the sheet's own title, which
-     it takes from the first text object on the FRAME layer
-     (where the frame stamp puts $FF, so a stamped set titles it-
-     self), falling back to the largest text on the sheet and
-     then to the file name.  It is .dd out, so it prints on all
-     five backends, -ttiillees if it has to, and opens in the editor
-     when somebody wants to fix a title by hand:
-
-                  vellum -book amp?.d > contents.d
-                  vellum -ps contents.d amp?.d | lpr
-
-     The sheets stay FILES.  A book is a contents drawing plus a
-     shell glob in the right order, not a container format.
-
-
-FFRRAAGGMMEENNTTSS AANNDD RREEVVIISSIIOONNSS
-     Neither costs any code, because both are files.
-
-     A FRAGMENT is a drawing.  A shop-standard detail - a filter
-     section, a title-block legend, a north arrow, a revision
-     cloud - is a .dd file in a fragments directory; its index is
-     llss. hhrrcclliipp < /uussrr/vveelllluumm/ffrraagg/lleeggeenndd.dd from any shell puts
-     it on the PRIMARY selection, and a MIDDLE CLICK in the
-     editor pastes it at the pointer, because Paste has parsed .dd
-     text out of the selection since the beginning.
-     /usr/vellum/frag ships with a starter set; copy it, add your
-     own, delete ours.
-
-     A REVISION is a file.  When the frame stamp's $RR says B, ccpp
-     aammpp11.dd aammpp11.dd.BB is the whole ceremony, and the record is the
-     directory - no SCCS, no hidden state, no format change.  The
-     project.mk skeleton grows the two targets that make it a
-     workflow: rreevv: copies every sheet to its ._R_E_V twin, and
-     ddrriifftt: runs vveelllluumm -ddiiffff on each sheet against that twin, so
-     its exit status gates pprriinntt: and nothing unreviewed reaches
-     paper.  rreevviieeww: hangs the marked-up drawing on the wall in-
-
-
-COHERENT Command Manual                                   Page 10
-
-
-
-
-vveelllluumm                                                     vveelllluumm
-
-
-
-     sstteeaadd.  The gallery ships the pair: /usr/vellum/eg/amp.d.A
-     beside amp.d.
+     bbooaarrdd is byte-identical to one made from a Makefile.
+
+FFRRAAGGMMEENNTTSS
+     A FRAGMENT is a drawing, and it costs no code at all.  A
+     shop-standard detail - a filter section, a title-block
+     legend, a north arrow, a revision cloud - is a .dd file in a
+     fragments directory; its index is llss. hhrrcclliipp <
+     /uussrr/vveelllluumm/ffrraagg/lleeggeenndd.dd from any shell puts it on the
+     PRIMARY selection, and a MIDDLE CLICK in the editor pastes
+     it at the pointer, because Paste has parsed .dd text out of
+     the selection since the beginning.  /usr/vellum/frag ships
+     with a starter set; copy it, add your own, delete ours.
+
+     A REVISION is a file too, and the record is the directory:
+     see vveellddiiffff, which compares two of them and whose exit
+     status is what a Makefile gates a release print on.
 
 FFIILLEE FFOORRMMAATT
      Drawings are plain text, one object per line, in grid units;
@@ -696,13 +380,32 @@ FFIILLEE FFOORRMMAATT
      vertical text and the layer.
 
 FFIILLEESS
+              /usr/vellum/bin/*         the SUITE: the editor, symedit, and the
+                                        headless commands (velplot velpic veldxf
+                                        velnet velcheck veldiff velinfo velsym
+                                        velgraph)
               /usr/vellum/sym/*.sym     the symbol libraries
+              /usr/vellum/lib/libvellum.athe model, the format, the device
+                                        walker and the connectivity - what every
+                                        command in the suite is built on, and what
+                                        a command of your own would link
+
+
+COHERENT Command Manual                                    Page 6
+
+
+
+
+vveelllluumm                                                     vveelllluumm
+
+
+
               /usr/vellum/lib/*         the helper BINARIES the editor execs: the
-                                        headless exporters (velxport), the dialogs
-                                        (veldlg), the print preview (velprev) and
-                                        the palette painter (velpal).  Stencil
-                                        libraries live in sym/, not here - they are
-                                        not the same kind of thing
+                                        dialogs (veldlg), the print preview
+                                        (velprev) and the palette painter
+                                        (velpal).  Stencil libraries live in sym/,
+                                        not here - they are not the same kind of
+                                        thing
               /usr/vellum/etc/libs      which of them load at start-up
               /usr/vellum/etc/symbols   the user scratch library
               /usr/vellum/etc/frame.d   the Frame stamp's template
@@ -714,22 +417,11 @@ FFIILLEESS
               /usr/vellum/etc/library.mkthe stencil-LIBRARY Makefile
                                         skeleton: a library is a build product, its
                                         sources are ordinary drawings, and
-                                        -symcheck gates it the way -check gates a
-                                        print
+                                        velcheck -sym gates it the way velcheck
+                                        gates a print
               /usr/vellum/frag/*.d      the FRAGMENT starter set: a revision
                                         legend, a north arrow, a revision cloud,
                                         a graphic scale bar, a tolerance note.  A
-
-
-COHERENT Command Manual                                   Page 11
-
-
-
-
-vveelllluumm                                                     vveelllluumm
-
-
-
                                         fragment is a drawing and the library is
                                         a directory: hrclip one onto the
                                         selection and middle-click it into place
@@ -738,30 +430,26 @@ vveelllluumm                                                     vveell
                                         (diagrams), bracket (mechanical, with
                                         dimensions), feed oneline office (P&ID,
                                         one-line, floor plan), psu1 psu2 (a two-
-                                        sheet set for -net merging), curve
+                                        sheet set for net merging), curve
                                         (a velgraph plot, annotated), plate
                                         (imported from plate.dxf, kept beside
                                         it), panel (a sheet-metal plate with
                                         cut-outs, for the takeoff).  amp.d.A is
                                         amp.d's approved REVISION, kept beside
-                                        it: try vellum -diff amp.d.A amp.d.
-                                        Open one, or feed them to the exporters,
+                                        it: try veldiff amp.d.A amp.d.
+                                        Open one, or feed them to the commands,
                                         to see every feature working.
               /usr/vellum/eg/sk/*.d     the STENCIL SKETCHES: the nine ordinary
                                         drawings that build /usr/vellum/sym/pid.sym
-                                        through -mksym, driven by library.mk.  They
+                                        through velsym, driven by library.mk.  They
                                         rebuild that library byte for byte, which is
                                         how the converter proves itself
 
 SSEEEE AALLSSOO
-     ssyymmeeddiitt , vveellddxxff , vveellggrraapphh , zzvviieeww , zzmmaann , llpprr
+     vveellpplloott , vveellppiicc , vveellddxxff , vveellnneett , vveellcchheecckk , vveellddiiffff ,
+     vveelliinnffoo , vveellssyymm , vveellggrraapphh , ssyymmeeddiitt , zzvviieeww , zzmmaann
 
 NNOOTTEESS
-     A -ddiiffff -mmaarrkk markup holds the new revision PLUS the
-     removals, so a markup of two crowded sheets can carry more
-     than the 400 objects a drawing holds when it is opened
-     again; it always prints.
-
      Wires connect only through junction dots; connectors never
      dot.  One level of undo only; the printed page and the pic
      figure are the first-class outputs.

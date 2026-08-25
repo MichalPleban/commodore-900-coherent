@@ -20,10 +20,15 @@ The figure is
 .BR mem 's
 (and
 .BR zmon 's):
-the kernel's in-core segment queue, walked through a
+the kernel's in-core segment queue, read through
 .B /dev/kmem
-snapshot, subtracted from the user-memory span.
-It resamples every three seconds.
+a segment at a time, subtracted from the user-memory span.
+It resamples every three seconds, and only while the cell is on
+screen.
+Unlike
+.B zmon
+it keeps no copy of the kernel's allocation arena, so a resident
+widget costs about 14 Kb of core rather than 47.
 .PP
 It draws inside the dock's own window under the dock's clipping, owns
 no window of its own, and takes no input itself; a left click on the

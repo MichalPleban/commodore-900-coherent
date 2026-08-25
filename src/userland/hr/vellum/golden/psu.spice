@@ -1,4 +1,4 @@
-* vellum -spice
+* velnet -spice
 * sheet psu1.d
 * sheet psu2.d
 R1 1 2 470

@@ -1,7 +1,7 @@
 # VCTL -- the stencil SKETCH of library code VCTL.
 # An ordinary drawing: it opens in the editor, prints, and takes
 # the whole revision workflow (VELLUM.md sec. 57).  Promote it with
-#	vellum -mksym VCTL -pfx V -org 40,30 -scale 4 vctl.d >> lib.sym
+#	velsym -pfx V VCTL -org 40,30 -scale 4 vctl.d >> lib.sym
 # The N markers are the PINS, in this order; "-" is an unnamed one.
 vellum1
 L 32 26 32 34

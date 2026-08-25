@@ -1,0 +1,120 @@
+.TH velplot "" "Command"
+.SH NAME
+velplot \- put a vellum drawing on a page
+.SH SYNOPSIS
+\fBvelplot\fR [\fB\-T lp\fR|\fBps\fR|\fBhpgl\fR] [\fB\-wide\fR] [\fB\-fit\fR] [\fB\-scale\fR \fIn\fR] \fIfile.d ...\fR
+.br
+\fBvelplot \-tile\fR [\fB\-n\fR] [\fB\-T lp\fR|\fBps\fR|\fBhpgl\fR] \fIbig.d ...\fR
+.SH DESCRIPTION
+.HS
+velplot -- a vellum drawing onto a page
+Usage:	velplot [-T lp|ps|hpgl] [-wide] [-fit] [-scale n] file.d ...
+	velplot -tile [-n] [-T lp|ps|hpgl] big.d ...
+	-T lp	Epson raster, ESC * bands (the default)
+	-T ps	PostScript Level 1, one page per sheet
+	-T hpgl	HPGL pen plotter, annotation layer in pen 2
+	-wide	landscape: the page turned a quarter (lp)
+	-fit	scale the drawing to FILL the page
+	-scale n	device dots per grid unit (lp; default 8)
+	-tile	as many pages as it takes; -n counts them
+.HE
+.B velplot
+renders drawings made with
+.B vellum
+onto whatever the shop owns.
+It writes to standard output and reads no terminal: the whole
+pipeline runs from
+.BR make (1),
+from a script, or down a serial line on a machine with no bitmap card
+at all.
+.PP
+Each argument is a SHEET, and the file name
+.B \-
+is standard input, so a generated drawing plots without a temporary
+file:
+.B "velinfo -symsheet pid.sym | velplot -T ps -fit -" .
+Layers marked no-print, and the construction layer, are skipped.
+.PP
+The device is chosen with
+.BR \-T :
+.DS
+.ta 4n 16n
+	\fBlp\fR	Epson raster on stdout \- ESC * 24-row head
+		bands, one grid unit = 8 dots by default.  Pipe
+		it to \fBlpr\fR.  \fB-wide\fR prints landscape (the page
+		turned a quarter) and \fB-scale\fR \fIn\fR picks n dots
+		per grid unit, so a small drawing prints big
+	\fBps\fR	PostScript (Level 1), one page per sheet \- the
+		laser's page, at a pinned 16 grid units to the
+		inch.  Text is Courier sized so the monospace
+		advance matches the editor cell: nothing collides
+		on paper that did not collide on screen.  Smooth
+		polylines emit real curveto, vertical text
+		rotates, and arcs are true arcs
+	\fBhpgl\fR	HPGL pen-plotter commands on stdout.  The
+		annotation layer draws in the SECOND pen (SP2) \-
+		the cheapest two-color print this machine will
+		ever do
+.DE
+.PP
+.B \-fit
+scales the drawing to fill the page; for
+.B "-T lp"
+it picks the widest step of the discrete 2..32 dot ladder instead,
+because the head has no fractional dot.
+.SH TILING
+.B \-tile
+is the sheet BIGGER than the paper.
+The chosen device runs once per PAGE with the drawing origin stepped,
+so a drawing wider than the head comes out as pages that TAPE
+TOGETHER: one grid unit of overlap on each seam, crop marks at the
+corners and a "2/6 row B col 2" label in the margin, row-major so the
+pile is in reading order.
+.PP
+It composes with
+.B \-wide
+and
+.BR \-scale .
+It does NOT compose with
+.BR \-fit ,
+which means "make this ONE page" and is the opposite instruction;
+that combination is an error, not a precedence rule.
+.B \-n
+prints how many pages it would take and stops.
+.PP
+Without
+.BR \-tile ,
+.B "-T lp"
+still clips at the head's 960 dots \- but says so on standard error
+rather than quietly losing the right-hand edge.
+.SH EXAMPLES
+.DS
+.ta 8n
+	velplot amp.d | lpr
+	velplot -T ps -fit bracket.d | lpr
+	velplot -T hpgl feed.d > /dev/plotter
+	velplot -tile -n -T ps big.d
+	velplot -tile -T ps big.d | lpr
+.DE
+.SH FILES
+.DS
+.ta 4n 32n
+	/usr/vellum/etc/project.mk	the sheet-set Makefile skeleton,
+		which gates \fBprint:\fR on \fBvelcheck\fR and \fBveldiff\fR
+	/usr/hr/fonts/*.hf	the glyph cells the raster device
+		draws text with
+.DE
+.SH "SEE ALSO"
+.B vellum ,
+.B velpic ,
+.B veldxf ,
+.B velcheck ,
+.B veldiff ,
+.B lpr
+.SH NOTES
+The editor's Print item runs this program on a snapshot of the live
+drawing, so what the board prints and what a Makefile prints are the
+same bytes.
+.PP
+The device backends share ONE object walker with the print-preview
+window, so what the preview shows is what the paper gets.

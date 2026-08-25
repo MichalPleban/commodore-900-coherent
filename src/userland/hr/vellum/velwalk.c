@@ -4,8 +4,8 @@
  * the cl_-free geometry it needs (integer sqrt/trig, the symbol
  * transform, chorded arcs and shape outlines/fills in device px).
  *
- * Factored OUT of velport.c (VELLUM.md sec. 25) so two binaries share
- * it: velxport (the headless -print/-pic/-hpgl exporters) and velprev
+ * A libvellum member (VELLUM.md sec. 25) so every renderer shares it:
+ * velplot, velpic and veldxf headless, and velprev
  * (the print-preview window, whose cl_* backend draws the same walk
  * into a window) -- the SAME walker feeds the Epson bands and the
  * preview, so what the window shows is what the paper gets.  Keeps the

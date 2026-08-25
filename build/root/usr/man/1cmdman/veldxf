@@ -5,19 +5,28 @@ vveellddxxff                                                     vveell
 
 
 NNAAMMEE
-     veldxf - convert a DXF drawing to vellum format
+     veldxf - convert between DXF and vellum drawings
 
 SSYYNNOOPPSSIISS
      vveellddxxff [-llaayyeerr _n_a_m_e=_n] [-ssccaallee _N] _f_i_l_e._d_x_f > _f_i_l_e._d
+     vveellddxxff -xx _f_i_l_e._d ... > _f_i_l_e._d_x_f
 
 DDEESSCCRRIIPPTTIIOONN
-     vveellddxxff reads a DXF file (the R10-era plain-text format the
-     office CAD writes) and prints an ordinary vveelllluumm drawing on
-     standard output: nothing drawn elsewhere is locked out.
-     Import is a CONVERSION, not a link - run it once, and the
-     result is a drawing like any other; nothing remembers where
-     it came from.
+     vveellddxxff is the border with the office CAD, and it crosses in
+     both directions.  Read a DXF file (the R10-era plain-text
+     format) and it prints an ordinary vveelllluumm drawing on standard
+     output; give it -xx and it reads drawings and prints a DXF
+     ENTITIES section instead.  The two directions are one
+     program because they are one format, and because the pair
+     has to FIX-POINT: a drawing exported and re-imported is the
+     same drawing, and the shipped regression gate proves it on
+     every run.
 
+     Conversion is not a link.  Run it once; the result is a
+     drawing like any other, and nothing remembers where it came
+     from.
+
+IIMMPPOORRTT
      The scope is the honest entity subset:
 
                         LINEa vellum L line
@@ -41,13 +50,38 @@ DDEESSCCRRIIPPTTIIOONN
      header is emitted.  Coordinates may carry decimals; they are
      handled in fixed point (no floating point anywhere).  The
      drawing's minimum corner lands at grid 0,0 with the y axis
-     flipped (DXF y runs up), so the vveelllluumm -ddxxff export and this
-     import FIX-POINT: a converted drawing re-exports and re-im-
-     ports byte-identically.
+     flipped (DXF y runs up).
+
+EEXXPPOORRTT
+     -xx writes the sheets named after it into ONE ENTITIES sec-
+     tion on standard output, the way a set prints onto one roll.
+     Coordinates are in GRID units at a pinned quarter-unit
+     resolution, so symbol geometry emits exactly as .25 steps; y
+     is flipped (DXF y runs up); arcs are true ARC entities, not
+     chords, because a chorded arc is correct on paper and wrong
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+vveellddxxff                                                     vveellddxxff
+
+
+
+     iinn a file another CAD will edit; and our layer number is the
+     DXF layer name.  Layers marked no-print, and the construc-
+     tion layer, are skipped.
+
+EEXXAAMMPPLLEESS
+                  veldxf plate.dxf > plate.d
+                  veldxf -x bracket.d > bracket.dxf
+                  veldxf -x amp1.d amp2.d > amps.dxf
 
 SSEEEE AALLSSOO
-     vveelllluumm , zzffiillee
+     vveelllluumm , vveellpplloott , vveellppiicc , zzffiillee
 
 NNOOTTEESS
-     The Edit button of zzffiillee runs this automatically for a
+     The Edit button of zzffiillee runs the import automatically for a
      selected .dxf and opens the conversion in vveelllluumm.

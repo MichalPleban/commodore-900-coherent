@@ -2,19 +2,34 @@
  * zwmem.c - dock widget: free user memory.
  *
  * The minimal cut of zmon's memory pane (which is itself /bin/mem's walk):
- * snapshot the kernel's kalloc arena through /dev/kmem, walk the in-core
- * segment queue (segmq) summing every segment's size, and free = the user
- * span (coretop - corebot) minus that sum.  One click is 1 Kb, so the
- * figures are Kb directly.  Needs the kernel headers (-I flags) and a
- * symboled /coherent, exactly like zmon and ps; with no /dev/kmem (or a
- * stripped kernel) the cell shows "--" and keeps ticking.
+ * chase the kernel's in-core segment queue (segmq) through /dev/kmem summing
+ * every segment's size, and free = the user span (coretop - corebot) minus
+ * that sum.  One click is 1 Kb, so the figures are Kb directly.  Needs the
+ * kernel headers (-I flags) and a symboled /coherent, exactly like zmon and
+ * ps; with no /dev/kmem (or a stripped kernel) the cell shows "--" and keeps
+ * ticking.
+ *
+ * Unlike zmon this walk keeps NO snapshot of the kalloc arena.  zmon has to
+ * buffer the whole arena because it chases pointers all over it (procq, then
+ * every process's p_segp[] and u-area) dozens of times a tick; this widget
+ * touches exactly two fields of each SEG -- s_forw to advance and s_size to
+ * accumulate -- so it reads each 24-byte SEG where it lies.  The malloc()ed
+ * copy was `casize' (asize_, ~33 Kb) of heap, and this machine charges a
+ * process its data up front: it made a 1.6 Kb widget cost 47 Kb of core,
+ * more than zterm.  In place it is ~14 Kb, the same as its sibling widgets.
+ *
+ * The price is one lseek+read pair per segment instead of one for the lot:
+ * measured at ~440 us per /dev/kmem read (and that figure is flat from 1
+ * byte to 32000 -- the c900 emulator charges the syscall but not the block
+ * copy, so it cannot price the snapshot's 33 Kb move at all).  With ~16
+ * segments live that is ~7 ms per walk, and the walk runs every SAMPLE
+ * ticks and only when the cell is actually on screen (see main).
  *
  * Loop discipline: the zwclock 1-second self-armed SIGALRM heartbeat --
  * every wake repaints (the dock paints around live widget cells and never
  * signals us; see zwclock.c and zdock.c on the V7 one-shot signal race
  * that forbids it) -- but the KERNEL WALK runs only every 3rd tick: a
- * repaint is a handful of primitives, an arena snapshot is a multi-Kb
- * /dev/kmem read.
+ * repaint is a handful of primitives, a queue walk is a read per segment.
  *
  * The widget itself takes no input: clicks land in the dock, whose catalog
  * wires this cell to the Monitor (the "Monitor=/usr/hr/bin/zmon" click
@@ -37,12 +52,12 @@
 
 #define SAMPLE	3		/* kernel walk every SAMPLE ticks         */
 
-extern char	*malloc();
 extern int	strlen();
 
+/* Is a kernel pointer inside the kalloc arena?  (ps.c's range(), without
+ * its map() twin: nothing is copied into a local buffer here.) */
 #define	range(p)	((char *)(p) >= (char *)aend && \
 			 (char *)(p) < (char *)aend + casize)
-#define	map(p)		(&allp[(char *)(p) - (char *)aend])
 
 #define	aasize		nl[0].n_value
 #define	aend		nl[1].n_value
@@ -63,12 +78,12 @@ struct nlist nl[] = {
 };
 
 int	kfd = -1;		/* /dev/kmem; -1 = no data                */
-char	*allp;			/* arena snapshot                         */
-unsigned casize;		/* arena size                             */
+unsigned casize;		/* arena size (the range() bound)         */
 saddr_t	corebot, coretop;	/* user memory bounds, clicks (= Kb)      */
 unsigned mfree;			/* the figure on display, Kb              */
 
 int	tickflag;
+int	stale;		/* a walk is due: taken when we can paint */
 int	strikes;	/* consecutive hr_wlive failures (see the loop) */
 
 static
@@ -104,8 +119,8 @@ char *bp;
 	return 0;
 }
 
-/* One-time set-up: namelist, /dev/kmem, the arena buffer and the boot-fixed
- * bounds.  On failure kfd stays -1 and the cell shows "--" forever. */
+/* One-time set-up: namelist, /dev/kmem and the boot-fixed bounds.  On
+ * failure kfd stays -1 and the cell shows "--" forever. */
 static
 initdata()
 {
@@ -116,36 +131,37 @@ initdata()
 		return 0;
 	if ( kread((long)aasize, (char *)&casize, sizeof(casize)) < 0 )
 		return 0;
-	if ( (allp = malloc(casize)) == NULL )
-	{
-		kfd = -1;
-		return 0;
-	}
 	kread((long)acorebot, (char *)&corebot, sizeof(corebot));
 	kread((long)acoretop, (char *)&coretop, sizeof(coretop));
 	return 0;
 }
 
-/* Resample: one arena snapshot, then the segment walk (mem's figures). */
+/* Resample: the segment walk (mem's figures), one SEG read at a time.
+ * `seg' holds the queue head first and, from then on, the segment we are
+ * standing on -- its s_forw carries us to the next.  The trip count is
+ * capped at what the arena could physically hold, so a torn or corrupt
+ * queue cannot spin us on the kernel forever. */
 static
 sample()
 {
 	register SEG *sp;
-	SEG shead;
+	register unsigned n;
+	SEG seg;
 	unsigned used;
 
 	if ( kfd < 0 )
 		return;
-	if ( kread((long)aend, allp, (int)casize) < 0 )
+	if ( kread((long)asegmq, (char *)&seg, sizeof(seg)) < 0 )
 		return;
-	kread((long)asegmq, (char *)&shead, sizeof(shead));
 	used = 0;
-	for ( sp = shead.s_forw; sp != (SEG *)asegmq; sp = sp->s_forw )
+	n = casize / sizeof(SEG);
+	for ( sp = seg.s_forw; sp != (SEG *)asegmq; sp = seg.s_forw )
 	{
-		if ( range((char *)sp) == 0 )
+		if ( range((char *)sp) == 0 || n-- == 0 )
 			break;		/* mid-flight change: show what we have */
-		sp = (SEG *) map(sp);
-		used += sp->s_size;
+		if ( kread((long)sp, (char *)&seg, sizeof(seg)) < 0 )
+			return;
+		used += seg.s_size;
 	}
 	mfree = (coretop - corebot) - used;
 }
@@ -200,12 +216,19 @@ char **argv;
 		}
 		strikes = 0;
 		if ( ++tickn >= SAMPLE )
-		{
-			tickn = 0;
-			sample();
-		}
+			tickn = 0, stale = 1;
 		cl_refresh();
 		if ( cl_mapped() && !cl_frozen() )
+		{
+			/* the walk is taken here, not above: only when it can
+			 * be seen, and on the map state cl_refresh() has just
+			 * brought back rather than the previous pass's */
+			if ( stale )
+			{
+				stale = 0;
+				sample();
+			}
 			paint();
+		}
 	}
 }

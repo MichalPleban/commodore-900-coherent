@@ -1,7 +1,7 @@
 /*
  * veldlgm.c - Vellum's DIALOG HELPER (/usr/vellum/lib/veldlg): every
  * modal dialog of the editor, run in a spawned process on the EDITOR'S
- * window -- the velxport pattern applied to the dialogs, which is what
+ * window -- the helper-binary pattern applied to the dialogs, which is
  * keeps the editor inside its 64 K text segment (VELLUM.md sec. 21's
  * escape hatch, cashed in when v2 outgrew the wall).
  *
@@ -1070,7 +1070,7 @@ char **av;
 }
 
 /* ------------------------------------------------------------------ */
-/* Make Symbol: the GUI face of `vellum -mksym' (v6.7, sec. 60)        */
+/* Make Symbol: the GUI face of velsym (v6.7, sec. 60)                 */
 /* ------------------------------------------------------------------ */
 
 char	mscode[8], mspfx[4], mslib[44], msscl[4];

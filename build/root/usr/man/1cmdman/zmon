@@ -12,15 +12,16 @@ SSYYNNOOPPSSIISS
 
 DDEESSCCRRIIPPTTIIOONN
      zzmmoonn is the system monitor of the COHERENT GUI.  It must be
-     run under the zzvviieeww desktop.  Every 3 seconds it takes a
-     snapshot of the kernel through /ddeevv/kkmmeemm and redraws what
-     changed: a memory total line, a bar of user memory in use, a
-     breakdown grid (kernel, arena, buffers, segments, stacks,
-     system, shared, saving, free, holes, largest), and a process
-     list in ppss style - PID, user, size, tty, state, time and
-     command.  The display is read-only; there is no way to sig-
-     nal or kill a process from it.  zzmmoonn accepts the standard
-     window _o_p_t_i_o_n_s of GUI applications; see zzvviieeww.
+     run under the zzvviieeww desktop.  Every 3 seconds, while its
+     window is on screen, it takes a snapshot of the kernel
+     through /ddeevv/kkmmeemm and redraws what changed: a memory total
+     line, a bar of user memory in use, a breakdown grid (kernel,
+     arena, buffers, segments, stacks, system, shared, saving,
+     free, holes, largest), and a process list in ppss style - PID,
+     user, size, tty, state, time and command.  The display is
+     read-only; there is no way to signal or kill a process from
+     it.  zzmmoonn accepts the standard window _o_p_t_i_o_n_s of GUI ap-
+     plications; see zzvviieeww.
 
      The only keys scroll the process list:
 

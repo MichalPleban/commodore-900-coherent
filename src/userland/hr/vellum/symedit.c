@@ -2163,10 +2163,10 @@ docopyfrom()
 /* ------------------------------------------------------------------ */
 /* v6.6: Import drawing, and Check -- the INTERACTIVE half of this     */
 /* wind.  Rule 3 (VELLUM.md sec. 54): the headless half of a           */
-/* capability goes to velxport and the interactive half to whichever   */
+/* capability goes to a headless TOOL and the interactive half to      */
 /* binary can afford it, which is this one.  The conversion rules are  */
 /* sec. 55's, the findings are sec. 56's, and the wording matches      */
-/* `vellum -mksym' and `vellum -symcheck' exactly, because a shop      */
+/* velsym and velcheck -sym exactly, because a shop                    */
 /* should get the same answer from the board and from make(1).         */
 /* ------------------------------------------------------------------ */
 
@@ -2174,7 +2174,7 @@ static int	idox, idoy, idsc;	/* origin and -scale, this import */
 static int	got0;			/* ... the origin was given       */
 static int	iddrop[4];		/* S / K+Y / D / long text        */
 
-/* grid -> quarter-grid, velv6 mqx's twin: a drawing is in whole units
+/* grid -> quarter-grid, velsym mqx's twin: a drawing is in whole units
  * and a stencil in quarter ones, so the conversion is x4; -scale n
  * divides instead, and at 4 a drawing unit IS a quarter unit. */
 static
@@ -2521,7 +2521,7 @@ char *s;
 	return 0;
 }
 
-/* judge lib[]: the same rules and the same wording as -symcheck */
+/* judge lib[]: the same rules and wording as `velcheck -sym' */
 static
 libcheck()
 {

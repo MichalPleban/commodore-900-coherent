@@ -16,7 +16,8 @@ GUI.
 It must be run under the
 .B zview
 desktop.
-Every 3 seconds it takes a snapshot of the kernel through
+Every 3 seconds, while its window is on screen, it takes a snapshot
+of the kernel through
 .B /dev/kmem
 and redraws what changed: a memory total line, a bar of user memory
 in use, a breakdown grid (kernel, arena, buffers, segments, stacks,

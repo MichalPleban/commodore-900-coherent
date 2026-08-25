@@ -1,5 +1,5 @@
 # Half adder -- the logic library: gates, crossing wires (no dot,
-# no connection), T junctions (dot).  `vellum -net' names the nets
+# no connection), T junctions (dot).  `velnet' names the nets
 # after the A/B/SUM/CY markers.
 vellum1
 T 24 12 s2 Half adder

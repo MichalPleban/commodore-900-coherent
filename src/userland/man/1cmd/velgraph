@@ -35,20 +35,21 @@ With
 .B \-smooth
 each series carries the spline flag, so the curve is real all the
 way to the
-.B \-pic
+.B velpic
 and
-.B \-ps
-exports.
+.B velplot
+outputs.
 .PP
 make(1) composition is the point:
 .DS
 .ta 8n
 	report.ps: bench.log plot.d
 		velgraph -t "Settling time" < bench.log > plot.d
-		vellum -ps plot.d > report.ps
+		velplot -T ps plot.d > report.ps
 .DE
 .SH "SEE ALSO"
 .B vellum ,
+.B velplot ,
 .B veldxf
 .SH NOTES
 Up to 280 points over up to 12 series; a series longer than a

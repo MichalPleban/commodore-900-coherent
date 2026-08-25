@@ -1,26 +1,26 @@
-vellum: check clean
+velcheck: check clean
 amp=0
-vellum: check clean
+velcheck: check clean
 logic=0
-vellum: check clean
+velcheck: check clean
 flow=0
-vellum: check clean
+velcheck: check clean
 lan=0
-vellum: check clean
+velcheck: check clean
 struct=0
-vellum: check clean
+velcheck: check clean
 bracket=0
-vellum: check clean
+velcheck: check clean
 feed=0
-vellum: check clean
+velcheck: check clean
 oneline=0
-vellum: check clean
+velcheck: check clean
 office=0
-vellum: check clean
+velcheck: check clean
 curve=0
-vellum: check clean
+velcheck: check clean
 plate=0
-vellum: check clean
+velcheck: check clean
 panel=0
-vellum: check clean
+velcheck: check clean
 psu=0

@@ -1,0 +1,103 @@
+.TH veldiff "" "Command"
+.SH NAME
+veldiff \- what changed between two revisions of a drawing
+.SH SYNOPSIS
+\fBveldiff\fR \fIold.d new.d\fR
+.br
+\fBveldiff \-mark\fR \fIold.d new.d\fR > \fImarkup.d\fR
+.SH DESCRIPTION
+.HS
+veldiff -- what changed between two revisions of a drawing
+Usage:	veldiff old.d new.d		the change list
+	veldiff -mark old.d new.d	... as a MARKED-UP DRAWING
+	Matching is by IDENTITY, not by line.  The EXIT STATUS
+	is the change count, so make(1) gates a print on it.
+.HE
+.B veldiff
+compares two revisions of a drawing made with
+.BR vellum .
+.PP
+Matching is by IDENTITY, not by line.
+.BR diff (1)
+on two
+.B .d
+files drowns in reordering, because the line order is the Z-ORDER and
+not the content.
+Here symbols match by DESIGNATOR first \- R7 is R7 wherever it moved in
+the list \- and everything else by exact (type, geometry, value)
+equality.
+There is no fuzzy matching and no tolerance: an object that moved one
+unit is a remove plus an add, and on a grid that is the honest answer.
+An object still standing exactly where it stood, saying something
+else, reports as CHANGED.
+.PP
+One line each, in the
+.B velcheck
+shape:
+.DS
+.ta 8n
+	new.d: R7 moved 40,20 -> 40,28
+	new.d: R9 added (R 47k)
+	new.d: C2 removed (C 100n)
+	new.d: T "Supply, sheet 1" changed
+.DE
+The EXIT STATUS is the change count (capped at 254), so a Makefile
+gates a release print on ``no drift since the approved revision''
+exactly the way it gates on
+.BR velcheck .
+A change of sheet UNITS is reported rather than refused.
+.SH "THE MARKUP"
+.B \-mark
+prints the answer AS A DRAWING on standard output: everything
+unchanged on its own layers, ADDED objects bold, REMOVED objects
+dashed on the annotation layer.
+There is no new viewer and no new user interface, because the markup
+is ORDINARY OBJECTS \-
+.B velpic
+draws it,
+.B velplot
+prints it, and the editor opens it.
+.SH REVISIONS
+A revision is a FILE, and the record is the directory: no SCCS, no
+hidden state, no format change.
+When the frame stamp's
+.B $R
+says B,
+.B "cp amp1.d amp1.d.B"
+is the whole ceremony.
+.PP
+The /usr/vellum/etc/project.mk skeleton turns that into a workflow:
+.B rev:
+copies every sheet to its
+.BI . REV
+twin,
+.B drift:
+runs this program on each sheet against that twin so its exit status
+gates
+.BR print: ,
+and
+.B review:
+hangs the marked-up drawing on the wall instead.
+The gallery ships the pair: /usr/vellum/eg/amp.d.A beside amp.d.
+.SH EXAMPLES
+.DS
+.ta 8n
+	veldiff amp.d.A amp.d
+	veldiff -mark amp.d.A amp.d > amp.mark
+	velplot -T ps -fit amp.mark | lpr
+.DE
+.SH "SEE ALSO"
+.B vellum ,
+.B velcheck ,
+.B velplot ,
+.B velpic ,
+.B make
+.SH NOTES
+A
+.B \-mark
+markup holds the new revision PLUS the removals, so a markup of two
+crowded sheets can carry more than the 400 objects a drawing holds
+when it is opened again; it always prints.
+.PP
+This is the one tool that holds two drawings at once, which is why it
+is a tool of its own: nothing else pays for the second object table.

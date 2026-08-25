@@ -1,7 +1,7 @@
 /*
  * veldlg.c - Vellum's dialog STUBS: every modal dialog runs in the
  * spawned helper /usr/vellum/lib/veldlg (veldlgm.c) on this window --
- * the velxport pattern applied to the dialogs (VELLUM.md sec. 21's
+ * the helper-binary pattern applied to the dialogs (VELLUM.md sec. 21's
  * escape hatch), which is what keeps the editor's 64 K text segment
  * under the tripwire's 95% with the whole v2 feature set in.
  *
@@ -25,7 +25,8 @@
 #include "vellum.h"
 
 #define	VELDLG	"/usr/vellum/lib/veldlg"
-#define	VELXPORT "/usr/vellum/lib/velxport"
+#define	VELSYM	"/usr/vellum/bin/velsym"
+#define	VELPLOT	"/usr/vellum/bin/velplot"
 #define	MKTMP	"/tmp/velmk.d"
 
 char	nbuf[NAMEL];
@@ -370,8 +371,8 @@ searchdlg()
 	return searchgo(dir);
 }
 
-/* Make Symbol (v6.7, VELLUM.md sec. 60): the GUI face of `-mksym'.
- * The selection is written out as an ordinary drawing and the EXPORTER
+/* Make Symbol (v6.7, VELLUM.md sec. 60): the GUI face of velsym.
+ * The selection is written out as an ordinary drawing and the TOOL
  * converts it, so sec. 55's rules live in exactly ONE place and a
  * stencil made from the board is byte-identical to one made from make.
  * The library is appended to, the way the shell form appends. */
@@ -453,8 +454,8 @@ mksymdlg()
 		}
 		fclose(fp);
 		sprintf(cmd,
-		    "%s -mksym %s -pfx %s -scale %s %s >>%s",
-			VELXPORT, code, pfx[0] ? pfx : "-", scl, MKTMP, lib);
+		    "%s -pfx %s -scale %s %s %s >>%s",
+			VELSYM, pfx[0] ? pfx : "-", scl, code, MKTMP, lib);
 		left = alarm(0);
 		st = 0x100;		/* a fork that fails IS a failure */
 		if ( (pid = fork()) == 0 )
@@ -552,7 +553,7 @@ arraydlg()
 /* Print from the board (VELLUM.md sec. 25): the helper's Print dialog
  * (scale, wide, Preview / Print / Cancel), then the doedit-shaped spawn:
  * Print pipes the SNAPSHOT (the live drawing written to a /tmp file, so
- * an unsaved buffer prints as shown) through velxport into lpr -- zprint
+ * an unsaved buffer prints as shown) through velplot into lpr -- zprint
  * owns the job from there; Preview opens velprev on the same snapshot. */
 printdlg()
 {
@@ -590,8 +591,8 @@ printdlg()
 		sprintf(cmd, "/usr/vellum/lib/velprev %s; rm -f %s", tmp, tmp);
 	else
 		sprintf(cmd,
-		    "/usr/vellum/lib/velxport -print%s -scale %s %s | /bin/lpr; rm -f %s",
-		    pwide ? " -wide" : "", psc, tmp, tmp);
+		    "%s%s -scale %s %s | /bin/lpr; rm -f %s",
+		    VELPLOT, pwide ? " -wide" : "", psc, tmp, tmp);
 	spawn(av);
 	statdirty = 1;
 	return 1;

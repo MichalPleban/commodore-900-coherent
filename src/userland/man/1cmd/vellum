@@ -5,47 +5,28 @@ vellum \- GUI technical drawing and schematic editor
 \fBvellum [\fIoptions\fB] [\fIfile\fB]\fR
 .br
 \fBvellum [\fIoptions\fB] +\fIx,y \fB[\fIfile\fB]\fR
-.br
-\fBvellum \-print\fR|\fB\-pic\fR|\fB\-net\fR|\fB\-hpgl\fR|\fB\-bom\fR|\fB\-check\fR|\fB\-ps\fR|\fB\-dxf\fR|\fB\-len\fR|\fB\-spice\fR \
-[\fB\-wide\fR] [\fB\-fit\fR] [\fB\-scale\fR \fIn\fR] \fIfile.d ...\fR
-.br
-\fBvellum \-renum\fR [\fB\-base\fR \fIn\fR] \fIfile.d\fR > \fIout.d\fR
-.br
-\fBvellum \-diff\fR [\fB\-mark\fR] \fIold.d new.d\fR
-.br
-\fBvellum \-where\fR \fIstring file.d ...\fR
-.br
-\fBvellum \-symsheet\fR \fIlib.sym\fR > \fIcard.d\fR
-.br
-\fBvellum \-mksym\fR \fICODE\fR [\fB\-pfx\fR \fIp\fR] [\fB\-org\fR \fIx,y\fR] [\fB\-scale\fR \fIn\fR] [\fB\-type\fR \fINAME=t\fR] \fIfile.d\fR >> \fIlib.sym\fR
-.br
-\fBvellum \-symcheck\fR \fIlib.sym ...\fR
-.br
-\fBvellum \-book\fR \fIsheet.d ...\fR > \fIcontents.d\fR
-.br
-\fBvellum \-tile\fR [\fB\-n\fR] \fB\-print\fR|\fB\-ps\fR|\fB\-hpgl\fR \fIbig.d\fR
 .SH DESCRIPTION
 .HS
 vellum -- GUI technical drawing and schematic editor
 Usage:	vellum [ options ] [ file ]
 	vellum [ options ] +x,y [ file ]
-	vellum -print|-pic|-net|-hpgl|-bom|-check|-ps|-dxf|-len|-spice
-		[-wide] [-fit] [-scale n] file.d ...
-	vellum -renum [-base n] file.d > out.d
-	vellum -diff [-mark] old.d new.d
-	vellum -where string file.d ...
-	vellum -symsheet lib.sym > card.d
-	vellum -mksym CODE [-pfx p] [-org x,y] [-scale n]
-		[-type NAME=t] file.d >> lib.sym
-	vellum -symcheck lib.sym ...
-	vellum -book sheet.d ... > contents.d
-	vellum -tile [-n] -print|-ps|-hpgl big.d
 Keys:	r rotate, m mirror, d duplicate, n properties, x/Del delete,
 	u undo, v zoom-to-fit, f to front, j/J group/ungroup,
 	y make symbol from the selection,
 	* / scale selection x2 / half,
 	1-6 align L/R/T/B + distribute, g grid, < > sheets, Esc select,
 	F2 save, F3 open, F4 new, F5-F7 cut/copy/paste, F8 settings
+The rest of the suite is separate commands:
+	velplot	a drawing onto a page (lp, PostScript, HPGL)
+	velpic	a drawing as troff pic source
+	veldxf	the DXF border, both directions
+	velnet	the netlist, parts list, SPICE deck, renumber
+	velcheck	prove the set, or the stencil libraries
+	veldiff	what changed between two revisions
+	velinfo	takeoff, set-wide Find, library card, contents
+	velsym	a drawing becomes a stencil
+	velgraph	x/y data becomes a drawing
+	symedit	the stencil-library editor
 .HE
 .B vellum
 is the drawing board of this workstation: electronic schematics,
@@ -207,7 +188,7 @@ A text label may hold several lines separated by `|'.
 A polyline checked
 .B Smooth
 renders as a spline through its points, and
-.B \-pic
+.B velpic
 exports it as one.
 A FILLED polyline is a closed even-odd fill over its points \- the
 arbitrary solid shape mechanical sketches want \- on screen, in
@@ -272,7 +253,9 @@ The window menu's
 .B Print
 entry opens the print dialog: scale, wide, and the three verbs \-
 .B Print
-spools the drawing through velxport into
+spools the drawing through
+.B velplot
+into
 .BR lpr ,
 .B Preview
 opens a window (velprev) drawing the printable extent through the
@@ -330,16 +313,16 @@ selected.
 Every asking mode prints its hits as
 .IR "file: ... at x,y" ,
 so this hands a report straight back to the board:
-.B "vellum -where TODO *.d"
+.B "velinfo -where TODO *.d"
 stops being a report and becomes a work list.
 .PP
 The
 .B y
 key turns the SELECTION into a library stencil \- the editor's face of
-.BR "vellum -mksym" .
+.BR velsym .
 It asks for the stencil's code, its designator prefix, the library file
 to append to, and the scale, then writes the selection out as an
-ordinary drawing and runs the exporter on it, so a stencil made here
+ordinary drawing and runs that command on it, so a stencil made here
 and one made from make(1) are the same bytes.
 The
 .B N
@@ -367,15 +350,15 @@ it offers to create it, which is how a set grows \- and
 walks back.
 The Frame stamp adds ``Sheet n/m'' when the file name carries a
 number.
-Shell globs are the set syntax for the exporters:
-.B "vellum \-net amp?.d"
+Shell globs are the set syntax for the whole suite:
+.B "velnet amp?.d"
 computes nets per sheet and MERGES them BY NAME \- a net named (by an
 N marker or GND/VCC) VBUS on sheet 1 is the same conductor as VBUS on
 sheet 3; unnamed nets stay sheet-local and print qualified
 (NET\-2.3 = sheet 2, net 3).
-.B \-print
+.B velplot
 emits the form feed between sheets, and
-.B \-bom
+.B "velnet -bom"
 yields ONE parts list for the whole set.
 An off-page reference is the OFFP stencil with its value reading
 ``\(->3'' and an N net name on its pin \- the netlist merge makes it
@@ -388,361 +371,65 @@ graphics, not electricity \- and tap it with short wires carrying
 .BR "N D7" ;
 same-named taps merge across the whole sheet set, which is what a
 bus MEANS.
-.B \-check
+.B velcheck
 flags a net name appearing on fewer than two pins in the set \- the
 typo'd bit (D3 on one end, D8 on the other) that eyes cannot see.
-.SH "HEADLESS EXPORT"
-The export modes run WITHOUT a window \- from make(1), from
-scripts, from a serial terminal.
+.SH "THE SUITE"
 .B vellum
-hands any lowercase
-.BI - mode
-straight to the helper /usr/vellum/lib/velxport, which carries the
-model, the format and every backend and links no graphics at all.
-On a machine with NO BITMAP CARD, run that helper directly:
-.B vellum
-itself is a graphics client and cannot exec where the shared graphics
-library is not loaded, even to pass its arguments on.  That is why the
-shipped Makefile skeletons say
-.BR V=/usr/vellum/lib/velxport .
-Each mode takes ONE OR MORE sheet files:
+DRAWS, and does nothing else.
+Everything the shop does WITH a drawing is a command of its own, over
+the same model and the same plain-text format:
 .DS
-.ta 4n 28n
-	\fBvellum -print\fR f.d	Epson raster on stdout (ESC * bands,
-		1 grid unit = 8 dots; pipe to \fBlpr\fR).
-		\fB-wide\fR prints landscape (the page turned a
-		quarter), \fB-scale\fR \fIn\fR picks n dots per
-		grid unit \- small drawings print big
-	\fBvellum -pic\fR f.d	troff pic source on stdout (16 units
-		per inch), for figures in manuals; smooth
-		polylines come out as pic splines
-	\fBvellum -hpgl\fR f.d	HPGL pen-plotter commands on stdout;
-		the annotation layer draws in the SECOND
-		pen (SP2) \- the cheapest two-color print
-		this machine will ever do
-	\fBvellum -ps\fR f.d ...	PostScript (Level 1) on stdout, one
-		page per sheet \- the laser's page.  Text
-		is Courier sized so the monospace advance
-		matches the editor cell: nothing collides
-		on paper that did not collide on screen.
-		Smooth polylines emit real curveto,
-		vertical text rotates, arcs are true arcs.
-		\fB-fit\fR scales the drawing to fill the
-		page (for \fB-print\fR it picks the widest
-		step of the discrete 2..32 ladder instead)
-	\fBvellum -dxf\fR f.d ...	DXF (R10 entities) on stdout, for
-		the office CAD: coordinates in grid units,
-		arcs as true ARC entities, our layer
-		number as the DXF layer name.  \fBveldxf\fR
-		converts the other way, and the pair
-		fix-points
-	\fBvellum -renum\fR f.d	canonical designators: symbols
-		sorted by (y, x), numbered per prefix from
-		\fB-base\fR \fIn\fR (default 1), the drawing
-		re-emitted on stdout.  One sheet per run; a
-		set renumbers sheet by sheet with -base
-		carrying the count across
-	\fBvellum -net\fR f.d ...	netlist: one line per net, R1.2-style
-		pins (named pins print Q1.B), GND/VCC and
-		N markers name nets \- MERGED by name across
-		the sheet set; designator-less stencils
-		(rails, taps, off-page markers) carry nets
-		but are never listed; warnings for single-
-		pin nets and unconnected pins on stderr
-	\fBvellum -bom\fR f.d ...	bill of materials over the whole
-		set: count, stencil, value and the
-		designators, sorted
-	\fBvellum -check\fR f.d ...	prove the set: duplicate
-		designators, dangling wire ends, parts with
-		no value, symbol codes no library defines
-		(lines the loader would DROP), sheets whose
-		U units disagree, single-pin nets and
-		unconnected pins \- plus the ERC: between
-		TYPED pins (see \fBsymedit\fR), two outputs
-		on a net conflict, an output must not drive
-		a power rail, and a net whose typed pins
-		are all inputs is undriven.  An untyped
-		library produces silence, not noise.  The
-		conductor checks
-		(dangling ends, nets, pins) apply only to
-		sheets that contain WIRES \- a diagram
-		sheet's stencil pins are attachment
-		points, not terminals.  One finding per
-		line on stdout; the EXIT STATUS is the
-		finding count, so make(1) gates on it:
-		  check: ; vellum -check amp?.d
-		  print: check ; vellum -print amp?.d | lpr
-	\fBvellum -tile\fR f.d	the sheet BIGGER than the paper: the
-		chosen backend runs once per PAGE with the
-		drawing origin stepped, so a drawing wider
-		than the head comes out as pages that TAPE
-		TOGETHER \- one grid unit of overlap on each
-		seam, crop marks at the corners and a
-		"2/6 row B col 2" label in the margin, row-
-		major so the pile is in reading order.
-		Applies to \fB-print\fR, \fB-ps\fR and \fB-hpgl\fR, and composes
-		with \fB-wide\fR and \fB-scale\fR.  It does NOT compose
-		with \fB-fit\fR, which means "make this ONE
-		page" and is the opposite instruction: that
-		combination is an error, not a precedence
-		rule.  \fB-n\fR prints how many pages and
-		stops.  Without \fB-tile\fR, \fB-print\fR still clips at
-		the head's 960 dots \- but says so on stderr
+.ta 4n 16n
+	\fBvelplot\fR	a drawing onto a page \- Epson raster,
+		PostScript or HPGL, \fB-fit\fR to the page or
+		\fB-tile\fRd across as many as it takes
+	\fBvelpic\fR	a drawing as troff \fBpic\fR source, for figures
+	\fBveldxf\fR	the border with the office CAD, both ways
+	\fBvelnet\fR	what it is CONNECTED as: the netlist, the
+		parts list, a SPICE deck, canonical designators
+	\fBvelcheck\fR	prove it \- one finding per line, the exit
+		status the finding count, so make(1) gates on
+		it like cc -Werror.  \fB-sym\fR judges the stencil
+		LIBRARIES the same way
+	\fBveldiff\fR	what changed between two revisions, as a list
+		or as a marked-up DRAWING
+	\fBvelinfo\fR	the takeoff, the set-wide Find, a library's
+		reference card, the set's contents page
+	\fBvelsym\fR	a drawing becomes a stencil
+	\fBvelgraph\fR	x/y data becomes a drawing
 .DE
-Layers marked no-print and the construction layer are skipped.
-The file name
+Not one of them is a graphics client, so the whole pipeline runs from
+.BR make (1),
+from a script, or down a serial line on a machine with no bitmap card.
+That is the reason for the split: the editor needs a screen, and
+nothing else here does.
+.PP
+They compose with each other, because the file name
 .B \-
-is standard input, so the modes compose with each other:
-.B "vellum -symsheet pid.sym | vellum -ps -fit -" .
-.SH "ASKING THE SET"
-A drawing set lives for years, and every question the shop asks about
-it \- what changed, what it takes, where anything is, and what
-everything means \- the set answers itself.
-These modes are the shell's, not the window's; their natural asker is
-make(1).
-.DS
-.ta 4n 28n
-	\fBvellum -diff\fR \fIold new\fR	what CHANGED between two
-		revisions. Matching is by IDENTITY, not by
-		line: diff(1) on two .d files drowns in
-		reordering, because the line order is the
-		z-order, not the content. Symbols match by
-		DESIGNATOR first (R7 is R7 wherever it
-		moved in the list), everything else by
-		exact (type, geometry, value) equality \- no
-		fuzzy matching and no tolerance: an object
-		that moved one unit is a remove plus an
-		add, and that is the honest answer on a
-		grid. An object still standing exactly
-		where it stood, saying something else,
-		reports as CHANGED. One line each, the
-		-check shape:
-		  new.d: R7 moved 40,20 -> 40,28
-		  new.d: R9 added (R 47k)
-		  new.d: C2 removed (C 100n)
-		  new.d: T "Supply, sheet 1" changed
-		The EXIT STATUS is the change count (capped
-		254), so a Makefile gates a release print
-		on "no drift since the approved revision"
-		exactly the way it gates on -check
-	\fBvellum -diff -mark\fR \fIo n\fR	... the answer AS A DRAWING on
-		stdout: everything unchanged on its own
-		layers, ADDED objects bold, REMOVED objects
-		dashed on the annotation layer. No new
-		viewer and no new UI \- the markup is
-		ordinary objects, so \fBvellum -pic\fR draws it,
-		\fB-print\fR prints it and the editor opens it
-	\fBvellum -len\fR f.d ...	the TAKEOFF: wires, connectors and
-		polylines measured in sheet units, per NET
-		where the conductors have names and per
-		LAYER otherwise, with a set total. H-V
-		routes measure both legs, diagonals measure
-		an integer square root. A closed FILLED
-		polyline reports AREA instead (integer
-		shoelace, halved with the odd half shown as
-		".5"): sheet metal is ordered by area the
-		way cable is ordered by length. A set whose
-		sheets disagree about the unit is refused
-		in one line rather than adding millimetres
-		to inches
-	\fBvellum -where\fR \fIstr\fR f.d	the set-wide Find: a case-blind
-		substring over designators, values, text
-		and net names \- the editor's Find contract
-		re-stated over FILES \- one line per hit
-		with the grid position, EXIT STATUS the hit
-		count. Zero hits exits 0 silently, so the
-		INVERTED use is free: \fBvellum -where TODO
-		*.d\fR in a check: rule fails the build while
-		a sheet still carries a TODO note
-	\fBvellum -spice\fR f.d ...	a SPICE 2G6 deck on stdout: the
-		same nets as \fB-net\fR, numbered (0 for the
-		GND-named net), one card per designated
-		R/C/L/D/Q, values parsed from the value
-		field ("4k7", "100n", "2.2M" \- the suffix
-		letter doubles as the decimal point, and
-		the schematic's M emits as MEG). A D or Q
-		card ends with its stencil CODE as the
-		model name unless its value names one; pin
-		ORDER is the library's, except that a
-		library which NAMES its pins B/C/E (or A/K)
-		orders the card the way SPICE wants \- the
-		stock \fBdiscrete\fR library does. Everything the
-		subset cannot say is SKIPPED AND COUNTED on
-		stderr ("dropped: 1 OPA, 2 J"): a silent
-		partial netlist is how simulations lie.
-		Models are yours by design \- the deck ends
-		.END and a wrapper file .INCLUDEs it beside
-		the .MODEL lines
-	\fBvellum -symsheet\fR \fIl.sym\fR	the library ON PAPER: a grid of
-		every stencil in ONE .sym file with its
-		code, designator prefix and pin types,
-		emitted as an ordinary drawing. It is .d
-		out, so it prints on any of the backends
-		and the shop's binder fills itself from
-		make:
-		  vellum -symsheet pid.sym |
-		    vellum -ps -fit -
-		The card names its stencils by CODE like
-		any drawing, so whatever reads it back must
-		have that library loaded: put a library of
-		your own in /usr/vellum/etc/libs first
-.DE
-.SH "LIBRARIES AS BUILD PRODUCTS"
-A stencil is a drawing, and a library is a build product.
-.PP
-.B "vellum -mksym"
-.I CODE
-promotes an ordinary drawing into one
-.B "symbol ... end"
-block on stdout, so a shop's own standards get made on the board
-instead of hand-cut in
-.B symedit
-at quarter-grid coordinates.
-.B L
-and
-.B W
-become
-.B s
-segments, a
-.B B
-box its four,
-a
-.B P
-polyline its n\-1,
-.B C
-a circle,
-.B A
-an arc angles and all, and a
-.B T
-whose text is ONE CHARACTER a
-.B t
-glyph.
-Everything else \- shapes, connectors, dimensions, nested symbols and
-multi-character text \- is SKIPPED AND COUNTED on stderr, because a
-silently half-converted stencil is a part that draws wrong forever.
-.PP
-The PINS come from the
-.B N
-net-name markers, in the order they appear in the file (which is the
-z-order, and which
-.B -spice
-reads when a library does not name its pins); the net name becomes the
-pin name, and an
-.B N
-called
-.B \-
-is a pin with no name.
-Pin TYPES come from
-.BI -type " NAME=t"
-on the command line and never from the drawing: a type is a property of
-the LIBRARY, and a guessed type builds a wrong ERC.
-.PP
-Coordinates are exact by construction.
-A stencil is in quarter-grid units and a drawing in whole ones, so the
-conversion is x4 and every pin lands on a multiple of 4 \- which is
-what the loader wants.
-.BI -scale " n"
-divides instead, for a stencil sketched n times oversize so its detail
-was drawable at all; at
-.B "-scale 4"
-a drawing unit IS a quarter unit and a hand-cut stencil's detail is
-available.
-.BI -org " x,y"
-names the grid point that becomes (0,0); the default is the FIRST PIN,
-because a stencil's origin is where it snaps (a sketch with no
-.B N
-markers at all falls back to the top-left of its printable extent, and
-is told on stderr that it has no pins).
-.PP
-.B "vellum -symcheck"
-proves the libraries the way
-.B -check
-proves the drawings, and it matters more: a wrong stencil is wrong in
-EVERY drawing.
-One finding per line as
-.IR lib.sym ": " message ,
-the exit status the finding count capped at 254 \- the
-.B -check
-shape exactly, so make(1) gates on it the same way.
-It reports a code defined twice, a code defined in two of the libraries
-given, a symbol with no geometry, a designator prefix with no pins, a
-pin off a whole unit, a pin name that repeats, a pin left untyped in a
-library that types the others, and \- the two that nothing else can say
-\- pins past the eight the loader keeps, and symbols the loader DROPPED
-because a pool filled.
-Both of those the loader has always done silently, and the load order
-then decides which stencil a drawing gets.
-.PP
-Together with make(1) that changes what a library IS, and costs no code
-at all:
+is standard input everywhere:
 .DS
 .ta 8n
-	STENCILS = pump.d valve.d tank.d
-	pid.sym: $(STENCILS)
-		rm -f $@
-		$(V) -mksym PUMP -pfx P pump.d >> $@
-		$(V) -mksym VALVE -pfx V valve.d >> $@
-		$(V) -mksym TANK -pfx TK tank.d >> $@
-		$(V) -symcheck $@
-	card: pid.sym ; $(V) -symsheet pid.sym | $(V) -ps -fit -
+	velinfo -symsheet pid.sym | velplot -T ps -fit -
+	veldiff -mark amp.d.A amp.d | velpic -
 .DE
-A stencil SKETCH is an ordinary drawing: it opens in the editor,
-prints,
-.BR -pic s
-into the manual, and takes the whole revision workflow above
-unchanged \- so the shop's stencils get revision control because they
-ARE drawings.
-Adding a stencil is adding a line; deleting one is deleting a file;
-there is no library format to learn and no state anywhere but files.
-/usr/vellum/etc/library.mk is the skeleton, and /usr/vellum/eg/sk holds
-the nine sketches that build the stock
-.B pid
-library \- byte for byte, which is also the converter's fix point.
+A lowercase option given to
+.B vellum
+itself is an error naming these commands, not a mode: the editor will
+not quietly do another program's job.
 .PP
-The same conversion has an interactive face:
-.B symedit
-grows
-.B "Import drawing"
-(the
-.B i
-key), which brings a drawing into the edit buffer under exactly these
-rules so the promote-then-touch-up workflow is one program, and
-.B Check
-(the
-.B k
-key), which shows these findings for the open library.
-.SH "THE SET AS A DOCUMENT"
-.B "vellum -book"
-emits an ORDINARY DRAWING listing the sheets given \- number, file
-name, and the sheet's own title, which it takes from the first text
-object on the FRAME layer (where the frame stamp puts
-.BR $F ,
-so a stamped set titles itself), falling back to the largest text on
-the sheet and then to the file name.
-It is
-.B .d
-out, so it prints on all five backends,
-.BR -tile s
-if it has to, and opens in the editor when somebody wants to fix a
-title by hand:
-.DS
-.ta 8n
-	vellum -book amp?.d > contents.d
-	vellum -ps contents.d amp?.d | lpr
-.DE
-The sheets stay FILES.
-A book is a contents drawing plus a shell glob in the right order, not
-a container format.
-
-.SH "FRAGMENTS AND REVISIONS"
-Neither costs any code, because both are files.
-.PP
-A FRAGMENT is a drawing.
+The board reaches two of them directly \- Print runs
+.B velplot
+on a snapshot of the live drawing, and Make Symbol runs
+.B velsym
+on the selection \- so a page or a stencil made on the board is
+byte-identical to one made from a Makefile.
+.SH FRAGMENTS
+A FRAGMENT is a drawing, and it costs no code at all.
 A shop-standard detail \- a filter section, a title-block legend, a
 north arrow, a revision cloud \- is a
 .B .d
-file in a fragments directory;
-its index is
+file in a fragments directory; its index is
 .BR ls .
 .B "hrclip < /usr/vellum/frag/legend.d"
 from any shell puts it on the PRIMARY selection, and a MIDDLE CLICK in
@@ -752,27 +439,10 @@ text out of the selection since the beginning.
 /usr/vellum/frag ships with a starter set; copy it, add your own,
 delete ours.
 .PP
-A REVISION is a file.
-When the frame stamp's
-.B $R
-says B,
-.B "cp amp1.d amp1.d.B"
-is the whole ceremony, and the record is the directory \- no SCCS, no
-hidden state, no format change.
-The project.mk skeleton grows the two targets that make it a workflow:
-.B rev:
-copies every sheet to its
-.BI . REV
-twin, and
-.B drift:
-runs
-.B "vellum -diff"
-on each sheet against that twin, so its exit status gates
-.B print:
-and nothing unreviewed reaches paper.
-.B review:
-hangs the marked-up drawing on the wall instead.
-The gallery ships the pair: /usr/vellum/eg/amp.d.A beside amp.d.
+A REVISION is a file too, and the record is the directory: see
+.BR veldiff ,
+which compares two of them and whose exit status is what a Makefile
+gates a release print on.
 .SH "FILE FORMAT"
 Drawings are plain text, one object per line, in grid units; unknown
 lines are skipped, so old readers accept new files:
@@ -831,13 +501,21 @@ and the layer.
 .SH FILES
 .DS
 .ta 4n 30n
+	/usr/vellum/bin/*	the SUITE: the editor, symedit, and the
+		headless commands (velplot velpic veldxf
+		velnet velcheck veldiff velinfo velsym
+		velgraph)
 	/usr/vellum/sym/*.sym	the symbol libraries
+	/usr/vellum/lib/libvellum.a	the model, the format, the device
+		walker and the connectivity \- what every
+		command in the suite is built on, and what
+		a command of your own would link
 	/usr/vellum/lib/*	the helper BINARIES the editor execs: the
-		headless exporters (velxport), the dialogs
-		(veldlg), the print preview (velprev) and
-		the palette painter (velpal).  Stencil
-		libraries live in sym/, not here \- they are
-		not the same kind of thing
+		dialogs (veldlg), the print preview
+		(velprev) and the palette painter
+		(velpal).  Stencil libraries live in sym/,
+		not here \- they are not the same kind of
+		thing
 	/usr/vellum/etc/libs	which of them load at start-up
 	/usr/vellum/etc/symbols	the user scratch library
 	/usr/vellum/etc/frame.d	the Frame stamp's template
@@ -849,8 +527,8 @@ and the layer.
 	/usr/vellum/etc/library.mk	the stencil-LIBRARY Makefile
 		skeleton: a library is a build product, its
 		sources are ordinary drawings, and
-		-symcheck gates it the way -check gates a
-		print
+		velcheck -sym gates it the way velcheck
+		gates a print
 	/usr/vellum/frag/*.d	the FRAGMENT starter set: a revision
 		legend, a north arrow, a revision cloud,
 		a graphic scale bar, a tolerance note.  A
@@ -862,35 +540,35 @@ and the layer.
 		(diagrams), bracket (mechanical, with
 		dimensions), feed oneline office (P&ID,
 		one-line, floor plan), psu1 psu2 (a two-
-		sheet set for -net merging), curve
+		sheet set for net merging), curve
 		(a velgraph plot, annotated), plate
 		(imported from plate.dxf, kept beside
 		it), panel (a sheet-metal plate with
 		cut-outs, for the takeoff).  amp.d.A is
 		amp.d's approved REVISION, kept beside
-		it: try vellum -diff amp.d.A amp.d.
-		Open one, or feed them to the exporters,
+		it: try veldiff amp.d.A amp.d.
+		Open one, or feed them to the commands,
 		to see every feature working.
 	/usr/vellum/eg/sk/*.d	the STENCIL SKETCHES: the nine ordinary
 		drawings that build /usr/vellum/sym/pid.sym
-		through -mksym, driven by library.mk.  They
+		through velsym, driven by library.mk.  They
 		rebuild that library byte for byte, which is
 		how the converter proves itself
 .DE
 .SH "SEE ALSO"
-.B symedit ,
+.B velplot ,
+.B velpic ,
 .B veldxf ,
+.B velnet ,
+.B velcheck ,
+.B veldiff ,
+.B velinfo ,
+.B velsym ,
 .B velgraph ,
+.B symedit ,
 .B zview ,
-.B zman ,
-.B lpr
+.B zman
 .SH NOTES
-A
-.B "-diff -mark"
-markup holds the new revision PLUS the removals, so a markup of two
-crowded sheets can carry more than the 400 objects a drawing holds
-when it is opened again; it always prints.
-.PP
 Wires connect only through junction dots; connectors never dot.
 One level of undo only; the printed page and the pic figure are the
 first-class outputs.

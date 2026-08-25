@@ -1,0 +1,118 @@
+.TH velnet "" "Command"
+.SH NAME
+velnet \- what a vellum drawing is connected as
+.SH SYNOPSIS
+\fBvelnet\fR \fIfile.d ...\fR
+.br
+\fBvelnet \-bom\fR \fIfile.d ...\fR
+.br
+\fBvelnet \-spice\fR \fIfile.d ...\fR
+.br
+\fBvelnet \-renum\fR [\fB\-base\fR \fIn\fR] \fIfile.d\fR > \fIout.d\fR
+.SH DESCRIPTION
+.HS
+velnet -- what a vellum drawing is connected as
+Usage:	velnet file.d ...		the netlist
+	velnet -bom file.d ...		the parts list
+	velnet -spice file.d ...	a SPICE 2G6 deck
+	velnet -renum [-base n] f.d	canonical designators
+	Named nets MERGE across the sheet set; the parts list
+	is ONE list for the whole design.  - is standard input.
+.HE
+.B velnet
+extracts the CONNECTIVITY of drawings made with
+.BR vellum :
+wires unioned by endpoint, junction dots joined, symbol pins
+attached, nets named.
+The four forms below are four ways of writing down the same walk, so
+a netlist and a parts list can never disagree with each other.
+.PP
+Every form takes the sheet SET: named nets merge across sheets (a net
+called VBUS on sheet 1 is the same conductor as VBUS on sheet 3), and
+a design gets ONE parts list.
+The file name
+.B \-
+is standard input.
+.PP
+.B The netlist (no option)
+.br
+One line per net, with R1.2-style pins; a library that NAMES its pins
+prints Q1.B instead.
+.B GND
+and
+.B VCC
+stencils and
+.B N
+net-name markers name nets.
+Designator-less stencils (rails, taps, off-page markers) carry nets
+but are never listed as pins.
+Single-pin nets and unconnected pins are warned about on standard
+error; to make them FAIL a build, use
+.BR velcheck .
+.PP
+.B \-bom
+.br
+The bill of materials over the whole set: count, stencil, value and
+the designators, sorted.
+A designated part with no value prints its value as ``-'' \- and is a
+finding in
+.BR velcheck ,
+which is where that belongs.
+.PP
+.B \-spice
+.br
+A SPICE 2G6 deck on standard output: the same nets as the netlist,
+numbered (0 for the GND-named net), one card per designated R/C/L/D/Q.
+Values are parsed from the value field \- ``4k7'', ``100n'',
+``2.2M'' \- where the suffix letter doubles as the decimal point, and
+the schematic's M emits as MEG.
+A D or Q card ends with its stencil CODE as the model name unless its
+value names one.
+Pin ORDER is the library's, except that a library which NAMES its pins
+B/C/E (or A/K) orders the card the way SPICE wants; the stock
+.B discrete
+library does.
+.PP
+Everything the subset cannot say is SKIPPED AND COUNTED on standard
+error (``dropped: 1 OPA, 2 J''): a silent partial netlist is how
+simulations lie.
+Models are yours by design \- the deck ends
+.B .END
+and a wrapper file
+.B .INCLUDE s
+it beside the
+.B .MODEL
+lines.
+.PP
+.B \-renum
+.br
+Canonical designators: symbols sorted by (y, x), numbered per prefix
+from
+.BI \-base " n"
+(default 1), and the whole drawing re-emitted on standard output.
+Designators live nowhere else in the format \- nets are positional \-
+so the rewrite cannot dangle a reference.
+ONE sheet per run; a set renumbers sheet by sheet with
+.B \-base
+carrying the count across, because the Makefile owns the set.
+.SH EXAMPLES
+.DS
+.ta 8n
+	velnet amp1.d amp2.d
+	velnet -bom amp?.d > parts.txt
+	velnet -spice amp?.d > deck.cir
+	velnet -renum -base 1 amp1.d > new.d && mv new.d amp1.d
+.DE
+.SH "SEE ALSO"
+.B vellum ,
+.B velcheck ,
+.B velinfo ,
+.B symedit
+.SH NOTES
+The conductor questions are only meaningful on a sheet that draws
+CIRCUITS.
+A diagram sheet \- flowchart, floor plan, structure chart \- uses
+stencils whose pins are attachment points, not terminals; this
+program will still walk it, but
+.B velcheck
+deliberately does not judge it.

@@ -41,8 +41,6 @@
 #include "hrsbar.h"
 #include "hrdlg.h"	/* the DLG_* chrome metrics only: no dialogs here */
 
-extern char	*malloc();
-
 #define	MANDIR	"/usr/man"
 
 /* View grid ceilings: the biggest full-screen window at the 8x15 cell. */
@@ -54,8 +52,12 @@ extern char	*malloc();
 #define	MAXPG	250
 #define	NNAME	15		/* a page file name (DIRSIZ + NUL)        */
 
-/* The content pane (the formatted page). */
-#define	MAXCL	600
+/* The content pane (the formatted page).  MAXCL bounds the LINE INDEX,
+ * not the text: a page's lines are parsed on demand from the open file
+ * (see getcl), so a long page costs 4 bytes a line and nothing else --
+ * holding both planes of the 768-line vellum page would have wanted
+ * 80 K of heap, which does not fit in a 64 K data segment. */
+#define	MAXCL	2000
 #define	MAXLL	200
 
 /* Cell attribute bits (the aout/dispa planes). */
@@ -103,9 +105,16 @@ int	npg;
 int	selpg = -1;		/* selected page, -1 = none               */
 int	ltop;			/* first visible list ROW (of lcol pages) */
 
-/* ---- the content pane: the selected page, text + attribute planes ---- */
-char	*ln[MAXCL];		/* malloc'd NUL-terminated text lines     */
-char	*la[MAXCL];		/* malloc'd attribute bytes, same length  */
+/* ---- the content pane: the selected page, read on demand ----
+ * The page file stays OPEN and only its line offsets are held: getcl(li)
+ * seeks (or, for the sequential walk a repaint does, just reads on) and
+ * runs the overstrike parser into caller buffers.  A message page (no
+ * page selected, unreadable, empty) has cfp == 0 and cmsg set. */
+FILE	*cfp;			/* the open page, 0 = message page        */
+long	lofs[MAXCL];		/* file offset of each content line       */
+int	cnext = -1;		/* line at the current file position      */
+char	*cmsg;			/* the message page's one line            */
+int	ctrunc;			/* 1 = last line is the truncation note   */
 int	nln;			/* line count (always >= 1)               */
 int	ctop;			/* first visible content line             */
 
@@ -141,56 +150,34 @@ int	barin;			/* 1 = pointer currently inside it        */
 
 static char vbuf[MAXCOLS];	/* view-row expansion buffers             */
 static char vabuf[MAXCOLS];
+static char cbuf[MAXLL + 1];	/* one parsed content line (getcl)        */
+static char cabuf[MAXLL + 1];
 
 /* ------------------------------------------------------------------ */
-/* line storage (text + attributes, appending only)                   */
+/* line access (the page file stays open; lines parse on demand)      */
 /* ------------------------------------------------------------------ */
-
-static char *
-lndup(s, n)
-char *s;
-{
-	register char *p;
-	register int i;
-
-	if ( (p = malloc(n + 1)) == 0 )
-		return 0;
-	for ( i = 0; i < n; i++ )
-		p[i] = s[i];
-	p[n] = 0;
-	return p;
-}
 
 static
-freebuf()
+closepage()
 {
-	register int i;
-
-	for ( i = 0; i < nln; i++ )
-	{
-		free(ln[i]);
-		free(la[i]);
-	}
+	if ( cfp != 0 )
+		fclose(cfp);
+	cfp = 0;
+	cnext = -1;
+	cmsg = 0;
+	ctrunc = 0;
 	nln = 0;
 	return 0;
 }
 
+/* A one-line page standing in for a page we cannot show. */
 static
-addline(s, a, n)
-char *s, *a;
+msgpage(s)
+char *s;
 {
-	char *p, *q;
-
-	if ( nln >= MAXCL || (p = lndup(s, n)) == 0 )
-		return -1;
-	if ( (q = lndup(a, n)) == 0 )
-	{
-		free(p);
-		return -1;
-	}
-	ln[nln] = p;
-	la[nln] = q;
-	nln++;
+	closepage();
+	cmsg = s;
+	nln = 1;
 	return 0;
 }
 
@@ -268,6 +255,49 @@ char *s, *out, *aout;
 	return mx;
 }
 
+/* Content line li -> out/aout (both MAXLL + 1 bytes), returning its
+ * trimmed length.  A repaint walks the visible lines in order, so the
+ * common case reads straight on through the stdio buffer with no seek. */
+static
+getcl(li, out, aout)
+char *out, *aout;
+{
+	char b[300];
+	register char *q;
+	register int n;
+
+	out[0] = 0;
+	aout[0] = 0;
+	if ( li < 0 || li >= nln )
+		return 0;
+	if ( cmsg != 0 || (ctrunc && li == nln - 1) )
+	{
+		q = cmsg != 0 ? cmsg : "... (page truncated: too many lines)";
+		for ( n = 0; q[n] != 0 && n < MAXLL; n++ )
+		{
+			out[n] = q[n];
+			aout[n] = 0;
+		}
+		out[n] = 0;
+		aout[n] = 0;
+		return n;
+	}
+	if ( cfp == 0 )
+		return 0;
+	if ( li != cnext )
+	{
+		fseek(cfp, lofs[li], 0);
+		cnext = li;
+	}
+	if ( fgets(b, sizeof(b), cfp) == 0 )
+	{
+		cnext = -1;
+		return 0;
+	}
+	cnext++;
+	return parseline(b, out, aout);
+}
+
 /* ------------------------------------------------------------------ */
 /* the page catalog                                                   */
 /* ------------------------------------------------------------------ */
@@ -336,36 +366,41 @@ scanpages()
 	return 0;
 }
 
-/* Load the selected page into the content pane. */
+/* Select the page into the content pane: open it and INDEX its lines
+ * (nothing is parsed or held here -- getcl does that per line). */
 static
 loadpage(i)
 {
-	char b[300], o[MAXLL + 1], a[MAXLL + 1];
+	char b[300];
 	char path[60];
 	register FILE *fp;
-	int n;
+	long off;
 
-	freebuf();
+	closepage();
 	ctop = 0;
 	if ( i < 0 || i >= npg )
-	{
-		addline("(no page selected)", "", 18);
-		return 0;
-	}
+		return msgpage("(no page selected)");
 	sprintf(path, "%s/%s/%s", MANDIR, sects[pages[i].sx], pages[i].nm);
 	if ( (fp = fopen(path, "r")) == 0 )
+		return msgpage("(cannot read that page)");
+	while ( nln < MAXCL )
 	{
-		addline("(cannot read that page)", "", 23);
-		return 0;
+		off = ftell(fp);
+		if ( fgets(b, sizeof(b), fp) == 0 )
+			break;
+		lofs[nln++] = off;
 	}
-	while ( nln < MAXCL && fgets(b, sizeof(b), fp) != 0 )
-	{
-		n = parseline(b, o, a);
-		addline(o, a, n);
-	}
-	fclose(fp);
+	/* A page past the index ceiling says so on its last line rather
+	 * than stopping where the reader cannot tell. */
+	if ( nln >= MAXCL && fgets(b, sizeof(b), fp) != 0 )
+		ctrunc = 1;
 	if ( nln == 0 )
-		addline("(empty page)", "", 12);
+	{
+		fclose(fp);
+		return msgpage("(empty page)");
+	}
+	cfp = fp;
+	cnext = -1;
 	return 0;
 }
 
@@ -446,11 +481,11 @@ vrow(r)
 	li = ctop + (r - lrows);		/* a content line */
 	if ( li < 0 || li >= nln )
 		return vbuf;
-	p = ln[li];
-	for ( i = 0; p[i] && i < cols; i++ )
+	getcl(li, cbuf, cabuf);
+	for ( i = 0; cbuf[i] && i < cols; i++ )
 	{
-		vbuf[i] = p[i];
-		vabuf[i] = la[li][i];
+		vbuf[i] = cbuf[i];
+		vabuf[i] = cabuf[i];
 	}
 	return vbuf;
 }
@@ -650,8 +685,8 @@ copysel()
 	for ( cr = rl; cr <= rh; cr++ )
 	{
 		li = ctop + cr;
-		lp = (li >= 0 && li < nln) ? ln[li] : "";
-		len = strlen(lp);
+		len = getcl(li, cbuf, cabuf);
+		lp = cbuf;
 		c0 = (cr == rl) ? lo % cols : 0;
 		c1 = (cr == rh) ? hi % cols : cols - 1;
 		if ( c1 >= cols ) c1 = cols - 1;

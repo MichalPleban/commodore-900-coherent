@@ -1,6 +1,6 @@
 # Common-emitter amplifier -- the schematic showcase: supply rails,
 # junction dots, net names, designators and values.  Try
-#	vellum -net /usr/vellum/eg/amp.d
+#	velnet /usr/vellum/eg/amp.d
 # and watch VCC/GND/IN/OUT come out as named nets.
 vellum1
 T 32 8 s2 Common emitter

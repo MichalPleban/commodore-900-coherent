@@ -1241,40 +1241,142 @@ $(HRGUIBIN)/zpuzzle: $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(SHLIB) $(LIBC)
 
-# Vellum: the schematic / diagram editor, and SymEdit, its symbol-library
-# editor.  A ZView client pair, but installed under their OWN prefix
-# (/usr/vellum/{bin,lib,sym,etc}) like a proper application suite: bin/ the
-# two programs, lib/ the helper BINARIES they exec (velxport, veldlg,
-# velprev, velpal), sym/ the stock stencil libraries (discrete.sym,
-# logic.sym, ...), etc/ the start-up library list, the Makefile
-# skeletons and the user scratch library.  Libraries and executables
-# used to share lib/, which read as one kind of thing and was two.
+# Vellum: a SUITE of small tools over one library, not one program with a
+# mode flag.  Installed under its own prefix (/usr/vellum/{bin,lib,sym,etc})
+# like a proper application: bin/ the commands, lib/ libvellum.a and the
+# helper BINARIES the editor execs (veldlg, velprev, velpal), sym/ the stock
+# stencil libraries, etc/ the start-up library list, the Makefile skeletons
+# and the user scratch library.
+#
+#   vellum    the editor -- and NOTHING else: it draws
+#   velplot   a drawing onto a page (-T lp|ps|hpgl, -tile, -fit, -wide)
+#   velpic    a drawing as troff pic source
+#   veldxf    the DXF border, both directions (-x writes)
+#   velnet    what it is CONNECTED as (netlist, -bom, -spice, -renum)
+#   velcheck  judge it (drawings; -sym judges the stencil libraries)
+#   veldiff   two revisions compared (-mark writes the markup drawing)
+#   velinfo   what it SAYS (-len, -where, -symsheet, -book)
+#   velsym    a drawing becomes a stencil
+#   velgraph  x/y data becomes a drawing
+#   symedit   the stencil-library editor
+#
+# Every tool is HEADLESS except the editor and symedit, so the whole
+# pipeline runs on a machine with no bitmap card -- which is what a
+# Makefile wants -- and none of them carries code it never runs.
 # No floats anywhere: circle radii come from an integer square root.
 VELBIN := $(ROOT)/usr/vellum/bin
-# vellum is several objects (one module outgrew both the assembler's
-# fix-up tables and, all together, the 64 K text segment): the editor
-# (vellum.o + veldlg.o dialogs + velcmd.o commands + velgfx.o drawing)
-# over the shared MODEL layer (velbase.o) and format (velfile.o).  The
-# headless exporters live in a SEPARATE helper binary velxport
-# (velxmain + velport + velfile + velbase, NO gfx library) that
-# `vellum -print/-pic/-net' execs -- exports work without the hi-res
-# card, and the editor stays inside its text segment.
-VELOBJ := $(HRGUIOBJ)/vellum/vellum.o $(HRGUIOBJ)/vellum/velgfx.o \
-	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velcmd.o \
-	$(HRGUIOBJ)/vellum/veldlg.o $(HRGUIOBJ)/vellum/velbase.o
-VELXOBJ := $(HRGUIOBJ)/vellum/velxmain.o $(HRGUIOBJ)/vellum/velport.o \
-	$(HRGUIOBJ)/vellum/velwalk.o $(HRGUIOBJ)/vellum/velv5.o \
-	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velbase.o \
-	$(HRGUIOBJ)/vellum/velv6.o
-# velprev: the print-preview window (VELLUM.md sec. 25) -- the exporters'
+VELLIB := $(ROOT)/usr/vellum/lib
+
+# libvellum.a: everything more than one tool needs.  A tool links the
+# library; the library never calls a tool.
+#   velbase   the DRAWING: object list, pools, layer/sheet/
+#             selection/view state, and the geometry over them
+#   velsymg   the SYMBOL half: the parsed stencil libraries and
+#             symbol-space geometry -- no drawing, no pools
+#   velmath   isqrt and the B-spline: geometry with no state at all
+#   vellib    the .sym LIBRARY loader (and the tokenizer)
+#   velfile   the plain-text "vellum1" .d format
+#   velsheet  one sheet of a command line: a file, or "-" for the
+#             pipe form.  Its own member because the editor opens
+#             files through a dialog, not off argv
+#   velsnap   the model packed into one heap block: the EDITOR's
+#             undo pre-image, sized to the drawing.  Nobody else
+#             needs a second model
+#   velwalk   the device-coordinate walker and its 9-function backend
+#   velnetc   the CONNECTIVITY (union-find over wires, pins, net
+#             names) and chk(), the finding line judging tools print
+#   velrept   naming an object the way a REPORT names it (veldiff
+#             and velinfo -where)
+#   velgfx    styled drawing helpers -- the GUI member.  It touches
+#             NO drawing state, only velmath, which is what lets a
+#             client that merely paints stencils link it
+# Member ORDER is load-bearing: Coherent's ld makes ONE pass over an
+# archive, so a member may only reference members BELOW it.  The
+# order below is therefore the dependency order, consumers first and
+# the stateless leaf last -- and it is also the bill: velpal paints
+# the editor's palette and pulls velgfx, vellib, velsymg, velmath
+# and NOTHING ELSE, which is 20 000 bytes of drawing table it used
+# to carry because every model global lived in one file.
+VELLIBOBJ := $(HRGUIOBJ)/vellum/velnetc.o $(HRGUIOBJ)/vellum/velrept.o \
+	$(HRGUIOBJ)/vellum/velwalk.o $(HRGUIOBJ)/vellum/velsnap.o \
+	$(HRGUIOBJ)/vellum/velsheet.o $(HRGUIOBJ)/vellum/velfile.o \
+	$(HRGUIOBJ)/vellum/velbase.o $(HRGUIOBJ)/vellum/vellib.o \
+	$(HRGUIOBJ)/vellum/velgfx.o $(HRGUIOBJ)/vellum/velsymg.o \
+	$(HRGUIOBJ)/vellum/velmath.o
+LIBVEL := $(VELLIB)/libvellum.a
+
+# The suite's units compile WITHOUT -Wa,-S: their string literals then
+# live in the (roomy) DATA segment instead of the text segment, whose
+# 64 K is the editor's wall (VELLUM.md sec. 13 -- editor features are
+# rationed by text bytes).  The library is shared with the editor, so
+# the library is compiled the editor's way.
+VELCFLAGS := -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRGFXDIR) \
+	-I$(HRGUISRC)/inc
+
+# the editor proper
+VELOBJ := $(HRGUIOBJ)/vellum/vellum.o $(HRGUIOBJ)/vellum/velcmd.o \
+	$(HRGUIOBJ)/vellum/veldlg.o
+# one main + its own operation, per tool
+VELPLOTOBJ  := $(HRGUIOBJ)/vellum/velplot.o
+VELPICOBJ   := $(HRGUIOBJ)/vellum/velpic.o
+VELDXFOBJ   := $(HRGUIOBJ)/vellum/veldxf.o $(HRGUIOBJ)/vellum/veldxfo.o
+VELNETOBJ   := $(HRGUIOBJ)/vellum/velnet.o
+VELCHECKOBJ := $(HRGUIOBJ)/vellum/velcheck.o
+VELDIFFOBJ  := $(HRGUIOBJ)/vellum/veldiff.o
+VELINFOOBJ  := $(HRGUIOBJ)/vellum/velinfo.o
+VELSYMOBJ   := $(HRGUIOBJ)/vellum/velsym.o
+VELGOBJ     := $(HRGUIOBJ)/vellum/velgraph.o
+# velprev: the print-preview window (VELLUM.md sec. 25) -- the tools'
 # walker (velwalk) behind a cl_* backend built from velgfx's styled
-# primitives, over the same model/format units, so the preview window
-# draws exactly the walk the Epson bands get.
-VELPOBJ := $(HRGUIOBJ)/vellum/velprev.o $(HRGUIOBJ)/vellum/velwalk.o \
-	$(HRGUIOBJ)/vellum/velgfx.o $(HRGUIOBJ)/vellum/velfile.o \
-	$(HRGUIOBJ)/vellum/velbase.o
-$(VELOBJ) $(VELXOBJ) $(VELPOBJ) $(HRGUIOBJ)/vellum/velgraph.o: \
-	src/userland/hr/vellum/vellum.h
+# primitives, over the same model/format, so the preview window draws
+# exactly the walk the Epson bands get.
+VELPOBJ := $(HRGUIOBJ)/vellum/velprev.o
+# velpal: the palette-bank painter (VELLUM.md sec. 39) -- the editor's
+# bank drawing, seceded on the zdock widget pattern: cl_subinit onto the
+# editor's own palette rect, poked by SIGALRM, synced through the GDS
+# tail block (shmem.h SHM_VELPAL).
+VELPALOBJ := $(HRGUIOBJ)/vellum/velpal.o
+
+VELALLOBJ := $(VELLIBOBJ) $(VELOBJ) $(VELPLOTOBJ) $(VELPICOBJ) \
+	$(HRGUIOBJ)/vellum/snaptest.o \
+	$(VELDXFOBJ) $(VELNETOBJ) $(VELCHECKOBJ) $(VELDIFFOBJ) \
+	$(VELINFOOBJ) $(VELSYMOBJ) $(VELGOBJ) $(VELPOBJ) $(VELPALOBJ) \
+	$(HRGUIOBJ)/vellum/veldlgm.o $(HRGUIOBJ)/vellum/symedit.o
+$(VELALLOBJ): src/userland/hr/vellum/vellum.h
+$(VELALLOBJ): $(HRGUIOBJ)/%.o: $(HRGUISRC)/%.c $(HRGUIHDRS)
+	@mkdir -p $(dir $@)
+	$(CC) $(VELCFLAGS) -c $< -o $@
+
+$(LIBVEL): $(VELLIBOBJ)
+	@mkdir -p $(dir $@)
+	@rm -f $@
+	$(AR) cr $@ $(VELLIBOBJ)
+	$(RANLIB) $@
+
+# A HEADLESS tool: its own objects, the library, and the shared libc.
+# Nothing here links the graphics library, which is why the pipeline
+# works on a machine that has no bitmap card at all.
+#
+# Every tool links LARGE MODEL (-L).  A tool's DATA is the model (the
+# 400-object table, the symbol pools, the text pool) plus whatever
+# tables its own operation keeps, and that lands within a few hundred
+# bytes of one 64 K hardware segment before anything is added -- velnet
+# is already past it.  The kernel has always mapped a data segment
+# across several (commodore.c uproto's `while (l > 0)'), and ld bumps a
+# module that would STRADDLE a boundary to the next segment start, so
+# -L is a link-line word and nothing else: no codegen changes, and with
+# 30-odd K of text in a tool there is nothing for it to pad.  It is the
+# editor's TEXT that is rationed, and no tool shares that wall.
+#
+# ($^ minus the crt and the libcs, so the order stays tool objects,
+# then libvellum.a, then the shared libc -- one pass, no repeats.)
+define vellink
+	@mkdir -p $(dir $@)
+	$(LD) -s -L -o $@ $(CRT) \
+		$(filter-out $(CRT) $(LIBC) $(LIBC_SL),$^) $(LIBC_SL) $(LIBC)
+	@python tools/segtrip.py --gate 95 --tsegs 2 $@
+endef
+
 # v6.0 (VELLUM.md sec. 54.1) measured the TEXT ceiling instead of
 # assuming it: a `-n -L' image whose shared text spans two hardware
 # segments links, loads and runs -- calls cross the boundary in both
@@ -1284,77 +1386,73 @@ $(VELOBJ) $(VELXOBJ) $(VELPOBJ) $(HRGUIOBJ)/vellum/velgraph.o: \
 # The one rule is that no single MODULE may exceed 64 K.  So the editor
 # links -L and its tripwire measures against TWO segments; the 64 K wall
 # that has rationed editor features since v2 is a wall no longer.
-# The EDITOR's units compile WITHOUT -Wa,-S: their string literals then
-# live in the (roomy) DATA segment instead of the text segment, whose 64 K
-# is the v2 wall (VELLUM.md sec. 13 -- editor features are rationed by
-# text bytes).  Only vellum pays: the dialog HELPER below and the rest of
-# the hr tree keep -S, where shared read-only text is the win.
-VELEDCFLAGS := -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRGFXDIR) \
-	-I$(HRGUISRC)/inc
-$(VELOBJ): $(HRGUIOBJ)/%.o: $(HRGUISRC)/%.c $(HRGUIHDRS)
-	@mkdir -p $(dir $@)
-	$(CC) $(VELEDCFLAGS) -c $< -o $@
 $(VELBIN)/vellum: LDNFLAGS := -n -L
-$(VELBIN)/vellum: $(VELOBJ) $(SHLIB) $(CRT) $(LIBC)
+$(VELBIN)/vellum: $(VELOBJ) $(LIBVEL) $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(VELOBJ) $(SHLIB) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(VELOBJ) $(LIBVEL) $(SHLIB) $(LIBC)
 	@python tools/segtrip.py --gate 95 --tsegs 2 $@
 
-# velxport links LARGE MODEL (-L): v5's -diff holds a SECOND object table
-# and its pools (velv5.c, ~19 K), which takes the exporter's data past one
-# 64 K hardware segment.  The kernel has always mapped a data segment
-# across several (commodore.c uproto's `while (l > 0)'), and ld bumps an
-# object that would STRADDLE a boundary to the next segment start, so this
-# is a link-line change and nothing else.  Only velxport pays: the editor
-# is untouched (VELLUM.md sec. 44 rule 1) and its 64 K text wall unmoved.
-$(ROOT)/usr/vellum/lib/velxport: $(VELXOBJ) $(CRT) $(LIBC) $(LIBC_SL)
-	@mkdir -p $(dir $@)
-	$(LD) -s -L -o $@ $(CRT) $(VELXOBJ) $(LIBC_SL) $(LIBC)
-	@python tools/segtrip.py --gate 95 --tsegs 2 $@
+$(VELBIN)/velplot: $(VELPLOTOBJ) $(LIBVEL) $(CRT) $(LIBC) $(LIBC_SL)
+	$(vellink)
 
-$(ROOT)/usr/vellum/lib/velprev: $(VELPOBJ) $(SHLIB) $(CRT) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -n -o $@ $(CRT) $(VELPOBJ) $(SHLIB) $(LIBC)
+$(VELBIN)/velpic: $(VELPICOBJ) $(LIBVEL) $(CRT) $(LIBC) $(LIBC_SL)
+	$(vellink)
 
-# velpal: the palette-bank painter (VELLUM.md sec. 39) -- the editor's
-# bank drawing, seceded on the zdock widget pattern: cl_subinit onto the
-# editor's own palette rect, poked by SIGALRM, synced through the GDS
-# tail block (shmem.h SHM_VELPAL).  Model + format + styled drawing, no
-# editor code.
-VELPALOBJ := $(HRGUIOBJ)/vellum/velpal.o $(HRGUIOBJ)/vellum/velgfx.o \
-	$(HRGUIOBJ)/vellum/velfile.o $(HRGUIOBJ)/vellum/velbase.o
-$(HRGUIOBJ)/vellum/velpal.o: src/userland/hr/vellum/vellum.h
-$(ROOT)/usr/vellum/lib/velpal: $(VELPALOBJ) $(SHLIB) $(CRT) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -n -o $@ $(CRT) $(VELPALOBJ) $(SHLIB) $(LIBC)
+$(VELBIN)/veldxf: $(VELDXFOBJ) $(LIBVEL) $(CRT) $(LIBC) $(LIBC_SL)
+	$(vellink)
 
-$(VELBIN)/symedit: LDNFLAGS := -n
-$(VELBIN)/symedit: $(HRGUIOBJ)/vellum/symedit.o $(SHLIB) $(CRT) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/vellum/symedit.o $(SHLIB) $(LIBC)
+$(VELBIN)/velnet: $(VELNETOBJ) $(LIBVEL) $(CRT) $(LIBC) $(LIBC_SL)
+	$(vellink)
 
-# veldxf: the DXF (R10 subset) -> .d converter (VELLUM.md sec. 36) -- a
-# headless binary of its own: no velbase, no gfx; it parses group-code
-# pairs and prints drawing lines.
-$(VELBIN)/veldxf: $(HRGUIOBJ)/vellum/veldxf.o $(CRT) $(LIBC) $(LIBC_SL)
-	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/vellum/veldxf.o $(LIBC_SL) $(LIBC)
+$(VELBIN)/velcheck: $(VELCHECKOBJ) $(LIBVEL) $(CRT) $(LIBC) $(LIBC_SL)
+	$(vellink)
+
+# veldiff is the one that holds TWO drawings: the old revision is
+# shadowed whole (a second object table and both pools, ~19 K) while
+# the new one stays live.  Nobody else pays for that -- which is the
+# point of a tool per operation.
+$(VELBIN)/veldiff: $(VELDIFFOBJ) $(LIBVEL) $(CRT) $(LIBC) $(LIBC_SL)
+	$(vellink)
+
+$(VELBIN)/velinfo: $(VELINFOOBJ) $(LIBVEL) $(CRT) $(LIBC) $(LIBC_SL)
+	$(vellink)
+
+$(VELBIN)/velsym: $(VELSYMOBJ) $(LIBVEL) $(CRT) $(LIBC) $(LIBC_SL)
+	$(vellink)
 
 # velgraph: x/y data -> a vellum drawing (VELLUM.md sec. 37) -- axes,
-# 1-2-5 ticks and styled polylines over the shared model/format units
-# (velbase + velfile), fixed-point throughout, no gfx.
-VELGOBJ := $(HRGUIOBJ)/vellum/velgraph.o $(HRGUIOBJ)/vellum/velfile.o \
-	$(HRGUIOBJ)/vellum/velbase.o
-$(VELBIN)/velgraph: $(VELGOBJ) $(CRT) $(LIBC) $(LIBC_SL)
+# 1-2-5 ticks and styled polylines, fixed-point throughout, no gfx.
+# snaptest: the undo pre-image pack/restore (velsnap.c) exercised
+# WITHOUT a window -- the editor's snapshot is a heap block sized to
+# the drawing now, and what can go wrong is the pointer arithmetic
+# that finds the two pools inside it.  NOT an image file: velgolden.py
+# injects it into the throwaway disk the way it injects /bad.sym.
+VELTESTBIN := $(HRGUIOBJ)/vellum/snaptest
+$(VELTESTBIN): $(HRGUIOBJ)/vellum/snaptest.o $(LIBVEL) $(CRT) $(LIBC) $(LIBC_SL)
+	$(vellink)
+
+$(VELBIN)/velgraph: $(VELGOBJ) $(LIBVEL) $(CRT) $(LIBC) $(LIBC_SL)
+	$(vellink)
+
+$(VELLIB)/velprev: $(VELPOBJ) $(LIBVEL) $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(VELGOBJ) $(LIBC_SL) $(LIBC)
+	$(LD) -s -n -o $@ $(CRT) $(VELPOBJ) $(LIBVEL) $(SHLIB) $(LIBC)
+
+$(VELLIB)/velpal: $(VELPALOBJ) $(LIBVEL) $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -n -o $@ $(CRT) $(VELPALOBJ) $(LIBVEL) $(SHLIB) $(LIBC)
+
+$(VELBIN)/symedit: LDNFLAGS := -n
+$(VELBIN)/symedit: $(HRGUIOBJ)/vellum/symedit.o $(LIBVEL) $(SHLIB) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/vellum/symedit.o $(LIBVEL) $(SHLIB) $(LIBC)
 
 # The dialog HELPER (veldlgm.c): every editor dialog, run in a spawned
-# process on the editor's window (hr_attach) -- the velxport pattern
-# applied to the dialogs, keeping the editor under its text tripwire.
-$(ROOT)/usr/vellum/lib/veldlg: $(HRGUIOBJ)/vellum/veldlgm.o $(SHLIB) $(CRT) $(LIBC)
+# process on the editor's window (hr_attach), keeping the editor under
+# its text tripwire.
+$(VELLIB)/veldlg: $(HRGUIOBJ)/vellum/veldlgm.o $(LIBVEL) $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -n -o $@ $(CRT) $(HRGUIOBJ)/vellum/veldlgm.o $(SHLIB) $(LIBC)
+	$(LD) -s -n -o $@ $(CRT) $(HRGUIOBJ)/vellum/veldlgm.o $(LIBVEL) $(SHLIB) $(LIBC)
 
 # Vellum's data files (src/userland/hr/vellum -> the /usr/vellum tree).
 $(ROOT)/usr/vellum/sym/%.sym: src/userland/hr/vellum/%.sym
@@ -1552,9 +1650,12 @@ HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(SHLIB) $(HRGUIBIN)/gfxtest $(HRGUIBI
 	$(HRGUIBIN)/zmon $(HRGUIBIN)/zcalc $(HRGUIBIN)/zman $(HRGUIBIN)/zfile \
 	$(HRGUIBIN)/zpuzzle $(HRGUIBIN)/zmaze \
 	$(VELBIN)/vellum $(VELBIN)/symedit \
-	$(VELBIN)/veldxf $(VELBIN)/velgraph \
-	$(ROOT)/usr/vellum/lib/velxport $(ROOT)/usr/vellum/lib/veldlg \
-	$(ROOT)/usr/vellum/lib/velprev $(ROOT)/usr/vellum/lib/velpal \
+	$(VELBIN)/velplot $(VELBIN)/velpic $(VELBIN)/veldxf \
+	$(VELBIN)/velnet $(VELBIN)/velcheck $(VELBIN)/veldiff \
+	$(VELBIN)/velinfo $(VELBIN)/velsym $(VELBIN)/velgraph \
+	$(VELTESTBIN) \
+	$(LIBVEL) $(VELLIB)/veldlg \
+	$(VELLIB)/velprev $(VELLIB)/velpal \
 	$(HRGUIBIN)/zdock \
 	$(HRGUIBIN)/zwclock $(HRGUIBIN)/zwmem $(HRGUIBIN)/zwwin \
 	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIBIN)/hrclip \

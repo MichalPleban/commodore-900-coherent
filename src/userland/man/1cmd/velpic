@@ -1,0 +1,47 @@
+.TH velpic "" "Command"
+.SH NAME
+velpic \- a vellum drawing as troff pic source
+.SH SYNOPSIS
+\fBvelpic\fR \fIfile.d ...\fR > \fIfig.pic\fR
+.SH DESCRIPTION
+.HS
+velpic -- a vellum drawing as troff pic source
+Usage:	velpic file.d ... > fig.pic
+	The scale is PINNED at 16 grid units to the inch.
+	The file name - is standard input.
+.HE
+.B velpic
+writes the drawings named on its command line to standard output as
+.B pic
+source, for figures in manuals and reports.
+Smooth polylines come out as pic splines; layers marked no-print, and
+the construction layer, are skipped.
+.PP
+The scale is PINNED at 16 grid units to the inch and there is no
+option to change it.
+A figure that changed size when somebody passed a flag would set
+differently in every document that included it, and the point of a
+figure is that it does not.
+.PP
+The file name
+.B \-
+is standard input, so a generated drawing becomes a figure with no
+temporary file:
+.B "velinfo -symsheet pid.sym | velpic -" .
+.SH EXAMPLES
+A drawing per figure, in a Makefile:
+.DS
+.ta 8n
+	.SUFFIXES: .d .pic
+	.d.pic: ; velpic $< > $@
+.DE
+.SH "SEE ALSO"
+.B vellum ,
+.B velplot ,
+.B veldxf ,
+.B nroff
+.SH NOTES
+A markup drawing from
+.B "veldiff -mark"
+is an ordinary drawing, so this program draws it: the review copy on
+the wall and the figure in the manual come out of the same tool.

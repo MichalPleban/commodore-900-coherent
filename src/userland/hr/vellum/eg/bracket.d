@@ -2,7 +2,7 @@
 # dimensions with AUTOMATIC labels, a hatched section, the true
 # ellipse, dotted centerlines, a leader, vertical text, and a drawn
 # border + title block on the frame layer.  Try
-#	vellum -print /usr/vellum/eg/bracket.d | lpr
+#	velplot /usr/vellum/eg/bracket.d | lpr
 vellum1
 U 5 mm
 T 30 12 s2 Bracket, front

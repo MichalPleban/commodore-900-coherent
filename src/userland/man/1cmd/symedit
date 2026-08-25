@@ -81,7 +81,7 @@ file, the grid point that becomes the symbol origin (blank = the
 drawing's first
 .B N
 marker) and the scale, then converts under exactly the rules
-.B "vellum -mksym"
+.B velsym
 uses \- lines, wires, boxes and polylines become segments, circles and
 arcs themselves, a ONE-CHARACTER text a glyph, and the
 .B N
@@ -103,7 +103,7 @@ undoes it, so the promote-then-touch-up workflow is one program.
 The
 .B k
 key CHECKS the open library: the same findings
-.B "vellum -symcheck"
+.B "velcheck -sym"
 reports \- a code defined twice, a symbol with no geometry, a
 designator prefix with no pins, a pin off a whole unit, a pin name that
 repeats, a pin left untyped in a library that types the others \- a
@@ -142,6 +142,9 @@ The format is the plain text described in
 it can also be edited by hand.
 .SH "SEE ALSO"
 .B vellum ,
+.B velsym ,
+.B velcheck ,
+.B velinfo ,
 .B zview ,
 .B zman
 .SH NOTES

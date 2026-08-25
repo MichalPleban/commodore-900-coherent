@@ -15,9 +15,12 @@ DDEESSCCRRIIPPTTIIOONN
      the dock starts from an @ line of its catalog, showing the
      machine's free user memory in kilobytes in an icon-sized
      cell at the right end of the bar.  The figure is mmeemm's (and
-     zzmmoonn's): the kernel's in-core segment queue, walked through
-     a /ddeevv/kkmmeemm snapshot, subtracted from the user-memory span.
-     It resamples every three seconds.
+     zzmmoonn's): the kernel's in-core segment queue, read through
+     /ddeevv/kkmmeemm a segment at a time, subtracted from the user-
+     memory span.  It resamples every three seconds, and only
+     while the cell is on screen.  Unlike zzmmoonn it keeps no copy
+     of the kernel's allocation arena, so a resident widget costs
+     about 14 Kb of core rather than 47.
 
      It draws inside the dock's own window under the dock's clip-
      ping, owns no window of its own, and takes no input itself;

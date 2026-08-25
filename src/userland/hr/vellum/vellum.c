@@ -16,9 +16,15 @@
  *   velcmd.c   editing commands (z-order, groups, align, clipboard,
  *              frame stamp) and the Settings / Style dialogs
  *   veldlg.c   the file/confirm/text/properties/library dialog stubs
- *   velport.c  the headless -print/-pic/-net exporters, shipped as the
- *              separate helper binary velxport (velbase+velfile+velport,
- *              no gfx library at all) which main() execs
+ *
+ * The editor DRAWS and does nothing else: rendering to paper, netlist
+ * extraction, checking, diffing, measuring and the stencil converter
+ * are separate TOOLS over the same libvellum.a (velplot velpic veldxf
+ * velnet velcheck veldiff velinfo velsym), headless so they run where
+ * there is no bitmap card, and small so none of them carries code it
+ * never runs.  The editor's Print item spawns velplot, and Make Symbol
+ * spawns velsym, so a page or a stencil made from the board is
+ * byte-identical to one made from a Makefile.
  *
  * The drawing is a flat object list in GRID units: symbols (rot/mir,
  * auto designators, values), H-V wires with pin snap and junction dots,
@@ -167,15 +173,27 @@ int	endrb;			/* DR_END: the rubber kind (wire routes)  */
 int	dtool;
 int	rszc;			/* DR_RSZ: which corner (0 tl 1 tr 2 bl 3 br) */
 
-/* ---- the one-level undo snapshot: EDITOR-ONLY data (velbase.c holds
- * only the uvalid flag) -- keeping the 17 KB here keeps it out of the
- * headless exporter's data segment. ---- */
-DOBJ	uobj[MAXOBJ];
-int	unobj;
-short	uppool[PPOOL];
-int	uppuse;
-char	utpool[TPOOL];		/* the text pool snapshots with them (v3.3) */
-int	utpuse;
+/* ---- the one-level undo snapshot: EDITOR-ONLY, and sized to the
+ * DRAWING rather than to MAXOBJ.  As three fixed arrays it was 19 248
+ * bytes of bss -- a whole second model, 400 objects and both pools --
+ * and this machine allocates a process's data at exec, so an empty
+ * editor paid all of it.  A real drawing runs to a few dozen objects,
+ * so the snapshot is ONE heap block laid out
+ *
+ *	[unobj DOBJs][uppuse shorts of ppool][utpuse bytes of tpool]
+ *
+ * and rebuilt per commit.  Every offset in it is even (sizeof(DOBJ)
+ * is, and the pool is shorts), so the derived pointers stay aligned.
+ * A failed allocation costs the UNDO and never the drawing: uvalid
+ * goes to 0 and undo() is a no-op, which is exactly the state the
+ * editor is in before its first commit anyway.
+ *
+ * The packing itself is velsnap.c's, in the library: it is a model
+ * operation with nothing graphical in it, so a plain test program can
+ * link it and prove a round trip without a window. ---- */
+static char	*usnap;		/* the pre-image block, or 0             */
+static int	unobj;		/* objects in it ...                     */
+static int	uppuse, utpuse;	/* ... and each pool's use               */
 
 /* ---- damage bookkeeping: NOTHING repaints wholesale on a 6 MHz machine.
  * Every action declares what it touched; flush() (the only painter the
@@ -2080,9 +2098,9 @@ objmove(i, j)
 	return 0;
 }
 
-/* Byte copy / byte swap (no memcpy in this libc's K&R corner) -- ONE
- * loop each, shared by snapshot and undo below: PCC emits a fat loop
- * per copy site, and the editor's text bytes are the scarce resource. */
+/* Byte copy (no memcpy in this libc's K&R corner) -- ONE
+ * loop, shared by every copy site below: PCC emits a fat loop per
+ * open-coded copy, and the editor's text bytes are the scarce one. */
 static
 bmove(d, sp, n)
 register char *d, *sp;
@@ -2090,22 +2108,6 @@ register int n;
 {
 	while ( n-- > 0 )
 		*d++ = *sp++;
-	return 0;
-}
-
-static
-bswap(a, b, n)
-register char *a, *b;
-register int n;
-{
-	register char t;
-
-	while ( n-- > 0 )
-	{
-		t = *a;
-		*a++ = *b;
-		*b++ = t;
-	}
 	return 0;
 }
 
@@ -2125,15 +2127,24 @@ DOBJ *a, *b;
 	return 0;
 }
 
-/* Snapshot the object table + polyline pool -- called before each
- * mutating commit (14.4 KB copy, ~0.1 s worst case at commit rate). */
+/* Snapshot the object table and both pools -- called before every
+ * mutating commit.  The new block is built BEFORE the old one is
+ * released, so a failed allocation leaves the previous snapshot
+ * standing rather than half a new one. */
 snapshot()
 {
-	bmove((char *)uobj, (char *)obj, nobj * sizeof(DOBJ));
+	register char *b;
+
+	if ( (b = usnappack()) == (char *)0 )
+	{
+		uvalid = 0;		/* no undo, rather than a wrong one */
+		return 0;
+	}
+	if ( usnap != (char *)0 )
+		free(usnap);
+	usnap = b;
 	unobj = nobj;
-	bmove((char *)uppool, (char *)ppool, 2 * ppuse);
 	uppuse = ppuse;
-	bmove(utpool, tpool, tpuse);
 	utpuse = tpuse;
 	uvalid = 1;
 	return 0;
@@ -2146,37 +2157,47 @@ static
 undo()
 {
 	register int i;
-	DOBJ td;
-	short ts;
-	int n, x0, y0, x1, y1, tn;
+	register char *old;
+	char *b;
+	int n, x0, y0, x1, y1;
+	int on, opp, otp;
 
-	if ( !uvalid )
+	if ( !uvalid || usnap == (char *)0 )
 		return 0;
+	/* Pack the CURRENT model FIRST: it becomes the snapshot, so
+	 * undoing again redoes -- and it is the only step here that can
+	 * fail, so failing it leaves the drawing untouched. */
+	if ( (b = usnappack()) == (char *)0 )
+		return 0;
+	old = usnap;			/* the version being restored */
+	on = unobj;
+	opp = uppuse;
+	otp = utpuse;
 	dmgsel();			/* the selection rings come off */
-	n = nobj > unobj ? nobj : unobj;
+	n = nobj > on ? nobj : on;
 	for ( i = 0; i < n; i++ )
 	{
-		if ( i < nobj && i < unobj && !objdiff(&obj[i], &uobj[i]) )
+		if ( i < nobj && i < on &&
+		     !objdiff(&obj[i], &USOBJ(old)[i]) )
 			continue;
 		if ( i < nobj )
 		{
 			objpbox2(&obj[i], ppool, tpool, &x0, &y0, &x1, &y1);
 			dmgpad(x0, y0, x1, y1);
 		}
-		if ( i < unobj )
+		if ( i < on )
 		{
-			objpbox2(&uobj[i], uppool, utpool, &x0, &y0, &x1, &y1);
+			objpbox2(&USOBJ(old)[i], USPP(old, on),
+				 USTP(old, on, opp), &x0, &y0, &x1, &y1);
 			dmgpad(x0, y0, x1, y1);
 		}
 	}
-	bswap((char *)obj, (char *)uobj, n * sizeof(DOBJ));
-	tn = nobj;  nobj = unobj;  unobj = tn;
-	n = ppuse > uppuse ? ppuse : uppuse;
-	bswap((char *)ppool, (char *)uppool, 2 * n);
-	tn = ppuse;  ppuse = uppuse;  uppuse = tn;
-	n = tpuse > utpuse ? tpuse : utpuse;
-	bswap(tpool, utpool, n);
-	tn = tpuse;  tpuse = utpuse;  utpuse = tn;
+	unobj = nobj;			/* the counts of b, the new snapshot */
+	uppuse = ppuse;
+	utpuse = tpuse;
+	usnaprestore(old, on, opp, otp);
+	free(old);
+	usnap = b;
 	selclear();
 	killrun();		/* object indices changed under the run */
 	modified = 1;
@@ -4102,7 +4123,7 @@ dobak()
 /* v6.7 (VELLUM.md sec. 60): centre the view on a grid point and SELECT
  * the object there.  Every asking mode already prints "file: ... at
  * x,y"; `vellum +x,y file.d' hands that straight back to the board, so
- * `vellum -where TODO *.d' stops being a report and becomes a work
+ * `velinfo -where TODO *.d' stops being a report and becomes a work
  * list.  Topmost hit wins, and a visible layer is a hittable one -- the
  * Find dialog's rule (veldlg.c), because they are the same act. */
 static
@@ -4138,17 +4159,20 @@ char **argv;
 	WMSG e;
 	int i, gotoc, gotox, gotoy;
 
-	/* headless exports run WITHOUT a window: every LOWERCASE -mode
-	 * (-print -pic -net -hpgl -bom ...) goes to the velxport HELPER
-	 * binary (velbase+velfile+velport, no gfx library at all), so the
-	 * pipeline works even where the GUI cannot -- and the editor
-	 * stays inside its 64 K text segment.  The GUI options hr_open
-	 * eats (-T -I -S -P -H) are all uppercase, so they pass through. */
+	/* The editor DRAWS.  Everything else the suite does is a tool of
+	 * its own -- headless, so it runs where there is no bitmap card
+	 * and no window server, which is what a Makefile wants.  A
+	 * lowercase option here is someone reaching for the old
+	 * do-everything front door: name the tools instead of quietly
+	 * doing a different program's job.  (The GUI options hr_open eats
+	 * -- -T -I -S -P -H -- are all uppercase and pass through.) */
 	if ( argc >= 2 && argv[1][0] == '-' &&
 	     argv[1][1] >= 'a' && argv[1][1] <= 'z' )
 	{
-		execv("/usr/vellum/lib/velxport", argv);
-		fprintf(stderr, "vellum: cannot run velxport\n");
+		fprintf(stderr, "vellum: the editor takes a file, not %s\n",
+			argv[1]);
+		fprintf(stderr,
+	"vellum: try velplot velpic veldxf velnet velcheck veldiff velinfo velsym\n");
 		exit(1);
 	}
 
