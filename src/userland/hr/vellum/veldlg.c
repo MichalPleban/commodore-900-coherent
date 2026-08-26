@@ -1,18 +1,18 @@
 /*
- * veldlg.c - Vellum's dialog STUBS: every modal dialog runs in the
- * spawned helper /usr/vellum/lib/veldlg (veldlgm.c) on this window --
- * the helper-binary pattern applied to the dialogs (VELLUM.md sec. 21's
- * escape hatch), which is what keeps the editor's 64 K text segment
- * under the tripwire's 95% with the whole v2 feature set in.
+ * veldlg.c - Vellum's dialog STUBS: the ASKING half of every modal
+ * dialog is veldlgm.c, the APPLY half (savefile, loadlib, object
+ * mutation) is here.  That division is the whole point of the file and
+ * it is unchanged -- what changed is that the asking half used to be a
+ * SPAWNED BINARY, /usr/vellum/lib/veldlg, and is now a module of the
+ * editor (see veldlgm.c's header for why the split existed and why it
+ * stopped paying).
  *
- * The stub forks, points the child's fd 1 at a pipe, execs the helper
- * with this window's id and the dialog's current values in argv, and
- * BLOCKS reading the pipe: while it waits, the helper adopts the window
- * (hr_attach), runs the dialog through the ordinary hrdlg kit, prints
- * one result line and exits.  Result: "" = cancelled, "q" = E_QUIT
- * arrived (the window is gone: exit like the in-process dialogs did),
- * "=..." = the payload.  The APPLY halves (savefile, loadlib, object
- * mutation) stay here -- the helper has no model.
+ * dlgspawn() therefore keeps its name, its argument list and its return
+ * contract: it marshals the dialog's current values as strings, calls
+ * veldlg(), and reads back one result line.  "" = cancelled, "q" =
+ * E_QUIT arrived (the window is gone: exit), "=..." = the payload.  The
+ * autosave alarm is still parked across the call -- a dialog runs its
+ * own modal event loop, and SIGALRM must not land in the middle of it.
  */
 #include <stdio.h>
 #include <types.h>
@@ -24,7 +24,6 @@
 #include "hrapp.h"
 #include "vellum.h"
 
-#define	VELDLG	"/usr/vellum/lib/veldlg"
 #define	VELSYM	"/usr/vellum/bin/velsym"
 #define	VELPLOT	"/usr/vellum/bin/velplot"
 #define	MKTMP	"/tmp/velmk.d"
@@ -32,69 +31,39 @@
 char	nbuf[NAMEL];
 char	vbuf[TVMAX];	/* the text dialog carries long labels (v3.3) */
 
-static char	dlres[128];	/* the helper's one result line           */
-static char	widarg[8];
+static char	dlres[128];	/* the dialog's one result line           */
 
-/* Spawn the helper with (kind, a1..a3 -- unused tail args 0) and read its
+extern char	*veldlg();	/* veldlgm.c: run one modal dialog        */
+
+/* Run dialog `kind' with (a1..a9, the tail unused ones 0) and read its
  * result.  Returns the payload after '=', or 0 on cancel; on "q" (the
- * window died mid-dialog) exits, like the in-process dialogs did.  The
- * autosave alarm is parked across the spawn so it cannot interrupt the
- * pipe read. */
+ * window died mid-dialog) exits, like the dialogs always have.  The
+ * autosave alarm is parked across the dialog so it cannot interrupt the
+ * modal event loop. */
 char *
 dlgspawn(kind, a1, a2, a3, a4, a5, a6, a7, a8, a9)
 char *kind, *a1, *a2, *a3, *a4, *a5, *a6, *a7, *a8, *a9;
 {
-	char *av[14];
-	int p[2], pid, w, n, k, st;
+	char *av[10];
+	register char *r;
+	register int n;
 	unsigned left;
 
-	sprintf(widarg, "%d", mywid);
-	av[0] = "veldlg";
-	av[1] = widarg;
-	av[2] = kind;
-	av[3] = a1;  av[4] = a2;  av[5] = a3;
-	av[6] = a4;  av[7] = a5;  av[8] = a6;
-	av[9] = a7;  av[10] = a8;  av[11] = a9;
-	av[12] = (char *)0;
-	for ( n = 3; n < 12; n++ )
+	av[0] = a1;  av[1] = a2;  av[2] = a3;
+	av[3] = a4;  av[4] = a5;  av[5] = a6;
+	av[6] = a7;  av[7] = a8;  av[8] = a9;
+	av[9] = (char *)0;
+	for ( n = 0; n < 9; n++ )
 		if ( av[n] == (char *)0 )
 			break;
 	av[n] = (char *)0;
-	dlres[0] = 0;
-	if ( pipe(p) < 0 )
-		return (char *)0;
 	left = alarm(0);
-	if ( (pid = fork()) == 0 )
-	{
-		close(p[0]);
-		close(1);
-		dup(p[1]);
-		close(p[1]);
-		execv(VELDLG, av);
-		_exit(1);
-	}
-	close(p[1]);
-	n = 0;
-	if ( pid > 0 )
-	{
-		while ( n < sizeof(dlres) - 1 &&
-			(k = read(p[0], dlres + n, sizeof(dlres) - 1 - n)) > 0 )
-			n += k;
-		close(p[0]);
-		while ( (w = wait(&st)) >= 0 && w != pid )
-			;
-	}
-	else
-		close(p[0]);
+	r = veldlg(kind, av);
 	alarm(left ? left : 300);
-	while ( n > 0 && (dlres[n - 1] == '\n' || dlres[n - 1] == '\r') )
-		n--;
-	dlres[n] = 0;
+	strncpy(dlres, r, sizeof(dlres) - 1);
+	dlres[sizeof(dlres) - 1] = 0;
 	if ( dlres[0] == 'q' && dlres[1] == 0 )
-	{
-		vpkill();		/* E_QUIT under the dialog */
-		exit(0);
-	}
+		exit(0);		/* E_QUIT under the dialog */
 	if ( dlres[0] != '=' && dlres[0] != 'y' )
 		return (char *)0;
 	return dlres + 1;
@@ -214,8 +183,6 @@ libdlg()
 			curlib = r;
 			palview();
 			cursym = -1;
-			vpkill();	/* the helper's library list is */
-			vpspawn();	/* stale: respawn with ours     */
 			ddpal = 1;
 			break;
 		}
@@ -465,8 +432,8 @@ mksymdlg()
 			execl("/bin/sh", "sh", "-c", cmd, (char *)0);
 			_exit(1);
 		}
-		/* wait for OUR child, not merely for one: the velpal
-		 * helper is a child too, and its status is not ours */
+		/* wait for OUR child, not merely for one: a spawn()
+		 * fork is a child too, and its status is not ours */
 		if ( pid > 0 )
 			while ( (n = wait(&st)) >= 0 && n != pid )
 				;
@@ -487,8 +454,8 @@ mksymdlg()
 /* Launch a worker, zfile's pattern -- fork twice so init reaps it and no
  * zombie is carried; fds 0-4 stay open, 4 being the shared command pipe
  * (wire.h HR_CMDFD) that lets a GUI worker connect and get a window.
- * av is a NULL-terminated argv.  Shared: vellum.c's velpal spawn and the
- * Help/Edit/Print launches all go through here. */
+ * av is a NULL-terminated argv.  Shared: the Help/Edit launches and
+ * the velplot/velsym hand-offs all go through here. */
 spawn(av)
 char **av;
 {

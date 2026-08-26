@@ -401,9 +401,8 @@ vveelllluumm                                                     vveell
 
 
               /usr/vellum/lib/*         the helper BINARIES the editor execs: the
-                                        dialogs (veldlg), the print preview
-                                        (velprev) and the palette painter
-                                        (velpal).  Stencil libraries live in sym/,
+                                        dialogs (veldlg) and the print preview
+                                        (velprev).  Stencil libraries live in sym/,
                                         not here - they are not the same kind of
                                         thing
               /usr/vellum/etc/libs      which of them load at start-up

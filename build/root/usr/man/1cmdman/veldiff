@@ -1,0 +1,87 @@
+
+
+vveellddiiffff                                                   vveellddiiffff
+
+
+
+NNAAMMEE
+     veldiff - what changed between two revisions of a drawing
+
+SSYYNNOOPPSSIISS
+     vveellddiiffff _o_l_d._d _n_e_w._d
+     vveellddiiffff -mmaarrkk _o_l_d._d _n_e_w._d > _m_a_r_k_u_p._d
+
+DDEESSCCRRIIPPTTIIOONN
+     vveellddiiffff compares two revisions of a drawing made with
+     vveelllluumm.
+
+     Matching is by IDENTITY, not by line.  ddiiffff(1) on two .dd
+     files drowns in reordering, because the line order is the Z-
+     ORDER and not the content.  Here symbols match by DESIGNATOR
+     first - R7 is R7 wherever it moved in the list - and every-
+     thing else by exact (type, geometry, value) equality.  There
+     is no fuzzy matching and no tolerance: an object that moved
+     one unit is a remove plus an add, and on a grid that is the
+     honest answer.  An object still standing exactly where it
+     stood, saying something else, reports as CHANGED.
+
+     One line each, in the vveellcchheecckk shape:
+
+                  new.d: R7 moved 40,20 -> 40,28
+                  new.d: R9 added (R 47k)
+                  new.d: C2 removed (C 100n)
+                  new.d: T "Supply, sheet 1" changed
+
+     The EXIT STATUS is the change count (capped at 254), so a
+     Makefile gates a release print on ``no drift since the ap-
+     proved revision'' exactly the way it gates on vveellcchheecckk. A
+     change of sheet UNITS is reported rather than refused.
+
+TTHHEE MMAARRKKUUPP
+     -mmaarrkk prints the answer AS A DRAWING on standard output:
+     everything unchanged on its own layers, ADDED objects bold,
+     REMOVED objects dashed on the annotation layer.  There is no
+     new viewer and no new user interface, because the markup is
+     ORDINARY OBJECTS - vveellppiicc draws it, vveellpplloott prints it, and
+     the editor opens it.
+
+RREEVVIISSIIOONNSS
+     A revision is a FILE, and the record is the directory: no
+     SCCS, no hidden state, no format change.  When the frame
+     stamp's $RR says B, ccpp aammpp11.dd aammpp11.dd.BB is the whole ceremony.
+
+     The /usr/vellum/etc/project.mk skeleton turns that into a
+     workflow: rreevv: copies every sheet to its ._R_E_V twin, ddrriifftt:
+     runs this program on each sheet against that twin so its
+     exit status gates pprriinntt:, and rreevviieeww: hangs the marked-up
+     drawing on the wall instead.  The gallery ships the pair:
+     /usr/vellum/eg/amp.d.A beside amp.d.
+
+EEXXAAMMPPLLEESS
+                  veldiff amp.d.A amp.d
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+vveellddiiffff                                                   vveellddiiffff
+
+
+
+                  veldiff -mark amp.d.A amp.d > amp.mark
+                  velplot -T ps -fit amp.mark | lpr
+
+SSEEEE AALLSSOO
+     vveelllluumm , vveellcchheecckk , vveellpplloott , vveellppiicc , mmaakkee
+
+NNOOTTEESS
+     A -mmaarrkk markup holds the new revision PLUS the removals, so
+     a markup of two crowded sheets can carry more than the 400
+     objects a drawing holds when it is opened again; it always
+     prints.
+
+     This is the one tool that holds two drawings at once, which
+     is why it is a tool of its own: nothing else pays for the
+     second object table.

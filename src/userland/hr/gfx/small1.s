@@ -14,7 +14,13 @@
 
 
 .globl Small_ret
-.prvi
+// .shri, not .prvi: NOTHING here is written at run time.  The smt*/smb*
+// routines are jumped to in place (jp @rr8 through TMcode/TMBcode) and the
+// tables are constant, so this whole unit belongs in the SHARED half -- it
+// used to sit in the private one, which libhrgfx.sl copies into EVERY GUI
+// process at exec.  Only block1.s's code_space_ (the buffer a blit loop is
+// COMPILED into) is genuinely per-process.
+.shri
 
 
 // 

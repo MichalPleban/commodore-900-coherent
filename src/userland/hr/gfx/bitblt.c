@@ -17,11 +17,13 @@ extern int *texture[];	/* global array of pointers to stippling patterns    */
 extern int *addptr(), *subptr();
 
 
-extern lf0(),  lf1(),  lf2(),  lf3(),  lf4(),  lf5(),  lf6(),  lf7();
-extern lf8(),  lf9(),  lf10(), lf11(), lf12(), lf13(), lf14(), lf15();
 int (*logical)();
-int (*logtab[16])() =  { lf0,  lf1,  lf2,  lf3,  lf4,  lf5,  lf6,  lf7,
-			 lf8,  lf9,  lf10, lf11, lf12, lf13, lf14, lf15 };
+/* The constant tables this file used to define live in masks.c now: in a
+ * shared library every byte of private data is COPIED INTO EVERY PROCESS,
+ * and these never change.  masks.c is assembled into the shared half. */
+extern int	BLTtrue[], BLTfalse[], BLT_tbl1[], BLT_tbl2[];
+extern int	(*logtab[16])();
+
 
 unsigned sw;
 unsigned *sp;
@@ -46,39 +48,13 @@ int (*BLT_function)();	/* function to execute                               */
 int BLT_op;		/* the logical operation index (0-15)                */
 int BLT_direction;      /* top-down (1) or bottom-up(0)                      */
 
-int BLTtrue[64] = { -1, -1, -1, -1, -1, -1, -1, -1,
-		    -1, -1, -1, -1, -1, -1, -1, -1,
-		    -1, -1, -1, -1, -1, -1, -1, -1,
-		    -1, -1, -1, -1, -1, -1, -1, -1,
-		    -1, -1, -1, -1, -1, -1, -1, -1,
-		    -1, -1, -1, -1, -1, -1, -1, -1,
-		    -1, -1, -1, -1, -1, -1, -1, -1,
-		    -1, -1, -1, -1, -1, -1, -1, -1
-		  };
 
-int BLTfalse[64] = { 0,  0,  0,  0,  0,  0,  0,  0,
-		     0,  0,  0,  0,  0,  0,  0,  0,
-		     0,  0,  0,  0,  0,  0,  0,  0,
-		     0,  0,  0,  0,  0,  0,  0,  0,
-		     0,  0,  0,  0,  0,  0,  0,  0,
-		     0,  0,  0,  0,  0,  0,  0,  0,
-		     0,  0,  0,  0,  0,  0,  0,  0,
-		     0,  0,  0,  0,  0,  0,  0,  0
-		   };
 
-int BLT_tbl1[] = {  0x0,
-		    0x0001, 0x0003, 0x0007, 0x000f, 
-		    0x001f, 0x003f, 0x007f, 0x00ff,
-		    0x01ff, 0x03ff, 0x07ff, 0x0fff,
-		    0x1fff, 0x3fff, 0x7fff, 0xffff
-		 };
 
-int BLT_tbl2[] = {  0x0,
-		    0x8000, 0xc000, 0xe000, 0xf000,
-		    0xf800, 0xfc00, 0xfe00, 0xff00,
-		    0xff80, 0xffc0, 0xffe0, 0xfff0,
-		    0xfff8, 0xfffc, 0xfffe, 0xffff
-		 };
+
+
+
+
 
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 /*                                                                         */

@@ -40,6 +40,10 @@
 #include <proc.h>
 #include <sched.h>
 #include <seg.h>
+#include <alloc.h>		/* ALL: the arena's allocation unit        */
+#include <fd.h>			/* the three below are for the process-    */
+#include <buf.h>			/* table ceiling, derived from the arena   */
+#include <mount.h>
 #include <stat.h>
 #include <uproc.h>
 #include <romconf.h>
@@ -57,7 +61,28 @@ extern char	*malloc();
 #define	MAXCOLS	126
 
 #define	ARGSIZE	512		/* argv fished out of the process image   */
-#define	MAXP	96		/* process table rows we keep             */
+/* Process-table rows to keep.  NOT a guess: what caps the number of live
+ * processes on this machine is the kernel's kalloc ARENA, not RAM (see
+ * param.h's own note on ALLSIZE -- the GUI hit a wall at ~4 terminals with
+ * ~800 KB of process memory free).  Every process costs the arena a PROC,
+ * the SEG descriptors of the segments it OWNS -- its u-area, its private
+ * data and its stack; text SEGs are shared -- and an FD per open file, each
+ * rounded up to an ALL unit with one unit of block header (coh/alloc.c
+ * alloc(): n = 1 + (l + sizeof(ALL) - 1) / sizeof(ALL)).  The arena also
+ * has fixed tenants: the disk-buffer list (NBUF BUFs, bio.c) and a MOUNT
+ * per mounted filesystem.
+ *
+ * So the row count is computed from the arena size the kernel REPORTS (its
+ * own asize_, which we read anyway for the memory pane) -- never from
+ * ALLSIZE in a header, because src/include/param.h and the kernel's copy
+ * have already drifted apart once.  A re-tuned arena moves the table with
+ * it.  The model reproduces the figure in param.h's note: 21 rows at the
+ * old 10 240 arena, 97 at today's 32 768.  It is a DISPLAY ceiling -- more
+ * processes than this just truncate the list, as they always did. */
+#define	ANODE(t)	((1 + (sizeof(t) + sizeof(ALL) - 1) / sizeof(ALL)) 			 * sizeof(ALL))
+#define	APROC	(ANODE(PROC) + 3 * ANODE(SEG) + 6 * ANODE(FD))
+#define	AFIXED	(NBUF * ANODE(BUF) + 4 * ANODE(MOUNT))
+#define	MINP	8		/* floor, for an absurdly small arena     */
 #define	NCMD	64		/* command-line column storage            */
 
 /* The memory pane, px.  The totals line above the bar is the 9x16 System/UI
@@ -73,12 +98,22 @@ extern char	*malloc();
 #define	MEMH	96		/* whole pane incl. its bottom rule       */
 
 /*
- * Mapping kernel pointers into our snapshot of the kalloc arena
- * (ps.c's range()/map(), shared by the segment and process walks).
+ * Reaching a kernel node.  range() is ps.c's -- is this pointer inside the
+ * kalloc arena at all -- and is still the guard against a queue that
+ * changed under the walk.  What is NOT kept is ps.c's map(): ps copies the
+ * WHOLE arena (asize_, 32 768 bytes today) into itself and indexes into
+ * the copy.  For a program that lives for a second that is free; for a
+ * resident monitor it was HALF ITS CORE IMAGE, carried for the sake of the
+ * few dozen nodes it actually reads, and re-read every 3 s.
+ *
+ * A /dev/kmem read is charged as a SYSCALL, not by the bytes it moves --
+ * measured flat from 1 byte to 32 000 -- so the walks fetch one node at a
+ * time instead: ~80 reads per sample against 32 KB of resident memory.
+ * Each walk holds ONE node, and the pointer it walks on (p_nback, s_forw)
+ * is taken out of that node before the buffer is reused.
  */
 #define	range(p)	((char *)(p) >= (char *)aend && \
 			 (char *)(p) < (char *)aend + casize)
-#define	map(p)		(&allp[(char *)(p) - (char *)aend])
 
 #define	aprocq		nl[0].n_value
 #define	astime		nl[1].n_value
@@ -118,7 +153,6 @@ int	cols;			/* text columns in the list               */
 int	kfd = -1;		/* /dev/kmem; -1 = no data (see errmsg)  */
 int	mfd = -1;		/* /dev/mem                               */
 int	dfd = -1;		/* /dev/swap                              */
-char	*allp;			/* arena snapshot                         */
 unsigned casize;		/* arena size                             */
 PROC	cprocq;			/* process queue head                     */
 struct	uproc u;		/* one u-area, for the command line       */
@@ -127,15 +161,24 @@ saddr_t	corebot, coretop;	/* user memory bounds, clicks (= Kb)      */
 struct	romconf rc;		/* whole-machine RAM bounds               */
 char	errmsg[64];		/* why there is no data                   */
 
-/* ---- the process table, rebuilt by snap() ---- */
-int	prpid[MAXP];
-char	pruser[MAXP][10];
-long	prsize[MAXP];		/* in-core Kb; -1 = unreadable            */
-char	prtty[MAXP][6];
-char	prst[MAXP];
-long	prtim[MAXP];		/* utime+stime, HZ ticks                  */
-char	prcmd[MAXP][NCMD];
-char	prwin[MAXP][14];	/* window title + optional '*', or ""     */
+/* ---- the process table, rebuilt by snap() ----
+ * Sized from the arena at start-up (kinit), so the rows a machine cannot
+ * possibly run are never carried.  The subscripting is unchanged. */
+typedef char	PRUSER[10];	/* the row types, named so the allocation */
+typedef char	PRTTY[6];	/* casts stay inside K&R's grammar        */
+typedef char	PRCMD[NCMD];
+typedef char	PRWIN[14];
+
+int	maxp;			/* the arena's ceiling (see APROC above)  */
+int	nrows;			/* rows actually ALLOCATED right now      */
+int	*prpid;
+PRUSER	*pruser;
+long	*prsize;		/* in-core Kb; -1 = unreadable            */
+PRTTY	*prtty;
+char	*prst;
+long	*prtim;			/* utime+stime, HZ ticks                  */
+PRCMD	*prcmd;
+PRWIN	*prwin;			/* window title + optional '*', or ""     */
 int	nproc;
 int	ptop;			/* first visible list row                 */
 
@@ -148,7 +191,16 @@ unsigned marena, mbufs;			/* kalloc arena Kb, disk-buffer Kb  */
 int	mnseg, mnshr, mnhole;		/* segment / shared / hole counts   */
 
 /* ---- rendering (the zmail/zprint diff scheme) ---- */
-char	disp[MAXROWS][MAXCOLS];	/* what is on screen; 0 = needs paint     */
+/* What is on screen; 0 = needs paint.  MAXROWS x MAXCOLS is the whole
+ * SCREEN at the terminal font -- 6 552 bytes to shadow a window nobody
+ * opens that big.  It is sized to the window in layout() instead, and
+ * grown (never shrunk) as the window is resized; if that allocation ever
+ * fails the painter simply stops diffing and repaints every row, which
+ * costs redraws, not correctness. */
+char	*disp;
+int	drows, dcols;		/* what disp is currently sized for       */
+int	nodiff = 1;		/* 1 = no shadow: paint every run (until  */
+				/* layout() has sized one)                */
 int	chromedirty = 1;	/* 1 = repaint memory pane + header       */
 int	memdirty;		/* 1 = the figures changed: redraw only   */
 				/* the value lines + bar fill, no backfill */
@@ -164,6 +216,62 @@ static char vbuf[MAXCOLS];	/* view-row expansion buffer              */
 /* ------------------------------------------------------------------ */
 /* reading the kernel                                                  */
 /* ------------------------------------------------------------------ */
+
+/* The process table grows to the machine it finds itself on.  maxp is what
+ * the ARENA could hold (~97); a desktop runs 16-30, and carrying the
+ * ceiling meant ~10 K of rows that were never written.  So the columns
+ * start at PROW0 and double, up to maxp, when a walk fills them -- a
+ * column at a time, because K&R has no business comparing a PRCMD *
+ * against a char * NULL, and one flag reports the whole set so the caller
+ * tests once. */
+#define	PROW0	16		/* rows to start with                     */
+
+int	prowfail;
+
+static char *
+prows(old, w)
+char *old;
+unsigned w;
+{
+	register char *p;
+
+	p = (old == NULL) ? malloc((unsigned)nrows * w)
+			  : realloc(old, (unsigned)nrows * w);
+	if ( p == NULL )
+		prowfail = 1;
+	return p;
+}
+
+/* (Re)size every column to nrows.  Returns 0 if it could not. */
+static
+prowfit()
+{
+	prowfail = 0;
+	prpid = (int *)prows((char *)prpid, sizeof(int));
+	pruser = (PRUSER *)prows((char *)pruser, sizeof(PRUSER));
+	prsize = (long *)prows((char *)prsize, sizeof(long));
+	prtty = (PRTTY *)prows((char *)prtty, sizeof(PRTTY));
+	prst = prows(prst, 1);
+	prtim = (long *)prows((char *)prtim, sizeof(long));
+	prcmd = (PRCMD *)prows((char *)prcmd, sizeof(PRCMD));
+	prwin = (PRWIN *)prows((char *)prwin, sizeof(PRWIN));
+	return prowfail ? 0 : 1;
+}
+
+/* The walk filled the table and the arena says more may exist: double it. */
+static
+prowgrow()
+{
+	register int want;
+
+	if ( nrows >= maxp )
+		return 0;
+	want = nrows * 2;
+	if ( want > maxp )
+		want = maxp;
+	nrows = want;
+	return prowfit();
+}
 
 static
 nodata(s)
@@ -214,6 +322,33 @@ char *bp;
 	return read(dfd, bp, n) == n ? 0 : -1;
 }
 
+PROC	pnode;			/* the PROC a walk is standing on         */
+SEG	snode;			/* the SEG a walk is standing on          */
+
+/* Fetch the node at kernel address `a', or 0 if it is not a node of the
+ * arena (a queue that moved mid-walk) or /dev/kmem refused it. */
+static PROC *
+kproc(a)
+char *a;
+{
+	if ( range(a) == 0 )
+		return (PROC *)0;
+	if ( kread((long)a, (char *)&pnode, sizeof(pnode)) < 0 )
+		return (PROC *)0;
+	return &pnode;
+}
+
+static SEG *
+kseg(a)
+char *a;
+{
+	if ( range(a) == 0 )
+		return (SEG *)0;
+	if ( kread((long)a, (char *)&snode, sizeof(snode)) < 0 )
+		return (SEG *)0;
+	return &snode;
+}
+
 /* Read n bytes at offset s of the segment sp points at (in kernel space),
  * from core or from swap, whichever holds it.  ps.c's segread. */
 static
@@ -224,9 +359,8 @@ char *bp;
 {
 	register SEG *sp1;
 
-	if ( range((char *)sp) == 0 )
+	if ( (sp1 = kseg((char *)sp)) == (SEG *)0 )
 		return 0;
-	sp1 = (SEG *) map(sp);
 	if ( (sp1->s_flags & SFCORE) != 0 )
 	{
 		if ( mfd < 0 || mread(ctob((long)sp1->s_mbase) + s, bp, n) < 0 )
@@ -254,7 +388,11 @@ initdata()
 	dfd = open("/dev/swap", 0);
 	if ( kread((long)aasize, (char *)&casize, sizeof(casize)) < 0 )
 		return 0;
-	if ( (allp = malloc(casize)) == NULL )
+	maxp = (casize > AFIXED) ? (casize - AFIXED) / APROC : 0;
+	if ( maxp < MINP )
+		maxp = MINP;
+	nrows = (maxp < PROW0) ? maxp : PROW0;
+	if ( prowfit() == 0 )
 		return nodata("out of memory");
 	kread((long)acorebot, (char *)&corebot, sizeof(corebot));
 	kread((long)acoretop, (char *)&coretop, sizeof(coretop));
@@ -307,9 +445,8 @@ register PROC *pp;
 			continue;
 		if ( (sp = pp->p_segp[n]) == NULL )
 			continue;
-		if ( range((char *)sp) == 0 )
+		if ( (sp = kseg((char *)sp)) == (SEG *)0 )
 			return -1;
-		sp = (SEG *) map(sp);
 		k += sp->s_size;
 	}
 	return k;
@@ -423,14 +560,15 @@ int m;
 	return 0;
 }
 
-/* Resample everything: one arena snapshot, then the process walk (ps) and
- * the segment walk (mem).  Returns 1 when the memory pane's figures moved
+/* Resample everything: the process walk (ps) and the segment walk (mem),
+ * each fetching one node at a time.  Returns 1 when the memory pane's figures moved
  * (the list repaints itself through the diff renderer either way). */
 static
 snap()
 {
 	register PROC *pp1, *pp2;
 	register SEG *sp;
+	register char *sa;
 	SEG shead;
 	unsigned ototal, oused, obig, oshared, ostack, osyst;
 	int onp, onseg;
@@ -443,18 +581,17 @@ snap()
 	ostack = mstack;  osyst = msyst;
 	onp = nproc;  onseg = mnseg;
 
-	if ( kread((long)aend, allp, (int)casize) < 0 )
-		return 1;
 	kread((long)aprocq, (char *)&cprocq, sizeof(cprocq));
 	kread((long)asegmq, (char *)&shead, sizeof(shead));
 
 	nproc = 0;
 	pp1 = &cprocq;
-	while ( (pp2 = pp1->p_nback) != (PROC *)aprocq && nproc < MAXP )
+	while ( (pp2 = pp1->p_nback) != (PROC *)aprocq && nproc < maxp )
 	{
-		if ( range((char *)pp2) == 0 )
+		if ( nproc == nrows && prowgrow() == 0 )
+			break;		/* no room: show what we have */
+		if ( (pp1 = kproc((char *)pp2)) == (PROC *)0 )
 			break;		/* mid-flight change: show what we have */
-		pp1 = (PROC *) map(pp2);
 		prpid[nproc] = pp1->p_pid;
 		sprintf(pruser[nproc], "%.8s", uid2nm(pp1->p_ruid));
 		prsize[nproc] = sizek(pp1);
@@ -499,11 +636,12 @@ snap()
 	mbig = 0;
 	mfree = 0;
 	prev = corebot;
-	for ( sp = shead.s_forw; sp != (SEG *)asegmq; sp = sp->s_forw )
+	sa = (char *)shead.s_forw;
+	while ( sa != (char *)asegmq )
 	{
-		if ( range((char *)sp) == 0 )
+		if ( (sp = kseg(sa)) == (SEG *)0 )
 			break;
-		sp = (SEG *) map(sp);
+		sa = (char *)sp->s_forw;
 		mnseg++;
 		mused += sp->s_size;
 		if ( sp->s_flags & SFSHRX )
@@ -592,14 +730,36 @@ vrow(r)
 	return vbuf;
 }
 
+/* (Re)size the screen shadow to the window.  Grows only: a window that
+ * shrinks and grows again reuses the block.  Failure is not fatal. */
+static
+dispfit()
+{
+	register char *p;
+
+	if ( disp != NULL && lrows <= drows && cols <= dcols )
+		return 0;
+	if ( (p = malloc((unsigned)lrows * cols)) == NULL )
+	{
+		nodiff = 1;		/* paint every run until this works */
+		return 0;
+	}
+	if ( disp != NULL )
+		free(disp);
+	disp = p;
+	drows = lrows;
+	dcols = cols;
+	nodiff = 0;
+	return 0;
+}
+
 static
 invalidate()
 {
-	register int r, c;
+	register int i;
 
-	for ( r = 0; r < MAXROWS; r++ )
-		for ( c = 0; c < MAXCOLS; c++ )
-			disp[r][c] = 0;
+	for ( i = 0; disp != NULL && i < drows * dcols; i++ )
+		disp[i] = 0;
 	sblforce = 1;
 	chromedirty = 1;
 	return 0;
@@ -774,6 +934,7 @@ flush()
 {
 	register int r, c;
 	register char *vp;
+	register char *dp;
 	int c0;
 
 	clamptop();
@@ -792,18 +953,24 @@ flush()
 	for ( r = 0; r < lrows; r++ )
 	{
 		vp = vrow(r);
+		if ( nodiff )		/* no shadow: the whole row, always */
+		{
+			drawrun(r, 0, cols, vp);
+			continue;
+		}
+		dp = disp + r * dcols;
 		c = 0;
 		while ( c < cols )
 		{
-			if ( vp[c] == disp[r][c] )
+			if ( vp[c] == dp[c] )
 			{
 				c++;
 				continue;
 			}
 			c0 = c;
-			while ( c < cols && vp[c] != disp[r][c] )
+			while ( c < cols && vp[c] != dp[c] )
 			{
-				disp[r][c] = vp[c];
+				dp[c] = vp[c];
 				c++;
 			}
 			drawrun(r, c0, c, vp);
@@ -832,6 +999,7 @@ layout()
 	if ( lrows > MAXROWS ) lrows = MAXROWS;
 	if ( cols > MAXCOLS ) cols = MAXCOLS;
 	if ( cols < 1 ) cols = 1;
+	dispfit();		/* the screen shadow follows the window */
 	return 0;
 }
 

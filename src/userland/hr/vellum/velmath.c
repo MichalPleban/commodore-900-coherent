@@ -3,9 +3,9 @@
  * square root and a chorded B-spline.
  *
  * A member of its OWN because of who needs it.  velgfx calls both and
- * nothing else outside itself, so a client that only DRAWS -- velpal,
- * painting the editor's stencil palette -- must be able to link velgfx
- * without dragging the 400-object drawing table in behind it.  Coherent's
+ * nothing else outside itself, so a client that only DRAWS must be
+ * able to link velgfx without dragging the 400-object drawing table
+ * in behind it.  Coherent's
  * ld pulls a whole member for one symbol, so what shares a member is a
  * decision about what a client pays for.
  */

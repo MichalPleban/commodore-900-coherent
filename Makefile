@@ -85,7 +85,7 @@ INC_TARGET := $(patsubst $(INCSRC)/%,$(INCDIR)/%,$(HDRS))
 # ---------------------------------------------------------------------------
 # The compile rules see one .c at a time and the compiler emits no dependency
 # information, so nothing here can know which headers a source pulled in.  Each
-# subsystem therefore declares its header set ($(HDRS) here, $(KHDRS), $(HRHDRS),
+# subsystem therefore declares its header set ($(HDRS) here, $(KHDRS) and
 # $(HRGUIHDRS) below) and EVERY object of that subsystem depends on ALL of it.
 #
 # Deliberately coarse: editing a header rebuilds more than it strictly must,
@@ -125,7 +125,7 @@ LIBFS_OBJ := $(patsubst $(SRC)/%.c,$(OBJ)/%.o,$(libfs_c))
 CRT   = $(LIBDIR)/crts0.o
 DTOA  = $(LIBDIR)/dtoa.o
 LIBC  = $(LIBDIR)/libc.a
-# the shared C library (kernel LF_SLIB slot 0); build rule after the hr
+# the shared C library (kernel LF_SLIB slot 0); build rule in the ZView
 # section (it reuses SLCRT).  Commands link it via $(SLREF) in the `link'
 # define; the rescue set overrides back to static.
 LIBC_SL = $(LIBDIR)/libc.sl
@@ -138,7 +138,7 @@ LIBFS = $(LIBDIR)/libfs.a
 
 LIBS = $(CRT) $(DTOA) $(LIBC) $(LIBM) $(LIBMP) $(LIBY) $(LIBFS)
 
-.PHONY: all headers libs cmds kernel dist man image floppy hr hrgui clean
+.PHONY: all headers libs cmds kernel dist man image floppy hrgui clean
 all: headers libs cmds kernel dist man image
 headers: $(INC_TARGET)
 libs: $(LIBS)
@@ -281,7 +281,7 @@ $(BINDIR)/ps $(BINDIR)/mem $(BINDIR)/factor $(BINDIR)/units $(BINDIR)/mail \
 $(BINDIR)/icheck $(BINDIR)/dcheck $(BINDIR)/ncheck \
 $(USRLIBDIR)/atrun $(USRLIBDIR)/diff3 $(USRLIBDIR)/diffh $(USRLIBDIR)/lpd \
 $(USRLIBDIR)/spell $(USRBINDIR)/compress $(USRBINDIR)/kermit \
-$(BINDIR)/as $(BINDIR)/awk $(BINDIR)/bc $(BINDIR)/cu $(BINDIR)/dc \
+$(BINDIR)/as $(BINDIR)/awk $(BINDIR)/bc $(BINDIR)/cu $(ETCDIR)/cuxcvr $(BINDIR)/dc \
 $(BINDIR)/diff $(BINDIR)/dump $(BINDIR)/dumpdate $(BINDIR)/dumpdir \
 $(BINDIR)/ed $(BINDIR)/egrep $(BINDIR)/enroll $(BINDIR)/expr $(BINDIR)/find \
 $(BINDIR)/grep $(BINDIR)/ld $(BINDIR)/lex $(BINDIR)/lpr $(BINDIR)/lpskip \
@@ -360,11 +360,23 @@ $(as_obj): CFLAGS += -I$(CMDS)/as -I$(CMDS)/as/z8001 -Dasm=Asm
 $(BINDIR)/as: $(as_obj) $(CRT) $(LIBC)
 	$(call link,$(as_obj))
 
-# cu: call-Unix serial dialer.
-cu_obj := $(addprefix $(OBJ)/userland/cmd/cu/,cu.o cudld.o cun.o cuxcvr.o)
-$(cu_obj): CFLAGS += -I$(CMDS)/cu
+# cu: call-Unix serial dialer, and cuxcvr, the transceiver that runs on the
+# REMOTE machine -- two programs, not one.  They were all linked together,
+# which could never work: cuxcvr.c has its own main(), and cun.c is a copy of
+# cu.c with one debug printf in it (diff says exactly one line), so the link
+# died on redefined main/sput/usage/sinit/....  cudld.c is the packet layer
+# and belongs to BOTH ends of the protocol.  cun.c is built by nothing on
+# purpose: it is a debugging duplicate, not a variant to ship.
+# cu drives the remote end by sending it the command line "/etc/cuxcvr "
+# (cu.c), which is where cuxcvr installs.
+cu_obj := $(addprefix $(OBJ)/userland/cmd/cu/,cu.o cudld.o)
+cuxcvr_obj := $(addprefix $(OBJ)/userland/cmd/cu/,cuxcvr.o cudld.o)
+$(cu_obj) $(cuxcvr_obj): CFLAGS += -I$(CMDS)/cu
 $(BINDIR)/cu: $(cu_obj) $(CRT) $(LIBC)
 	$(call link,$(cu_obj))
+
+$(ETCDIR)/cuxcvr: $(cuxcvr_obj) $(CRT) $(LIBC)
+	$(call link,$(cuxcvr_obj))
 
 # compress / uncompress / zcat: LZW file compressor, ported from Coherent 3.2.
 # Built -DVIRTUAL -DBITS=16: at 16-bit codes the hash/code tables are far larger
@@ -575,7 +587,7 @@ $(BINDIR)/test $(BINDIR)/[: $(OBJ)/userland/cmd/test/y.tab.o $(CRT) $(LIBY) $(LI
 CMD_TARGETS := $(BIN_TARGETS) $(ETC_TARGETS) $(KERN_ETC_TARGETS) $(GAMES_TARGETS) \
 	$(addprefix $(BINDIR)/,$(FS_CMDS)) \
 	$(BINDIR)/factor $(BINDIR)/units $(BINDIR)/mail $(USRLIBDIR)/atrun $(USRLIBDIR)/diff3 \
-	$(BINDIR)/as $(BINDIR)/awk $(BINDIR)/bc $(BINDIR)/cu $(BINDIR)/dc \
+	$(BINDIR)/as $(BINDIR)/awk $(BINDIR)/bc $(BINDIR)/cu $(ETCDIR)/cuxcvr $(BINDIR)/dc \
 	$(BINDIR)/expr $(BINDIR)/find $(BINDIR)/grep $(BINDIR)/ps $(BINDIR)/mem \
 	$(BINDIR)/test $(BINDIR)/[ \
 	$(BINDIR)/diff $(USRLIBDIR)/diffh \
@@ -818,124 +830,28 @@ KERNEL_TARGETS := $(ROOT)/coherent $(FLOPPYDIR)/coherent $(ROOT)/etc/swap \
 kernel: $(KERNEL_TARGETS)
 
 # ===========================================================================
-# hr windowing system  (_graphics/hr -> build/root/{drv/hr, usr/hr/bin/*})
+# ZView windowing system  (src/userland/hr -> build/root/{drv/hr, usr/hr/*})
 # ===========================================================================
-# The recovered MGR-style window system: a loadable kernel driver (hr, major 7,
-# a superset of hrtty - it owns the framebuffer, keyboard IRQ, polled mouse AND
-# is the inter-process message switch), the screen-manager server (smgr), the
-# desktop/window manager (dmgr), the client job library (jlib -> lib.j), and the
-# graphics/clock managers + window clients.  See SMGR.md for the architecture and
-# the exact source fixes this revival needed (a reconstructed hdr/jlib.h, a
-# <con.h>->drvcon.h rename, two split nested struct-assignments, etc.).
+# The ORIGINAL MGR-style stack that used to be built here -- smgr, dmgr, jlib
+# (lib.j), gmgr, gsh, clock, clocksh, hrconsole -- is GONE (Aug 2026).  It was
+# the salvage this subsystem was reconstructed FROM, it was compiled out of an
+# untracked _graphics/ tree (so a fresh clone could not build `image' at all),
+# and every part of it has a shipping replacement below.  SMGR.md keeps the
+# architecture notes; the salvage tree is no longer needed to build anything.
+# What survived the removal, because the new stack needs it:
+#   - the hr driver, already moved to $(HRGUISRC)/drv/ (rule further down),
+#   - /dev/smgr and /dev/dmgr (hdd_devices.txt): zview and the clients still
+#     speak to the driver through those two minors,
+#   - the FM font files, now tracked at src/userland/hr/fonts/ (rule below) --
+#     three of them are what tools/mkfont.py turns into the .hf fonts.
 #
-# NOT part of `all`: this builds but cannot RUN yet - the emulator is headless
-# (no video/mouse; see SMGR.md 8.4).  It is an opt-in target like `floppy`.
-#
-# Layout: sources under $(HRSRC)/<component>/, objects mirror to $(HROBJ)/, the
-# server/clients install to $(HRBIN), the driver to $(DRVDIR)/hr.  Userland units
-# use the same K&R leniency as the rest of userland plus the hr headers; the
-# driver additionally needs the kernel headers/defines (it is kernel code).
-HRSRC  = _graphics/hr/src
-HRHDR  = _graphics/hr/hdr
-HROBJ  = $(OBJ)/hr
-HRBIN  = $(ROOT)/usr/hr/bin
-
-HRCFLAGS  = -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRHDR)
-# driver: kernel flags, with the hr headers LAST so the kernel headers win.
-HRKCFLAGS = $(KCFLAGS) -I$(HRHDR)
-# hr headers: hdr/ plus the system ones (and the kernel's, for the driver TU).
-HRHDRS   := $(wildcard $(HRHDR)/*.h) $(HDRS) $(KHDRS)
-
-# hr object pattern rules (the generic src/ rules don't match _graphics/).
-$(HROBJ)/%.o: $(HRSRC)/%.c $(HRHDRS)
-	@mkdir -p $(dir $@)
-	$(CC) $(HRCFLAGS) -c $< -o $@
-# hr assembly: block1/2 and small1/2 use cpp directives; cpp -P is a harmless
-# pass-through for the rest.  (Mirrors the historical smgr .s.o rule.)
-$(HROBJ)/%.o: $(HRSRC)/%.s $(HRHDRS)
-	@mkdir -p $(dir $@)
-	$(CPP) -P -I$(HRHDR) $< $@.i
-	$(AS) $(ASFLAGS) -o $@ $@.i
-# the driver translation unit (hr.c #includes hr2.c) needs the kernel flags.
-$(HROBJ)/driver/hr.o: HRCFLAGS = $(HRKCFLAGS)
-
-# --- screen manager (smgr) ---
-# GOBJ -> lib.g (graphics library); LOBJ + BLTOBJ + lib.g -> the smgr binary.
-# rmath.o (in LOBJ) is also bundled into lib.j and linked into dmgr.
-SMGR_GOBJ := $(addprefix $(HROBJ)/smgr/,gctrl.o gpoint.o gline.o gtext.o gtext2.o gcoord.o stubs.o glftn.o)
-SMGR_BLT  := $(addprefix $(HROBJ)/smgr/,ablt.o small1.o small2.o block1.o block2.o ptrmath.o)
-SMGR_LOBJ := $(addprefix $(HROBJ)/smgr/,f2.o bitblt.o globals.o kev.o layer.o masks.o rmath.o sm_funcs.o smgr.o wmgr.o fcpy.o)
-$(HROBJ)/smgr/lib.g: $(SMGR_GOBJ)
-	$(ar-kernel)
-$(HRBIN)/smgr: $(SMGR_BLT) $(SMGR_LOBJ) $(HROBJ)/smgr/lib.g $(CRT) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(SMGR_BLT) $(SMGR_LOBJ) $(HROBJ)/smgr/lib.g $(LIBC)
-
-# --- job library (jlib -> lib.j) ---
-JLIB_OBJ := $(addprefix $(HROBJ)/jlib/jl,$(addsuffix .o,1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21)) \
-	$(HROBJ)/jlib/jsend.o $(HROBJ)/jlib/job.o
-$(HROBJ)/jlib/lib.j: $(JLIB_OBJ) $(HROBJ)/smgr/rmath.o
-	$(ar-kernel)
-
-# --- desktop / window manager (dmgr) ---
-DESK_OBJ := $(addprefix $(HROBJ)/desk/,dpmath.o dalert.o dmenu1.o dmenu2.o dmesg.o dmouse.o \
-	dopen.o drect.o dshell.o dtext.o dstretch.o f1.o f2.o main.o)
-$(HRBIN)/dmgr: $(DESK_OBJ) $(HROBJ)/smgr/rmath.o $(CRT) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(DESK_OBJ) $(HROBJ)/smgr/rmath.o $(LIBC)
-
-# --- graphics manager + clients (link lib.j; -lm where the app uses it) ---
-$(HRBIN)/gmgr: $(HROBJ)/graph/gmgr.o $(HROBJ)/jlib/lib.j $(CRT) $(LIBM) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HROBJ)/graph/gmgr.o $(HROBJ)/jlib/lib.j $(LIBM) $(LIBC)
-$(HRBIN)/gsh: $(HROBJ)/graph/gsh.o $(HROBJ)/jlib/lib.j $(CRT) $(LIBM) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HROBJ)/graph/gsh.o $(HROBJ)/jlib/lib.j $(LIBM) $(LIBC)
-$(HRBIN)/clock: $(HROBJ)/clock/cmgr.o $(HROBJ)/clock/clock.o $(HROBJ)/jlib/lib.j $(CRT) $(LIBM) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HROBJ)/clock/cmgr.o $(HROBJ)/clock/clock.o $(HROBJ)/jlib/lib.j $(LIBM) $(LIBC)
-$(HRBIN)/clocksh: $(HROBJ)/clock/clocksh.o $(HROBJ)/jlib/lib.j $(CRT) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HROBJ)/clock/clocksh.o $(HROBJ)/jlib/lib.j $(LIBC)
-
-# --- the GUI launcher (hrconsole) --- loads /drv/hr, forks the five managers,
-# waits for the desktop (dmgr) to exit, then unloads the driver.  Self-contained
-# (spawn/waitc/panic are defined in hrconsole.c); links only libc.
-$(HRBIN)/hrconsole: $(HROBJ)/misc/hrconsole.o $(CRT) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HROBJ)/misc/hrconsole.o $(LIBC)
-
-# --- fonts --- installed verbatim from _graphics/hr/fonts/ to /usr/hr/fonts/.
-# smgr and dmgr require "sysfont" (the system font, == gacha.b.8) at startup.
-HRFONTSRC = _graphics/hr/fonts
-HRFONTS  := $(patsubst $(HRFONTSRC)/%,$(ROOT)/usr/hr/fonts/%,$(wildcard $(HRFONTSRC)/*))
-$(ROOT)/usr/hr/fonts/%: $(HRFONTSRC)/%
-	@mkdir -p $(dir $@)
-	cp $< $@
-
-# --- kernel driver (hr) --- loadable l.out, keep globals (-X) so `load` finds
-# the hrcon_ config symbol; bind -k against the symboled kernel; must be +x.
-# The driver carries NO font: hrgui loads the font file into the shared VRAM tail
-# (src/userland/hr/inc/shmem.h) and every client blits from that single copy.
-# NOTE: the rule that builds /drv/hr now lives in the ZView section below.  The
-# driver source moved out of the untracked _graphics/ salvage into the tracked
-# tree at $(HRGUISRC)/drv/; the legacy `hr' target still uses it, because there
-# is only one hr driver and now only one rule for it.
-
-HR_TARGETS := $(DRVDIR)/hr \
-	$(addprefix $(HRBIN)/,smgr dmgr gmgr gsh clock clocksh hrconsole) \
-	$(HRFONTS)
-hr: $(HR_TARGETS)
-
-# ZView - the rebuilt windowing system  (src/userland/hr -> build/root).
 # Built as part of the normal `all'/`image' build (its outputs are in
 # HRGUI_TARGETS, folded into `image' below) -- there is no separate target.
 # GUI.md's green-field rebuild: the rendering engine is salvaged from the old
 # _graphics/hr smgr into a standalone library libhrgfx.a (Phase 0), then a
 # single window server + clock client are built on top (Phase 1), replacing the
 # fragile jlib/coroutine/per-daemon IPC layer with one blocking-read server
-# over pipe(2) + a shared-VRAM ring.  (The historical `hr' target above builds
-# the original, buggy stack for reference.)
+# over pipe(2) + a shared-VRAM ring.
 #
 #   gfx/     libhrgfx.a  - the divorced rendering engine (asm blitters, bitblt,
 #                          layer clipper, line/point/text/font rasterizers).
@@ -970,6 +886,27 @@ HRGUIHDRS := $(wildcard $(HRGUISRC)/gfx/*.h $(HRGUISRC)/inc/*.h) $(HDRS)
 $(HRGUIOBJ)/%.o: $(HRGUISRC)/%.c $(HRGUIHDRS)
 	@mkdir -p $(dir $@)
 	$(CC) $(HRGFXCFLAGS) -c $< -o $@
+
+# masks.o: the engine constant tables, assembled into the SHARED half.
+# libhrgfx.sl's private half is copied into every GUI process at exec, so a
+# read-only table sitting in .prvd is paid for by every GUI client on the
+# machine -- ~850 bytes of fill patterns, blit edge masks and dispatch
+# tables were.  The compiler has no way to say "this data is read-only", so
+# the rule rewrites the one .prvd it emits for the unit to .shrd, GUARDED:
+# masks.c must be pure read-only data.  Code (.shri/.prvi) or a common
+# (.comm -- an uninitialised global) means someone put STATE in here, and
+# the rule fails rather than silently sharing it between processes.  (A
+# write to the shared half is a SIGSEGV under -n, so it is loud either way.)
+$(HRGUIOBJ)/gfx/masks.o: $(HRGUISRC)/gfx/masks.c $(HRGUIHDRS)
+	@mkdir -p $(dir $@)
+	$(CC) $(HRGFXCFLAGS) -S -o $@.s $<
+	@if grep -qE '^[ 	]*[.](shri|prvi|comm)' $@.s; then \
+		echo "masks.c must be pure read-only data (code or a common found)"; \
+		grep -nE '^[ 	]*[.](shri|prvi|comm)' $@.s; exit 1; fi
+	@grep -qE '^[ 	]*[.]prvd' $@.s || \
+		{ echo "masks.o: nothing to share -- rule is stale"; exit 1; }
+	sed 's/^[ 	]*[.]prvd/	.shrd/' $@.s > $@.shrd.s
+	$(AS) $(ASFLAGS) -o $@ $@.shrd.s
 $(HRGUIOBJ)/%.o: $(HRGUISRC)/%.s $(HRGUIHDRS)
 	@mkdir -p $(dir $@)
 	$(CPP) -P -I$(HRGFXDIR) $< $@.i
@@ -980,7 +917,18 @@ $(HRGUIOBJ)/%.o: $(HRGUISRC)/%.s $(HRGUIHDRS)
 # here, so use the plain kernel-style archive rule.
 HRGFX_ASM := $(addprefix $(HRGUIOBJ)/gfx/,ablt.o small1.o small2.o block1.o block2.o ptrmath.o fcpy.o glftn.o)
 HRGFX_C   := $(addprefix $(HRGUIOBJ)/gfx/,bitblt.o lblt.o layer.o masks.o rmath.o gcoord.o gline.o gpoint.o gtext.o gtext2.o f2.o gfxhooks.o)
+# Server-only engine units, filtered out of libhrgfx.sl: layer.o is the layer
+# manager; gtext2.o is the screen-manager cursor/scroll half (SM_DefCurs,
+# SM_DrawCurs, SM_Scroll -- only layer.c calls any of them) and it carries
+# 1 280 bytes of SM_REGION scratch (s[], cheater[]) that every client used
+# to copy at exec for code it can never reach.
+SRVONLY := $(addprefix $(HRGUIOBJ)/gfx/,layer.o gtext2.o)
 HRGFX_GLOB := $(HRGUIOBJ)/gfx/globals.o
+# globals_srv.o: the server-only half of the engine globals (layer list,
+# damage queue, window table, mouse).  NOT in the .sl -- its private half
+# is copied into every GUI process, so a server-only buffer there is a
+# per-process cost.  Linked by the server side (zview, gfxtest) only.
+HRGFX_SRVGLOB := $(HRGUIOBJ)/gfx/globals_srv.o
 # libhrgfx.a is a build-time-only artifact (statically linked into the server
 # and test); keep it in the obj tree so it is not packed into the disk image.
 LIBHRGFX  := $(HRGUIOBJ)/libhrgfx.a
@@ -990,9 +938,9 @@ $(LIBHRGFX): $(HRGFX_ASM) $(HRGFX_C)
 
 # Phase 0 draw test: links libhrgfx + globals.o + libc only (no server, no IPC).
 # That it links with no undefined message/jlib symbols IS the divorce gate.
-$(HRGUIBIN)/gfxtest: $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+$(HRGUIBIN)/gfxtest: $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(HRGFX_SRVGLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(HRGFX_SRVGLOB) $(LIBHRGFX) $(LIBC)
 
 # --- Phase 1: window server + clock client ---
 # Both need the shared wire protocol header in addition to the engine headers.
@@ -1008,7 +956,7 @@ $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zview/zvpump.o \
 	$(HRGUIOBJ)/vellum/velcmd.o $(HRGUIOBJ)/vellum/veldlg.o \
 	$(HRGUIOBJ)/vellum/velbase.o $(HRGUIOBJ)/vellum/velport.o \
 	$(HRGUIOBJ)/vellum/velxmain.o $(HRGUIOBJ)/vellum/veldlgm.o \
-	$(HRGUIOBJ)/vellum/velprev.o $(HRGUIOBJ)/vellum/velpal.o \
+	$(HRGUIOBJ)/vellum/velprev.o \
 	$(HRGUIOBJ)/zmaze/zmaze.o $(HRGUIOBJ)/zmaze/zmcore.o \
 	$(HRGUIOBJ)/zwidg/zwclock.o $(HRGUIOBJ)/zwidg/zwwin.o \
 	$(HRGUIOBJ)/clgfx/clgfx.o $(HRGUIOBJ)/clgfx/hrlock.o \
@@ -1086,7 +1034,7 @@ SHLIB := $(LIBDIR)/libhrgfx.sl
 # behind the library data (and a client's OWN heap, if it pulls its own
 # malloc, stays in its own data segment -- the two coexist).
 SLCRT := $(OBJ)/userland/lib/csu/slcrt.o
-SLGFX_OBJ := $(HRGFX_ASM) $(filter-out $(HRGUIOBJ)/gfx/layer.o,$(HRGFX_C)) \
+SLGFX_OBJ := $(HRGFX_ASM) $(filter-out $(SRVONLY),$(HRGFX_C)) \
 	$(HRGFX_GLOB) $(CLGFX) $(HRSEL) $(HRDLG) $(HRSBAR) $(HRWL) $(HRWIDG)
 
 $(SHLIB): $(SLCRT) $(SLGFX_OBJ) $(DTOA) $(LIBC) tools/mkslib.py
@@ -1130,10 +1078,18 @@ $(LIBC_SL): $(SLIBC_OBJ) tools/mkslib.py
 # Linked -n: zview fork()s for every app launch (launchapp), driver loads, the
 # rc and the watchdog -- shared text turns each ~55K transient text copy into a
 # refcount bump, flattening the RAM spike at exactly the moment apps start.
-$(HRGUIBIN)/zview: LDNFLAGS := -n
-$(HRGUIBIN)/zview: $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+# -L as well as -n since Aug 2026: the blit templates moved from the private
+# half to the shared one (small1/small2/block2.s -- nothing in them is ever
+# written), which is a saving in every GUI CLIENT but lands in the SERVER as
+# shared text, and zview had ~100 bytes of headroom under the 64 K segment.
+# -L is the documented answer (VELLUM.md sec. 54.1): ld spans a run of
+# segments and pads any module that would straddle a boundary, so the wall is
+# 2 x 64 K here and segtrip measures against that.
+$(HRGUIBIN)/zview: LDNFLAGS := -n -L
+$(HRGUIBIN)/zview: $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRSEL) $(HRGFX_GLOB) $(HRGFX_SRVGLOB) $(LIBHRGFX) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
-	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRSEL) $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/zview/zview.o $(HRLOCK) $(HRSEL) $(HRGFX_GLOB) $(HRGFX_SRVGLOB) $(LIBHRGFX) $(LIBC)
+	@$(PYTHON) tools/segtrip.py --gate 95 --tsegs 2 $@
 
 # zvpump / zvwatch: zview's input pump and crash watchdog as TINY libc-only
 # programs, exec'd over what would otherwise be full ~69Kb fork copies of the
@@ -1244,7 +1200,7 @@ $(HRGUIBIN)/zpuzzle: $(HRGUIOBJ)/zpuzzle/zpuzzle.o $(SHLIB) $(CRT) $(LIBC)
 # Vellum: a SUITE of small tools over one library, not one program with a
 # mode flag.  Installed under its own prefix (/usr/vellum/{bin,lib,sym,etc})
 # like a proper application: bin/ the commands, lib/ libvellum.a and the
-# helper BINARIES the editor execs (veldlg, velprev, velpal), sym/ the stock
+# helper BINARIES the editor execs (velprev), sym/ the stock
 # stencil libraries, etc/ the start-up library list, the Makefile skeletons
 # and the user scratch library.
 #
@@ -1293,10 +1249,10 @@ VELLIB := $(ROOT)/usr/vellum/lib
 # Member ORDER is load-bearing: Coherent's ld makes ONE pass over an
 # archive, so a member may only reference members BELOW it.  The
 # order below is therefore the dependency order, consumers first and
-# the stateless leaf last -- and it is also the bill: velpal paints
-# the editor's palette and pulls velgfx, vellib, velsymg, velmath
-# and NOTHING ELSE, which is 20 000 bytes of drawing table it used
-# to carry because every model global lived in one file.
+# the stateless leaf last -- and it is also the bill: a client
+# that merely paints stencils pulls velgfx, vellib, velsymg and
+# velmath and NOTHING ELSE, instead of the 20 000 bytes of
+# drawing table one file of globals used to force.
 VELLIBOBJ := $(HRGUIOBJ)/vellum/velnetc.o $(HRGUIOBJ)/vellum/velrept.o \
 	$(HRGUIOBJ)/vellum/velwalk.o $(HRGUIOBJ)/vellum/velsnap.o \
 	$(HRGUIOBJ)/vellum/velsheet.o $(HRGUIOBJ)/vellum/velfile.o \
@@ -1315,7 +1271,7 @@ VELCFLAGS := -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(HRGFXDIR) \
 
 # the editor proper
 VELOBJ := $(HRGUIOBJ)/vellum/vellum.o $(HRGUIOBJ)/vellum/velcmd.o \
-	$(HRGUIOBJ)/vellum/veldlg.o
+	$(HRGUIOBJ)/vellum/veldlg.o $(HRGUIOBJ)/vellum/veldlgm.o
 # one main + its own operation, per tool
 VELPLOTOBJ  := $(HRGUIOBJ)/vellum/velplot.o
 VELPICOBJ   := $(HRGUIOBJ)/vellum/velpic.o
@@ -1331,17 +1287,12 @@ VELGOBJ     := $(HRGUIOBJ)/vellum/velgraph.o
 # primitives, over the same model/format, so the preview window draws
 # exactly the walk the Epson bands get.
 VELPOBJ := $(HRGUIOBJ)/vellum/velprev.o
-# velpal: the palette-bank painter (VELLUM.md sec. 39) -- the editor's
-# bank drawing, seceded on the zdock widget pattern: cl_subinit onto the
-# editor's own palette rect, poked by SIGALRM, synced through the GDS
-# tail block (shmem.h SHM_VELPAL).
-VELPALOBJ := $(HRGUIOBJ)/vellum/velpal.o
 
 VELALLOBJ := $(VELLIBOBJ) $(VELOBJ) $(VELPLOTOBJ) $(VELPICOBJ) \
 	$(HRGUIOBJ)/vellum/snaptest.o \
 	$(VELDXFOBJ) $(VELNETOBJ) $(VELCHECKOBJ) $(VELDIFFOBJ) \
-	$(VELINFOOBJ) $(VELSYMOBJ) $(VELGOBJ) $(VELPOBJ) $(VELPALOBJ) \
-	$(HRGUIOBJ)/vellum/veldlgm.o $(HRGUIOBJ)/vellum/symedit.o
+	$(VELINFOOBJ) $(VELSYMOBJ) $(VELGOBJ) $(VELPOBJ) \
+	$(HRGUIOBJ)/vellum/symedit.o
 $(VELALLOBJ): src/userland/hr/vellum/vellum.h
 $(VELALLOBJ): $(HRGUIOBJ)/%.o: $(HRGUISRC)/%.c $(HRGUIHDRS)
 	@mkdir -p $(dir $@)
@@ -1438,21 +1389,10 @@ $(VELLIB)/velprev: $(VELPOBJ) $(LIBVEL) $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s -n -o $@ $(CRT) $(VELPOBJ) $(LIBVEL) $(SHLIB) $(LIBC)
 
-$(VELLIB)/velpal: $(VELPALOBJ) $(LIBVEL) $(SHLIB) $(CRT) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -n -o $@ $(CRT) $(VELPALOBJ) $(LIBVEL) $(SHLIB) $(LIBC)
-
 $(VELBIN)/symedit: LDNFLAGS := -n
 $(VELBIN)/symedit: $(HRGUIOBJ)/vellum/symedit.o $(LIBVEL) $(SHLIB) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s $(LDNFLAGS) -o $@ $(CRT) $(HRGUIOBJ)/vellum/symedit.o $(LIBVEL) $(SHLIB) $(LIBC)
-
-# The dialog HELPER (veldlgm.c): every editor dialog, run in a spawned
-# process on the editor's window (hr_attach), keeping the editor under
-# its text tripwire.
-$(VELLIB)/veldlg: $(HRGUIOBJ)/vellum/veldlgm.o $(LIBVEL) $(SHLIB) $(CRT) $(LIBC)
-	@mkdir -p $(dir $@)
-	$(LD) -s -n -o $@ $(CRT) $(HRGUIOBJ)/vellum/veldlgm.o $(LIBVEL) $(SHLIB) $(LIBC)
 
 # Vellum's data files (src/userland/hr/vellum -> the /usr/vellum tree).
 $(ROOT)/usr/vellum/sym/%.sym: src/userland/hr/vellum/%.sym
@@ -1588,6 +1528,17 @@ $(HRGUIBIN)/hrclip: $(HRGUIOBJ)/cmd/hrclip.o $(HRSEL) $(HRLOCK) $(CRT) $(LIBC)
 	@mkdir -p $(dir $@)
 	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/cmd/hrclip.o $(HRSEL) $(HRLOCK) $(LIBC)
 
+# --- fonts --- the FM bitmap fonts, installed verbatim from the source tree
+# to /usr/hr/fonts/.  They came out of the original MGR salvage and are now
+# tracked at src/userland/hr/fonts/, because three of them (gacha.r.7,
+# gacha.b.8, sail.r.6) are the INPUT to the .hf rule right below -- without
+# them the shipping window server has no font to load and will not come up.
+HRFONTSRC = src/userland/hr/fonts
+HRFONTS  := $(patsubst $(HRFONTSRC)/%,$(ROOT)/usr/hr/fonts/%,$(wildcard $(HRFONTSRC)/*))
+$(ROOT)/usr/hr/fonts/%: $(HRFONTSRC)/%
+	@mkdir -p $(dir $@)
+	cp $< $@
+
 # The ZView system fonts: generated into the shared-VRAM .hf format the server
 # loads into the tail (tools/mkfont.py); every client blits from that single
 # copy -- no relink, no per-glyph trap.  All three come from the FM fonts:
@@ -1654,12 +1605,12 @@ HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(SHLIB) $(HRGUIBIN)/gfxtest $(HRGUIBI
 	$(VELBIN)/velnet $(VELBIN)/velcheck $(VELBIN)/veldiff \
 	$(VELBIN)/velinfo $(VELBIN)/velsym $(VELBIN)/velgraph \
 	$(VELTESTBIN) \
-	$(LIBVEL) $(VELLIB)/veldlg \
-	$(VELLIB)/velprev $(VELLIB)/velpal \
+	$(LIBVEL) \
+	$(VELLIB)/velprev \
 	$(HRGUIBIN)/zdock \
 	$(HRGUIBIN)/zwclock $(HRGUIBIN)/zwmem $(HRGUIBIN)/zwwin \
 	$(HRGUIBIN)/ptytest $(HRGUIBIN)/zterm $(HRGUIBIN)/hrpump $(HRGUIBIN)/hrclip \
-	$(HRGUIFONTS) \
+	$(HRFONTS) $(HRGUIFONTS) \
 	$(ROOT)/usr/hr/etc/apps $(ROOT)/usr/hr/etc/dock $(ROOT)/usr/hr/etc/rc \
 	$(ROOT)/usr/vellum/etc/symbols $(ROOT)/usr/vellum/etc/libs \
 	$(ROOT)/usr/vellum/etc/frame.d $(ROOT)/usr/vellum/etc/project.mk \
@@ -1771,7 +1722,7 @@ DISKIMG      := $(DISTDIR)/hdd.bin
 HDD_MANIFEST := $(SRC)/image/hdd_manifest.txt
 HDD_DEVICES  := $(SRC)/image/hdd_devices.txt
 
-image: headers libs cmds kernel dist man hr $(HRGUI_TARGETS)
+image: headers libs cmds kernel dist man $(HRGUI_TARGETS)
 	$(PYTHON) tools/build_disk.py --root "$(ROOT)" \
 	    --perms "$(HDD_MANIFEST)" --devices "$(HDD_DEVICES)" --out "$(DISKIMG)"
 
@@ -1818,6 +1769,6 @@ floppy: $(FLOPPYDIR)/coherent $(FLOPPY_SRCS)
 	    --perms "$(FLOPPY_MANIFEST)" --devices "$(FLOPPY_DEVICES)" --out "$(FLOPPYIMG)"
 
 clean:
-	rm -rf $(OBJ) $(LIBS) $(CMD_TARGETS) $(KERNEL_TARGETS) $(HR_TARGETS) $(HRGUI_TARGETS) $(DIST_TARGETS) \
+	rm -rf $(OBJ) $(LIBS) $(CMD_TARGETS) $(KERNEL_TARGETS) $(HRGUI_TARGETS) $(DIST_TARGETS) \
 	       $(ROOT)/usr/man \
 	       $(DISKIMG) $(FLOPPYIMG) $(FLOPPYDIR)

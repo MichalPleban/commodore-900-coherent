@@ -49,14 +49,12 @@ static	RECT	lnBox;		/* vis rect ANDed with gkClip	*/
 static	int	lnRn,		/* #of clipping rects in lnRect	*/
 		lnPat;		/* pattern number		*/
 
-static	uint	(*lnFtn)(),		/* ^current logical function	*/
-		(*lnFtnTbl[L_BLTMAX])() =
-		{
-			_lfalse,  _land,  _landn, _lsrc,
-			_lnand,	  _ldst,  _lxor,  _lor,
-			_lnandn,  _lnxor, _lndst, _lorn,
-			_lnsrc,	  _lnor,  _lnorn, _ltrue
-		};
+static	uint	(*lnFtn)();	/* ^current logical function	*/
+
+/* The dispatch table is CONSTANT, so it lives in masks.c with the engine's
+ * other read-only tables (which are assembled into the shared half of the
+ * shared library instead of the per-process private one). */
+extern	uint	(*lnFtnTbl[])();
 
 
 void

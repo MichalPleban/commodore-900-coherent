@@ -29,12 +29,6 @@ rm -f /tmp/* /tmp/.??*
 /etc/update&
 /etc/cron&
 date >/dev/console
-: "hr windowing system: start the GUI desktop only when explicitly enabled"
-: "-- create the flag with:  touch /etc/hrgui .  hrconsole loads /drv/hr,"
-: "which seizes the keyboard IRQ and the bitmap framebuffer, so it REPLACES"
-: "the text console.  Off by default so serial-console and video-less"
-: "emulator boots are unaffected.  See SMGR.md for the startup sequence."
-if [ -f /etc/hrgui ]; then /usr/hr/bin/hrconsole & fi
 : "ZView, see GUI.md: the single-server window system + clock/terminal"
 : "windows.  Enable with:  touch /etc/wgui .  zview loads /drv/hr itself,"
 : "so it also replaces the text console; off by default.  Root is already"

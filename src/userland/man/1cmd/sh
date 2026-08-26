@@ -278,6 +278,63 @@ enclosing
 or
 .B until
 loop (default the innermost).
+.SH "COMMAND HISTORY"
+When
+.B sh
+reads commands from a terminal it collects each line itself, and
+remembers the last 64 lines typed.
+The cursor keys step through them: the line on the screen is rubbed
+out and the remembered one is typed in its place, ready to be edited
+and entered again.
+A line is remembered only if it is not empty and not the same as the
+line before it.
+.PP
+Terminals disagree about what a cursor key sends, so
+.B sh
+accepts all three of the forms this system produces (a serial
+terminal in keypad-application mode sends ESC O A and ESC O B,
+which are taken too):
+.DS
+.ta 10n 20n
+\fBUp\fR	\fBDown\fR	\fBTerminal\fR
+CTRL-P	CTRL-N	a window under \fBzview\fR
+ESC [ A	ESC [ B	a serial terminal
+0x80	0x83	the hi-res console keyboard
+.DE
+.PP
+Editing within the line is what cooked mode offers and no more: the
+erase character rubs out the last character typed and the kill
+character (see
+.BR stty )
+discards the whole line; there is no way to move the cursor back into
+a line.
+The hi-res console's CLEAR ENTRY key also discards the line.
+The interrupt, quit, end-of-file and flow-control characters keep
+their usual meanings, and are acted on by
+.B sh
+itself, because the terminal driver does not see them while a line is
+being typed.
+A tab may be typed and is passed through, but it is echoed as a single
+space so that the erase character stays in step with the screen; other
+control characters are ignored.
+.PP
+The history is held in memory and belongs to one shell: it is not
+written to a file, and it is not shared with any other shell.
+The variable
+.B HISTSIZE
+sets how many lines are remembered, to a maximum of 64.
+A
+.B HISTSIZE
+of
+.B 0
+turns the whole thing off, and input reverts to ordinary cooked-mode
+lines with no history and no cursor keys.
+.B HISTSIZE
+is read once, when the first line is read from the terminal, so set it
+in
+.B .profile
+or start the shell with
+.BR "HISTSIZE=0 sh" .
 .SH "SPECIAL COMMANDS"
 The following commands are built into
 .B sh

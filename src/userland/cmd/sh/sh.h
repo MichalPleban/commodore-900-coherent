@@ -262,6 +262,8 @@ extern	BUF	**savebuf();		/* in alloc.c */
 extern	char	**vdupl();		/* in alloc.c */
 extern	char	*gany();		/* in glob.c */
 extern	int	sigintr();		/* in trap.c */
+extern	int	hisok();		/* in hist.c */
+extern	int	hisgetc();		/* in hist.c */
 extern	VAR	*findvar();		/* in var.c */
 extern	VAR	*setsvar();		/* in var.c */
 extern	VAR	*flagvar();		/* in var.c */

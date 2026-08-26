@@ -441,7 +441,16 @@ getn()
 			prompt(comflag ? vps1 : vps2);
 			comflag = 0;
 		}
-		if ((c=getc(sesp->s_ifp))=='\n') {
+		/*
+		 * An interactive terminal is read a whole line at a time by
+		 * hist.c, which does the echoing and the cursor-key recall;
+		 * everything else still comes through stdio.
+		 */
+		if (sesp->s_flag && hisok(fileno(sesp->s_ifp)))
+			c = hisgetc(fileno(sesp->s_ifp));
+		else
+			c = getc(sesp->s_ifp);
+		if (c == '\n') {
 			if (sesp->s_flag) {
 				prpflag = 1;
 				yyline = 1;

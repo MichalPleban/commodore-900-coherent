@@ -1,0 +1,41 @@
+
+
+vveellppiicc                                                     vveellppiicc
+
+
+
+NNAAMMEE
+     velpic - a vellum drawing as troff pic source
+
+SSYYNNOOPPSSIISS
+     vveellppiicc _f_i_l_e._d ... > _f_i_g._p_i_c
+
+DDEESSCCRRIIPPTTIIOONN
+     vveellppiicc writes the drawings named on its command line to
+     standard output as ppiicc source, for figures in manuals and
+     reports.  Smooth polylines come out as pic splines; layers
+     marked no-print, and the construction layer, are skipped.
+
+     The scale is PINNED at 16 grid units to the inch and there
+     is no option to change it.  A figure that changed size when
+     somebody passed a flag would set differently in every docu-
+     ment that included it, and the point of a figure is that it
+     does not.
+
+     The file name - is standard input, so a generated drawing
+     becomes a figure with no temporary file: vveelliinnffoo -ssyymmsshheeeett
+     ppiidd.ssyymm | vveellppiicc - .
+
+EEXXAAMMPPLLEESS
+     A drawing per figure, in a Makefile:
+
+                  .SUFFIXES: .d .pic
+                  .d.pic: ; velpic $< > $@
+
+SSEEEE AALLSSOO
+     vveelllluumm , vveellpplloott , vveellddxxff , nnrrooffff
+
+NNOOTTEESS
+     A markup drawing from vveellddiiffff -mmaarrkk is an ordinary drawing,
+     so this program draws it: the review copy on the wall and
+     the figure in the manual come out of the same tool.

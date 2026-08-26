@@ -179,6 +179,56 @@ sshh                                                             sshh
      tion of, the _nth enclosing ffoorr, wwhhiillee, or uunnttiill loop
      (default the innermost).
 
+CCOOMMMMAANNDD HHIISSTTOORRYY
+     When sshh reads commands from a terminal it collects each line
+     itself, and remembers the last 64 lines typed.  The cursor
+     keys step through them: the line on the screen is rubbed out
+     and the remembered one is typed in its place, ready to be
+     edited and entered again.  A line is remembered only if it
+     is not empty and not the same as the line before it.
+
+     Terminals disagree about what a cursor key sends, so sshh ac-
+     cepts all three of the forms this system produces (a serial
+     terminal in keypad-application mode sends ESC O A and ESC O
+     B, which are taken too):
+
+
+COHERENT Command Manual                                    Page 3
+
+
+
+
+sshh                                                             sshh
+
+
+
+          UUpp        DDoowwnn      TTeerrmmiinnaall
+          CTRL-P    CTRL-N    a window under zzvviieeww
+          ESC [ A   ESC [ B   a serial terminal
+          0x80      0x83      the hi-res console keyboard
+
+     Editing within the line is what cooked mode offers and no
+     more: the erase character rubs out the last character typed
+     and the kill character (see ssttttyy) discards the whole line;
+     there is no way to move the cursor back into a line.  The
+     hi-res console's CLEAR ENTRY key also discards the line.
+     The interrupt, quit, end-of-file and flow-control characters
+     keep their usual meanings, and are acted on by sshh itself,
+     because the terminal driver does not see them while a line
+     is being typed.  A tab may be typed and is passed through,
+     but it is echoed as a single space so that the erase charac-
+     ter stays in step with the screen; other control characters
+     are ignored.
+
+     The history is held in memory and belongs to one shell: it
+     is not written to a file, and it is not shared with any
+     other shell.  The variable HHIISSTTSSIIZZEE sets how many lines are
+     remembered, to a maximum of 64.  A HHIISSTTSSIIZZEE of 00 turns the
+     whole thing off, and input reverts to ordinary cooked-mode
+     lines with no history and no cursor keys.  HHIISSTTSSIIZZEE is read
+     once, when the first line is read from the terminal, so set
+     it in .pprrooffiillee or start the shell with HHIISSTTSSIIZZEE=00 sshh.
+
 SSPPEECCIIAALL CCOOMMMMAANNDDSS
      The following commands are built into sshh and are executed
      without a ffoorrkk:
@@ -190,17 +240,6 @@ SSPPEECCIIAALL CCOOMMMMAANNDDSS
      . _f_i_l_e    Read and execute commands from _f_i_l_e (searched for
                along PPAATTHH), in the current shell, without posi-
                tional parameters of its own.
-
-
-
-COHERENT Command Manual                                    Page 3
-
-
-
-
-sshh                                                             sshh
-
-
 
      ccdd [_d_i_r]  Change the working directory to _d_i_r (default
                HHOOMMEE).
@@ -218,6 +257,17 @@ sshh                                                             sshh
                the status of the last command).
 
      eexxppoorrtt [_n_a_m_e ...]
+
+
+COHERENT Command Manual                                    Page 4
+
+
+
+
+sshh                                                             sshh
+
+
+
                Mark each _n_a_m_e so that its value is passed to the
                environment of commands the shell runs; with no
                arguments, print the exported names and values.
@@ -257,17 +307,6 @@ sshh                                                             sshh
                shell's own exit.  With no arguments at all, print
                the traps now set.
 
-
-
-COHERENT Command Manual                                    Page 4
-
-
-
-
-sshh                                                             sshh
-
-
-
      uummaasskk [_n_n_n]
                Set the file-creation mask to the octal value _n_n_n;
                with no argument, print the current mask.
@@ -283,6 +322,17 @@ CCOOMMMMAANNDD-LLIINNEE OOPPTTIIOONNSS
 
      -ee   If the shell is not interactive, exit as soon as any
           command returns a nonzero status or is not found.
+
+
+
+COHERENT Command Manual                                    Page 5
+
+
+
+
+sshh                                                             sshh
+
+
 
      -ii   Treat the shell as interactive (print prompts, and ig-
           nore SSIIGGTTEERRMM and SSIIGGIINNTT) even if its input is not a
@@ -323,18 +373,7 @@ SSEEEE AALLSSOO
 DDIIAAGGNNOOSSTTIICCSS
      sshh writes a diagnostic to the standard error for a syntax
      error, an unknown command, an illegal redirection, or an
-
-
-COHERENT Command Manual                                    Page 5
-
-
-
-
-sshh                                                             sshh
-
-
-
-     iilllleeggaall variable name; a syntax error terminates a noninter-
+     illegal variable name; a syntax error terminates a noninter-
      active shell.  sshh returns the exit status of the last com-
      mand it ran, or the status given to eexxiitt.
 
@@ -350,3 +389,14 @@ NNOOTTEESS
      There is no shell-function facility, no arithmetic expan-
      sion, and no $(_c_o_m_m_a_n_d) form of command substitution in this
      sshh; use grave accents for command substitution.
+
+
+COHERENT Command Manual                                    Page 6
+
+
+
+
+sshh                                                             sshh
+
+
+

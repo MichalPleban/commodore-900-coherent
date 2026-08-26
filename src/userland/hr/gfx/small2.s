@@ -13,7 +13,9 @@
 #define dst2l r13
 
 
-.prvi
+// .shri, not .prvi: see small1.s -- these routines are executed in place
+// and never patched, so they are shared text, not per-process data.
+.shri
 
 .globl smt7, smt8, smt9, smt10, smt11, smt12, smt13, smt14, smt15
 .globl smb7, smb8, smb9, smb10, smb11, smb12, smb13, smb14, smb15

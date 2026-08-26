@@ -4,8 +4,8 @@
  *
  * Split from velfile.c (Aug 2026) for the same reason velsymg was
  * split from velbase: a client can want the stencils without wanting a
- * DRAWING.  velpal paints the editor's palette bank and calls exactly
- * one thing here -- loadlib -- but velfile.o also holds the .d format,
+ * DRAWING.  Such a client calls exactly one thing here -- loadlib --
+ * but velfile.o also holds the .d format,
  * whose parsers write the object table, and Coherent's ld pulls a
  * member whole.  So loading a library used to cost 20 000 bytes of
  * drawing table that was never read.

@@ -8,8 +8,8 @@
  *
  * The SYMBOL half is velsymg.c and the stateless geometry is velmath.c,
  * both separate members: this one carries 20 000 bytes of drawing
- * table and pools, and a client that only paints stencils (velpal)
- * should not link a byte of it.  Coherent's ld pulls a member whole,
+ * table and pools, and a client that only paints stencils should not
+ * link a byte of it.  Coherent's ld pulls a member whole,
  * so what shares a file is a decision about what a client pays for.
  */
 #include <stdio.h>

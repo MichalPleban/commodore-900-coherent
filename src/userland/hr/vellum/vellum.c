@@ -1132,81 +1132,155 @@ palvis()
 	return v;
 }
 
-/* ---- the palette BANK is painted by a resident helper now (velpal,
- * VELLUM.md sec. 39 -- the editor's last big severable surface, seceded
- * on the zdock widget pattern): the editor keeps hit-testing (palpress),
- * arming and drawsymat; velpal owns drawpal/palbank1/palarrow.  The
- * protocol is the 12-byte GDS sync block (shmem.h SHM_VELPAL) plus a
- * SIGALRM poke; velpal repaints by generation, never by suspicion. ---- */
+/* ---- the palette BANK -------------------------------------------------
+ * Painted in place: the bank was a separate process (velpal) for one
+ * release, on the zdock widget pattern, when the editor's text was
+ * believed to be against a hard 64 K wall; `ld -L' dissolved that, and
+ * the helper cost a SECOND parsed copy of every stencil library plus a
+ * shared-memory sync block, so it is back where it is drawn.  Its cell
+ * coordinates were the palette rect's own -- here every y is a WINDOW y:
+ * the bank starts at CANY and its foot is the arrow bar above the status
+ * line.  The damage discipline is unchanged (flush()): a full bank pass
+ * only when ddpal or the row moved, and an arming change repaints
+ * exactly the two cells whose state flipped. ---- */
 
-#define	VELPAL	"/usr/vellum/lib/velpal"
-
-int	vpwait;			/* pokes seen while vp_pid was still 0    */
-
-/* (Re)start the helper: the palette rect of OUR window and the loaded
- * library paths IN ORDER, so its symbol table gets our group indices. */
-vpspawn()
-{
-	static char wbuf[40];
-	static char *av[MAXLIB + 4];
-	register HRVELPAL *v;
-	register int i, n;
-
-	v = hr_velpal();
-	v->vp_pid = 0;
-	v->vp_fullgen = 1;
-	v->vp_gen = 1;
-	v->vp_lib = curlib;
-	v->vp_row = palrow;
-	v->vp_arm = armcode();
-	sprintf(wbuf, "%d,0,%d,%d,%d,%d", mywid, CANY, PALW,
-		conth - STH, getpid());
-	av[0] = VELPAL;
-	av[1] = "-W";
-	av[2] = wbuf;
-	n = 3;
-	for ( i = 0; i < nlib; i++ )
-		av[n++] = libpath[i];
-	av[n] = (char *)0;
-	spawn(av);
-	vpwait = 0;
-	return 0;
-}
-
-/* Stop it (window resize, a new library, editor exit). */
-vpkill()
-{
-	register HRVELPAL *v;
-
-	v = hr_velpal();
-	if ( v->vp_pid )
-		kill((int)v->vp_pid, SIGTERM);
-	v->vp_pid = 0;
-	return 0;
-}
-
-/* Publish the palette state and poke the helper; full = the bank's
- * pixels are stale (expose / view change), not just the state. */
+/* the palette rect's height */
 static
-palpoke(full)
+palh()
 {
-	register HRVELPAL *v;
+	return conth - STH - CANY;
+}
 
-	v = hr_velpal();
-	if ( full )
-		v->vp_fullgen++;
-	v->vp_lib = curlib;
-	v->vp_row = palrow;
-	v->vp_arm = armcode();
-	v->vp_gen++;
-	if ( v->vp_pid )
+/* a scroll arrow: a small filled triangle */
+static
+palarrow(x, y, down)
+{
+	register int i;
+	int cx, ty;
+
+	cx = x + SCW / 2;
+	ty = y + (ABAR - 5) / 2;
+	for ( i = 0; i < 5; i++ )
+		cl_line(cx - (down ? 4 - i : i), ty + i,
+			cx + (down ? 4 - i : i), ty + i, 0);
+	return 0;
+}
+
+/* ONE bank cell (bank position k), armed state `arm': a symbol preview,
+ * or -- shapes group -- a mini parametric shape, connector glyph, arc,
+ * net or dimension cell.  A k outside the visible rows is a no-op, so a
+ * palcellof() miss (-1) costs nothing. */
+static
+palbank1(k, arm)
+{
+	register SYMDEF *s;
+	int x, y, ox, oy;
+
+	if ( k < palrow * 2 || k >= (palrow + palvis()) * 2 || k >= npal )
+		return 0;
+	x = (k & 1) * SCW;
+	y = CANY + LHDR + ((k >> 1) - palrow) * SCH;
+	cl_fillrect(x, y, x + SCW, y + SCH, 1);
+	if ( palsh )
 	{
-		if ( kill((int)v->vp_pid, SIGALRM) >= 0 )
-			return 0;
-		vpspawn();		/* really dead (init reaped it) */
+		if ( k < NSHAPE )
+			shapeoutline(k, x + 5, y + 6, x + SCW - 6,
+				     y + SCH - 7, 0);
+		else if ( k < NSHAPE + NCONNS )
+		{
+			int cs, x0, y0, x1, y1;
+
+			cs = k - NSHAPE;
+			x0 = x + 5;   y0 = y + SCH - 9;
+			x1 = x + SCW - 6;   y1 = y + 8;
+			if ( cs == CS_HV || cs == CS_HARROW )
+			{
+				cl_line(x0, y0, x1, y0, 0);
+				cl_line(x1, y0, x1, y1, 0);
+			}
+			else
+				cl_line(x0, y0, x1, y1, 0);
+			if ( cs == CS_ARROW )
+				arrowhead(x1, y1, x1 - x0, y1 - y0);
+			else if ( cs == CS_HARROW )
+				arrowhead(x1, y1, 0, y1 - y0);
+		}
+		else if ( k == PC_ARC )
+			arcline(x + 4, y + SCH - 6, 22, 10, 80, 0);
+		else if ( k == PC_NET )
+			cl_ptext(SHM_FICON, x + (SCW - 18) / 2,
+				 y + (SCH - 8) / 2, "Net");
+		else			/* Dim: a sample dimension */
+		{
+			int ym;
+
+			ym = y + SCH / 2 + 4;
+			cl_line(x + 5, ym - 4, x + 5, ym + 4, 0);
+			cl_line(x + SCW - 6, ym - 4, x + SCW - 6, ym + 4, 0);
+			cl_line(x + 5, ym, x + SCW - 6, ym, 0);
+			arrowhead(x + 5, ym, -8, 0);
+			arrowhead(x + SCW - 6, ym, 8, 0);
+			cl_ptextt(SHM_FICON, x + (SCW - 12) / 2, y + 3, "12");
+		}
+		palcell(x, y, SCW, SCH, arm == 1000 + k);
+		return 0;
 	}
-	else if ( ++vpwait > 8 )
-		vpspawn();		/* the exec never came up: retry */
+	s = &symtab[palidx[k]];
+	ox = x + (SCW - (s->sy_x1 - s->sy_x0)) / 2 - s->sy_x0;
+	oy = y + (SCH - (s->sy_y1 - s->sy_y0)) / 2 - s->sy_y0;
+	drawsymat(palidx[k], 0, 0, ox, oy, 1);
+	palcell(x, y, SCW, SCH, palidx[k] == arm);
+	return 0;
+}
+
+/* bank cell of an ARM CODE in the current view, or -1 */
+static
+palcellof(code)
+{
+	register int i;
+
+	if ( palsh )
+		return (code >= 1000) ? code - 1000 : -1;
+	if ( code < 0 || code >= 1000 )
+		return -1;
+	for ( i = 0; i < npal; i++ )
+		if ( palidx[i] == code )
+			return i;
+	return -1;
+}
+
+/* the whole palette: header, bank, arrows, right border */
+static
+drawpal()
+{
+	register int k;
+	int y, w, vis, maxr, ch, arm;
+
+	ch = palh();
+	vis = palvis();
+	maxr = palrows() - vis;
+	if ( maxr < 0 )
+		maxr = 0;
+	if ( palrow > maxr )
+		palrow = maxr;
+	arm = armcode();
+	cl_fillrect(0, CANY, PALW, CANY + ch, 1);
+	{
+		register char *gn;
+
+		gn = palsh ? "shapes" : (nlib ? libname[curlib] : "-");
+		w = strlen(gn) * 6;
+		cl_ptext(SHM_FICON, (PALW - w) / 2, CANY + (LHDR - 8) / 2, gn);
+	}
+	palcell(0, CANY, PALW, LHDR, 0);
+	for ( k = palrow * 2; k < npal && k < (palrow + vis) * 2; k++ )
+		palbank1(k, arm);
+	y = CANY + ch - ABAR;
+	palarrow(0, y, 0);
+	palarrow(SCW, y, 1);
+	palcell(0, y, SCW, ABAR, 0);
+	palcell(SCW, y, SCW, ABAR, 0);
+	cl_line(PALW - 1, CANY, PALW - 1, CANY + ch - 1, 0);
 	return 0;
 }
 
@@ -1513,12 +1587,21 @@ flush()
 		ghx0 = gx0;  ghy0 = gy0;  ghx1 = gx1;  ghy1 = gy1;
 		ghdrawn = 1;
 	}
-	if ( ddpal || shownrow != palrow || showncur != armcode() )
+	if ( ddpal || shownrow != palrow )
 	{
-		palpoke(ddpal);		/* velpal repaints what changed */
+		drawpal();
 		shownrow = palrow;
 		showncur = armcode();
 		ddpal = 0;
+	}
+	else if ( showncur != armcode() )
+	{
+		on = armcode();		/* exactly the two cells that flipped */
+		if ( showncur >= 0 )
+			palbank1(palcellof(showncur), on);
+		if ( on >= 0 )
+			palbank1(palcellof(on), on);
+		showncur = on;
 	}
 	if ( ddtbar || !tbvalid )
 	{
@@ -4186,7 +4269,6 @@ char **argv;
 	conth = me.ha_h;
 	signal(SIGALRM, onalrm);	/* AFTER hr_open: it used SIGALRM */
 	alarm(300);			/* the autosave tick */
-	vpspawn();			/* the palette-bank helper */
 
 	/* `+x,y': the grid point to open ON (v6.7, sec. 60).  It is not
 	 * an option hr_open eats and not a file, so it is picked out of
@@ -4383,8 +4465,6 @@ register WMSG *ep;
 		conth = ep->wm_arg[1];
 		drag = DR_NONE;		/* any rubber pixels are gone */
 		rubon = 0;
-		vpkill();		/* the palette rect moved: fresh */
-		vpspawn();		/* helper on the new geometry    */
 		alldirty();
 		break;
 
@@ -4414,7 +4494,6 @@ register WMSG *ep;
 		break;
 
 	case E_QUIT:
-		vpkill();
 		exit(0);
 	}
 	return 0;

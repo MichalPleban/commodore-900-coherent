@@ -1,0 +1,104 @@
+
+
+vveellssyymm                                                     vveellssyymm
+
+
+
+NNAAMMEE
+     velsym - a drawing becomes a stencil
+
+SSYYNNOOPPSSIISS
+     vveellssyymm [-ppffxx _p] [-oorrgg _x,_y] [-ssccaallee _n] [-ttyyppee _N_A_M_E=_t] _C_O_D_E
+     _f_i_l_e._d >> _l_i_b._s_y_m
+
+DDEESSCCRRIIPPTTIIOONN
+     vveellssyymm promotes an ordinary drawing into one ssyymmbbooll ...  eenndd
+     block on standard output, so a shop's own standards get made
+     ON THE BOARD instead of hand-cut in ssyymmeeddiitt at quarter-grid
+     coordinates.  _C_O_D_E is the name drawings will call the sten-
+     cil by.
+
+     LL and WW become ss segments, a BB box its four, a PP polyline
+     its n-1, CC a circle, AA an arc angles and all, and a TT whose
+     text is ONE CHARACTER a tt glyph.  Everything else - shapes,
+     connectors, dimensions, nested symbols and multi-character
+     text - is SKIPPED AND COUNTED on standard error, because a
+     silently half-converted stencil is a part that draws wrong
+     forever.
+
+PPIINNSS
+     The pins come from the NN net-name markers, in the order they
+     appear in the file (which is the z-order, and which vveellnneett
+     -ssppiiccee reads when a library does not name its pins); the net
+     name becomes the pin name, and an NN called - is a pin with
+     no name.
+
+     Pin TYPES come from -ttyyppee _N_A_M_E=_t on the command line and
+     NEVER from the drawing: a type is a property of the library,
+     and a guessed type builds a wrong ERC.  _t is ii input, oo out-
+     put, pp power or bb bidirectional.
+
+CCOOOORRDDIINNAATTEESS
+     Coordinates are exact by construction.  A stencil is in
+     quarter-grid units and a drawing in whole ones, so the con-
+     version is x4 and every pin lands on a multiple of 4 - which
+     is what the loader wants.
+
+     -ssccaallee _n divides instead, for a stencil sketched n times
+     oversize so its detail was drawable at all; at -ssccaallee 44 a
+     drawing unit IS a quarter unit, and a hand-cut stencil's
+     detail is available.
+
+     -oorrgg _x,_y names the grid point that becomes (0,0); the
+     default is the FIRST PIN, because a stencil's origin is
+     where it snaps.  A sketch with no NN markers at all falls
+     back to the top-left of its printable extent, and is told on
+     standard error that it has no pins.
+
+LLIIBBRRAARRIIEESS AASS BBUUIILLDD PPRROODDUUCCTTSS
+     A stencil is a drawing, and a library is a build product:
+
+                  STENCILS = pump.d valve.d tank.d
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+vveellssyymm                                                     vveellssyymm
+
+
+
+                  pid.sym: $(STENCILS)
+                            rm -f $@
+                            velsym -pfx P  PUMP  pump.d  >> $@
+                            velsym -pfx V  VALVE valve.d >> $@
+                            velsym -pfx TK TANK  tank.d  >> $@
+                            velcheck -sym $@
+                  card: pid.sym ; velinfo -symsheet pid.sym | velplot -T ps -fit -
+
+     A stencil SKETCH is an ordinary drawing: it opens in the
+     editor, prints, vveellppiiccs into the manual, and takes the whole
+     revision workflow (see vveellddiiffff) unchanged - so the shop's
+     stencils get revision control because they ARE drawings.
+     Adding a stencil is adding a line; deleting one is deleting
+     a file; there is no library format to learn and no state
+     anywhere but files.
+
+     /usr/vellum/etc/library.mk is the skeleton, and
+     /usr/vellum/eg/sk holds the nine sketches that build the
+     stock ppiidd library - byte for byte, which is also this con-
+     verter's fix point.
+
+SSEEEE AALLSSOO
+     vveelllluumm , ssyymmeeddiitt , vveellcchheecckk , vveelliinnffoo , mmaakkee
+
+NNOOTTEESS
+     The same conversion has an interactive face.  The editor's
+     MMaakkee SSyymmbbooll item (the yy key) runs this program on the
+     SELECTION, and ssyymmeeddiitt grows IImmppoorrtt ddrraawwiinngg (the ii key),
+     which brings a drawing into the edit buffer under exactly
+     these rules - so the promote-then-touch-up workflow is one
+     set of rules in one place, and a stencil made from the board
+     is byte-identical to one made from a Makefile.

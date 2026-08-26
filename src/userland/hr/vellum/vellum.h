@@ -260,8 +260,6 @@ extern int	doarray();	/* vellum.c: the nx x ny duplicate loop   */
 extern int	dodup2();	/* vellum.c: one offset duplicate         */
 extern int	palview();	/* vellum.c: rebuild the palette view     */
 extern int	spawn();	/* veldlg.c: double-fork worker launch    */
-extern int	vpspawn();	/* vellum.c: (re)start the velpal helper  */
-extern int	vpkill();	/* vellum.c: stop it (exit / respawn)     */
 
 /* ---- vellum.c services the command unit uses ---- */
 extern int	dmg();		/* accumulate a canvas damage rect (px)   */

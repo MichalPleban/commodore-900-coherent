@@ -144,6 +144,7 @@ f	/etc/boottime	644	3	1
 f	/etc/clri	755	3	1
 f	/etc/cpsys	644	3	1
 f	/etc/cron	755	3	0
+f	/etc/cuxcvr	755	3	0
 f	/etc/ddate	644	3	1
 f	/etc/fdformat	755	3	1
 f	/etc/getty	755	3	1
@@ -474,7 +475,7 @@ f	/usr/man/8cmdman/uload	644	0	1
 f	/usr/man/8cmdman/umount	644	0	1
 f	/usr/man/8cmdman/update	644	0	1
 f	/usr/man/8cmdman/wall	644	0	1
-# --- hr windowing system (make hr) ---
+# --- ZView windowing system (built by `make image'/`make hrgui') ---
 f	/drv/hr	700	0	0
 d	/usr/hr	755	0	1
 d	/usr/hr/bin	755	0	1
@@ -499,9 +500,7 @@ f	/usr/vellum/bin/velinfo	755	0	1
 f	/usr/vellum/bin/velsym	755	0	1
 f	/usr/vellum/bin/velgraph	755	0	1
 f	/usr/vellum/lib/libvellum.a	644	0	1
-f	/usr/vellum/lib/veldlg	755	0	1
 f	/usr/vellum/lib/velprev	755	0	1
-f	/usr/vellum/lib/velpal	755	0	1
 f	/usr/vellum/sym/discrete.sym	644	0	1
 f	/usr/vellum/sym/logic.sym	644	0	1
 f	/usr/vellum/sym/flow.sym	644	0	1
@@ -577,13 +576,6 @@ f	/usr/hr/icons/icon9.icn	644	0	1
 f	/usr/hr/icons/icon10.icn	644	0	1
 f	/usr/hr/icons/icon11.icn	644	0	1
 f	/usr/hr/icons/icon12.icn	644	0	1
-f	/usr/hr/bin/clock	755	0	1
-f	/usr/hr/bin/clocksh	755	0	1
-f	/usr/hr/bin/dmgr	755	0	1
-f	/usr/hr/bin/gmgr	755	0	1
-f	/usr/hr/bin/gsh	755	0	1
-f	/usr/hr/bin/hrconsole	755	0	1
-f	/usr/hr/bin/smgr	755	0	1
 f	/usr/hr/bin/gfxtest	755	0	1
 f	/usr/hr/bin/zclock	755	0	1
 f	/usr/hr/bin/zview	755	0	1

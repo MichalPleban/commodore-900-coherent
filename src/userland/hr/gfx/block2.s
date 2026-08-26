@@ -20,7 +20,10 @@
 
 
 
-.prvi
+// .shri, not .prvi: these inner-loop fragments are COPIED (ldir) into
+// block1.s's code_space_ and executed from there.  Copying READS them, so
+// they are shared text; the writable buffer is code_space_ alone.
+.shri
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 //		INneR LOOPS  
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

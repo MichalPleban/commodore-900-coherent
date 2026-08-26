@@ -13,5 +13,10 @@
 #define	NCLIST	32			/* Number of clists (NCPCL/256 per) */
 #define NUFILE	20			/* Number of user open files */
 #define NINODE	100			/* Size of in core inode table */
-#define	ALLSIZE	10240			/* Size of alloc space */
+#define	ALLSIZE	32768			/* Size of alloc space (kalloc arena).
+					 * MUST track the kernel's own param.h --
+					 * this copy is the INSTALLED header, and it
+					 * sat at 10240 for a kernel running 32768,
+					 * which is a lie anything sizing itself from
+					 * the arena would have believed. */
 #define NEXREAD	4			/* Read ahead */

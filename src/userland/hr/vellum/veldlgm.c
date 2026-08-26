@@ -1,19 +1,27 @@
 /*
- * veldlgm.c - Vellum's DIALOG HELPER (/usr/vellum/lib/veldlg): every
- * modal dialog of the editor, run in a spawned process on the EDITOR'S
- * window -- the helper-binary pattern applied to the dialogs, which is
- * keeps the editor inside its 64 K text segment (VELLUM.md sec. 21's
- * escape hatch, cashed in when v2 outgrew the wall).
+ * veldlgm.c - Vellum's DIALOGS: every modal dialog of the editor, run
+ * IN THE EDITOR through the ordinary hrdlg kit (the dialog itself is a
+ * server overlay, so nothing here draws on the editor's content).
  *
- * The editor forks, points fd 1 at a pipe, and execs
- *	veldlg WID KIND [ARGS...]
- * with the command pipe (fd HR_CMDFD) inherited.  This process adopts
- * the editor's window with hr_attach(WID) -- no server handshake; the
- * editor owns the window and sits BLOCKED on the pipe while its event
- * ring is borrowed -- runs one modal dialog through the ordinary
- * hrdlg kit (the dialog itself is a server overlay, so nothing here
- * draws on the editor's content), prints ONE result line to fd 1 and
- * exits.  Result conventions:
+ * This was a separate binary, /usr/vellum/lib/veldlg, spawned per
+ * dialog: the editor forked, execed it on its own window (hr_attach)
+ * and blocked on a pipe reading one result line.  That bought the
+ * editor 10 076 bytes of text and 5 070 of data it did not have to
+ * carry -- back when `ld' put a hard 64 K wall in front of its text
+ * segment.  `ld -L' dissolved the wall (the editor links `-n -L' at
+ * half of two segments), so what was left was a fork+exec of a 13 K
+ * binary per dialog on a 6 MHz machine, a second hand-copied set of
+ * the editor's field sizes, and vellum being the ONE GUI app that did
+ * not just call hr_dlgrun() in place -- zedit, zfile, zmail, zprint,
+ * zview and symedit all always have.  So it is a module.
+ *
+ * The SHAPE of the split is kept, because it is a good one: nothing
+ * here touches the model.  A dialog is handed strings and answers with
+ * a string, veldlg.c owns every APPLY half, and the entry point
+ *	char *veldlg(kind, av)
+ * takes the argv the exec used to take (av[0..] = the old argv[3..],
+ * NULL-terminated) and returns the one result line the pipe used to
+ * carry, so both halves of the old protocol are unchanged:
  *	""   (no output)  cancelled / refused
  *	q                 E_QUIT arrived: the window is gone, the editor
  *	                  must clean up and exit
@@ -43,21 +51,27 @@
 #include "hrapp.h"
 #include "hrdlg.h"
 #include "hrsbar.h"
+#include "vellum.h"
+#include <setjmp.h>
 
-#define	NAMEL	8		/* the editor's DOBJ field sizes (vellum.h; */
-#define	VALL	16		/* not included -- the helper has no model) */
-#define	TVMAX	40		/* long-label ceiling (the v3.3 text pool)  */
-#define	FNLEN	40
-#define	UNAMEL	8
-#define	USERLIB	"/usr/vellum/etc/symbols"
+/* NAMEL/VALL/TVMAX/FNLEN/UNAMEL/USERLIB come from vellum.h now: they were
+ * hand-copied while this was a separate binary.  Nothing else of the model
+ * may be touched here -- see the header. */
 
-/* One result line; the editor reads to EOF, so exit right after. */
+/* One result line.  A dialog says its answer from wherever it happens to
+ * be -- the old say() ended the PROCESS, so the unwind is a longjmp back
+ * to veldlg() rather than a return path threaded through every caller.
+ * Every say() below is reached with the dialog already closed. */
+static jmp_buf	dlback;
+static char	dlline[128];
+
 static
 say(s)
 char *s;
 {
-	printf("%s\n", s);
-	exit(0);
+	strncpy(dlline, s, sizeof(dlline) - 1);
+	dlline[sizeof(dlline) - 1] = 0;
+	longjmp(dlback, 1);
 }
 
 static
@@ -76,9 +90,9 @@ saycancel()
 /* confirm                                                            */
 /* ------------------------------------------------------------------ */
 
-char	cfmsg[40];
+static char	cfmsg[40];
 
-HRWIDGET cwg[] = {
+static HRWIDGET cwg[] = {
     { DW_LABEL,   12,  16,   0,  0, cfmsg },
     { DW_BUTTON,  40,  56,  90, DLG_BTNH, "Discard", 0, 0, (char *)0, 0,
       DWF_DEF | DWF_END },
@@ -114,11 +128,11 @@ char *msg;
 /* one text line                                                      */
 /* ------------------------------------------------------------------ */
 
-char	vbuf[TVMAX];
+static char	dlvbuf[TVMAX];
 
-HRWIDGET twg[] = {
+static HRWIDGET twg[] = {
     { DW_LABEL,   12,  16,   0,  0, "Text:" },
-    { DW_TEXT,    70,  12, 260, 22, (char *)0, 0, 0, vbuf, sizeof(vbuf) },
+    { DW_TEXT,    70,  12, 260, 22, (char *)0, 0, 0, dlvbuf, sizeof(dlvbuf) },
     { DW_BUTTON,  60,  46,  70, DLG_BTNH, "OK",     0, 0, (char *)0, 0,
       DWF_DEF | DWF_END },
     { DW_BUTTON, 170,  46,  80, DLG_BTNH, "Cancel", 0, 0, (char *)0, 0,
@@ -134,8 +148,8 @@ char *init;
 	char out[TVMAX + 2];
 	int w, h, r;
 
-	strncpy(vbuf, init, TVMAX - 1);
-	vbuf[TVMAX - 1] = 0;
+	strncpy(dlvbuf, init, TVMAX - 1);
+	dlvbuf[TVMAX - 1] = 0;
 	w = 344;
 	h = 90;
 	r = hr_dlgopen(&w, &h);
@@ -148,9 +162,9 @@ char *init;
 	hr_dlgclose();
 	if ( r == -1 )
 		sayquit();
-	if ( r != TW_OK || vbuf[0] == 0 )
+	if ( r != TW_OK || dlvbuf[0] == 0 )
 		saycancel();
-	sprintf(out, "=%s", vbuf);
+	sprintf(out, "=%s", dlvbuf);
 	say(out);
 }
 
@@ -158,10 +172,10 @@ char *init;
 /* file name (Open / Save)                                            */
 /* ------------------------------------------------------------------ */
 
-char	fnbuf[FNLEN];
-char	dmsg[36];
+static char	fnbuf[FNLEN];
+static char	dmsg[36];
 
-HRWIDGET fwg[] = {
+static HRWIDGET fwg[] = {
     { DW_LABEL,   12,  12,   0,  0, "File name:" },
     { DW_TEXT,    12,  32, 256, 22, (char *)0, 0, 0, fnbuf, sizeof(fnbuf) },
     { DW_LABEL,   12,  62,   0,  0, dmsg },
@@ -224,13 +238,13 @@ char *init, *msg;
 /* symbol name / value                                                */
 /* ------------------------------------------------------------------ */
 
-char	nbuf[NAMEL];
+static char	dlnbuf[NAMEL];
 
-HRWIDGET nwg[] = {
+static HRWIDGET nwg[] = {
     { DW_LABEL,   12,  16,   0,  0, "Name:" },
-    { DW_TEXT,    78,  12,  90, 22, (char *)0, 0, 0, nbuf, sizeof(nbuf) },
+    { DW_TEXT,    78,  12,  90, 22, (char *)0, 0, 0, dlnbuf, sizeof(dlnbuf) },
     { DW_LABEL,   12,  46,   0,  0, "Value:" },
-    { DW_TEXT,    78,  42, 160, 22, (char *)0, 0, 0, vbuf, sizeof(vbuf) },
+    { DW_TEXT,    78,  42, 160, 22, (char *)0, 0, 0, dlvbuf, sizeof(dlvbuf) },
     { DW_BUTTON,  60,  76,  70, DLG_BTNH, "OK",     0, 0, (char *)0, 0,
       DWF_DEF | DWF_END },
     { DW_BUTTON, 170,  76,  80, DLG_BTNH, "Cancel", 0, 0, (char *)0, 0,
@@ -248,13 +262,13 @@ char *name, *val;
 
 	if ( strcmp(name, "-") != 0 )
 	{
-		strncpy(nbuf, name, NAMEL - 1);
-		nbuf[NAMEL - 1] = 0;
+		strncpy(dlnbuf, name, NAMEL - 1);
+		dlnbuf[NAMEL - 1] = 0;
 	}
 	if ( strcmp(val, "-") != 0 )
 	{
-		strncpy(vbuf, val, VALL - 1);
-		vbuf[VALL - 1] = 0;
+		strncpy(dlvbuf, val, VALL - 1);
+		dlvbuf[VALL - 1] = 0;
 	}
 	w = 264;
 	h = 120;
@@ -270,7 +284,7 @@ char *name, *val;
 		sayquit();
 	if ( r != NW_OK )
 		saycancel();
-	sprintf(out, "=%s\t%s", nbuf, vbuf);
+	sprintf(out, "=%s\t%s", dlnbuf, dlvbuf);
 	say(out);
 }
 
@@ -288,10 +302,10 @@ char *name, *val;
 #define	LMSGY	(LLY + LVIS * LROWH + 8)
 #define	LBTNY	(LMSGY + 22)
 
-char	lbmsg[36];
-char	dlname[NDLGL][16];	/* list labels: the file names            */
-char	dlpath[NDLGL][44];	/* their full paths                       */
-int	nls, lsel;
+static char	lbmsg[36];
+static char	dlname[NDLGL][16];	/* list labels: the file names            */
+static char	dlpath[NDLGL][44];	/* their full paths                       */
+static int	nls, lsel;
 HRSBAR	lsb;
 
 static
@@ -560,10 +574,10 @@ char *msg;
 /* Settings: grid pitch, sheet preset, units, layer vis/print         */
 /* ------------------------------------------------------------------ */
 
-char	unbuf[6];
-char	unmbuf[UNAMEL];
+static char	unbuf[6];
+static char	unmbuf[UNAMEL];
 
-HRWIDGET swg[] = {
+static HRWIDGET swg[] = {
     { DW_LABEL,   12,  10,   0,  0, "Grid:" },
     { DW_RADIO,   90,  10,   0,  0, "1",       0, 1 },
     { DW_RADIO,  150,  10,   0,  0, "2",       0, 1 },
@@ -725,9 +739,9 @@ char **av;
 /* vertical                                                           */
 /* ------------------------------------------------------------------ */
 
-char	stbuf[TVMAX];
+static char	stbuf[TVMAX];
 
-HRWIDGET ywg[] = {
+static HRWIDGET ywg[] = {
     { DW_LABEL,   12,  10,   0,  0, "Style:" },
     { DW_RADIO,   90,  10,   0,  0, "Solid",  0, 1 },
     { DW_RADIO,  180,  10,   0,  0, "Dash",   0, 1 },
@@ -857,10 +871,10 @@ char **av;
 /* Search: substring, either direction, + the Sheets... jump (sec. 27)*/
 /* ------------------------------------------------------------------ */
 
-char	fndbuf[VALL];
-short	shnum[NDLGL];		/* sheet numbers behind the list rows     */
+static char	fndbuf[VALL];
+static short	shnum[NDLGL];		/* sheet numbers behind the list rows     */
 
-HRWIDGET gwg[] = {
+static HRWIDGET gwg[] = {
     { DW_LABEL,   12,  16,   0,  0, "Search:" },
     { DW_TEXT,    82,  12, 180, 22, (char *)0, 0, 0, fndbuf, sizeof(fndbuf) },
     { DW_CHECK,   12,  44,   0,  0, "Match case" },
@@ -960,9 +974,9 @@ char **av;
 /* Array duplicate: nx x ny at a pitch (sec. 30)                      */
 /* ------------------------------------------------------------------ */
 
-char	axbuf[5], aybuf[5], apbuf[5];
+static char	axbuf[5], aybuf[5], apbuf[5];
 
-HRWIDGET awg[] = {
+static HRWIDGET awg[] = {
     { DW_LABEL,   12,  16,   0,  0, "Across:" },
     { DW_TEXT,    98,  12,  50, 22, (char *)0, 0, 0, axbuf, sizeof(axbuf) },
     { DW_LABEL,  170,  16,   0,  0, "Down:" },
@@ -1017,9 +1031,9 @@ d_array()
 /* Print: scale, wide, and the three verbs (VELLUM.md sec. 25)        */
 /* ------------------------------------------------------------------ */
 
-char	prsc[6];
+static char	prsc[6];
 
-HRWIDGET pwg[] = {
+static HRWIDGET pwg[] = {
     { DW_LABEL,   12,  16,   0,  0, "Scale:" },
     { DW_TEXT,    90,  12,  60, 22, (char *)0, 0, 0, prsc, sizeof(prsc) },
     { DW_LABEL,  170,  16,   0,  0, "dots/unit" },
@@ -1073,10 +1087,10 @@ char **av;
 /* Make Symbol: the GUI face of velsym (v6.7, sec. 60)                 */
 /* ------------------------------------------------------------------ */
 
-char	mscode[8], mspfx[4], mslib[44], msscl[4];
-char	msmsg[40];
+static char	mscode[8], mspfx[4], mslib[44], msscl[4];
+static char	msmsg[40];
 
-HRWIDGET mswg[] = {
+static HRWIDGET mswg[] = {
     { DW_LABEL,   12,  16,   0,  0, "Code:" },
     { DW_TEXT,   110,  12,  90, 22, (char *)0, 0, 0, mscode, sizeof(mscode) },
     { DW_LABEL,  220,  16,   0,  0, "Prefix:" },
@@ -1133,36 +1147,43 @@ char **av;
 /* entry                                                              */
 /* ------------------------------------------------------------------ */
 
-main(argc, argv)
-char **argv;
+/* Run dialog KIND with the arguments the exec used to take, and hand back
+ * its one result line ("" = cancelled).  The window is the editor's own
+ * and already open, so there is no hr_attach and no handshake; a dialog
+ * that never says anything (an unknown kind, a bad argument count) falls
+ * out of the setjmp as a cancel, which is what a failed exec used to be. */
+char *
+veldlg(kind, av)
+char *kind, **av;
 {
-	register char *k;
+	register int n;
 
-	if ( argc < 3 )
-		exit(1);
-	hr_attach(atoi(argv[1]));
-	k = argv[2];
-	if ( strcmp(k, "confirm") == 0 && argc >= 4 )
-		d_confirm(argv[3]);
-	else if ( strcmp(k, "text") == 0 && argc >= 4 )
-		d_text(argv[3]);
-	else if ( strcmp(k, "file") == 0 && argc >= 6 )
-		d_file(argv[4], argv[5]);
-	else if ( strcmp(k, "prop") == 0 && argc >= 5 )
-		d_prop(argv[3], argv[4]);
-	else if ( strcmp(k, "lib") == 0 && argc >= 4 )
-		d_lib(argv[3]);
-	else if ( strcmp(k, "set") == 0 && argc >= 12 )
-		d_set(&argv[3]);
-	else if ( strcmp(k, "style") == 0 && argc >= 7 )
-		d_style(&argv[3]);
-	else if ( strcmp(k, "print") == 0 && argc >= 5 )
-		d_print(&argv[3]);
-	else if ( strcmp(k, "search") == 0 && argc >= 8 )
-		d_search(&argv[3]);
-	else if ( strcmp(k, "mksym") == 0 && argc >= 8 )
-		d_mksym(&argv[3]);
-	else if ( strcmp(k, "array") == 0 )
+	dlline[0] = 0;
+	for ( n = 0; n < 9 && av[n] != (char *)0; n++ )
+		;
+	if ( setjmp(dlback) != 0 )
+		return dlline;
+	if ( strcmp(kind, "confirm") == 0 && n >= 1 )
+		d_confirm(av[0]);
+	else if ( strcmp(kind, "text") == 0 && n >= 1 )
+		d_text(av[0]);
+	else if ( strcmp(kind, "file") == 0 && n >= 3 )
+		d_file(av[1], av[2]);
+	else if ( strcmp(kind, "prop") == 0 && n >= 2 )
+		d_prop(av[0], av[1]);
+	else if ( strcmp(kind, "lib") == 0 && n >= 1 )
+		d_lib(av[0]);
+	else if ( strcmp(kind, "set") == 0 && n >= 9 )
+		d_set(av);
+	else if ( strcmp(kind, "style") == 0 && n >= 4 )
+		d_style(av);
+	else if ( strcmp(kind, "print") == 0 && n >= 2 )
+		d_print(av);
+	else if ( strcmp(kind, "search") == 0 && n >= 5 )
+		d_search(av);
+	else if ( strcmp(kind, "mksym") == 0 && n >= 5 )
+		d_mksym(av);
+	else if ( strcmp(kind, "array") == 0 )
 		d_array();
-	exit(1);
+	return dlline;			/* said nothing: a cancel */
 }

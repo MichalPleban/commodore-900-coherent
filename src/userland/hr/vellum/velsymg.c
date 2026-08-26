@@ -3,11 +3,12 @@
  * libraries and the geometry of symbol space.
  *
  * Split out of velbase.c (Aug 2026) because a client can want the
- * stencils without wanting a DRAWING.  velpal paints the editor's
- * palette bank -- it holds no drawing, has no selection and never
- * touches a pool -- yet it linked the whole model and carried 16 000
- * bytes of obj[] plus the text and polyline pools, because every model
- * global lived in one object file and ld pulls a member whole.
+ * stencils without wanting a DRAWING.  The case that forced it was the
+ * palette painter velpal (since retired back into the editor): holding
+ * no drawing, no selection and touching no pool, it still linked the
+ * whole model and carried 16 000 bytes of obj[] plus the text and
+ * polyline pools, because every model global lived in one object file
+ * and ld pulls a member whole.
  *
  * So the rule for this file: nothing here may touch the drawing table,
  * the pools, the selection or the view.  sympbox lives on the drawing

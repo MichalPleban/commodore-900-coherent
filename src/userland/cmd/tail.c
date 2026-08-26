@@ -68,7 +68,7 @@ struct buf {
 	struct buf	*next;		/* link to next buf */
 	int	nlines;			/* number of new lines in this buf */
 	char	buff[BUFL];		/* buff of characters */
-}
+};
 
 
 /*

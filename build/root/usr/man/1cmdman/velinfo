@@ -1,0 +1,100 @@
+
+
+vveelliinnffoo                                                   vveelliinnffoo
+
+
+
+NNAAMMEE
+     velinfo - measure, find and list a vellum drawing set
+
+SSYYNNOOPPSSIISS
+     vveelliinnffoo -lleenn _f_i_l_e._d ...
+     vveelliinnffoo -wwhheerree _s_t_r_i_n_g _f_i_l_e._d ...
+     vveelliinnffoo -ssyymmsshheeeett _l_i_b._s_y_m > _c_a_r_d._d
+     vveelliinnffoo -bbooookk _s_h_e_e_t._d ... > _c_o_n_t_e_n_t_s._d
+
+DDEESSCCRRIIPPTTIIOONN
+     A drawing set lives for years, and the questions the shop
+     asks about it - what it takes, where anything is, what a
+     library holds and what the set contains - vveelliinnffoo answers.
+     These are the shell's questions, not the window's, and their
+     natural asker is mmaakkee(1).
+
+     Two of the four answer in prose on standard output and two
+     answer with an ordinary DRAWING - which is the point: a
+     drawing is the format the rest of the suite already prints,
+     so a generated card goes to paper with no new backend and no
+     temporary file.  The file name - is standard input.
+
+     -lleenn
+     The TAKEOFF.  Wires, connectors and polylines are measured
+     in sheet units, per NET where the conductors have names and
+     per LAYER otherwise, with a set total.  H-V routes measure
+     both legs; diagonals measure an integer square root.
+
+     A closed FILLED polyline reports AREA instead - integer
+     shoelace, halved, with the odd half shown as ``.5'' - be-
+     cause sheet metal is ordered by area the way cable is or-
+     dered by length.
+
+     A set whose sheets disagree about the UU unit is refused in
+     one line rather than adding millimetres to inches.  (That
+     disagreement is also a vveellcchheecckk finding, which is where a
+     build should catch it.)
+
+     -wwhheerree
+     The set-wide Find: a case-blind substring over designators,
+     values, text and net names - the editor's Find contract re-
+     stated over FILES - one line per hit with the grid position.
+     The EXIT STATUS is the hit count.
+
+     Zero hits exits 0 silently, so the INVERTED use is free:
+     vveelliinnffoo -wwhheerree TTOODDOO *.dd in a cchheecckk: rule fails the build
+     while a sheet still carries a TODO note.
+
+     -ssyymmsshheeeett
+     The library ON PAPER: a grid of every stencil in ONE .ssyymm
+     file with its code, designator prefix and pin types, emitted
+     as an ordinary drawing, so the shop's binder fills itself
+     from make:
+
+                  velinfo -symsheet pid.sym | velplot -T ps -fit -
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+vveelliinnffoo                                                   vveelliinnffoo
+
+
+
+     The card names its stencils by CODE like any drawing, so
+     whatever reads it back must have that library loaded: put a
+     library of your own in /usr/vellum/etc/libs first.
+
+     -bbooookk
+     The set as a DOCUMENT: an ordinary drawing listing the
+     sheets given - number, file name, and the sheet's own title,
+     which it takes from the first text object on the FRAME layer
+     (where the frame stamp puts $FF, so a stamped set titles it-
+     self), falling back to the largest text on the sheet and
+     then to the file name.
+
+     It is .dd out, so it prints on every device, vveellpplloott -ttiillee ss
+     if it has to, and opens in the editor when somebody wants to
+     fix a title by hand:
+
+                  velinfo -book amp?.d > contents.d
+                  velplot -T ps contents.d amp?.d | lpr
+
+     The sheets stay FILES.  A book is a contents drawing plus a
+     shell glob in the right order, not a container format.
+
+SSEEEE AALLSSOO
+     vveelllluumm , vveellnneett , vveellcchheecckk , vveellpplloott , vveellssyymm , mmaakkee
+
+NNOOTTEESS
+     -lleenn measures the nets the same union-find found for vveellnneett,
+     so a run length and a netlist can never disagree.
