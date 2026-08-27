@@ -44,11 +44,11 @@ register char	**argv;
 sum( file)
 char	*file;
 {
-	register char	*p;
+	register unsigned char	*p;
 	register	a,
 			n;
 	long		size;
-	static char	buf[BUFSZ];
+	static unsigned char	buf[BUFSZ];
 
 	a = 0;
 	size = 0;

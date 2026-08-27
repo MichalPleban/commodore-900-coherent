@@ -56,6 +56,7 @@ char *argv[];
 		printf( "%-8.8s %-7.7s %.12s\n", utmp.ut_name, utmp.ut_line,
 			ctime( &utmp.ut_time)+4);
 	}
+	return (0);
 }
 
 /* VARARGS */

@@ -15,7 +15,11 @@ char *argv[];
 {
 	char *tty;
 
-	if ((tty = ttyname(fileno(stderr))) != NULL)
-		printf("%s\n", tty); else
+	if (isatty(fileno(stderr)) == 0
+	 || (tty = ttyname(fileno(stderr))) == NULL) {
 		printf("Not a tty\n");
+		return (1);
+	}
+	printf("%s\n", tty);
+	return (0);
 }

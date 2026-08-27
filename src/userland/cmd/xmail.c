@@ -135,6 +135,7 @@ register char *av[];
 	 * Wait for all our children (xencode processes).
 	 */
 	wait((int *)0);
+	return (0);
 }
 
 /*

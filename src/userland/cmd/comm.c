@@ -75,6 +75,7 @@ char *argv[];
 		print1();
 	while (!feof(fd2))
 		print2();
+	return (0);
 }
 
 print1()

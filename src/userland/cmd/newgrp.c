@@ -55,6 +55,8 @@ char **argv,**envp;
 	setgid(grp->gr_gid);
 	setuid(getuid());
 	execle("/bin/sh","-",NULL,environ);
+	fprintf(stderr, "newgrp: cannot execute /bin/sh\n");
+	exit(1);
 }
 
 perrx(s)
@@ -63,4 +65,6 @@ char *s;
 	fprintf(stderr,"%s\n",s);
 	setuid(getuid());
 	execle("/bin/sh","-",NULL,environ);
+	fprintf(stderr, "newgrp: cannot execute /bin/sh\n");
+	exit(1);
 }

@@ -33,7 +33,7 @@ char *argv[];
 	register i;
 	register char *ap;
 
-	while (*argv[1]=='-' || *argv[1]=='+') {
+	while (argv[1] != NULL && (*argv[1]=='-' || *argv[1]=='+')) {
 		if (*argv[1] == '-') {
 			ap = &argv[1][1];
 			if (*ap>='0' && *ap<='9')
@@ -78,6 +78,7 @@ char *argv[];
 			exit(1);
 		}
 	uniq();
+	return (0);
 }
 
 /*

@@ -48,7 +48,7 @@ register char	**argv;
 			}
 
 	for (fpp=fp; *argv; ) {
-		if (fpp >= &fp[NUFILE])
+		if (fpp >= &fp[NUFILE-1])
 			fatal( "too many files");
 		*fpp++ = openf( *argv++);
 	}

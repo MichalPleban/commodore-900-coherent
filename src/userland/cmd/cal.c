@@ -113,6 +113,7 @@ register char	*argv[];
 	if (month < 0 || month > 12 || year <= 0 || year > 9999)
 		usage();
 	cal(year, month);
+	return (0);
 }
 
 /*

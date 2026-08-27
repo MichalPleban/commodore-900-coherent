@@ -136,6 +136,7 @@ FILE *fp;
 			putchar('\n');
 		}
 	}
+	return (0);
 }
 
 /*

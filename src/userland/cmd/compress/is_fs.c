@@ -7,6 +7,8 @@
 #include <canon.h>
 #include <sys/filsys.h>
 
+extern long	lseek();
+
 /*
  * Check if a special file is a well-formed filesystem.
  * This routine is derived from code in "mount.c".

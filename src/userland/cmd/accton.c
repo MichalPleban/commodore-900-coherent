@@ -17,8 +17,11 @@ char *argv[];
 	if (argc > 2)
 		usage();
 	acfile = argc==1 ? NULL : argv[1];
-	if (acct(acfile) < 0)
+	if (acct(acfile) < 0) {
 		perror(acfile);
+		return (1);
+	}
+	return (0);
 }
 
 usage()

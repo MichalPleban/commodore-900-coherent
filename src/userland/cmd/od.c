@@ -141,6 +141,7 @@ char *argv[];
 	}
 	if (nol != 0)
 		putchar('\n');
+	return (0);
 }
 
 mkfmt(p, w, c)

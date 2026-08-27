@@ -274,7 +274,7 @@ char *s;
 
 	m = 0;
 	for (epp = &exps[0]; epp->e_un.u_re!=NULL && m==0; epp++)
-		if ((*epp->e_mfun)(epp->e_un.u_re, s) != NULL)
+		if ((*epp->e_mfun)(epp->e_un.u_re, s) != 0)
 			m = 1;
 	if (vflag)
 		m = !m;

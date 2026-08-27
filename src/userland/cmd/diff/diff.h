@@ -20,6 +20,7 @@ extern	char	*fn1;
 extern	char	*fn2;
 
 char	*calloc();
+char	*mktemp();
 char	*alloc();
 char	*sprintf();
 extern	int	(*equal)();

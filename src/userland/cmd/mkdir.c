@@ -65,7 +65,7 @@ register char	*dir;
 	register char	*parent,
 			*child;
 
-	if ((int) (child = getchild( dir)) < 0) {
+	if ((child = getchild( dir)) == NULL) {
 		error("can't get child dir name %s", dir);
 		return(-1);
 	}
@@ -89,7 +89,7 @@ register char	*dir;
 	if (mknod( dir, IFDIR|0777, 0))
 		switch (errno) {
 		case EEXIST:
-			error("%s already exists\n", dir);
+			error("%s already exists", dir);
 			return(-1);
 		case EPERM:
 			error("not the super-user");
@@ -107,6 +107,7 @@ register char	*dir;
 	}
 	if (chown( dir, getuid( ), getgid( )) < 0)
 	   return(-1);
+	return (0);
 }
 
 
@@ -126,10 +127,8 @@ char	*dir;
 		free( par);
 	i = strlen( dir);
 	par = malloc( i+1);
-	if (par == NULL) {
+	if (par == NULL)
 		nomemory( );
-		return(-1);
-	}
 	strcpy( par, dir);
 
 	for (p=par+i; p>par; )
@@ -141,8 +140,9 @@ char	*dir;
 			break;
 		}
 	*++p = 0;
-	if (par[tmp = strlen(par)-1] == '/')
-	   par[tmp] = 0;  /* kill any ending slash */
+	tmp = strlen(par);
+	if (tmp > 1 && par[tmp-1] == '/')
+	   par[tmp-1] = 0;  /* kill any ending slash, but keep "/" */
 	return (par);
 }
 
@@ -162,7 +162,7 @@ register char	*dir;
 	p = &dir[strlen( dir)];
 	do {
 		if (p == dir)
-			fatal( -1, "don't be silly");
+			fatal("don't be silly");
 	} while (*--p == '/');
 	q = p;
 	while (q > dir)
@@ -173,7 +173,9 @@ register char	*dir;
 	i = p+1 - q;
 	if (i > DIRSIZ)
 		i = DIRSIZ;
-	return(strncpy( ch, q, i));
+	strncpy( ch, q, i);
+	ch[i] = '\0';
+	return (ch);
 }
 
 
@@ -190,10 +192,8 @@ char	*s1,
 	if (str)
 		free( str);
 	str = malloc( strlen( s1)+strlen( s2)+1);
-	if (str == NULL) {
+	if (str == NULL)
 		nomemory();
-		return(-1);
-	}
 	strcpy(str, s1);
 	return(strcat( str, s2));
 }
@@ -218,8 +218,7 @@ char	*dir,
 
 nomemory()
 {
-	error("out of memory");
-	return(-1);
+	fatal("out of memory");
 }
 
 

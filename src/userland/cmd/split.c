@@ -7,7 +7,8 @@
 
 int chunk = 1000;		/* number of lines per output file */
 FILE *infile = stdin;		/* input file */
-char *outname = "xaa";		/* first output file */
+char outbuf[] = "xaa";		/* default output file name */
+char *outname = outbuf;		/* first output file */
 char *tail;			/* points to last character of outname */
 
 
@@ -41,6 +42,7 @@ char *argv[];
 		fclose(outfile);
 		nextname(outname);
 	}
+	return (0);
 }
 
 
@@ -137,6 +139,7 @@ char *str;
 	}
 	strcpy(result, str);
 	result[length - 1] = result[length - 2] = 'a';
+	result[length] = '\0';
 	return (result);
 }
 

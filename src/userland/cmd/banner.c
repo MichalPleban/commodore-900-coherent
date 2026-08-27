@@ -110,15 +110,22 @@ main(argc, argv)
 char *argv[];
 {
 	register i;
+	register char *cp;
 	if(argc>1) for(i=1;i!=argc;i++){
 		if(i!=1)
 			putchar('\n');
 		banner(argv[i]);
 	}
-	else while(gets(line)!=NULL){
+	else while(fgets(line, sizeof line, stdin)!=NULL){
+		for(cp=line;*cp;cp++)
+			if(*cp=='\n'){
+				*cp='\0';
+				break;
+			}
 		putchar('\n');
 		banner(line);
 	}
+	return (0);
 }
 banner(line)
 char *line;

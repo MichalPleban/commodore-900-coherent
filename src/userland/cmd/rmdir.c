@@ -78,7 +78,7 @@ register char	*dir;
 	struct direct	d;
 
 
-	if ((int) (child = getchild( dir)) < 0) {
+	if ((child = getchild( dir)) == NULL) {
 		error("can't get child dir name %s", dir);
 		return(-1);
 	}
@@ -161,8 +161,9 @@ char	*dir;
 			break;
 		}
 	*++p = '\0';
-	if (par[tmp = strlen(par)-1] == '/')
-	   par[tmp] = 0;  /* kill any ending slash */
+	tmp = strlen(par);
+	if (tmp > 1 && par[tmp-1] == '/')
+	   par[tmp-1] = 0;  /* kill any ending slash, but keep "/" */
 	return (par);
 }
 
@@ -183,7 +184,7 @@ register char	*dir;
 	do {
 		if (p == dir) {
 			error("not permitted");
-			return(-1);
+			return (NULL);
 		}
 	} while (*--p == '/');
 	q = p;
@@ -195,7 +196,9 @@ register char	*dir;
 	i = p+1 - q;
 	if (i > DIRSIZ)
 		i = DIRSIZ;
-	return (strncpy( ch, q, i));
+	strncpy( ch, q, i);
+	ch[i] = '\0';
+	return (ch);
 }
 
 

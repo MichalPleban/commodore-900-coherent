@@ -149,6 +149,7 @@ char **argv;
 	if (vflag)
 		stats();
 	fclose(fileout);
+	return (0);
 }
 
 /*

@@ -13,6 +13,7 @@
 #include <dir.h>
 #include <pwd.h>
 #include <grp.h>
+#include <mdata.h>
 
 #define	BSIZE	BUFSIZ		/* Disc blocking factor for `-s' */
 #define	NBN	128		/* Number of blocks in an indirect block */
@@ -374,7 +375,7 @@ char *dir;
 	register struct direct *dp;
 	register int nb;
 	char curname[DIRSIZ+1];
-	unsigned size;
+	long size;
 
 	if ((fd = open(dir, 0)) < 0) {
 		fprintf(stderr, "%s: cannot read\n", dir);
@@ -382,7 +383,12 @@ char *dir;
 	}
 	if (!fflag) {
 		size = dirsize/sizeof (struct direct) * sizeof (struct ls);
-		if ((saved = malloc(size)) == NULL) {
+		if (size > MAXUINT) {
+			fprintf(stderr, "%s: directory too large\n", dir);
+			close(fd);
+			return;
+		}
+		if ((saved = malloc((unsigned)size)) == NULL) {
 			fprintf(stderr, "Out of memory\n");
 			exit (1);
 		}
@@ -393,12 +399,8 @@ char *dir;
 		if (dp->d_ino == 0)
 			continue;
 		np1 = dp->d_name;
-		if (aflag == 0 && *np1++ == '.') {
-			if (myuid != 0)
-				continue;
-			if (*np1=='\0' || (*np1++=='.' && *np1=='\0'))
-				continue;
-		}
+		if (aflag == 0 && *np1++ == '.')
+			continue;
 		if (iflag) {
 			sb.st_ino = dp->d_ino;
 			canino(sb.st_ino);
@@ -411,6 +413,10 @@ char *dir;
 		} while (--n);
 		*np2 = '\0';
 		if (lflag || sflag || tflag || sortflg) {
+			if (strlen(dir) + DIRSIZ + 2 > sizeof namebuf) {
+				fprintf(stderr, "%s: name too long\n", curname);
+				continue;
+			}
 			np2 = namebuf;
 			np1 = dir;
 			while (*np2++ = *np1++)

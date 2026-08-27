@@ -44,6 +44,7 @@ FILE	*freopen();
 FILE	*fdopen();
 FILE	*popen();
 FILE	*_stropen();
+char	*sprintf();
 long	ftell();
 void	puts();
 void	fputs();

@@ -18,6 +18,7 @@ char *argv[];
 		exit(1);
 	}
 	printf("%s\n", basename(argv[1], argc==2 ? NULL : argv[2]));
+	return (0);
 }
 
 /*

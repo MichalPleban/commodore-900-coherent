@@ -89,6 +89,7 @@ char *argv[];
 	if (strncmp(pass, passbuf, NPASSC) != 0)
 	   perr("No match: password not changed\n");
 	setpass(name, pass);
+	return (0);
 }
 
 /*

@@ -13,6 +13,7 @@
 
 static	struct sgttyb new, old;
 
+char	*basename();
 char	*receive();
 char	*send();
 
@@ -107,7 +108,7 @@ char *ifile;
 	if ((n = strlen(ifile)) > NPKT)
 		return ("file name too long");
 	if ((fp = fopen(ofile, "w")) == NULL)
-		return ("cannot create file", 1);
+		return ("cannot create file");
 	xpkt.p_type = 'F';
 	xpkt.p_len = n + 1 + 3;
 	xpkt.p_seq[0] = xpkt.p_seq[1] = 0;
@@ -143,6 +144,7 @@ char *ifile;
 /*
  * Extract base name from a file.
  */
+char *
 basename(s)
 register char *s;
 {

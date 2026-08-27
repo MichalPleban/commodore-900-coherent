@@ -88,6 +88,7 @@ char *argv[];
 			print("Total");
 		}
 	}
+	return (0);
 }
 
 /*

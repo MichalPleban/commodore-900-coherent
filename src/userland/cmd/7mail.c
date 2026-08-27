@@ -57,6 +57,8 @@ If no 'user' is specified, the invoking user is default.\n\
 #include <mdata.h>
 #include <stat.h>
 
+extern char	*ctime();
+
 #define	SPOOLDIR	"/usr/spool/mail/"
 #define	NARGS	64		/* Maximum # args to interactive command */
 #define	NLINE	512		/* Longest line in a message */

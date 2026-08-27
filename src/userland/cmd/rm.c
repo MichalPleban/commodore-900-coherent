@@ -131,7 +131,7 @@ remove()
 {
 	register int isdir;
 	register int abortf = 0;
-	char c;
+	int c;
 
 	if (stat(fname, &sb))
 		return (didnt(NULL));
@@ -143,7 +143,7 @@ remove()
 		if (sb.st_dev == dot_sb.st_dev && sb.st_ino == dot_sb.st_ino)
 			return (didnt("%s: current directory\n"));
 		if (sb.st_dev == root_sb.st_dev && sb.st_ino == root_sb.st_ino)
-			return (didnt("%s: root directory|n"));
+			return (didnt("%s: root directory\n"));
 	} else if (accparent()<0)
 		return (didnt(NULL));
 	if (iflag) {
@@ -151,7 +151,9 @@ remove()
 			return (report(1));
 	} else if (!fflag && access(fname, AWRITE)<0) {
 		if (ntflag)  /* stdin not a terminal? */
-		   fprintf(stderr, "%sno write permission", cmd, fname);
+		{  fprintf(stderr, "%s%s: no write permission\n", cmd, fname);
+		   return (report(1));
+		}
 		fprintf(stderr, "%soverride protection %o for %s? ", 
 		   cmd, (sb.st_mode & 0777), fname);
 		if ((c = getchar()) != 'y')

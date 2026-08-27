@@ -12,6 +12,7 @@
 #include	<access.h>
 
 int	uflag;				/* don't buffer */
+int	estat;				/* exit status */
 char	*filename;			/* current input file name */
 
 main( argc, argv)
@@ -38,6 +39,7 @@ char	*argv[];
 		    {  fprintf(stderr, "cat: %s: %s\n", *argv,
 			  sys_errlist[errno]);
 		       *argv[0] = 0;  /* flag arg as invalid */
+		       estat = 1;
 		    }
 		    i++;     /* count the arg */
 		    argv++;  /* advance to next arg */
@@ -53,7 +55,7 @@ char	*argv[];
 			cat(*argv++);
 		} while (--argc);
 	}
-	exit(0);
+	exit(estat);
 }
 
 
@@ -74,6 +76,7 @@ char *file;
 		f = fopen( file, "r");
 		if (f == (FILE *)NULL) 
 		{  fprintf(stderr, "cat: %s: %s\n", file, sys_errlist[errno]);
+		   estat = 1;
 		   return;
 		}
 	}

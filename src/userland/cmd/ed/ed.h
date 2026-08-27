@@ -24,7 +24,7 @@
  * Functions for finding out whether a character is a letter and
  * to switch case from lower to upper and vice versa.
  */
-#define isallet(c)	(_ctype[(c)+1]&(_L|_D))
+#define isallet(c)	(_ctype[(c)+129]&(_L|_D))
 #define toother(c)	((c)^' ')
 
 /*

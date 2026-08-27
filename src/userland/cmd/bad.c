@@ -70,6 +70,7 @@ char *argv[];
 	default:
 		usage();
 	}
+	return (0);
 }
 
 /*

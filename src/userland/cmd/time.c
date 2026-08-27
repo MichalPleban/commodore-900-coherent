@@ -31,6 +31,7 @@ dotime(argc, argv)
 char *argv[];
 {
 	int pid, status;
+	int estat = 0;
 	register n;
 	struct timeb before, after;
 	struct tbuffer tb;
@@ -57,7 +58,8 @@ char *argv[];
 				if (status & 0200)
 					eprint(" -- core dumped");
 				fprintf(stderr ,"\n");
-			}
+			} else
+				estat = (status>>8) & 0377;
 		ftime(&after);
 		times(&tb);
 		tdiff = after.time-before.time;
@@ -76,7 +78,7 @@ char *argv[];
 		eprint("%s: not found\n", command);
 		exit(1);
 	}
-	exit(n);
+	exit(n ? n : estat);
 }
 
 /*

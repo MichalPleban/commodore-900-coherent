@@ -86,7 +86,7 @@ char *argv[];
 			break;
 
 		case 'e':
-			if (argc<2 || ap[1]!='\0')
+			if (argc<3 || ap[1]!='\0')
 				usage();
 			argv++;
 			argc--;
@@ -94,7 +94,7 @@ char *argv[];
 			break;
 
 		case 'j':
-			if (argc < 2)
+			if (argc < 3)
 				usage();
 			argv++;
 			argc--;
@@ -165,7 +165,7 @@ register char *s;
 		for (n=0; *s>='0' && *s<='9'; )
 			n = n*10 + *s++-'0';
 	}
-	if (*s!='\0' || fn<1 || fn>3)
+	if (*s!='\0' || fn<1 || fn>3 || n<1)
 		return (0);
 	if (efp >= &fields[NOFIELD-1])
 		cerr("too many elements for `-o' list");
@@ -249,7 +249,7 @@ register RECORD *rp;
 	register int nf = 0;
 
 	rp->r_nfield = 0;
-	if (fgets(rp->r_record, NFIELD, rp->r_fp) == NULL) {
+	if (fgets(rp->r_record, NREC, rp->r_fp) == NULL) {
 		rp->r_eof++;
 		return;
 	}

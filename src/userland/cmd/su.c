@@ -53,7 +53,8 @@ char *argv[];
 	setuid(uid);
 	addenviron(uid==0 ? "# " : "$ ");
 	execvp(command, args);
-	printf("%s: not found\n", command);
+	fprintf(stderr, "%s: not found\n", command);
+	return (1);
 }
 
 /*

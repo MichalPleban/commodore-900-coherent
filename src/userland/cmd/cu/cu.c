@@ -379,6 +379,7 @@ pflush()
  * string by escaping them with `\'.
  * Flag means do local editing.
  */
+char *
 pgets(as, l, f)
 char *as;
 unsigned l;

@@ -45,6 +45,7 @@ char *argv[];
 		close(tfd);
 	}
 	close(ufd);
+	return (0);
 }
 
 getmsg()

@@ -250,7 +250,7 @@ unsigned char	*str1,
 				extra = TRUE;
 		}
 	}
-	if (not extra  &&  nextchar(&l2) != EOF)
+	if (not extra)
 		die("Extra characters in second string");
 	return;
 }

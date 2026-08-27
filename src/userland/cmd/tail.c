@@ -292,6 +292,8 @@ backcu()
 	char	*limit;
 	int	full;
 
+	if (skipcnt == 0)
+		return;
 	buff = (char *)alloc(check(skipcnt * sizeof *buff));
 	limit = &buff[(int)skipcnt];
 	full = FALSE;

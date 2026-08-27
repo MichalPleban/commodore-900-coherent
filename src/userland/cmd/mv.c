@@ -39,6 +39,7 @@ char	*concat(),
 	*strncpy(),
 	*getparent(),
 	*getchild();
+long	lseek();
 
 main(argc, argv)
 char *argv[];

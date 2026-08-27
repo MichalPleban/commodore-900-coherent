@@ -50,6 +50,7 @@ char *argv[];
 	else
 		for ( i = start; i >= end; i += incr )
 			printf("%d\n", i);
+	return (0);
 }
 
 /*

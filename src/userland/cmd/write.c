@@ -140,7 +140,7 @@ callsys()
 	register int c;
 
 	cp = sysline;
-	while ((c = getchar()) != '\n')
+	while ((c = getchar()) != '\n' && c != EOF)
 		if (cp < &sysline[NSYSC-1])
 			*cp++ = c;
 	*cp = '\0';

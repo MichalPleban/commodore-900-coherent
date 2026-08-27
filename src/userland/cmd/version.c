@@ -24,4 +24,5 @@ main()
 	pwd = getwd();
 	printf("%s/%d/%s/%d\n",
 		pwd, tp->tm_mday, mon[tp->tm_mon], tp->tm_year%100);
+	return (0);
 }

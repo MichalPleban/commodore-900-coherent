@@ -13,6 +13,7 @@
 
 int	cflag;
 int	tflag;
+int	estat;
 FILE	*fp;
 long	tsize[L_DEBUG];
 long	tcomm;
@@ -63,6 +64,7 @@ char *argv[];
 		}
 	} else
 		size("l.out", 0);
+	return (estat);
 }
 
 size(fn, f)
@@ -75,6 +77,7 @@ char *fn;
 
 	if ((fp = fopen(fn, "r")) == NULL) {
 		fprintf(stderr, "%s: cannot open.\n", fn);
+		estat = 1;
 		return;
 	}
 	fread(&ldh, sizeof(ldh), 1, fp);
@@ -82,6 +85,7 @@ char *fn;
 	if (feof(fp) || ldh.l_magic!=L_MAGIC) {
 		fprintf(stderr, "%s: not an object file.\n", fn);
 		fclose(fp);
+		estat = 1;
 		return;
 	}
 	canshort(ldh.l_flag);

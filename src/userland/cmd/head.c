@@ -152,7 +152,7 @@ copybc()
 	register char	*buf,
 			*chp,
 			*limit;
-	char		ch;
+	int		ch;
 	unsigned	len;
 
 	if (n > MAXUINT)

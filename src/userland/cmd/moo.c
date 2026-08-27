@@ -83,6 +83,7 @@ regen:
 		    bulls, bulls == 1 ? '\0' : 's',
 		    cows, cows == 1 ? '\0' : 's');
 	}
+	return (0);
 }
 
 /*

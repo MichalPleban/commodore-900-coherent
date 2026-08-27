@@ -43,8 +43,9 @@ char *argv[];
 	if (namebuf == NULL)
 		return (cp(argv[1], target) ? 0 : 1);
 	for (i = 1; i <= n; ++i)
-		status |= cpdir(argv[i]);
-	return (status ? 0 : 1);
+		if (cpdir(argv[i]) == FALSE)
+			status = 1;
+	return (status);
 }
 
 /*

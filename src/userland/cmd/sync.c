@@ -10,4 +10,5 @@
 main()
 {
 	sync();
+	return (0);
 }

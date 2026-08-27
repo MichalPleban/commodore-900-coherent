@@ -11,12 +11,20 @@ main( argc, argv)
 char	*argv[];
 {
 	char	lbuf[128];
+	register char	*cp;
 
 	if (argc > 1)
 		convert( argv[1]);
-	else while (gets( lbuf) != NULL)
+	else while (fgets( lbuf, sizeof lbuf, stdin) != NULL) {
+		for (cp = lbuf; *cp; cp++)
+			if (*cp == '\n') {
+				*cp = '\0';
+				break;
+			}
 		if (lbuf[0])
 			convert( lbuf);
+	}
+	return (0);
 }
 
 

@@ -69,12 +69,16 @@ char *a, *b;
 		err(eopen, a);
 	if ((fp2 = fopen(b, "r")) == NULL)
 		err(eopen, b);
-	while (skip1--)
-		if ((c1 = getc(fp1)) == EOF)
+	while (skip1-- > 0)
+		if ((c1 = getc(fp1)) == EOF) {
 			remark("EOF in skipping on %s\n", a);
-	while (skip2--)
-		if ((c2 = getc(fp2)) == EOF)
+			break;
+		}
+	while (skip2-- > 0)
+		if ((c2 = getc(fp2)) == EOF) {
 			remark("EOF in skipping on %s\n", b);
+			break;
+		}
 	for (;;) {
 		c1 = getc(fp1);
 		c2 = getc(fp2);

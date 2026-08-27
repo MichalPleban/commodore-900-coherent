@@ -45,7 +45,8 @@ FILE *stream;
 	do {
 		ep = line;
 		while ((c=getc(stream))!='\n' && c!=EOF)
-			*ep++=c;
+			if (ep < &line[MAXLINE])
+				*ep++=c;
 		while (ep > line)
 			putchar(*--ep);
 		if (c=='\n')

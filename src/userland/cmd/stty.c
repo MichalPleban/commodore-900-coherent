@@ -193,6 +193,7 @@ char *argv[];
 	setmodes();
 	if (printflag)
 		prmodes();
+	return (0);
 }
 
 /*

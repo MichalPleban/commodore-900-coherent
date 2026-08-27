@@ -44,6 +44,7 @@ char	*argv[];
 		if (grand(i) == i)
 			save(fortline);
 	prfortune(savef);
+	return (0);
 }
 
 /*

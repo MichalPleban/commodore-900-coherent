@@ -207,6 +207,7 @@ char	*argv[];
 		exit(perror("Tar: %s", archive));
 	}
 	setbuf(tarfile, NULL);
+	errno = 0;			/* exit status below is errno */
 
 	/* perform required function */
 

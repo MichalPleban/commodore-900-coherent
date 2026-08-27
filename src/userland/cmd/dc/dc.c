@@ -363,9 +363,17 @@ rvalue	*v;
 			break;
 		if (str != NULL)
 			*s++ = c;
-		if (s == &str[len]) {
-			str = realloc(str, len*=2);
-			s = &str[len/2];
+		if (str != NULL && s == &str[len]) {
+			register char *nstr;
+
+			if ((nstr = realloc(str, len*2)) == NULL) {
+				free(str);
+				str = NULL;
+			} else {
+				str = nstr;
+				s = &str[len];
+				len *= 2;
+			}
 		}
 	}
 	if (str == NULL) {
@@ -393,9 +401,17 @@ FILE	*fp;
 	while ((c=getc(fp))!= EOF && c != '\n') {
 		if (str != NULL)
 			*s++ = c;
-		if (s == &str[len]) {
-			str = realloc(str, len*=2);
-			s = &str[len/2];
+		if (str != NULL && s == &str[len]) {
+			register char *nstr;
+
+			if ((nstr = realloc(str, len*2)) == NULL) {
+				free(str);
+				str = NULL;
+			} else {
+				str = nstr;
+				s = &str[len];
+				len *= 2;
+			}
 		}
 	}
 	if (str == NULL) {

@@ -87,6 +87,10 @@ char *n1, *n2;
 	for (sp = rp = n1; *rp != '\0'; )
 		if (*rp++ == '/')
 			sp = rp;
+	if (strlen(n2) + strlen(sp) + 2 > sizeof namebuf) {
+		fprintf(stderr, "ln: %s/%s: name too long\n", n2, sp);
+		return (1);
+	}
 	for (cp=namebuf, rp=n2; *rp != '\0'; )
 		*cp++ = *rp++;
 	*cp++ = '/';

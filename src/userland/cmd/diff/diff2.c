@@ -26,6 +26,8 @@ unsigned ninsert;		/* Number of lines inserted */
 unsigned ndelete;		/* Number of lines deleted */
 unsigned nunchanged;		/* Number of line unchanged */
 char	*tmpnam1, *tmpnam2;
+char	tmpbuf[2][16];			/* writable mktemp templates */
+int	ntmpbuf;
 FILE	*fp1;			/* First input stream */
 FILE	*fp2;			/* Second input stream */
 char	*fn1, *fn2;		/* Filenames */
@@ -197,8 +199,11 @@ again:
 		break;
 
 	default:
-		*tfnp = "/tmp/difXXXXXX";
-		if ((tfp = fopen(mktemp(*tfnp), "w")) == NULL)
+		if (ntmpbuf >= 2)
+			cerr("too many tempfiles");
+		strcpy(tmpbuf[ntmpbuf], "/tmp/difXXXXXX");
+		*tfnp = mktemp(tmpbuf[ntmpbuf++]);
+		if ((tfp = fopen(*tfnp, "w")) == NULL)
 			cerr("cannot create tempfile");
 		setbuf(fp, buf1);
 		setbuf(tfp, buf2);
