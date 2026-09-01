@@ -29,13 +29,69 @@ DDEESSCCRRIIPPTTIIOONN
                 UUpp, DDoowwnn          ^P, ^N
                 LLeefftt, RRiigghhtt       ^B, ^F
                 HHOOMMEE, EENNDD         ^A, ^E
-                PPGG UUPP, PPGG DDNN      ^Z, ^V
+                PPGG UUPP, PPGG DDNN      ESC v, ^V (M-v page up in mmee)
                 BBSS                ^H (0x08)
                 DDEELL, kkeeyyppaadd DDeell   DEL (0x7f)
-                FF1100               ^X ^C (two keys)
+                CCttrrll+aarrrroowwss       ^A ^E ESC-v ^V (= Home, End, PG UP, PG DN)
+                SShhiifftt+aarrrroowwss      ESC b/f/</> (word back/fwd, buffer top/end)
+                FF11                ^@ (set mark in mmee)
+                FF22                ^X ^S (save in mmee)
+                FF33                ^X ^V (visit a file in mmee)
+                FF44                ^R (reverse search in mmee)
+                FF55                ESC w (copy region in mmee)
+                FF66                ^W (kill region in mmee)
+                FF77                ^S (search in mmee)
+                FF88                ^K ^K (kill to end of line + newline in mmee)
+                FF99                ^Y (yank in mmee)
+                FF1100               ^X ^C (quit in mmee)
+                SShhiifftt+FF11          ESC ! (reposition in mmee)
+                SShhiifftt+FF22          ^X ^W (write named file in mmee)
+                SShhiifftt+FF33          ^X b (use/create a buffer in mmee)
+                SShhiifftt+FF44          ^X ^X (swap mark and cursor in mmee)
+                SShhiifftt+FF55          ^X ^U (region to upper case in mmee)
+                SShhiifftt+FF66          ^X ^L (region to lower case in mmee)
+                SShhiifftt+FF77          ^R (search backward in mmee)
+                SShhiifftt+FF88          ESC d (delete word in mmee)
+                SShhiifftt+FF99          ^X ( (begin keyboard macro in mmee)
+                CCttrrll+FF11           ESC c (capitalise word in mmee)
+                CCttrrll+FF22           ^X ^F (set file name in mmee)
+                CCttrrll+FF33           ^X ^R (read a file in mmee)
+                CCttrrll+FF44           ESC u (word to upper case in mmee)
+                CCttrrll+FF55           ^X 2 (split window in mmee)
+                CCttrrll+FF66           ^X 1 (one window in mmee)
 
-     The remaining function keys produce codes with no byte value
-     and are ignored in a terminal window.
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+zztteerrmm                                                       zztteerrmm
+
+
+
+                CCttrrll+FF77           ESC l (word to lower case in mmee)
+                CCttrrll+FF88           ESC ^H (delete word back in mmee)
+                CCttrrll+FF99           ^X ) (end keyboard macro in mmee)
+                CCttrrll+FF1100          ^Z (save all and exit in mmee)
+                CCLLRR/HHOOMMEE          ESC < (top of buffer; shifted, ESC > the end;
+                                  Ctrl, ^X k kill buffer)
+                PPOOPP/PPUUSSHH          ^X n (next window; shifted, ^X p previous;
+                                  Ctrl, ^X z enlarge)
+                SSCCRRNN/PPRRTT          ^L (redraw; shifted, ^X ^Z shrink window;
+                                  Ctrl, ^X = show position)
+                SSTTOOPP/CCOONNTT         ^G (abort; shifted, ^X e execute macro;
+                                  Ctrl, ^X ^B list buffers)
+
+     The F-keys follow the Norton Commander editor's bar (F1 =
+     mark, F3 = open, F4 = replace, F9 = paste) as mmee's own key
+     bindings, so mark/copy/move/delete blocks, search, save and
+     quit read the same in mmee here as the function keys do in
+     zzeeddiitt, and the kernel consoles send the identical bytes.
+     Beware that at a shell prompt ^S stops terminal output until
+     ^Q is typed - the tty's own flow control.  The remaining
+     function keys produce codes with no byte value and are ig-
+     nored in a terminal window.
 
      On the output side zztteerrmm emulates a deliberate subset of the
      ANSI terminal, enough for the shell, simple full-screen
@@ -60,16 +116,6 @@ FFIILLEESS
                   /dev/ptyp0 ... /dev/ptyp7   pseudo-terminals
                   /usr/hr/bin/hrpump          I/O helper (internal)
 
-
-COHERENT Command Manual                                    Page 1
-
-
-
-
-zztteerrmm                                                       zztteerrmm
-
-
-
 SSEEEE AALLSSOO
      zzvviieeww, sshh, ssttttyy
 
@@ -79,5 +125,16 @@ NNOOTTEESS
      vironment.  A paste is limited to 1024 bytes, and the tty
      driver itself accepts at most 255 characters in one input
      line.  The scrollback is dropped, oldest first, when memory
-     runs short.  hhrrppuummpp is zztteerrmm's internal I/O helper and does
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+zztteerrmm                                                       zztteerrmm
+
+
+
+     rruunnss short.  hhrrppuummpp is zztteerrmm's internal I/O helper and does
      nothing useful run by hand.

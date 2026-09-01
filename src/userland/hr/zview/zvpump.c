@@ -39,7 +39,12 @@ static int DEF_MOUSE[] = { 0x0000, 0x7ffe, 0x7ffc, 0x7ff8,
  * positions 0x47..0x53, which the original dropped -- it never tracked
  * numlock) now emits the MicroEMACS control codes:
  *     Up ^P  Down ^N  Left ^B  Right ^F   Home ^A  End ^E
- *     PgUp ^Z  PgDn ^V   keypad Del -> DEL
+ *     PgUp ESC v (M-v -- ^Z would be me's save-and-exit)   PgDn ^V
+ *     keypad Del -> DEL
+ * Ctrl+arrows double for the nav keys a small keyboard may lack, emitting
+ * the SAME codes: Ctrl+Left = Home (^A), Ctrl+Right = End (^E),
+ * Ctrl+Up = PgUp (ESC v), Ctrl+Down = PgDn (^V); Shift+arrows are the
+ * word/buffer motions M-b M-f M-< M->.  The complete map is KEYBOARD.md.
  * The wire stays plain ASCII, so nothing downstream changes: an editor that
  * already binds the MicroEMACS set gets working arrows for free, a shell in a
  * zterm sees them as the control keys a user could have typed anyway (and
@@ -54,7 +59,11 @@ static int DEF_MOUSE[] = { 0x0000, 0x7ffe, 0x7ffc, 0x7ff8,
  * reads "quit" everywhere the nav keys read "move" -- zedit exits on it, and
  * MicroEMACS in a terminal window gets its own exit sequence.  (A shell sees
  * ^X, then the ^C a user could have typed anyway.)  HRK_F10 therefore never
- * reaches a client.
+ * reaches a client.  The full Shift and Ctrl layers of the function row
+ * and specials are remapped the same way, each to a me(1) command's own
+ * bytes -- the chord tables live in keymap() and the complete map with
+ * meanings is KEYBOARD.md; an unlisted shifted F-key stays its plain
+ * self.
  * Which scancodes the specials use on REAL hardware is only partly known:
  * Help is 0x54 (the hr driver's own Alt+Ctrl+Help hatch tests that code,
  * and the historical table has the C900's DEL right beside it at 0x55);
@@ -176,10 +185,85 @@ int r;
 	}
 	if ( r & KB_KEYUP )
 		return -1;
+	/* The Shift and Ctrl layers of the nav/function keys return a
+	 * CHORD-MARKED code: 0x200 = ESC prefix, 0x400 = ^X prefix, low
+	 * byte the second key (main() emits two IN_KEY records).  The full
+	 * map, with the me(1) meanings, is KEYBOARD.md. */
+	if ( (kbshift & KB_CTS) == 0 && (kbshift & KB_SES) != 0 )
+	{
+		switch ( c )
+		{		/* the whole SHIFT layer (KEYBOARD.md) */
+		case 0x48-1:	return 0x200 | '<';	/* S+Up = top      */
+		case 0x50-1:	return 0x200 | '>';	/* S+Down = end    */
+		case 0x4b-1:	return 0x200 | 'b';	/* S+Left = word<  */
+		case 0x4d-1:	return 0x200 | 'f';	/* S+Right = word> */
+		case 0x3b-1:	return 0x200 | '!';	/* F1 reposition   */
+		case 0x3c-1:	return 0x400 | 027;	/* F2 save as      */
+		case 0x3d-1:	return 0x400 | 'b';	/* F3 new / use
+							 * buffer          */
+		case 0x3e-1:	return 0x400 | 030;	/* F4 swap mark    */
+		case 0x3f-1:	return 0x400 | 025;	/* F5 upper region */
+		case 0x40-1:	return 0x400 | 014;	/* F6 lower region */
+		case 0x41-1:	return 022;		/* F7 search back  */
+		case 0x42-1:	return 0x200 | 'd';	/* F8 delete word  */
+		case 0x43-1:	return 0x400 | '(';	/* F9 begin macro  */
+		case 0x5a-1:	return 0x200 | '>';	/* Clear/Home =
+							 * end of buffer   */
+		case 0x5b-1:	return 0x400 | 'p';	/* Pop/Push =
+							 * prev me window  */
+		case 0x5c-1:	return 0x400 | 032;	/* Scrn/Prt =
+							 * shrink window   */
+		case 0x5d-1:	return 0x400 | 'e';	/* Stop/CONTINUE =
+							 * execute macro   */
+		}
+	}
+	if ( (kbshift & KB_CTS) == 0 && c == 0x49-1 )
+		return 0x200 | 'v';	/* PgUp = M-v page up -- NOT ^Z,
+					 * which is me(1)'s save-and-exit */
 	if ( kbshift & KB_CTS )
 	{
 		if ( s == KB_SS1 || s == KB_LET )
 			c = umaptab[c] & 0x1f;
+		else if ( c == 0x48-1 )		/* Ctrl+Up    = PgUp = M-v */
+			return 0x200 | 'v';
+		else if ( c == 0x50-1 )		/* Ctrl+Down  = PgDn */
+			c = 'V' & 0x1f;
+		else if ( c == 0x4b-1 )		/* Ctrl+Left  = Home */
+			c = 'A' & 0x1f;
+		else if ( c == 0x4d-1 )		/* Ctrl+Right = End  */
+			c = 'E' & 0x1f;
+		else if ( c == 0x3b-1 )		/* Ctrl+F1 = capitalise word */
+			return 0x200 | 'c';
+		else if ( c == 0x3c-1 )		/* Ctrl+F2 = set file name  */
+			return 0x400 | ('F' & 0x1f);
+		else if ( c == 0x3d-1 )		/* Ctrl+F3 = revert (read)  */
+			return 0x400 | ('R' & 0x1f);
+		else if ( c == 0x3e-1 )		/* Ctrl+F4 = upper word     */
+			return 0x200 | 'u';
+		else if ( c == 0x3f-1 )		/* Ctrl+F5 = split window   */
+			return 0x400 | '2';
+		else if ( c == 0x40-1 )		/* Ctrl+F6 = one window     */
+			return 0x400 | '1';
+		else if ( c == 0x41-1 )		/* Ctrl+F7 = lower word     */
+			return 0x200 | 'l';
+		else if ( c == 0x42-1 )		/* Ctrl+F8 = del word back  */
+			return 0x200 | 010;
+		else if ( c == 0x43-1 )		/* Ctrl+F9 = end macro      */
+			return 0x400 | ')';
+		else if ( c == 0x44-1 )		/* Ctrl+F10 = quickexit     */
+			return 032;
+		else if ( c == 0x5a-1 )		/* Ctrl+Clear/Home =
+						 * kill buffer              */
+			return 0x400 | 'k';
+		else if ( c == 0x5b-1 )		/* Ctrl+Pop/Push =
+						 * enlarge window           */
+			return 0x400 | 'z';
+		else if ( c == 0x5c-1 )		/* Ctrl+Scrn/Prt =
+						 * show position            */
+			return 0x400 | '=';
+		else if ( c == 0x5d-1 )		/* Ctrl+Stop/Cont =
+						 * list buffers             */
+			return 0x400 | 002;
 		else
 			return -1;
 	}
@@ -236,7 +320,14 @@ main()
 			if ( a < 0 )
 				continue;	/* release / modifier / dead key */
 			c.wm_arg[0] = IN_KEY;
-			if ( (kbshift & KB_ALS) && a >= HRK_F1 && a <= HRK_F5 )
+			if ( a & 0x600 )
+			{	/* chord-marked (see keymap): prefix record,
+				 * then the low byte as the second key */
+				c.wm_arg[1] = (a & 0x400) ? ('X' & 0x1f) : 033;
+				write(HR_CMDFD, &c, sizeof(c));
+				a &= 0xff;
+			}
+			else if ( (kbshift & KB_ALS) && a >= HRK_F1 && a <= HRK_F5 )
 				a += HRK_ALTFN;	/* Alt+F1..F5: window-op
 						 * shortcuts (wire.h HRK_AF*) */
 			else if ( a == HRK_F10 )

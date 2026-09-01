@@ -13,6 +13,8 @@ c	/dev/kmem	600	3	1	0	2
 c	/dev/lp	600	1	1	3	0
 c	/dev/mem	600	3	1	0	1
 c	/dev/null	666	3	1	0	0
+c	/dev/port	600	3	1	0	4
+c	/dev/wport	600	3	1	0	5
 c	/dev/rfd1	666	3	1	2	48
 c	/dev/rhd0	644	3	1	2	0
 c	/dev/rhd1	644	3	1	2	1

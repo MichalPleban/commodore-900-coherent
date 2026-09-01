@@ -140,8 +140,57 @@ char **argv;
 			if ( e.wm_type == E_KEY )
 			{
 				if ( e.wm_arg[0] > 0x7f )
-					continue;	/* HRK_* function key: no byte
-							 * to write to a pty (yet)   */
+				{
+					/* HRK_* function key.  The editor set becomes
+					 * the MicroEMACS bytes (me(1)'s own bindings),
+					 * laid out on the Norton Commander editor's
+					 * bar -- except F3, which stays Open, and F9,
+					 * which is yank/paste (NC's menu key means
+					 * nothing here).  zedit binds the same layout,
+					 * so the F-keys read the same in either editor:
+					 *    F1 = ^@ set mark
+					 *    F2 = ^X^S save     F3 = ^X^V visit a file
+					 *    F4 = ^R reverse search (zedit: Replace)
+					 *    F5 = M-w copy region
+					 *    F6 = ^W cut region F7 = ^S search
+					 *    F8 = ^K^K kill to end of line + the
+					 *         newline (yankable)
+					 *    F9 = ^Y yank
+					 * and the C900 specials (wire.h F12-F15):
+					 *    Clear/Home   = ESC < top of buffer
+					 *    Pop/Push     = ^X n  next me window
+					 *    Screen/Print = ^L    redraw
+					 *    Stop/Cont    = ^G    abort
+					 * (F10 = ^X^C already arrives as ASCII from
+					 * zvpump.)  The rest have no byte to write to
+					 * a pty.  A shell sees control keys a user
+					 * could have typed; a stray ^S freezes output
+					 * until ^Q, the tty's own flow control.
+					 * Lengths are explicit: F1's NUL ends a
+					 * string early for strlen. */
+					char *seq;
+					int ns;
+					switch ( e.wm_arg[0] )
+					{
+					case HRK_F1:	seq = "\000";		ns = 1;	break;
+					case HRK_F2:	seq = "\030\023";	ns = 2;	break;
+					case HRK_F3:	seq = "\030\026";	ns = 2;	break;
+					case HRK_F4:	seq = "\022";		ns = 1;	break;
+					case HRK_F5:	seq = "\033w";		ns = 2;	break;
+					case HRK_F6:	seq = "\027";		ns = 1;	break;
+					case HRK_F7:	seq = "\023";		ns = 1;	break;
+					case HRK_F8:	seq = "\013\013";	ns = 2;	break;
+					case HRK_F9:	seq = "\031";		ns = 1;	break;
+					case HRK_CLRHOME: seq = "\033<";	ns = 2;	break;
+					case HRK_POPPUSH: seq = "\030n";	ns = 2;	break;
+					case HRK_SCRPRT: seq = "\014";		ns = 1;	break;
+					case HRK_STOP:	seq = "\007";		ns = 1;	break;
+					default:	seq = 0;		ns = 0;	break;
+					}
+					if ( seq )
+						write(mfd, seq, ns);
+					continue;
+				}
 				ch = e.wm_arg[0] & 0xff;
 				write(mfd, &ch, 1);	/* keystroke straight to the shell */
 				continue;

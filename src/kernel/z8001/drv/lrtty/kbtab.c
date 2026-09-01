@@ -114,10 +114,12 @@ KEY	ktab[] =	{
 	KC,	W2,	W2,	W2,		/* SC5C, K79 */
 	KC,	W3,	W3,	W3,		/* SC5D, K80 */
 	KP,	'\r',	'\r',	KENTER,		/* SC5E, K92 */
-	0,	CUP,	CUP,	0,		/* SC5F, K95 */
-	0,	CLEFT,	CLEFT,	0,		/* SC60, K96 */
-	0,	CRIGHT,	CRIGHT,	0,		/* SC61, K97 */
-	0,	CDOWN,	CDOWN,	0,		/* SC62, K98 */
+	/* KC on the arrows so Ctrl+arrow reaches kb.c's kbmap
+	 * (= Home/End/PgUp/PgDn) instead of being dropped. */
+	KC,	CUP,	CUP,	CUP,		/* SC5F, K95 */
+	KC,	CLEFT,	CLEFT,	CLEFT,		/* SC60, K96 */
+	KC,	CRIGHT,	CRIGHT,	CRIGHT,		/* SC61, K97 */
+	KC,	CDOWN,	CDOWN,	CDOWN,		/* SC62, K98 */
 	KC,	O1,	O1,	O1,		/* SC63, K99 */
 	KC,	O2,	O2,	O2		/* SC64, K100 */
 };

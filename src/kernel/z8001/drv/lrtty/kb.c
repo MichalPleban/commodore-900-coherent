@@ -147,6 +147,127 @@ kbioctl(dev, com, p)
 */
 }
 
+/*
+ * Translate the nav and function keys to the same MicroEMACS bytes the
+ * GUI terminal delivers (hr/zview/zvpump.c keymap, hr/zterm/hrpump.c),
+ * so the console, zterm, me(1) and zedit all agree on what a key does:
+ *
+ *	arrows        ^P ^N ^B ^F
+ *	Ctrl+arrows   ESC v, ^V, ^A, ^E  (= PgUp, PgDn, Home, End;
+ *	              PgUp is M-v, NOT ^Z -- ^Z is me's save-and-exit)
+ *	Shift+arrows  ESC < ESC > ESC b ESC f (top/end, word back/fwd)
+ *	F1 ^@ (set mark)		F2 ^X^S (save)
+ *	F3 ^X^V (visit a file)		F4 ^R (replace/reverse search)
+ *	F5 ESC w (copy region)		F6 ^W (kill region)
+ *	F7 ^S (search)			F8 ^K^K (kill line)
+ *	F9 ^Y (yank)			F10 ^X^C (quit)
+ *	Clear/Home (F12)  ESC < (top of buffer)
+ *	Pop/Push   (F13)  ^X n  (next me window; SHIFTED: ^X p, prev)
+ *	Screen/Print (F14) ^L   (redraw)
+ *	Stop/Cont  (F15)  ^G    (abort)
+ * plus a full SHIFT layer (save as, new/use buffer, swap mark, region
+ * case, search back, delete word, begin/execute macro, end of buffer,
+ * prev window, shrink window) and a full CONTROL layer (word case, set
+ * name, revert, split/one window, delete word back, end macro,
+ * quickexit, kill buffer, enlarge window, position, list buffers) --
+ * the switch bodies below name them all, and the complete map with
+ * every consumer is KEYBOARD.md at the source root.
+ *
+ * Only the modifiers matter to the gate (caps/num lock never block a
+ * translation); combinations not listed, Alt+anything, Help (F11), the
+ * W keys and the keypad keep the historical raw code + CSHIFT trailer.  In cooked mode the control
+ * bytes act as themselves (F10's ^C interrupts, F7's ^S stops output
+ * until ^Q), exactly as they do on a zterm pty.  The old raw arrow
+ * bytes 0x80-0x83 no longer reach the queue (cooked mode mangled them
+ * anyway: ttin's 7-bit mask turned CDOWN into the interrupt character).
+ * Returns nonzero when the key was translated and queued.
+ */
+static int
+kbmap(c)
+register int c;
+{
+	register int mod = kbsstate & (SS1|SS2|SCT|SAL);
+	register int sh = mod & (SS1|SS2);
+
+	switch (c) {
+	case CUP:	if (mod & SCT) { v0in(033);  v0in('v'); }
+			else if (sh) { v0in(033);  v0in('<'); }
+			else v0in(020);
+			return 1;
+	case CDOWN:	if (mod & SCT) v0in(026);
+			else if (sh) { v0in(033);  v0in('>'); }
+			else v0in(016);
+			return 1;
+	case CLEFT:	if (mod & SCT) v0in(001);
+			else if (sh) { v0in(033);  v0in('b'); }
+			else v0in(002);
+			return 1;
+	case CRIGHT:	if (mod & SCT) v0in(005);
+			else if (sh) { v0in(033);  v0in('f'); }
+			else v0in(006);
+			return 1;
+	}
+	if (mod & SAL)
+		return 0;
+	if (mod & SCT) {
+		switch (c) {			/* the Ctrl layer (KEYBOARD.md) */
+		case F1:	v0in(033);  v0in('c');	break;
+		case F2:	v0in(030);  v0in(006);	break;
+		case F3:	v0in(030);  v0in(022);	break;
+		case F4:	v0in(033);  v0in('u');	break;
+		case F5:	v0in(030);  v0in('2');	break;
+		case F6:	v0in(030);  v0in('1');	break;
+		case F7:	v0in(033);  v0in('l');	break;
+		case F8:	v0in(033);  v0in(010);	break;
+		case F9:	v0in(030);  v0in(')');	break;
+		case F10:	v0in(032);		break;
+		case F12:	v0in(030);  v0in('k');	break;
+		case F13:	v0in(030);  v0in('z');	break;
+		case F14:	v0in(030);  v0in('=');	break;
+		case F15:	v0in(030);  v0in(002);	break;
+		default:	return 0;
+		}
+		return 1;
+	}
+	if (sh) {
+		switch (c) {			/* the Shift layer (KEYBOARD.md) */
+		case F1:	v0in(033);  v0in('!');	break;
+		case F2:	v0in(030);  v0in(027);	break;
+		case F3:	v0in(030);  v0in('b');	break;
+		case F4:	v0in(030);  v0in(030);	break;
+		case F5:	v0in(030);  v0in(025);	break;
+		case F6:	v0in(030);  v0in(014);	break;
+		case F7:	v0in(022);		break;
+		case F8:	v0in(033);  v0in('d');	break;
+		case F9:	v0in(030);  v0in('(');	break;
+		case F12:	v0in(033);  v0in('>');	break;
+		case F13:	v0in(030);  v0in('p');	break;
+		case F14:	v0in(030);  v0in(032);	break;
+		case F15:	v0in(030);  v0in('e');	break;
+		default:	return 0;
+		}
+		return 1;
+	}
+	switch (c) {
+	case F1:	v0in(0);		break;
+	case F2:	v0in(030);  v0in(023);	break;
+	case F3:	v0in(030);  v0in(026);	break;
+	case F4:	v0in(022);		break;
+	case F5:	v0in(033);  v0in('w');	break;
+	case F6:	v0in(027);		break;
+	case F7:	v0in(023);		break;
+	case F8:	v0in(013);  v0in(013);	break;
+	case F9:	v0in(031);		break;
+	case F10:	v0in(030);  v0in(003);	break;
+	case F12:	v0in(033);  v0in('<');	break;
+	case F13:	v0in(030);  v0in('n');	break;
+	case F14:	v0in(014);		break;
+	case F15:	v0in(007);		break;
+	default:	return 0;
+	}
+	return 1;
+}
+
 static void
 kbintr(dev)
 dev_t dev;
@@ -240,22 +361,24 @@ dev_t dev;
 			c |= 0x80;
 	} else
 		c = kp->k_lower;
-	v0in(c);
-	if (f & KDUP)
+	if (kbmap(c) == 0) {
 		v0in(c);
-	/*
-	 * Send shift state for all
-	 * Function keys
-	 */
-	if (c>=FBASE && c<=FEND) {
-		c = CSHIFT;
-		if ((kbsstate & (SS1|SS2)) != 0)
-			c |= SUPPER;
-		if (kbsstate & SAL)
-			c |= SALT;
-		if (kbsstate & SCT)
-			c |= SCTRL;
-		v0in(c);
+		if (f & KDUP)
+			v0in(c);
+		/*
+		 * Send shift state for all
+		 * Function keys
+		 */
+		if (c>=FBASE && c<=FEND) {
+			c = CSHIFT;
+			if ((kbsstate & (SS1|SS2)) != 0)
+				c |= SUPPER;
+			if (kbsstate & SAL)
+				c |= SALT;
+			if (kbsstate & SCT)
+				c |= SCTRL;
+			v0in(c);
+		}
 	}
 	kbintend();
 }

@@ -187,10 +187,10 @@ CCOOMMMMAANNDD HHIISSTTOORRYY
      edited and entered again.  A line is remembered only if it
      is not empty and not the same as the line before it.
 
-     Terminals disagree about what a cursor key sends, so sshh ac-
-     cepts all three of the forms this system produces (a serial
-     terminal in keypad-application mode sends ESC O A and ESC O
-     B, which are taken too):
+     Both forms of cursor key this system produces are accepted
+     (a serial terminal in keypad-application mode sends ESC O A
+     and ESC O B, which are taken too):
+
 
 
 COHERENT Command Manual                                    Page 3
@@ -203,9 +203,8 @@ sshh                                                             sshh
 
 
           UUpp        DDoowwnn      TTeerrmmiinnaall
-          CTRL-P    CTRL-N    a window under zzvviieeww
+          CTRL-P    CTRL-N    a window under zzvviieeww, or a console
           ESC [ A   ESC [ B   a serial terminal
-          0x80      0x83      the hi-res console keyboard
 
      Editing within the line is what cooked mode offers and no
      more: the erase character rubs out the last character typed
@@ -257,6 +256,7 @@ SSPPEECCIIAALL CCOOMMMMAANNDDSS
                the status of the last command).
 
      eexxppoorrtt [_n_a_m_e ...]
+               Mark each _n_a_m_e so that its value is passed to the
 
 
 COHERENT Command Manual                                    Page 4
@@ -268,8 +268,7 @@ sshh                                                             sshh
 
 
 
-               Mark each _n_a_m_e so that its value is passed to the
-               environment of commands the shell runs; with no
+               eennvviirroonnmmeenntt of commands the shell runs; with no
                arguments, print the exported names and values.
 
      rreeaaddoonnllyy [_n_a_m_e ...]
@@ -323,6 +322,7 @@ CCOOMMMMAANNDD-LLIINNEE OOPPTTIIOONNSS
      -ee   If the shell is not interactive, exit as soon as any
           command returns a nonzero status or is not found.
 
+     -ii   Treat the shell as interactive (print prompts, and ig-
 
 
 COHERENT Command Manual                                    Page 5
@@ -334,8 +334,7 @@ sshh                                                             sshh
 
 
 
-     -ii   Treat the shell as interactive (print prompts, and ig-
-          nore SSIIGGTTEERRMM and SSIIGGIINNTT) even if its input is not a
+          nnoorree SSIIGGTTEERRMM and SSIIGGIINNTT) even if its input is not a
           terminal.
 
      -kk   Put all keyword (variable=value) arguments of a command
@@ -389,14 +388,3 @@ NNOOTTEESS
      There is no shell-function facility, no arithmetic expan-
      sion, and no $(_c_o_m_m_a_n_d) form of command substitution in this
      sshh; use grave accents for command substitution.
-
-
-COHERENT Command Manual                                    Page 6
-
-
-
-
-sshh                                                             sshh
-
-
-

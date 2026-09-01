@@ -289,17 +289,14 @@ and entered again.
 A line is remembered only if it is not empty and not the same as the
 line before it.
 .PP
-Terminals disagree about what a cursor key sends, so
-.B sh
-accepts all three of the forms this system produces (a serial
+Both forms of cursor key this system produces are accepted (a serial
 terminal in keypad-application mode sends ESC O A and ESC O B,
 which are taken too):
 .DS
 .ta 10n 20n
 \fBUp\fR	\fBDown\fR	\fBTerminal\fR
-CTRL-P	CTRL-N	a window under \fBzview\fR
+CTRL-P	CTRL-N	a window under \fBzview\fR, or a console
 ESC [ A	ESC [ B	a serial terminal
-0x80	0x83	the hi-res console keyboard
 .DE
 .PP
 Editing within the line is what cooked mode offers and no more: the

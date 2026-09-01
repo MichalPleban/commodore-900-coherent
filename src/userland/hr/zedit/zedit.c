@@ -40,14 +40,31 @@
  *   ^G abort (drop the selection)
  *   ^X^C quit -- the MicroEMACS exit chord; asks only when the buffer is
  *      modified (the window-menu Quit asks the server's generic question)
+ *   ^X^S save   ^X^V open a file   ^X^W save as   ^X^X swap mark/cursor
+ *      -- the MicroEMACS chords, the same bytes zterm writes for
+ *      F2/F3/Shift+F2/Shift+F4, so the keys read the same in me(1)
+ *      inside a terminal
  *   ESC is Meta:  M-< / M-> buffer start/end   M-v page up
  *                 M-f / M-b word forward/back  M-s the Search dialog
  *                 M-r replace this match and step to the next
- * and the function keys (wire.h HRK_*):
- *   Help (F11) = this list as a dialog     F2 = save (dialog only if unnamed)
- *   F3 = Open   F4 = New   F5/F6/F7 = Cut/Copy/Paste   F8 = find next
+ *                 M-d / M-^H delete word forward / back
+ * and the function keys (wire.h HRK_*), on the Norton Commander editor's
+ * bar amended (F1 = Mark and F4 = Replace swapped from NC -- NC's F1
+ * Help is the Help key here -- F3 = Open, F9 = Paste):
+ *   Help (F11) = this list as a dialog
+ *   F1 = Mark: a keyboard block at the cursor, motion extends it, F1
+ *      again freezes it (domark)   F2 = save (dialog only if unnamed)
+ *   F3 = Open   F4 = Replace: the Search dialog   F5 = Copy / F6 = Move
+ *      (cut) the selection via the clipboard   F7 = find next
+ *   F8 = Delete the selection, else ^K^K (cursor to end of line + the
+ *      newline), through the kill buffer (^Y undoes)
+ *   F9 = Paste the clipboard   New moved to the menu
  *   F10 = quit: zvpump delivers it AS the ^X^C chord, not as a code of its own
+ *   Shift/Ctrl function keys arrive pre-chorded from zvpump (Shift+F2
+ *      ^X^W, Shift+F4 ^X^X, Shift+F8 ESC d, Ctrl+F8 ESC ^H, the rest
+ *      me(1)-only chords zedit ignores) -- the full map is KEYBOARD.md
  *   Clear/Home = top of file   Stop/Continue = abort (drop the selection)
+ *   In a zterm the same F-keys type the matching me(1) bytes (hrpump.c)
  * plus mouse: click places the cursor, drag selects.
  *
  * Tabs are stored literally and expanded to 8-column stops for display; the
@@ -116,6 +133,7 @@ int	sal, sac;		/* anchor line, byte offset                   */
 int	sll, slc;		/* moving end (follows the drag / cursor)     */
 int	selshown;		/* a highlight is painted on screen...        */
 int	showa, showb;		/* ...over this VIEW-cell span (normalised)   */
+int	markon;			/* 1 = F3 keyboard marking: motion extends it */
 
 HRSBAR	sbar;			/* the common scrollbar (hrsbar.h)            */
 int	sbforce	= 1;		/* 1 = repaint the whole bar                  */
@@ -463,6 +481,7 @@ selclear()
 {
 	selon = 0;
 	seldrag = 0;
+	markon = 0;
 	return 0;
 }
 
@@ -1129,6 +1148,181 @@ killregion()
 	return 1;
 }
 
+/* F1 (Mark): start a keyboard block at the cursor; cursor motion extends
+ * it (dokey's tail keeps the moving end on the cursor); F1 again stops
+ * the extending and the block stays, for F5 Copy / F6 Move / F8 Delete.
+ * Anything that selclear()s -- typing, ^G, ESC, a mouse drag -- drops
+ * it. */
+static
+domark()
+{
+	if ( markon )
+	{
+		markon = 0;
+		return 0;
+	}
+	selclear();
+	sal = sll = dotl;
+	sac = slc = dotc;
+	selon = 1;
+	markon = 1;
+	return 0;
+}
+
+/* F8 (Delete): the marked block when there is one, else exactly ^K^K --
+ * kill from the cursor to the end of the line, then the newline -- the
+ * same two bytes hrpump types into a zterm for F8, so the key means the
+ * same here and in me(1).  Through the kill buffer either way: ^Y puts
+ * it back and consecutive F8s accumulate. */
+static
+dodelline()
+{
+	if ( selon && (sal != sll || sac != slc) )
+		return killregion();
+	selclear();			/* an EMPTY mark: plain ^K^K */
+	dokill();			/* to end of line (honours a
+					 * running kill)              */
+	lastkill = 1;
+	dokill();			/* the newline */
+	return 1;
+}
+
+/* ^X^X / Shift+F4 (me's swap-mark-and-cursor): while marking, swap the
+ * cursor with the anchor -- the block is unchanged, the cursor is at its
+ * other end (dokey's tail re-follows the cursor).  On a frozen or mouse
+ * block, hop the cursor between the block's ends without touching it. */
+static
+swapmark()
+{
+	int t;
+
+	if ( !selon )
+		return 0;
+	if ( markon )
+	{
+		t = dotl;  dotl = sal;  sal = t;
+		t = dotc;  dotc = sac;  sac = t;
+	}
+	else if ( dotl == sll && dotc == slc )
+	{
+		dotl = sal;  dotc = sac;
+	}
+	else
+	{
+		dotl = sll;  dotc = slc;
+	}
+	return 0;
+}
+
+/* M-d / Shift+F8 (me's delete-forward-word): kill from the cursor through
+ * the end of the next word, into the kill buffer (^Y puts it back).  Built
+ * on wordfwd + killregion, so it crosses lines the way M-f moves. */
+static
+delword()
+{
+	int l0, c0;
+
+	selclear();
+	l0 = dotl;  c0 = dotc;
+	wordfwd();
+	if ( l0 == dotl && c0 == dotc )
+		return 0;
+	sal = l0;  sac = c0;
+	sll = dotl;  slc = dotc;
+	selon = 1;
+	return killregion();
+}
+
+/* M-^H / Ctrl+F8 (me's delete-backward-word): the same, leftwards. */
+static
+delbword()
+{
+	int l0, c0;
+
+	selclear();
+	l0 = dotl;  c0 = dotc;
+	wordback();
+	if ( l0 == dotl && c0 == dotc )
+		return 0;
+	sal = dotl;  sac = dotc;
+	sll = l0;  slc = c0;
+	selon = 1;
+	return killregion();
+}
+
+/* ^X^U / ^X^L (me's case-region): the selection to upper / lower case.
+ * The block stays selected, as in me. */
+static
+selcase(up)
+{
+	int l0, c0, l1, c1, l, i0, i1;
+	register char *p;
+	register int i, ch;
+
+	if ( !selon )
+		return 0;
+	selnorm(&l0, &c0, &l1, &c1);
+	for ( l = l0; l <= l1; l++ )
+	{
+		p = ln[l];
+		i0 = (l == l0) ? c0 : 0;
+		i1 = (l == l1) ? c1 : strlen(p);
+		for ( i = i0; i < i1; i++ )
+		{
+			ch = p[i] & 0xff;
+			if ( up && ch >= 'a' && ch <= 'z' )
+				p[i] = ch - 0x20;
+			else if ( !up && ch >= 'A' && ch <= 'Z' )
+				p[i] = ch + 0x20;
+		}
+	}
+	modified = 1;
+	return 0;
+}
+
+/* M-c / M-u / M-l (me's word case): capitalise / upper / lower the word
+ * at (or next after) the cursor; the cursor lands past it, so repeats
+ * walk word by word. */
+static
+wordcase(mode)
+{
+	register char *p;
+	register int ch, first;
+
+	selclear();
+	for (;;)
+	{
+		p = ln[dotl];
+		if ( dotc >= strlen(p) )
+		{
+			if ( dotl >= nln - 1 )
+				return 0;
+			dotl++;
+			dotc = 0;
+			continue;
+		}
+		if ( wordch(p[dotc] & 0xff) )
+			break;
+		dotc++;
+	}
+	first = 1;
+	p = ln[dotl];
+	while ( dotc < strlen(p) && wordch(ch = p[dotc] & 0xff) )
+	{
+		if ( mode == 'u' || (mode == 'c' && first) )
+		{
+			if ( ch >= 'a' && ch <= 'z' )
+				p[dotc] = ch - 0x20;
+		}
+		else if ( ch >= 'A' && ch <= 'Z' )
+			p[dotc] = ch + 0x20;
+		first = 0;
+		dotc++;
+	}
+	modified = 1;
+	return 0;
+}
+
 /* ------------------------------------------------------------------ */
 /* selection <-> the shared stores                                    */
 /* ------------------------------------------------------------------ */
@@ -1685,11 +1879,13 @@ HRWIDGET hwg[] = {
     { DW_LABEL, 12, 132, 0, 0, "Search (window menu): Find / Replace / All" },
     { DW_LABEL, 12, 152, 0, 0, "ESC then:  < > top/end   v page up" },
     { DW_LABEL, 12, 172, 0, 0, "           f b word   s Search   r replace" },
-    { DW_LABEL, 12, 192, 0, 0, "F2 Save    F3 Open     F4 New" },
-    { DW_LABEL, 12, 212, 0, 0, "F5 Cut     F6 Copy     F7 Paste   F8 Find" },
-    { DW_LABEL, 12, 232, 0, 0, "Clear/Home top of file   Stop/Cont abort" },
-    { DW_LABEL, 12, 252, 0, 0, "F10 or ^X^C quit (asks if unsaved)" },
-    { DW_BUTTON, 189, 284, 70, DLG_BTNH, "OK", 0, 0, (char *)0, 0,
+    { DW_LABEL, 12, 192, 0, 0, "F1 Mark    F2 Save    F3 Open    F4 Replace" },
+    { DW_LABEL, 12, 212, 0, 0, "F5 Copy    F6 Move    F7 Find    F8 Delete" },
+    { DW_LABEL, 12, 232, 0, 0, "F9 Paste   Clear/Home top   Stop/Cont abort" },
+    { DW_LABEL, 12, 252, 0, 0, "Shift+ F2 save-as F3 new F4 swap F8 delword" },
+    { DW_LABEL, 12, 272, 0, 0, "Ctrl+arrows pages  Shift+arrows words/ends" },
+    { DW_LABEL, 12, 292, 0, 0, "F10 or ^X^C quit   ^X^S save   ^X^V open" },
+    { DW_BUTTON, 189, 324, 70, DLG_BTNH, "OK", 0, 0, (char *)0, 0,
       DWF_DEF | DWF_CANCEL | DWF_END },
 };
 #define	NHWG	(sizeof(hwg) / sizeof(hwg[0]))
@@ -1700,7 +1896,7 @@ dohelp()
 	int w, h, r;
 
 	w = 448;
-	h = 328;
+	h = 368;
 	r = hr_dlgopen(&w, &h);
 	if ( r == -2 )
 		exit(0);
@@ -1790,6 +1986,12 @@ dokey(c)
 		case 'b': case 'B':	wordback();			break;
 		case 's': case 'S':	dosearch(1);			break;
 		case 'r': case 'R':	replnext();			break;
+		case 'd': case 'D':	lastkill = delword();		break;
+		case '\b':		lastkill = delbword();		break;
+		case '!':		recenter();			break;
+		case 'c': case 'C':	wordcase('c');			break;
+		case 'u': case 'U':	wordcase('u');			break;
+		case 'l': case 'L':	wordcase('l');			break;
 		}				/* unknown Meta: ignored */
 		fixview();
 		return 0;
@@ -1800,6 +2002,25 @@ dokey(c)
 		lastkill = 0;
 		if ( c == 'C'-0x40 )		/* ^X^C: quit (MicroEMACS) */
 			doquit();
+		else if ( c == 'S'-0x40 )	/* ^X^S: save (= F2) */
+			quicksave();
+		else if ( c == 'V'-0x40 )	/* ^X^V: open a file (= F3) */
+			doopen();
+		else if ( c == 'W'-0x40 )	/* ^X^W: save as (= Shift+F2) */
+			filedlg(1);
+		else if ( c == 'X'-0x40 )	/* ^X^X: swap mark and cursor
+						 * (= Shift+F4) */
+			swapmark();
+		else if ( c == 'b' || c == 'B' )
+			donew();		/* ^X b: me's use-buffer; here
+						 * New (= Shift+F3) */
+		else if ( c == 'U'-0x40 )	/* ^X^U: selection to upper
+						 * case (= Shift+F5) */
+			selcase(1);
+		else if ( c == 'L'-0x40 )	/* ^X^L: selection to lower
+						 * case (= Shift+F6) */
+			selcase(0);
+		fixview();
 		return 0;			/* unknown ^X chord: ignored */
 	}
 	waskill = 0;
@@ -1829,14 +2050,24 @@ dokey(c)
 	case 'X'-0x40:	ctlxp = 1;			break;	/* ^X prefix */
 	case 033:	metap = 1;  selclear();		break;
 	case HRK_HELP:	dohelp();			break;
-	case HRK_F2:	quicksave();			break;
-	case HRK_F3:	doopen();			break;
-	case HRK_F4:	donew();			break;
-	case HRK_F5:	putsel(1);  delsel();		break;	/* Cut   */
-	case HRK_F6:	putsel(1);			break;	/* Copy  */
-	case HRK_F7:	insstream(1);			break;	/* Paste */
-	case HRK_F8:	dosearch(0);			break;	/* Find  */
+	/* F1..F10 after the Norton Commander editor's bar, amended: F1 =
+	 * Mark and F4 = Replace (NC's F1 Help is the Help key here), F3
+	 * stays Open, F9 = Paste in the slot NC gave the menu.  zterm types
+	 * the matching me(1) bytes for every one (hrpump.c), and the Shift/
+	 * Ctrl layers arrive pre-chorded from zvpump -- the full map is
+	 * KEYBOARD.md.  New moved to the menu. */
+	case HRK_F1:	domark();			break;	/* Mark    */
+	case HRK_F2:	quicksave();			break;	/* Save    */
+	case HRK_F3:	doopen();			break;	/* Open    */
+	case HRK_F4:	dosearch(1);			break;	/* Replace:
+							 * the Search dialog */
+	case HRK_F5:	putsel(1);			break;	/* Copy    */
+	case HRK_F6:	putsel(1);  delsel();		break;	/* Move=cut */
+	case HRK_F7:	dosearch(0);			break;	/* Search  */
+	case HRK_F8:	waskill = dodelline();		break;	/* Delete  */
+	case HRK_F9:	insstream(1);			break;	/* Paste   */
 	case HRK_CLRHOME: dotl = 0;  dotc = 0;		break;
+	case HRK_SCRPRT: recenter();			break;	/* = ^L */
 	case HRK_STOP:	selclear();			break;
 	default:
 		if ( c == '\t' || (c >= ' ' && c < 0x7f) )
@@ -1846,6 +2077,11 @@ dokey(c)
 		}
 	}
 	lastkill = waskill;
+	if ( markon && selon )
+	{
+		sll = dotl;		/* F3 marking: the moving end follows */
+		slc = dotc;		/* the cursor; flush repaints via     */
+	}				/* seldelta                           */
 	fixview();
 	return 0;
 }
@@ -1954,6 +2190,7 @@ char **argv;
 						sac = slc = dotc;
 						seldrag = 1;
 						selon = 0;
+						markon = 0;	/* a drag replaces F4 marking */
 						lastkill = 0;	/* a click breaks a ^K run */
 						need = 1;
 					}

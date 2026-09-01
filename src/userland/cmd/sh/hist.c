@@ -9,7 +9,7 @@
  *
  * When the shell is reading commands from a terminal, getn() takes its
  * characters from here instead of from stdio.  A whole line is collected
- * with the terminal in RAW mode and echoed by hand, so that the cursor
+ * with the terminal in CBREAK mode and echoed by hand, so that the cursor
  * keys can be seen; every other line of input in the shell (a script, a
  * pipe, the `read' builtin, `sh -c') is untouched and still goes through
  * getc().
@@ -19,49 +19,33 @@
  * cursor motion inside the line -- erase and line-kill are the only edits,
  * exactly as in cooked mode.
  *
- * WHY RAW AND NOT CBREAK.  The three consoles do not agree on what a cursor
- * key is:
+ * WHY CBREAK AND NOT COOKED.  Cooked input hands over whole lines, so a
+ * cursor key could never be seen mid-line; CBREAK delivers each character
+ * as it is typed while the DRIVER keeps its own duties -- interrupt, quit
+ * and flow control act at the keyboard exactly as at a cooked prompt.
+ * Echo is off and done by hand.  Erase, line-kill and end-of-file are not
+ * cooked-mode work in CBREAK, so this file does them.
  *
- *	zterm (the GUI terminal)		Up = ^P	   Down = ^N
- *	  -- zview's input pump maps the nav block to the MicroEMACS codes
- *	hi-res console (drv/hrtty/kb.c)		Up = 0x80  Down = 0x83
- *	  -- CUP/CDOWN of kbchar.h, delivered as single 8-bit bytes
- *	serial terminal				Up = ESC[A Down = ESC[B
- *	  -- or ESC O A / ESC O B in keypad-application mode
- *
- * Cooked and CBREAK input both do `c &= 0177' (drv/tty.c ttin), which turns
- * the hi-res CUP into a NUL and -- worse -- CDOWN into 0x03, the interrupt
- * character.  Only RAWIN leaves the 8th bit alone, so RAWIN it is; the
- * price is that the driver stops recognising the interrupt, quit and flow
- * control characters while a line is being typed, and this file has to do
- * their work.  Raw mode is on ONLY while typing: it is restored before the
- * line is handed to the parser, so commands always run on a cooked
- * terminal.
- *
- * Bytes >= 0x80 that are not one of the hi-res special keys are masked to
- * seven bits, which is what cooked mode would have done to them.
+ * CBREAK is enough because every console now sends 7-bit codes for the
+ * cursor keys: zterm's input pump and BOTH kernel console keyboards
+ * (drv/hrtty and drv/lrtty kb.c, kbmap()) send the MicroEMACS control
+ * codes -- Up = ^P, Down = ^N -- and a serial terminal sends ESC [ A /
+ * ESC [ B (or ESC O A / ESC O B in keypad-application mode).  This file
+ * once used RAWIN and did the driver's work itself, because old kernels
+ * sent the console cursor keys as 8-bit codes (0x80..0x8B of kbchar.h)
+ * that the 7-bit mask of cooked and CBREAK input mangles; those codes,
+ * and the raw mode, are gone.
  */
 
 #include "sh.h"
 #include <sgtty.h>
-#include <signal.h>
 
 #define HISTMAX	64			/* Commands remembered */
 #define LINEMAX	256			/* Longest line that can be typed */
 
 /*
- * Special keys from the hi-res console keyboard (drv/hrtty/kbchar.h).
- */
-#define KCUP	0x80			/* Cursor up */
-#define KCLEFT	0x81			/* Cursor left */
-#define KCRIGHT	0x82			/* Cursor right */
-#define KCDOWN	0x83			/* Cursor down */
-#define KCE	0x84			/* Clear entry */
-#define KCSLOCK	0x8A			/* Scroll lock */
-#define KCBRK	0x8B			/* Break */
-
-/*
- * MicroEMACS codes, which is what the GUI keyboard pump sends.
+ * MicroEMACS codes, which is what the GUI keyboard pump and the kernel
+ * console keyboards send for the cursor keys.
  */
 #define CPREV	0x10			/* ^P - previous */
 #define CNEXT	0x0E			/* ^N - next */
@@ -88,11 +72,11 @@ static int	linelen;
 static int	linepos;
 
 /*
- * Saved terminal state, valid while rawf is set.
+ * Saved terminal state, valid while cbrkf is set.
  */
 static struct sgttyb	savesg;
 static struct tchars	savetc;
-static int		rawf;
+static int		cbrkf;
 
 static	int	hisread();
 static	void	hisadd();
@@ -155,48 +139,48 @@ register int fd;
 }
 
 /*
- * Put the terminal into raw mode with the echo off, remembering how it
- * was.  The interrupt, quit and flow control characters are read too:
- * the driver stops acting on them in raw mode, so we must.
+ * Put the terminal into CBREAK with the echo off, remembering how it
+ * was.  The driver still acts on interrupt, quit and flow control; the
+ * tchars are read for t_eofc, which CBREAK leaves to us.
  */
 static
-rawon(fd)
+cbrkon(fd)
 register int fd;
 {
 	struct sgttyb sg;
 
-	if (rawf)
+	if (cbrkf)
 		return (0);
 	if (gtty(fd, &savesg) < 0)
 		return (-1);
 	if (ioctl(fd, TIOCGETC, &savetc) < 0)
 		return (-1);
 	sg = savesg;
-	sg.sg_flags |= RAWIN;
+	sg.sg_flags |= CBREAK;
 	sg.sg_flags &= ~ECHO;
 	if (stty(fd, &sg) < 0)
 		return (-1);
-	rawf = 1;
+	cbrkf = 1;
 	return (0);
 }
 
 /*
  * Put the terminal back the way it was.  Every path out of hisread()
- * goes through here: a command must never run on a raw terminal.
+ * goes through here: a command must never run on a CBREAK terminal.
  */
 static
-rawoff(fd)
+cbrkoff(fd)
 register int fd;
 {
-	if (rawf) {
-		rawf = 0;
+	if (cbrkf) {
+		cbrkf = 0;
 		stty(fd, &savesg);
 	}
 }
 
 /*
  * Collect one line.  Returns 0 for a line (which may be empty), -1 for
- * an end of file or a terminal that would not go raw.
+ * an end of file or a terminal that would not change modes.
  */
 static
 hisread(fd)
@@ -209,9 +193,9 @@ register int fd;
 	int		n;
 
 	linepos = linelen = 0;
-	if (rawon(fd) < 0) {
+	if (cbrkon(fd) < 0) {
 		/*
-		 * The terminal would not go raw.  Fall back to a plain
+		 * The terminal would not change modes.  Fall back to a plain
 		 * cooked line -- no history and no cursor keys, but never
 		 * an end of file the user did not type, which is what
 		 * returning -1 here would mean to the shell.
@@ -233,12 +217,13 @@ register int fd;
 	for (;;) {
 		if ((n=read(fd, buf, 1)) != 1) {
 			/*
-			 * A signal cut the read short (the handler in
-			 * trap.c only sets a flag; recovery happens at the
-			 * next safe point) or the terminal went away.  Drop
-			 * what was typed and let the shell sort it out.
+			 * A signal cut the read short -- in CBREAK the
+			 * driver itself raises interrupt and quit, and the
+			 * handler in trap.c only sets a flag -- or the
+			 * terminal went away.  Drop what was typed and let
+			 * the shell sort it out.
 			 */
-			rawoff(fd);
+			cbrkoff(fd);
 			if (n == 0)
 				return (-1);
 			linelen = 0;
@@ -272,25 +257,6 @@ register int fd;
 				continue;
 			}
 		}
-		switch (c) {
-		case KCUP:
-			c = CPREV;
-			break;
-		case KCDOWN:
-			c = CNEXT;
-			break;
-		case KCE:			/* Clear entry: kill line */
-			c = savesg.sg_kill;
-			break;
-		case KCLEFT:			/* Nothing to move to */
-		case KCRIGHT:
-		case KCSLOCK:
-		case KCBRK:
-			continue;
-		}
-		if (c > 0177)
-			c &= 0177;		/* As cooked mode would */
-
 		if (c == CPREV || c == CNEXT) {
 			register int want;
 
@@ -328,42 +294,16 @@ register int fd;
 			/*
 			 * Only an end of file on an empty line.  Cooked
 			 * mode would hand over a part-typed line here;
-			 * this does not, and the line stands.
+			 * this does not, and the line stands.  (Interrupt,
+			 * quit and flow control never get this far: the
+			 * driver acts on them even in CBREAK.)
 			 */
 			if (len == 0) {
-				rawoff(fd);
+				cbrkoff(fd);
 				return (-1);
 			}
 			continue;
 		}
-		if (c == savetc.t_intrc) {
-			/*
-			 * The driver is not watching for this in raw mode,
-			 * so raise it here.  On THIS process only, the way
-			 * recover() does it: ttsignal() would have hit the
-			 * whole process group, but the group a single-user
-			 * shell is in also holds init and the shared-library
-			 * holders, and signalling those wedges the console.
-			 * Cooked modes are back on first: the shell may
-			 * longjmp out of the recovery this starts.
-			 */
-			hisecho("\n", 1);
-			rawoff(fd);
-			kill(getpid(), SIGINT);
-			linelen = 0;
-			line[linelen++] = '\n';
-			return (0);
-		}
-		if (c == savetc.t_quitc) {
-			hisecho("\n", 1);
-			rawoff(fd);
-			kill(getpid(), SIGQUIT);
-			linelen = 0;
-			line[linelen++] = '\n';
-			return (0);
-		}
-		if (c==savetc.t_startc || c==savetc.t_stopc)
-			continue;		/* Flow control, eaten */
 		if (c == '\t') {
 			/*
 			 * A tab goes into the line but is echoed as one
@@ -384,7 +324,7 @@ register int fd;
 			len += 1;
 		}
 	}
-	rawoff(fd);
+	cbrkoff(fd);
 	line[len] = '\0';
 	hisadd(line, len);
 	line[len++] = '\n';

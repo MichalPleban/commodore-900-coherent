@@ -39,11 +39,60 @@ produce control codes rather than escape sequences:
 	\fBUp, Down\fR	^P, ^N
 	\fBLeft, Right\fR	^B, ^F
 	\fBHOME, END\fR	^A, ^E
-	\fBPG UP, PG DN\fR	^Z, ^V
+	\fBPG UP, PG DN\fR	ESC v, ^V (M-v page up in \fBme\fR)
 	\fBBS\fR	^H (0x08)
 	\fBDEL, keypad Del\fR	DEL (0x7f)
-	\fBF10\fR	^X ^C (two keys)
+	\fBCtrl+arrows\fR	^A ^E ESC-v ^V (= Home, End, PG UP, PG DN)
+	\fBShift+arrows\fR	ESC b/f/</> (word back/fwd, buffer top/end)
+	\fBF1\fR	^@ (set mark in \fBme\fR)
+	\fBF2\fR	^X ^S (save in \fBme\fR)
+	\fBF3\fR	^X ^V (visit a file in \fBme\fR)
+	\fBF4\fR	^R (reverse search in \fBme\fR)
+	\fBF5\fR	ESC w (copy region in \fBme\fR)
+	\fBF6\fR	^W (kill region in \fBme\fR)
+	\fBF7\fR	^S (search in \fBme\fR)
+	\fBF8\fR	^K ^K (kill to end of line + newline in \fBme\fR)
+	\fBF9\fR	^Y (yank in \fBme\fR)
+	\fBF10\fR	^X ^C (quit in \fBme\fR)
+	\fBShift+F1\fR	ESC ! (reposition in \fBme\fR)
+	\fBShift+F2\fR	^X ^W (write named file in \fBme\fR)
+	\fBShift+F3\fR	^X b (use/create a buffer in \fBme\fR)
+	\fBShift+F4\fR	^X ^X (swap mark and cursor in \fBme\fR)
+	\fBShift+F5\fR	^X ^U (region to upper case in \fBme\fR)
+	\fBShift+F6\fR	^X ^L (region to lower case in \fBme\fR)
+	\fBShift+F7\fR	^R (search backward in \fBme\fR)
+	\fBShift+F8\fR	ESC d (delete word in \fBme\fR)
+	\fBShift+F9\fR	^X ( (begin keyboard macro in \fBme\fR)
+	\fBCtrl+F1\fR	ESC c (capitalise word in \fBme\fR)
+	\fBCtrl+F2\fR	^X ^F (set file name in \fBme\fR)
+	\fBCtrl+F3\fR	^X ^R (read a file in \fBme\fR)
+	\fBCtrl+F4\fR	ESC u (word to upper case in \fBme\fR)
+	\fBCtrl+F5\fR	^X 2 (split window in \fBme\fR)
+	\fBCtrl+F6\fR	^X 1 (one window in \fBme\fR)
+	\fBCtrl+F7\fR	ESC l (word to lower case in \fBme\fR)
+	\fBCtrl+F8\fR	ESC ^H (delete word back in \fBme\fR)
+	\fBCtrl+F9\fR	^X ) (end keyboard macro in \fBme\fR)
+	\fBCtrl+F10\fR	^Z (save all and exit in \fBme\fR)
+	\fBCLR/HOME\fR	ESC < (top of buffer; shifted, ESC > the end;
+		Ctrl, ^X k kill buffer)
+	\fBPOP/PUSH\fR	^X n (next window; shifted, ^X p previous;
+		Ctrl, ^X z enlarge)
+	\fBSCRN/PRT\fR	^L (redraw; shifted, ^X ^Z shrink window;
+		Ctrl, ^X = show position)
+	\fBSTOP/CONT\fR	^G (abort; shifted, ^X e execute macro;
+		Ctrl, ^X ^B list buffers)
 .DE
+The F-keys follow the Norton Commander editor's bar (F1 = mark,
+F3 = open, F4 = replace, F9 = paste) as
+.BR me 's
+own key bindings, so mark/copy/move/delete blocks, search, save and
+quit read the same in
+.B me
+here as the function keys do in
+.BR zedit ,
+and the kernel consoles send the identical bytes.
+Beware that at a shell prompt ^S stops terminal output until ^Q is
+typed \- the tty's own flow control.
 The remaining function keys produce codes with no byte value and are
 ignored in a terminal window.
 .PP

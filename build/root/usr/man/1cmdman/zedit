@@ -28,7 +28,11 @@ DDEESSCCRRIIPPTTIIOONN
      control keys and prefix chords.  The C900 cursor keypad
      works as expected: the desktop translates the arrow keys and
      the keypad Home, End, PgUp, PgDn, Del and Enter keys into
-     the corresponding control keys below.
+     the corresponding control keys below; Ctrl held with an ar-
+     row key gives the paging set - Ctrl+Left/Right = Home/End,
+     Ctrl+Up/Down = PgUp/PgDn - and Shift held with one gives the
+     word and buffer motions - Shift+Left/Right = word back/for-
+     ward, Shift+Up/Down = top/end of file.
 
      Cursor motion:
 
@@ -52,13 +56,9 @@ DDEESSCCRRIIPPTTIIOONN
                 DDEELL, ^DD     delete right; at end of line, join with next line
                 ^KK          kill to end of line; repeated, appends and takes
                             the newline too
+                EESSCC dd       delete forward through the end of the next word
+                EESSCC BBSS      delete back through the start of the previous word
                 ^WW          kill the selection
-                ^YY          yank (insert the last killed text)
-                ^OO          open a line below the cursor
-                ^TT          transpose the characters around the cursor
-                ^GG          abort; drop the selection
-
-     Search and file commands:
 
 
 COHERENT Command Manual                                    Page 1
@@ -70,10 +70,25 @@ zzeeddiitt                                                       zzeeddi
 
 
 
+                ^YY          yank (insert the last killed text)
+                ^OO          open a line below the cursor
+                ^TT          transpose the characters around the cursor
+                ^GG          abort; drop the selection
+
+     Search and file commands:
+
                 ^SS          find next (opens the Search dialog the first time)
                 EESSCC ss       the Search dialog (always)
                 EESSCC rr       replace the match under the cursor and step to
                             the next, using the dialog's two patterns
+                ^XX^SS        save (like F2)
+                ^XX^VV        open a file (like F3)
+                ^XX^WW        save as: the file-name dialog (like Shift+F2)
+                ^XX^XX        swap the cursor and the mark (like Shift+F4)
+                ^XX bb        new buffer (like Shift+F3; mmee's use-buffer)
+                ^XX^UU, ^XX^LL  selection to upper / lower case
+                EESSCC cc/uu/ll   Capitalise / UPPER / lower the word at the cursor
+                EESSCC !       recentre the cursor line
                 ^XX^CC        quit (confirms if the buffer is modified)
 
      The window menu's SSeeaarrcchh entry opens the same dialog: a FFiinndd
@@ -90,23 +105,61 @@ zzeeddiitt                                                       zzeeddi
      its stored length is refused rather than truncated.  EESSCC rr
      does what RReeppllaaccee does but without the dialog covering the
      text, which is the way to work through a buffer match by
-     match.  Function keys:
+     match.  Function keys, laid out like the Norton Commander
+     editor's key bar amended (F1 = mark and F4 = replace are
+     swapped from NC - NC's F1, help, is the HELP key here - F3
+     stays Open, and F9 pastes):
 
+                FF11          mark: start a keyboard block at the cursor; moving
+                            the cursor extends it, F1 again freezes it
                 FF22          save (asks for a name only if untitled)
                 FF33          open a file
-                FF44          new (empty) buffer
-                FF55          cut the selection to the clipboard
-                FF66          copy the selection to the clipboard
-                FF77          paste the clipboard
-                FF88          find next
+                FF44          replace: the Search dialog
+                FF55          copy the selection to the clipboard
+                FF66          move: cut the selection to the clipboard
+                FF77          find next
+                FF88          delete the selection; with none, ^K^K - from the
+                            cursor to the end of the line, then the newline -
+                            via the kill buffer, so ^Y puts it back and
+                            repeated F8s accumulate
+                FF99          paste the clipboard
                 FF1100         quit (delivered as ^X^C)
+                SShhiifftt+FF11    recentre the cursor line
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+zzeeddiitt                                                       zzeeddiitt
+
+
+
+                SShhiifftt+FF22    save as (the file-name dialog)
+                SShhiifftt+FF33    new (empty) buffer
+                SShhiifftt+FF44    swap the cursor and the mark
+                SShhiifftt+FF55    selection to UPPER case
+                SShhiifftt+FF66    selection to lower case
+                SShhiifftt+FF88    delete word forward
+                CCttrrll+FF11     Capitalise the word at the cursor
+                CCttrrll+FF44     word to UPPER case
+                CCttrrll+FF77     word to lower case
+                CCttrrll+FF88     delete word back
                 HHEELLPP        show the help summary
-                CCLLRR/HHOOMMEE    to top of file
+                CCLLRR/HHOOMMEE    to top of file (shifted: to end of file)
+                SSCCRRNN/PPRRTT    recentre the cursor line and repaint (= ^L)
                 SSTTOOPP        abort; drop the selection
 
-     Printable characters and TAB insert at the cursor.  Tabs are
-     stored literally and displayed at 8-column stops.  RETURN
-     splits the line at the cursor.
+     A block from FF11 works with mouse selections' verbs inter-
+     changeably: F5/F6/F8 and the menu act on whichever selection
+     exists.  The remaining shifted and control function keys
+     type mmee-only chords (macros, buffers, window sizes) that
+     zzeeddiitt ignores; the full byte map is the zztteerrmm manual page's
+     table.  New is also in the window menu.  Printable charac-
+     ters and TAB insert at the cursor.  Tabs are stored liter-
+     ally and displayed at 8-column stops.  RETURN splits the
+     line at the cursor.
 
      The mouse places the cursor with a left click, and a left
      drag selects text; on release the selection becomes the
@@ -126,16 +179,6 @@ FFIILLEESS
                   /tmp/.hrclip            clipboard
                   /usr/hr/icons/edit.icn  desktop icon
 
-
-COHERENT Command Manual                                    Page 2
-
-
-
-
-zzeeddiitt                                                       zzeeddiitt
-
-
-
 SSEEEE AALLSSOO
      zzvviieeww, zztteerrmm, zzffiillee, eedd
 
@@ -148,7 +191,18 @@ NNOOTTEESS
      The buffer holds at most 1024 lines of at most 240 charac-
      ters.  Loading stops at the line limit, and longer lines are
      split; either event marks the buffer modified so the trunca-
-     tion cannot be saved back silently.  The kill buffer holds
+
+
+COHERENT Command Manual                                    Page 3
+
+
+
+
+zzeeddiitt                                                       zzeeddiitt
+
+
+
+     ttiioonn cannot be saved back silently.  The kill buffer holds
      2048 bytes, a search pattern 31 characters, and a file name
      39 characters.  Every line is written back with a trailing
      newline.  There is no undo and no replace command.
