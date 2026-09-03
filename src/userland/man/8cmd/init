@@ -66,11 +66,20 @@ If root came up read-only, because it was not cleanly unmounted, the
 .BR creat ()
 fails and
 .B init
-remembers that root is read-only, printing a message on the console
-that it must be repaired with
+repairs the root file system automatically:
+it finds the device root is mounted on by matching the device numbers
+of the entries in
+.B /dev
+against that of
+.BR / ,
+runs
 .B "check \-s"
-and the system rebooted, or remounted read/write with
-.BR "mount \-w" .
+on that device (the file system is quiescent, since nothing can be
+open for writing on a read-only root), and then promotes root to
+read/write with
+.BR "mount \-w" ,
+which re-reads the repaired super block and refuses if the file
+system is still dirty.
 .PP
 .B init
 records the boot in
@@ -79,8 +88,24 @@ and installs handlers for
 .B SIGHUP
 and
 .BR SIGQUIT .
-It then loops: while no terminal has a login pending, it spawns an
-interactive shell on
+With root writable it goes straight to multi-user:
+it runs
+.B /etc/rc
+if it exists, to complete multi-user setup, then reads
+.B /etc/ttys
+and starts
+.B getty
+on every enabled line listed there.
+There is no single-user shell on a normal boot.
+.PP
+The interactive single-user shell survives only as an emergency:
+if the automatic repair fails (root is left read-only), if
+.B SIGHUP
+asks for single-user mode, or if every terminal in
+.B /etc/ttys
+is disabled,
+.B init
+spawns a shell on
 .BR /dev/console ,
 with prompt
 .B "# "
@@ -88,19 +113,14 @@ with prompt
 .B "(ro)# "
 while root is still read-only).
 When that shell exits (typically because the operator typed an
-end-of-file), and root is now writable,
+end-of-file), and root is writable by then,
 .B init
-runs
-.B /etc/rc
-if it exists, to complete multi-user setup, then reads
-.B /etc/ttys
-and starts
-.B getty
-on every enabled line listed there.
-If root is still read-only when the console shell exits,
-.B init
-prints another warning and starts the console shell again instead
-of proceeding to multi-user mode.
+proceeds to multi-user as above; if root is still read-only it
+prints a warning, naming
+.B "check \-s"
+and
+.BR "mount \-w" ,
+and starts the shell again.
 .PP
 .B init
 then waits for its children to exit.
@@ -161,14 +181,13 @@ with
 .BR mount ,
 .B sh
 .SH NOTES
-This
-.B init
-does not run a separate fsck-style check before entering single-user
-mode; instead, the writability of the root file system is probed
-directly by attempting to create
-.BR /etc/boottime .
-While root remains read-only,
+The writability of the root file system is probed directly by
+attempting to create
+.BR /etc/boottime ,
+and a dirty root is repaired and remounted in place; the system is
+never rebooted for a repair.
+While root remains read-only \- automatic repair failed \-
 .B init
 refuses to run
 .B /etc/rc
-and stays in single-user mode.
+and stays in the single-user emergency shell.

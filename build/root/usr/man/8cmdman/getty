@@ -22,6 +22,14 @@ DDEESSCCRRIIPPTTIIOONN
      gument, and passing along the erase and kill characters read
      from the terminal's previous settings.
 
+     On the hi-res console ggeettttyy does not prompt at all: when the
+     console driver reports the vvtt110000 terminal type, the video
+     card answers a memory probe, and /eettcc/zzllooggiinn is installed,
+     it replaces itself with zzllooggiinn, the graphical login panel,
+     which starts the desktop as the session.  A second argument
+     of tteexxtt (passed back by a zzllooggiinn that could not start) sup-
+     presses this and forces the textual prompt.
+
      While reading the name, ggeettttyy folds the whole line to lower
      case if every letter typed was upper case, recognizes the
      terminal's own erase and kill characters, and, on BREAK, an
@@ -51,14 +59,6 @@ DDEESSCCRRIIPPTTIIOONN
           GG       300 baud
           HH       600 baud
           II       1200 baud
-          JJ       1800 baud
-          KK       2000 baud
-          LL       2400 baud
-          MM       3600 baud
-          NN       4800 baud
-          OO       7200 baud
-          PP       9600 baud
-          QQ       19200 baud
 
 
 COHERENT Administration Manual                             Page 1
@@ -70,6 +70,14 @@ ggeettttyy                                                       ggeettt
 
 
 
+          JJ       1800 baud
+          KK       2000 baud
+          LL       2400 baud
+          MM       3600 baud
+          NN       4800 baud
+          OO       7200 baud
+          PP       9600 baud
+          QQ       19200 baud
           RR, SS    extended speeds A and B
 
 FFIILLEESS

@@ -1,0 +1,107 @@
+.TH zlogin "" "Administration"
+.SH NAME
+zlogin \- graphical login on the hi-res console
+.SH SYNOPSIS
+\fB/etc/zlogin\fR
+.SH DESCRIPTION
+.HS
+zlogin -- graphical login on the hi-res console
+Usage:	/etc/zlogin
+Spawned by /etc/getty on the hi-res console in place of the textual
+login prompt.  Draws a login panel on the bitmap display, checks the
+name and password against /etc/passwd, and starts the zview desktop
+as the session.
+.HE
+.B zlogin
+is the graphical front door of the hi-res machine.
+When
+.B getty
+finds itself on the hi-res console (the console driver reports the
+.B vt100
+terminal type and the video card answers a memory probe), it replaces
+itself with
+.B zlogin
+instead of printing the textual login prompt.
+.B zlogin
+paints a login panel directly on the bitmap display and reads the
+keyboard from the console in raw mode; no window server is running
+yet, and the mouse is not used.
+.PP
+The panel holds a name field and a password field.
+Printable characters go to the field that holds the caret;
+the following keys edit and move:
+.DS
+.ta 16n
+\fBEnter\fR	move from the name to the password field, or log in
+\fBTab\fR	switch fields
+\fBBackspace\fR	erase the last character
+\fBCtrl-U\fR	clear the field
+.DE
+The password is shown as
+.B *
+characters.
+.PP
+The name and password are checked against
+.B /etc/passwd
+by the same rules as
+.BR login :
+an account whose password field is empty needs no password.
+A successful login is recorded in
+.B /etc/utmp
+and
+.BR /usr/adm/wtmp ,
+the console is given to the user, the
+.BR HOME ,
+.B PATH
+and
+.B TERM
+environment is set up, and
+.B zlogin
+replaces itself with
+.BR /usr/hr/bin/zview ,
+the desktop, running as the logged-in user.
+When the desktop is quit,
+.B init
+starts
+.B getty
+on the console again and the login panel returns.
+A failed attempt prints
+.B Login incorrect
+on the panel and is recorded in
+.BR /usr/adm/failed .
+.PP
+If the video card is absent or the panel font cannot be read,
+.B zlogin
+gives the console back to the textual prompt: it replaces itself with
+.B /etc/getty
+passing the extra argument
+.BR text ,
+which tells
+.B getty
+not to try the graphical path again.
+.SH FILES
+.DS
+.ta 28n
+\fB/etc/passwd\fR	accounts and passwords
+\fB/usr/hr/fonts/gacha.b.hf\fR	the panel font
+\fB/usr/hr/bin/zview\fR	the session started on success
+\fB/etc/utmp\fR	who is logged in
+\fB/usr/adm/wtmp\fR	login accounting
+\fB/usr/adm/failed\fR	failed attempts
+.DE
+.SH "SEE ALSO"
+.BR getty ,
+.BR init ,
+.BR login ,
+.B zview
+.SH NOTES
+.B zlogin
+is started by
+.B getty
+and is not ordinarily run by hand: it draws over the whole display and
+takes the console keyboard into raw mode.
+.PP
+The desktop's driver loading is restricted to the superuser, so at
+present only a root login reaches the desktop; another account is
+authenticated but its session exits at once and the login panel
+returns.

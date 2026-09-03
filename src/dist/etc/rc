@@ -29,8 +29,8 @@ rm -f /tmp/* /tmp/.??*
 /etc/update&
 /etc/cron&
 date >/dev/console
-: "ZView, see GUI.md: the single-server window system + clock/terminal"
-: "windows.  Enable with:  touch /etc/wgui .  zview loads /drv/hr itself,"
-: "so it also replaces the text console; off by default.  Root is already"
-: "read-write here, mounted -u above, which the server pipe IPC needs."
-if [ -f /etc/wgui ]; then /usr/hr/bin/zview & fi
+: "ZView (the window system) is NOT started here any more.  On the hi-res"
+: "console the graphical greeter /etc/zlogin is the front door: init spawns"
+: "/etc/getty on the console after this script, getty hands the console to"
+: "zlogin, and a successful login execs zview as the session.  The old"
+: "/etc/wgui marker is retired."

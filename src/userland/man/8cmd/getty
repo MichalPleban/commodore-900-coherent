@@ -34,6 +34,21 @@ Once it has a usable name, it replaces itself with
 passing the name as its argument, and passing along the erase and
 kill characters read from the terminal's previous settings.
 .PP
+On the hi-res console
+.B getty
+does not prompt at all: when the console driver reports the
+.B vt100
+terminal type, the video card answers a memory probe, and
+.B /etc/zlogin
+is installed, it replaces itself with
+.BR zlogin ,
+the graphical login panel, which starts the desktop as the session.
+A second argument of
+.B text
+(passed back by a
+.B zlogin
+that could not start) suppresses this and forces the textual prompt.
+.PP
 While reading the name,
 .B getty
 folds the whole line to lower case if every letter typed was

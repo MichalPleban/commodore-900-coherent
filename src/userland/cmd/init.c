@@ -11,6 +11,7 @@
 #include <sgtty.h>
 #include <utmp.h>
 #include <machine.h>
+#include <sys/stat.h>
 
 /*
  * Miscellaneous constants.
@@ -53,6 +54,7 @@ extern	struct	tty *findtty();
 struct	tty *ttyp;			/* Terminal list */
 int	sinflag;			/* Go to single user */
 int	ttyflag;			/* Scan tty file */
+char	rootblk[6+DIRSIZ] = "/dev/";	/* block device root is mounted on */
 
 main(argc, argv)
 register int argc;
@@ -62,6 +64,7 @@ char *argv[];
 	register int n;
 	unsigned status;
 	int rootro;
+	int multi;
 
 	/*
 	 * Stamping /etc/boottime doubles as a probe for a writable root:
@@ -107,15 +110,35 @@ char *argv[];
 	 */
 	console("\nOpenCoherent version ");
 	console(VERSION);
-	console("\nHit Ctrl+D to exit the single user shell\n");
+	console("\n");
 	putwtmp("~", "");
 	signal(SIGHUP, sighang);
 	signal(SIGQUIT, sigquit);
+	/*
+	 * A dirty root is repaired in place (fixroot: 'check -s' on the
+	 * raw device, then 'mount -w' to promote it read/write), so a
+	 * normal boot goes STRAIGHT to multi-user; there is no
+	 * single-user shell on the way any more.  The shell below is an
+	 * emergency room only: automatic repair failed, SIGHUP asked for
+	 * single user, or every terminal in /etc/ttys is disabled.
+	 */
 	if (rootro)
-		console("\nWARNING: Root file system was not unmounted cleanly.\nRepair it with 'check -s' on the root device, then '/etc/reboot'.\n");
+		rootro = fixroot();
+	multi = 0;
 	for (;;) {
 		while (attendc() == 0) {
+			if (rootro == 0 && multi == 0) {
+				multi = 1;
+				if (access("/etc/rc", 0) == 0) {
+					n = spawn("/dev/null",
+						"/bin/sh", "sh", "/etc/rc", NULL);
+					waitc(n);
+				}
+				scantty();
+				continue;
+			}
 			envl[2] = rootro ? "PS1=(ro)# " : "PS1=# ";
+			console("\nSingle user shell; hit Ctrl+D to go multi user\n");
 			n = spawn("/dev/console",
 				"/bin/sh", "-sh", NULL);
 			waitc(n);
@@ -126,7 +149,7 @@ char *argv[];
 			}
 			/*
 			 * Do not enter multi-user until root is writable.
-			 * A read-only (dirty) root must be checked and either
+			 * A read-only (dirty) root must be checked and
 			 * remounted (mount -w) or rebooted first; otherwise
 			 * stay in single-user rather than run /etc/rc on it.
 			 */
@@ -135,16 +158,11 @@ char *argv[];
 					close(n);
 					rootro = 0;
 				} else {
-					console("\nRoot is still read-only.\nRepair it with 'check -s' on the root device, then '/etc/reboot'.\n");
+					console("\nRoot is still read-only.\nRepair it with 'check -s' on the root block device, then 'mount -w'.\n");
 					continue;
 				}
 			}
-			if (access("/etc/rc", 0) == 0) {
-				n = spawn("/dev/null",
-					"/bin/sh", "sh", "/etc/rc", NULL);
-				waitc(n);
-			}
-			scantty();
+			multi = 0;	/* loop back into multi-user set-up */
 		}
 		n = wait(&status);
 		if (sinflag) {
@@ -258,6 +276,82 @@ char *np;
 		;
 	if (status != 0)
 		exit(status);
+}
+
+/*
+ * Find the block device the root file system is mounted on, by matching
+ * each /dev entry's st_rdev against st_dev of "/" -- so the right device
+ * is repaired whether root is a hard disk or a floppy.  Fills rootblk
+ * with "/dev/<name>".  Returns 0 on success.
+ */
+findroot()
+{
+	register int fd;
+	struct stat rs, ds;
+	struct direct dir;
+
+	if (stat("/", &rs) < 0)
+		return (-1);
+	if ((fd = open("/dev", 0)) < 0)
+		return (-1);
+	while (read(fd, (char *)&dir, sizeof(dir)) == sizeof(dir)) {
+		if (dir.d_ino == 0)
+			continue;
+		strncpy(&rootblk[5], dir.d_name, DIRSIZ);
+		rootblk[5+DIRSIZ] = '\0';
+		if (stat(rootblk, &ds) < 0)
+			continue;
+		if ((ds.st_mode&S_IFMT) == S_IFBLK && ds.st_rdev == rs.st_dev) {
+			close(fd);
+			return (0);
+		}
+	}
+	close(fd);
+	return (-1);
+}
+
+/*
+ * Root came up read only: it was not unmounted cleanly (the kernel found
+ * s_dirty set).  Repair it in place, with no operator: the file system is
+ * quiescent -- nothing can be open for writing on a read-only root -- so
+ * run 'check -s' on the BLOCK device (exactly what 'mount -c' does; the
+ * raw device refuses libfs's non-sector-sized reads with "non-aligned
+ * dma"), then ask the kernel to remount root read/write ('mount -w' ->
+ * fsremount, which drops stale cached blocks, re-reads the repaired super
+ * block, and refuses while the file system is still dirty).  check exits
+ * 0 (clean) or 1 (errors found and fixed); anything else -- or a check
+ * that died -- leaves root alone.  Returns 0 when root is writable; 1
+ * falls into the single-user emergency shell.
+ */
+fixroot()
+{
+	register int pid;
+	register int n;
+	unsigned status;
+
+	if (findroot() != 0) {
+		console("Cannot find the root device in /dev\n");
+		return (1);
+	}
+	console("The root file system was not unmounted cleanly, repairing\n");
+	pid = spawn("/dev/console", "/bin/check", "check", "-s",
+		rootblk, NULL);
+	while ((n = wait(&status)) >= 0 && n != pid)
+		;
+	if (n != pid || (status&0377) != 0 || ((status>>8)&0377) > 1) {
+		console("Automatic repair failed\n");
+		return (1);
+	}
+	pid = spawn("/dev/console", "/etc/mount", "mount",
+		rootblk, "/", "-w", NULL);
+	waitc(pid);
+	if ((n = creat("/etc/boottime", 0644)) >= 0) {
+		close(n);
+		console("Root file system repaired\n");
+		return (0);
+	}
+	console("The root file system is still read only\n");
+	return (1);
 }
 
 /*

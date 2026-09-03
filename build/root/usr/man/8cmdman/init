@@ -36,29 +36,29 @@ BBoooott SSeeqquueennccee
      iinniitt first tries to create the file /eettcc/bboooottttiimmee; this
      doubles as a check that the root file system is writable.
      If root came up read-only, because it was not cleanly un-
-     mounted, the ccrreeaatt() fails and iinniitt remembers that root is
-     read-only, printing a message on the console that it must be
-     repaired with cchheecckk -ss and the system rebooted, or remounted
-     read/write with mmoouunntt -ww.
+     mounted, the ccrreeaatt() fails and iinniitt repairs the root file
+     system automatically: it finds the device root is mounted on
+     by matching the device numbers of the entries in /ddeevv
+     against that of /, runs cchheecckk -ss on that device (the file
+     system is quiescent, since nothing can be open for writing
+     on a read-only root), and then promotes root to read/write
+     with mmoouunntt -ww, which re-reads the repaired super block and
+     refuses if the file system is still dirty.
 
      iinniitt records the boot in /uussrr/aaddmm/wwttmmpp, and installs hand-
-     lers for SSIIGGHHUUPP and SSIIGGQQUUIITT. It then loops: while no ter-
-     minal has a login pending, it spawns an interactive shell on
+     lers for SSIIGGHHUUPP and SSIIGGQQUUIITT. With root writable it goes
+     straight to multi-user: it runs /eettcc/rrcc if it exists, to
+     complete multi-user setup, then reads /eettcc/ttttyyss and starts
+     ggeettttyy on every enabled line listed there.  There is no
+     single-user shell on a normal boot.
+
+     The interactive single-user shell survives only as an emer-
+     gency: if the automatic repair fails (root is left read-
+     only), if SSIIGGHHUUPP asks for single-user mode, or if every ter-
+     minal in /eettcc/ttttyyss is disabled, iinniitt spawns a shell on
      /ddeevv/ccoonnssoollee, with prompt # (or (rroo)# while root is still
      read-only).  When that shell exits (typically because the
-     operator typed an end-of-file), and root is now writable,
-     iinniitt runs /eettcc/rrcc if it exists, to complete multi-user
-     setup, then reads /eettcc/ttttyyss and starts ggeettttyy on every
-     enabled line listed there.  If root is still read-only when
-     the console shell exits, iinniitt prints another warning and
-     starts the console shell again instead of proceeding to mul-
-     ti-user mode.
-
-     iinniitt then waits for its children to exit.  If a ggeettttyy (or
-     the process it eventually replaced itself with, by way of
-     llooggiinn) on a given line exits, iinniitt clears that line's uuttmmpp
-     entry, restores the terminal's mode and ownership, and res-
-     tarts ggeettttyy on it, unless the line has since been disabled
+     operator typed an end-of-file), and root is writable by
 
 
 COHERENT Administration Manual                             Page 1
@@ -70,7 +70,16 @@ iinniitt                                                         iinniit
 
 
 
-     iinn /eettcc/ttttyyss. Other terminating children are simply reaped.
+     tthheenn, iinniitt proceeds to multi-user as above; if root is still
+     read-only it prints a warning, naming cchheecckk -ss and mmoouunntt -ww,
+     and starts the shell again.
+
+     iinniitt then waits for its children to exit.  If a ggeettttyy (or
+     the process it eventually replaced itself with, by way of
+     llooggiinn) on a given line exits, iinniitt clears that line's uuttmmpp
+     entry, restores the terminal's mode and ownership, and res-
+     tarts ggeettttyy on it, unless the line has since been disabled
+     in /eettcc/ttttyyss. Other terminating children are simply reaped.
 
 SSiiggnnaallss
      iinniitt responds to two signals:
@@ -99,8 +108,9 @@ SSEEEE AALLSSOO
      cchheecckk, ggeettttyy, kkiillll, llooggiinn, mmoouunntt, sshh
 
 NNOOTTEESS
-     This iinniitt does not run a separate fsck-style check before
-     entering single-user mode; instead, the writability of the
-     root file system is probed directly by attempting to create
-     /eettcc/bboooottttiimmee. While root remains read-only, iinniitt refuses to
-     run /eettcc/rrcc and stays in single-user mode.
+     The writability of the root file system is probed directly
+     by attempting to create /eettcc/bboooottttiimmee, and a dirty root is
+     repaired and remounted in place; the system is never
+     rebooted for a repair.  While root remains read-only -
+     automatic repair failed - iinniitt refuses to run /eettcc/rrcc and
+     stays in the single-user emergency shell.

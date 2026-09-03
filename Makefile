@@ -942,6 +942,17 @@ $(HRGUIBIN)/gfxtest: $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(HRGFX_SRVGLOB) $(
 	@mkdir -p $(dir $@)
 	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/gfx/gfxtest.o $(HRGFX_GLOB) $(HRGFX_SRVGLOB) $(LIBHRGFX) $(LIBC)
 
+# /etc/zlogin: the graphical login greeter on the hi-res console (spawned by
+# getty instead of the textual prompt; execs zview as the session).  Links
+# like gfxtest -- engine + globals.o only, straight to the framebuffer -- but
+# WITHOUT globals_srv.o: it never touches layer.o (whose memfail() hangs), so
+# a link error here means something grew a server-only reference.  Boot-path
+# program, so fully static by construction (explicit $(LIBC), no libc.sl).
+$(HRGUIOBJ)/zlogin/zlogin.o: HRGFXCFLAGS += -I$(HRGUISRC)/inc
+$(ETCDIR)/zlogin: $(HRGUIOBJ)/zlogin/zlogin.o $(HRGFX_GLOB) $(LIBHRGFX) $(CRT) $(LIBC)
+	@mkdir -p $(dir $@)
+	$(LD) -s -o $@ $(CRT) $(HRGUIOBJ)/zlogin/zlogin.o $(HRGFX_GLOB) $(LIBHRGFX) $(LIBC)
+
 # --- Phase 1: window server + clock client ---
 # Both need the shared wire protocol header in addition to the engine headers.
 $(HRGUIOBJ)/zview/zview.o $(HRGUIOBJ)/zview/zvpump.o \
@@ -1596,6 +1607,7 @@ $(DRVDIR)/hr: $(HRGUIOBJ)/drv/hr.o $(HRGUIOBJ)/drv/hrasm.o $(KSYM)
 	chmod +x $@
 
 HRGUI_TARGETS := $(DRVDIR)/hr $(LIBHRGFX) $(SHLIB) $(HRGUIBIN)/gfxtest $(HRGUIBIN)/zview \
+	$(ETCDIR)/zlogin \
 	$(HRGUIBIN)/zvpump $(HRGUIBIN)/zvwatch $(HRGUIBIN)/zclock \
 	$(HRGUIBIN)/zdlg $(HRGUIBIN)/zedit $(HRGUIBIN)/zmail $(HRGUIBIN)/zprint \
 	$(HRGUIBIN)/zmon $(HRGUIBIN)/zcalc $(HRGUIBIN)/zman $(HRGUIBIN)/zfile \

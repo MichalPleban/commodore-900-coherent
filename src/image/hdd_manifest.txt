@@ -179,6 +179,7 @@ f	/etc/umount	755	3	1
 f	/etc/update	755	3	0
 f	/etc/utmp	644	3	0
 f	/etc/wall	4755	0	0
+f	/etc/zlogin	755	3	1
 d	/f0	755	3	1
 d	/lib	755	0	0
 f	/lib/cc0	755	0	0
@@ -475,6 +476,7 @@ f	/usr/man/8cmdman/uload	644	0	1
 f	/usr/man/8cmdman/umount	644	0	1
 f	/usr/man/8cmdman/update	644	0	1
 f	/usr/man/8cmdman/wall	644	0	1
+f	/usr/man/8cmdman/zlogin	644	0	1
 # --- ZView windowing system (built by `make image'/`make hrgui') ---
 f	/drv/hr	700	0	0
 d	/usr/hr	755	0	1

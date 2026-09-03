@@ -140,6 +140,26 @@ struct	stypes	{
 	'S',	sS
 };
 
+/*
+ * Is there real RAM behind the GUI shared segment?  Write/read-back probe of
+ * the scratch word the boot ROM idiom uses (clgfx/hrsel.c hr_selok: segment
+ * 0x38 offset SHM_SELPROBE 0x4118) -- on a machine with no hi-res card the
+ * segment has no responder, the store is dropped, and this returns 0.
+ * Hardcoded rather than pulling the hr headers into a plain /etc command.
+ */
+static
+hrprobe()
+{
+	register short *p;
+
+	p = (short *)0x38004118L;
+	*p = 0x1234;
+	if (*p != 0x1234)
+		return (0);
+	*p = 0x4321;
+	return (*p == 0x4321);
+}
+
 main(argc, argv)
 char *argv[];
 {
@@ -148,6 +168,22 @@ char *argv[];
 	register int	index;
 	extern	 int	catch();
 	char		name[MAXNAME];
+	char		term[TERMSZ];
+
+	/*
+	 * Graphical login on the hi-res console: if this line is the hrtty
+	 * console (only the graphics console drivers answer TIOCGTERM; hrtty
+	 * says "vt100"), the card is really present, and the greeter is
+	 * installed, hand the whole job to it.  A third argument ("text",
+	 * passed back by a zlogin that had to give up) skips this, so a
+	 * broken graphical path falls back to the prompt below instead of
+	 * bouncing between the two forever.  Serial lines fail the ioctl
+	 * and are untouched.
+	 */
+	if (argc <= 2
+	    && ioctl(1, TIOCGTERM, term) >= 0 && strcmp(term, "vt100") == 0
+	    && hrprobe() && access("/etc/zlogin", 1) == 0)
+		execl("/etc/zlogin", "zlogin", NULL);
 
 	ioctl(1, TIOCGETP, &isgttyb);
 	ioctl(1, TIOCGETC, &itchars);
@@ -241,7 +277,10 @@ loop:
 			continue;
 		}
 		if (c == isgttyb.sg_erase) {
-			if (sp != s)
+			/* was `sp != s' -- the speed-table pointer -- which was
+			 * always true, so erasing at an empty name walked cp
+			 * back past the start of the buffer */
+			if (cp != s)
 				--cp;
 			continue;
 		}

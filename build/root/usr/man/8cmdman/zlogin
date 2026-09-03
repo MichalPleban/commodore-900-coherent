@@ -1,0 +1,81 @@
+
+
+zzllooggiinn                                                     zzllooggiinn
+
+
+
+NNAAMMEE
+     zlogin - graphical login on the hi-res console
+
+SSYYNNOOPPSSIISS
+     /eettcc/zzllooggiinn
+
+DDEESSCCRRIIPPTTIIOONN
+     zzllooggiinn is the graphical front door of the hi-res machine.
+     When ggeettttyy finds itself on the hi-res console (the console
+     driver reports the vvtt110000 terminal type and the video card
+     answers a memory probe), it replaces itself with zzllooggiinn
+     instead of printing the textual login prompt.  zzllooggiinn paints
+     a login panel directly on the bitmap display and reads the
+     keyboard from the console in raw mode; no window server is
+     running yet, and the mouse is not used.
+
+     The panel holds a name field and a password field.  Print-
+     able characters go to the field that holds the caret; the
+     following keys edit and move:
+
+          EEnntteerr           move from the name to the password field, or log in
+          TTaabb             switch fields
+          BBaacckkssppaaccee       erase the last character
+          CCttrrll-UU          clear the field
+
+     The password is shown as * characters.
+
+     The name and password are checked against /eettcc/ppaasssswwdd by the
+     same rules as llooggiinn: an account whose password field is
+     empty needs no password.  A successful login is recorded in
+     /eettcc/uuttmmpp and /uussrr/aaddmm/wwttmmpp, the console is given to the
+     user, the HHOOMMEE, PPAATTHH and TTEERRMM environment is set up, and
+     zzllooggiinn replaces itself with /uussrr/hhrr/bbiinn/zzvviieeww, the desktop,
+     running as the logged-in user.  When the desktop is quit,
+     iinniitt starts ggeettttyy on the console again and the login panel
+     returns.  A failed attempt prints LLooggiinn iinnccoorrrreecctt on the
+     panel and is recorded in /uussrr/aaddmm/ffaaiilleedd.
+
+     If the video card is absent or the panel font cannot be
+     read, zzllooggiinn gives the console back to the textual prompt:
+     it replaces itself with /eettcc/ggeettttyy passing the extra argu-
+     ment tteexxtt, which tells ggeettttyy not to try the graphical path
+     again.
+
+FFIILLEESS
+          /eettcc/ppaasssswwdd                 accounts and passwords
+          /uussrr/hhrr/ffoonnttss/ggaacchhaa.bb.hhff    the panel font
+          /uussrr/hhrr/bbiinn/zzvviieeww           the session started on success
+          /eettcc/uuttmmpp                   who is logged in
+          /uussrr/aaddmm/wwttmmpp               login accounting
+          /uussrr/aaddmm/ffaaiilleedd             failed attempts
+
+SSEEEE AALLSSOO
+     ggeettttyy, iinniitt, llooggiinn, zzvviieeww
+
+
+
+COHERENT Administration Manual                             Page 1
+
+
+
+
+zzllooggiinn                                                     zzllooggiinn
+
+
+
+NNOOTTEESS
+     zzllooggiinn is started by ggeettttyy and is not ordinarily run by
+     hand: it draws over the whole display and takes the console
+     keyboard into raw mode.
+
+     The desktop's driver loading is restricted to the superuser,
+     so at present only a root login reaches the desktop; another
+     account is authenticated but its session exits at once and
+     the login panel returns.
