@@ -25,7 +25,7 @@ cltinit()
 	csave(om);
 	lm = 0;
 	for (p = clistp+NCLIST*sizeof(CLIST); (p-=sizeof(CLIST)) >= clistp; ) {
-		cm = cconv(p);
+		cm = (cmap_t)cconv(p);
 		cmapv(cm);
 		cvirt(cm)->cl_fp = lm;
 		lm = cm;

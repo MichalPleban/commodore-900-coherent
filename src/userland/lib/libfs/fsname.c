@@ -28,10 +28,10 @@
 
 char	*malloc();
 
-static	fspass1();
-static	fspass2();
+static	void	fspass1();
+static	void	fspass2();
 static	fsfinddirs();
-static	fsdirenter();
+static	void	fsdirenter();
 
 /*
  * Build the directory-entry hash and the directory-inode bitmap.  If `sbflag'
@@ -106,7 +106,7 @@ register FS *fsp;
  * setuid/special i-number in sbmap).  Pass two uses dbmap to know which inodes
  * to descend.
  */
-static
+static void
 fspass1(fsp, ibuf, sbflag)
 register FS *fsp;
 char *ibuf;
@@ -146,7 +146,7 @@ int sbflag;
 /*
  * Pass two: for every directory inode, record each of its entries in the hash.
  */
-static
+static void
 fspass2(fsp, ibuf)
 register FS *fsp;
 char *ibuf;
@@ -220,7 +220,7 @@ register ino_t inum;
  * Enter one directory entry (child i-number `dp->d_ino', parent `ino') into
  * the hash, keyed on the child i-number.
  */
-static
+static void
 fsdirenter(fsp, dp, ino)
 register FS *fsp;
 register struct direct *dp;

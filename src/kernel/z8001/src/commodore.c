@@ -39,7 +39,7 @@ commodore()
 	 * at offset of 0.
 	 */
 	t = (char *)ADDR(1, 0);
-	t = *(int **)t;
+	t = (char *)*(int **)t;
 	kkcopy(t, &romconf, sizeof romconf);
 	corebot = romconf.rom_bram;
 	coretop = romconf.rom_eram;
@@ -228,7 +228,7 @@ saddr_t m;
 {
 	mp->mc_omap = m<<CSH;
 	mp->mc_sp = (char *)&u + UPASIZE-sizeof(f);
-	mp->mc_pc = f;
+	mp->mc_pc = (char *)f;
 	mp->mc_fcw = MFSYS|MFVIE|MFSEG;
 	mp->mc_depth = 1;
 }
@@ -318,7 +318,7 @@ register int (*f)();
 	putuwd(--usp, regl[OFCW]);
 	putuwd(--usp, n);
 	regl[OFCW] &= ~MFNVE;
-	*(int **)&regl[OPC] = f;
+	*(int **)&regl[OPC] = (int *)f;
 	*(int **)&regl[OR14] = usp;
 	if (n!=SIGEPA && n!=SIGTRAP)
 		u.u_sfunc[n-1] = SIG_DFL;

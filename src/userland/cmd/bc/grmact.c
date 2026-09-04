@@ -208,7 +208,7 @@ register dicent	*dicp;
 		return;
 	if (dicp->globalt == UNDEFINED) {
 		dicp->globalt = FUNCTION;
-		dicp->globalv.fvalue.body = dicp->globalv.fvalue.types = NULL;
+		dicp->globalv.fvalue.body = (code *)(dicp->globalv.fvalue.types = NULL);
 	} else
 		gerror("`%s' is not a function", dicp->word);
 }

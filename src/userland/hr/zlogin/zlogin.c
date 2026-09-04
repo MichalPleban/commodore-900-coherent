@@ -128,7 +128,7 @@ probe()
 
 /* Fill a rectangle on screen (zview's srvfill, the working blit path).
  * op L_FALSE = black, L_TRUE + a texture = paint that pattern. */
-static
+static void
 fill(r, patidx, op)
 RECT r;
 {
@@ -142,7 +142,7 @@ RECT r;
 	s.base = screen_addr(r.origin.x, r.origin.y);
 	blt.src = &s;
 	blt.sp = r.origin;
-	blt.dst = &display;
+	blt.dst = (LAYER *)&display;
 	blt.dr = r;
 	blt.op = op;
 	blt.pat = texture[patidx];
@@ -204,7 +204,7 @@ RECT r;
 /* One glyph, cell top-left at (gx,gy) -- zview's glyph1 pointed at the
  * private font copy.  Ink is stored 1 (white-on-black), so L_NSRC paints
  * black ink on a white cell.  No clipping: this program owns the screen. */
-static
+static void
 glyph(gx, gy, c)
 {
 	register HRFONT *f;
@@ -225,7 +225,7 @@ glyph(gx, gy, c)
 	dr.corner.x = gx + f->cellw;
 	dr.corner.y = gy + f->cellh;
 	blt.src = &src;
-	blt.dst = &display;
+	blt.dst = (LAYER *)&display;
 	blt.op = L_NSRC;
 	blt.pat = texture[0];
 	blt.dr = dr;
@@ -359,7 +359,7 @@ giveup()
 
 /* Accounting entry for wtmp / the failed log, plus the /etc/utmp slot on
  * success -- copied from /bin/login's setutmp. */
-static
+static void
 setutmp(tty, username, filep, success)
 char *tty, *username, *filep;
 {
@@ -426,7 +426,7 @@ auth()
 /* The successful login: /bin/login's bookkeeping, then exec the desktop as
  * the session.  Returns only on a pre-privilege failure (no home dir);
  * after setuid the only way out is exit -> init respawns the greeter. */
-static
+static void
 session(pwp)
 register struct passwd *pwp;
 {

@@ -72,7 +72,7 @@ CODE *buffer, *bufend;
 	dp = cdivp;
 	mp = dp->d_macp;
 	if (mp->m_type!=MDIVN || dp->d_seek!=tmpseek) {
-		dp->d_macp = dp->d_macp->m_next = mp = nalloc(sizeof *mp);
+		dp->d_macp = dp->d_macp->m_next = mp = (union mac *)nalloc(sizeof *mp);
 		mp->m_next = NULL;
 		mp->m_type = MDIVN;
 		mp->m_size = 0;

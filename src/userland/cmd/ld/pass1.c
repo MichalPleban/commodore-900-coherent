@@ -200,7 +200,7 @@ char	*fname, mname[];
 	 * allocate descriptor, add to list, initialize
 	 */
 	nsym = ldh.l_ssize[L_SYM]/sizeof(lds_t);
-	if ((mp=malloc(sizeof(mod_t)+nsym*sizeof(sym_t *)))==NULL)
+	if ((mp=(mod_t *)malloc(sizeof(mod_t)+nsym*sizeof(sym_t *)))==NULL)
 		fatal(nospace);
 	if (modhead==NULL)
 		modhead = mp;
@@ -353,7 +353,7 @@ mod_t	*mp;
 	/*
 	 * symbol not found (or is local)
 	 */
-	if ((sp=malloc(sizeof(sym_t)))==NULL)
+	if ((sp=(sym_t *)malloc(sizeof(sym_t)))==NULL)
 		fatal("out of space");
 	oseg[L_SYM].size += sizeof(lds_t);
 	sp->next = symtable[h];

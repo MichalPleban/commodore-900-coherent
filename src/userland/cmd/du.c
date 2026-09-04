@@ -137,7 +137,7 @@ struct stat *sbp;
 			return (0);
 		}
 		while ((nb = read(fd, iobuf, DIOSIZ)) > 0)
-			for (dp = iobuf; dp < &iobuf[nb]; dp++) {
+			for (dp = (struct direct *)iobuf; dp < (struct direct *)&iobuf[nb]; dp++) {
 				np = dp->d_name;
 				if (*np++=='.'
 				  && (*np=='\0' || (*np++=='.' && *np=='\0')))

@@ -141,7 +141,7 @@ initdata()
  * standing on -- its s_forw carries us to the next.  The trip count is
  * capped at what the arena could physically hold, so a torn or corrupt
  * queue cannot spin us on the kernel forever. */
-static
+static void
 sample()
 {
 	register SEG *sp;

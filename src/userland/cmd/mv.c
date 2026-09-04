@@ -261,7 +261,7 @@ register char *s1, *s2;
 	n = strlen(s1) + strlen(s2) + 2;
 	if ((s3 = malloc(n)) == NULL) {
 		nomemory();
-		NOTREACHED;
+		return (NULL);		/* NOTREACHED */
 	}
 	strcpy(s3, s1);
 	strcat(s3, "/");
@@ -300,7 +300,7 @@ char	*dir;
 	par = malloc( i+1);
 	if (par == NULL) {
 		nomemory( );
-		NOTREACHED;
+		return (NULL);		/* NOTREACHED */
 	}
 	strcpy( par, dir);
 
@@ -331,12 +331,12 @@ register char	*dir;
 	i = strlen( dir);
 	if (i == 0) {
 		fatal( -1, "NULL?");
-		NOTREACHED;
+		return (NULL);		/* NOTREACHED */
 	}
 	for (p=dir+i; *--p=='/'; )
 		if (p == dir) {
 			fatal( -1, "don't be silly");
-			NOTREACHED;
+			return (NULL);		/* NOTREACHED */
 		}
 	while (p > dir)
 		if (*--p == '/') {

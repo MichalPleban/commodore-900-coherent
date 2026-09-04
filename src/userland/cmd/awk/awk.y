@@ -45,6 +45,13 @@
 %type <u_node>	output elist error
 %type <u_char>	reclosure assignop
 
+/* The awk grammar is ambiguous in the classic ways (string concatenation by
+ * juxtaposition, an assignment followed by an expression, regular-expression
+ * concatenation and alternation, the dangling else); yacc resolves every one
+ * of the 48 conflicts by shifting, which is the intended parse.  Declared so
+ * the build does not report them; a different count still is. */
+%expect 48
+
 %left	SCON_
 %right	ASADD_ ASSUB_ ASMUL_ ASDIV_ ASMOD_ '='
 %left	OROR_

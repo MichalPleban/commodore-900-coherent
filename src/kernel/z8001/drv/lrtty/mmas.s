@@ -51,8 +51,8 @@ mmstuff_:
 
 .globl	mmcopy_
 
-/ Copy `n' screen characters from `from' byte offset to `to' byte offset
-/ in from 'base'.  The `flag' is non-zero for downward direction, zero
+/ Copy "n" screen characters from "from" byte offset to "to" byte offset
+/ in from "base".  The "flag" is non-zero for downward direction, zero
 / for upwards.	The count is in 2 byte character and attribute units.
 /	mmcopy(from, to, n, flag, base)
 /	   int from, to, n, flag;

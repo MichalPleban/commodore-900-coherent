@@ -26,7 +26,7 @@ getlogin()
 	    && (tname = ttyname(fileno(stderr)))!=NULL) {
 		tname += 5;			/* Skip over "/dev/" */
 		while ((n = read(ufd, iobuf, BUFSIZ)) > 0)
-			for (up = iobuf; up < &iobuf[n]; up++)
+			for (up = (struct utmp *)iobuf; up < (struct utmp *)&iobuf[n]; up++)
 				if (strncmp(up->ut_line, tname, 8) == 0) {
 					close(ufd);
 					strncpy(uname, up->ut_name, DIRSIZ);

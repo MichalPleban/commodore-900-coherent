@@ -17,7 +17,7 @@ void	keyenter();
 void	funcenter();
 
 typedef	struct	FUNC {
-	int	(*f_funcp)();
+	NODE	*(*f_funcp)();
 	char	*f_name;
 	char	f_minarg;		/* Minimum number of arguments */
 	char	f_maxarg;		/* Maximum # args (-1 = variable) */
@@ -95,7 +95,7 @@ awkinit()
 	xone.t_op = xzero.t_op = ATERM;
 	xone.t_flag = xzero.t_flag = T_INT|T_NUM;
 	xfield0.n_op = AFIELD;
-	xfield0.n_O1 = &xzero;
+	xfield0.n_O1 = (NODE *)&xzero;
 	/*
 	 * Set up the built-in variables.
 	 */
@@ -133,7 +133,7 @@ char *id;
 	for (tp = symtab[hash%NHASH]; tp != NULL; tp = tp->t_next)
 		if (hash==tp->t_hval && tp->t_flag&T_VAR
 		    && streq(tp->t_name, id))
-			return (tp);
+			return ((NODE *)tp);
 	tp = (TERM *)xalloc(sizeof(NODE) + nb);
 	strcpy(tp->t_name, id);
 	tp->t_STRING = xalloc(sizeof(char));
@@ -176,7 +176,7 @@ char *index;
 	for (tp = symtab[hash % NHASH]; tp != NULL; tp = tp->t_next)
 		if (hash==tp->t_hval && tp->t_flag&T_ARRAY
 		  && streq(tp->t_name, array) && streq(tp->t_name+nba, index))
-			return (tp);
+			return ((NODE *)tp);
 	tp = (TERM *)xalloc(sizeof(NODE) + nba + nbi);
 	strcpy(tp->t_name, array);
 	strcpy(tp->t_name+nba, index);
@@ -247,7 +247,7 @@ int lval;
 void
 funcenter(name, fun, min, max)
 char *name;
-int (*fun)();
+NODE *(*fun)();
 int min, max;
 {
 	register char *np;

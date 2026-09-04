@@ -193,7 +193,7 @@ FILE		*fp;
 	}
 	*dpp = NULL;
 	dsize = dpp - dict;
-	dict = (symbol *)realloc(dict, (dpp + 1 - dict) * sizeof *dpp);
+	dict = (symbol **)realloc(dict, (dpp + 1 - dict) * sizeof *dpp);
 }
 
 

@@ -21,7 +21,7 @@ static struct dragon	d;		/* prototype dragon */
 
 static struct dragon	*dragons;	/* head of the dragon list */
 
-struct dragon	*member( ),
+static struct dragon	*member( ),
 		*enter( );
 
 
@@ -35,7 +35,7 @@ struct newt	*np;
 
 	if (d.d_s)
 		free( (char *)d.d_s);
-	d.d_s = malloc( n_id*sizeof( *d.d_s));
+	d.d_s = (struct newt **)malloc( n_id*sizeof( *d.d_s));
 	if (d.d_s == NULL)
 		nomem( );
 	d.d_s[0] = np;
@@ -175,7 +175,7 @@ struct newt	*finalnp;
 	register struct dragon	*p;
 	register		i;
 
-	p = malloc( sizeof *p);
+	p = (struct dragon *)malloc( sizeof *p);
 	if (p == NULL)
 		nomem( );
 	p->d_success = FALSE;
@@ -183,7 +183,7 @@ struct newt	*finalnp;
 	for (i=0; d.d_s[i]; ++i)
 		if (d.d_s[i] == finalnp)
 			p->d_success = TRUE;
-	p->d_s = malloc( (i+1)*sizeof( *p->d_s));
+	p->d_s = (struct newt **)malloc( (i+1)*sizeof( *p->d_s));
 	if (p->d_s == NULL)
 		nomem( );
 	for (i=0; p->d_s[i]=d.d_s[i]; ++i)
@@ -193,7 +193,7 @@ struct newt	*finalnp;
 		nomem( );
 	for (i=0; i<bmsize; ++i)
 		p->d_b[i] = d.d_b[i];
-	p->d_p = malloc( n_ec*sizeof( *p->d_p));
+	p->d_p = (struct dragon **)malloc( n_ec*sizeof( *p->d_p));
 	if (p->d_p == NULL)
 		nomem( );
 	for (i=0; i<n_ec; ++i)

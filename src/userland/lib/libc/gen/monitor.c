@@ -32,7 +32,7 @@ vaddr_t	low,
 short	buff[];
 int	blen;
 {
-	if (low == NULL) {
+	if (low == 0) {
 		endmon();
 		return;
 	}
@@ -51,7 +51,7 @@ int	blen;
 }
 
 
-static endmon()
+static void endmon()
 {
 	register int	fd,
 			cnt;

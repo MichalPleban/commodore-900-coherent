@@ -187,7 +187,7 @@ char *dname;
 		return (1);
 	}
 	while ((nb = read(fd, iobuf, BUFSIZ)) > 0)
-		for (dp = iobuf; dp < &iobuf[nb]; dp++) {
+		for (dp = (struct direct *)iobuf; dp < (struct direct *)&iobuf[nb]; dp++) {
 			if (dp->d_ino == 0)
 				continue;
 			doentry(dname, dp);

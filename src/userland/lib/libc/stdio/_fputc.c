@@ -15,7 +15,7 @@ _fputc(c, fp)
 register unsigned char	c;
 register FILE	*fp;
 {
-	char	s[1] = c;
+	char	s[1] = { c };
 
 	fp->_cc = 0;
 	errno = 0;

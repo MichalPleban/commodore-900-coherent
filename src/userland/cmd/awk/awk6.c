@@ -132,7 +132,7 @@ int na;
 	for ( ; *s1 != '\0'; s1++)
 		if (strncmp(s1, s2, n) == 0)
 			return (inode((INT)(s1-ss1+1)));
-	return (&xzero);
+	return ((NODE *)&xzero);
 }
 
 /*

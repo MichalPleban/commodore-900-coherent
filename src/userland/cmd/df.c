@@ -146,7 +146,7 @@ register char *fs;
 		return (1);
 	}
 	close(fd);
-	sbp = &buf[0];
+	sbp = (struct filsys *)&buf[0];
 	canf(sbp);
 	if (tstf(sbp) == 0) {
 		cmsg("badly formed super block on '%s'", fs);
@@ -191,7 +191,7 @@ minit()
 	emtabp = &mtab[0];
 	if ((fd = open("/etc/mnttab", 0)) >= 0) {
 		if ((n = read(fd, (char *)&mtab[0], sizeof mtab)) > 0)
-			emtabp = (char *)(&mtab[0]) + n;
+			emtabp = (struct mnttab *)((char *)(&mtab[0]) + n);
 		close(fd);
 		return;
 	}
@@ -224,7 +224,7 @@ dev_t dev;
 	if ((fd = open("/dev", 0)) < 0)
 		return (NULL);
 	while ((n = read(fd, buf, sizeof buf)) > 0) {
-		for (dp = &buf[0]; dp < &buf[n]; dp++) {
+		for (dp = (struct direct *)&buf[0]; dp < (struct direct *)&buf[n]; dp++) {
 			canino(dp->d_ino);
 			if (dp->d_ino == 0)
 				continue;

@@ -26,8 +26,8 @@ union	alltypes {
 
 #define	bump(p,s)	(p+=sizeof(s)/sizeof(int))
 
-char	*printi();
-char	*printl();
+static char	*printi();
+static char	*printl();
 char	*_dtefg();
 
 static	char	null[] = "{NULL}";
@@ -68,7 +68,7 @@ union alltypes args;
 	return (sp);
 }
 
-static
+static void
 xprintf(fp, argp)
 FILE *fp;
 union alltypes *argp;

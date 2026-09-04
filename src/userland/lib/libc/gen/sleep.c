@@ -10,7 +10,7 @@
 
 #include "signal.h"
 
-extern	int	func();		/* Allow pause to return */
+static	int	func();		/* Allow pause to return */
 
 sleep(sec)
 register unsigned sec;

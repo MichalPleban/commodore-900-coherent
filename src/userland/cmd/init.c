@@ -16,7 +16,7 @@
 /*
  * Miscellaneous constants.
  */
-#define	NULL	((char *)0)
+#define	NULL	((void *)0)
 
 /*
  * Structure containing information about each terminal.
@@ -403,7 +403,7 @@ scantty()
 		return;
 	while (readtty(&tty, fd) != 0) {
 		if ((tp=findtty(&tty)) == NULL) {
-			tp = malloc(sizeof(*tp));
+			tp = (struct tty *)malloc(sizeof(*tp));
 			*tp = tty;
 			tp->t_next = ttyp;
 			ttyp = tp;

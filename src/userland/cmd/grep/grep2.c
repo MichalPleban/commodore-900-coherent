@@ -13,8 +13,8 @@
 #include <ctype.h>
 #include "grep.h"
 
-char	*newcc();
-char	*e_exec();
+static char	*newcc();
+static char	*e_exec();
 
 
 static	char	repri[] = {
@@ -25,8 +25,9 @@ static	char	repri[] = {
 	4 /* CONC */
 };
 
-RE	**rebuild();
-RE	*renode();
+static RE	**rebuild();
+static RE	*renode();
+static int	reget(), reunget();
 static	union rebit	relval;
 static	char	cc[NCLASS];
 static	(*reinf)();

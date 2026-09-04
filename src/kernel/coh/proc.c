@@ -34,8 +34,8 @@ pcsinit()
 	procq.p_lforw = pp;
 	procq.p_lback = pp;
 	for (lp=&linkq[0]; lp<&linkq[NHPLINK]; lp++) {
-		lp->p_lforw = lp;
-		lp->p_lback = lp;
+		lp->p_lforw = (PROC *)lp;
+		lp->p_lback = (PROC *)lp;
 	}
 }
 
@@ -52,7 +52,7 @@ int (*f)();
 	register SEG *sp;
 	MCON mcon;
 
-	if ((pp=kalloc(sizeof(PROC))) == NULL)
+	if ((pp=(PROC *)kalloc(sizeof(PROC))) == NULL)
 		return (NULL);
 	pp->p_flags = PFCORE;
 	pp->p_state = PSRUN;
@@ -291,7 +291,7 @@ char *e;
 	addu(pp->p_cval, cl);
 	pp->p_ival = sl;
 	pp->p_rval = sr;
-	fp = &linkq[hash(e)];
+	fp = (PROC *)&linkq[hash(e)];
 	bp = fp->p_lback;
 	pp->p_lforw = fp;
 	fp->p_lback = pp;
@@ -326,7 +326,7 @@ char *e;
 	register PROC *pp1;
 	register int s;
 
-	pp1 = &linkq[hash(e)];
+	pp1 = (PROC *)&linkq[hash(e)];
 	pp = pp1;
 	s = sphi();
 	while ((pp=pp->p_lforw) != pp1) {

@@ -190,7 +190,7 @@ Init()
 	lp += PageSize - 1;
 	while (lp-- > Page) {
 		lp->Len = 0;
-		lp->Line = lp->Extra = NULL;
+		lp->Line = (char *)(lp->Extra = NULL);
 	}
 	Bottom = PageSize;
 	return;
@@ -521,7 +521,7 @@ register LINE *lp;
 		putchar(SI);
 	free(lp->Line);
 	lp->Len = 0;
-	lp->Line = lp->Extra = NULL;
+	lp->Line = (char *)(lp->Extra = NULL);
 	return;
 }
 

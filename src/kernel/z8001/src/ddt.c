@@ -162,7 +162,7 @@ ddt(sig)
 					data = (data<<4) + v;
 				} while ((v = hexdig(c = *cp++)) >= 0);
 				if (pflag)
-					l1 = pfix(DBS, ladd); else
+					l1 = (long)pfix(DBS, ladd); else
 					l1 = ptov(ladd);
 				kkcopy(&data, l1, sizeof data);
 				ladd += sizeof (int);
@@ -214,7 +214,7 @@ ddt(sig)
 				}
 				putchar(' ');
 				if (pflag)
-					l1 = pfix(DBS, ladd); else
+					l1 = (long)pfix(DBS, ladd); else
 					l1 = ptov(ladd);
 				kkcopy(l1, &data, sizeof data);
 				putihex(data);
@@ -364,7 +364,7 @@ ddt(sig)
 
 		case 'M':
 			getmmu(0, 64, cbuf);
-			mp = cbuf;
+			mp = (struct mmu *)cbuf;
 			for (c=0; c<64; c++) {
 				printf("%x: %x %x %x", c, mp->base,
 				    mp->attr, mp->len);

@@ -468,7 +468,7 @@ case 2: {
 			interp();
 		loc = cstream;
 		allok = TRUE;
-		breakloc = contloc = retfrom = NULL;
+		breakloc = contloc = (code *)(retfrom = NULL);
 	}break;
 
 case 3: {
@@ -488,7 +488,7 @@ case 3: {
 		}
 		loc = cstream;
 		allok = TRUE;
-		breakloc = contloc = retfrom = NULL;
+		breakloc = contloc = (code *)(retfrom = NULL);
 	}break;
 
 case 4: {
@@ -498,7 +498,7 @@ case 4: {
 		YYERROK;
 		loc = cstream;
 		allok = TRUE;
-		breakloc = contloc = retfrom = NULL;
+		breakloc = contloc = (code *)(retfrom = NULL);
 	}break;
 
 case 5: {

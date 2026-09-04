@@ -337,11 +337,11 @@ register size_t off;
 	register INODE *ip;
 
 	if ((fdp=fdget(fd)) == NULL)
-		return;
+		return (-1);
 	ip = fdp->f_ip;
 	if ((ip->i_mode&IFMT) == IFPIPE) {
 		u.u_error = ESPIPE;
-		return;
+		return (-1);
 	}
 	switch (w) {
 	case 0:
@@ -354,11 +354,11 @@ register size_t off;
 		break;
 	default:
 		u.u_error = EINVAL;
-		return;
+		return (-1);
 	}
 	if (off < 0) {
 		u.u_error = EINVAL;
-		return;
+		return (-1);
 	}
 	fdp->f_seek = off;
 	return (off);

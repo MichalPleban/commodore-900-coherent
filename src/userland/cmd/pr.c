@@ -179,7 +179,7 @@ register char	**av;
 	if (fwidth >= LSIZE-1)
 		fatal( "too wide");
 	if (ncol>1 && mflag==0) {
-		if ((lines=malloc( (ncol-1)*length*sizeof( char *))) == NULL)
+		if ((lines=(char **)malloc( (ncol-1)*length*sizeof( char *))) == NULL)
 			fatal( "insufficient core");
 		page = page2;
 	}

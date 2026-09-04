@@ -222,7 +222,7 @@ execute()
 		fflush(stdout);
 	}
 	pp1 = &cprocq;
-	while ((pp2=pp1->p_nback) != aprocq) {
+	while ((pp2=pp1->p_nback) != (PROC *)aprocq) {
 		if (range((char *)pp2) == 0)
 			panic("Fragmented list");
 		pp1 = (PROC *) map(pp2);
@@ -277,7 +277,7 @@ settdev()
 
 	p = getpid();
 	pp1 = &cprocq;
-	while ((pp2=pp1->p_nforw) != aprocq) {
+	while ((pp2=pp1->p_nforw) != (PROC *)aprocq) {
 		if (range((char *)pp2) == 0)
 			break;
 		pp1 = (PROC *) map(pp2);
@@ -342,7 +342,7 @@ register PROC *pp1, *pp2;
 	}
 	u = 0;
 	pp3 = &cprocq;
-	while ((pp4=pp3->p_lforw) != aprocq) {
+	while ((pp4=pp3->p_lforw) != (PROC *)aprocq) {
 		if (range((char *)pp4) == 0)
 			break;
 		pp3 = (PROC *) map(pp4);
@@ -452,7 +452,7 @@ register PROC *pp;
 		printf("<idle>");
 		return;
 	}
-	if (pp->p_event == astime) {
+	if (pp->p_event == (char *)astime) {
 		printf("<swap>");
 		return;
 	}

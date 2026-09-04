@@ -18,7 +18,7 @@
 #endif
 
 #ifndef NULL
-#define	NULL	((char  *)0)
+#define	NULL	((void *)0)
 #endif
 
 struct m_hdr {

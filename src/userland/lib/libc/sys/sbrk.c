@@ -27,7 +27,7 @@ unsigned int	incr;
 	rend = brk(NULL);
 #endif
 	if (incr == 0)
-		return (rend);
+		return ((char *)rend);
 #if Z8001
 	if (((unsigned)rend+incr) < (unsigned)rend)
 		rend = rend - (unsigned)rend +0x01000000L;
@@ -41,5 +41,5 @@ unsigned int	incr;
 	brk(send);
 	if (errno)
 		return (NULL);
-	return (rend);
+	return ((char *)rend);
 }

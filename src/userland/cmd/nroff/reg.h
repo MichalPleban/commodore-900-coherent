@@ -83,3 +83,6 @@ extern	REG	*nrsbreg;		/* Depth of string below base */
 extern	REG	*nrstreg;		/* Height of string above base */
 extern	REG	*nryrreg;		/* Year */
 extern	REG	*regt[RHTSIZE];		/* Register hash table */
+extern	REG	*findreg();
+extern	REG	*makereg();
+extern	REG	*getnreg();

@@ -8,7 +8,7 @@
  */
 
 #include <timeb.h>
-#define	NULL	((char *)0)
+#define	NULL	((void *)0)
 
 time_t
 time(tp)

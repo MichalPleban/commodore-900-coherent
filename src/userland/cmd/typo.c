@@ -685,7 +685,7 @@ register unsigned size;
 	}
 	cp = rp;
 	rp += size;
-	return (cp);
+	return ((char *)cp);
 }
 
 /*

@@ -613,7 +613,7 @@ char *argv[];
 			break;
 	}
 	if (argc >= 3) {
-		tp = nalloc(sizeof (TPL));
+		tp = (TPL *)nalloc(sizeof (TPL));
 		tp->t_rpos = rpos;
 		tp->t_apos = apos;
 		argname(argv[2], tp->t_name);

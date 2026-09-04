@@ -271,6 +271,7 @@ extern	VAR	*assnvar();		/* in var.c */
 extern	char	*convvar();		/* in var.c */
 extern	char	**envlvar();		/* in var.c */
 extern	char	*_getwd();		/* in /lib/libc.a */
+extern	char	*getwd();		/* in /lib/libc.a */
 #define	index(cp, c)	strchr((cp), (c))
 #define	rindex(cp, c)	strrchr((cp), (c))
 

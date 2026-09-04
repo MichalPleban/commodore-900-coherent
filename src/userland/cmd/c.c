@@ -87,7 +87,7 @@ input( )
 	char		lbuf[BUFSIZ];
 
 	while ((i=getline( lbuf)) >= 0) {
-		lp = malloc( sizeof *lp);
+		lp = (struct line *)malloc( sizeof *lp);
 		if (lp == NULL)
 			nomem( );
 		if (lhead)

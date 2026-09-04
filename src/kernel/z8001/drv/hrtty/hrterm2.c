@@ -19,7 +19,7 @@ uint	line,
 	iget,
 	iput,
 	inl;
-	state;
+int	state;
 bool	iesc;
 
 /*

@@ -199,7 +199,7 @@ size_t n;
 	else {
 		if ((f&SFNSWP) != 0)
 			return (NULL);
-		if ((sp=kalloc(sizeof(SEG))) == NULL)
+		if ((sp=(SEG *)kalloc(sizeof(SEG))) == NULL)
 			return (NULL);
 		sp->s_forw = sp;
 		sp->s_back = sp;
@@ -565,7 +565,7 @@ saddr_t s;
 		else
 			d2 = swaptop;
 		if (d2-d1 >= d) {
-			if ((sp2=kalloc(sizeof(SEG))) == NULL)
+			if ((sp2=(SEG *)kalloc(sizeof(SEG))) == NULL)
 				return (NULL);
 			sp1->s_back->s_forw = sp2;
 			sp2->s_back = sp1->s_back;
@@ -603,7 +603,7 @@ saddr_t s;
 		else
 			s2 = coretop;
 		if (s2-s1 >= s) {
-			if ((sp2=kalloc(sizeof (SEG))) == NULL)
+			if ((sp2=(SEG *)kalloc(sizeof (SEG))) == NULL)
 				return (NULL);
 			sp1->s_back->s_forw = sp2;
 			sp2->s_back = sp1->s_back;
@@ -641,7 +641,7 @@ saddr_t s;
 		else
 			s1 = corebot;
 		if (s2-s1 >= s) {
-			if ((sp2=kalloc(sizeof (SEG))) == NULL)
+			if ((sp2=(SEG *)kalloc(sizeof (SEG))) == NULL)
 				return (NULL);
 			sp1->s_forw->s_back = sp2;
 			sp2->s_forw = sp1->s_forw;
@@ -860,7 +860,7 @@ sproto()
 			continue;
 		srp = &u.u_segl[n];
 		if (n == SIUSERP)
-			srp->sr_base = &u;
+			srp->sr_base = (vaddr_t)&u;
 		else
 			srp->sr_flag |= SRFPMAP;
 		if (n!=SISTEXT && n!=SISDATA)

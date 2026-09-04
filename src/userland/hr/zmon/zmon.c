@@ -518,7 +518,7 @@ int m;
 		strcpy(out, "<idle>");
 		return 0;
 	}
-	if ( pp->p_event == astime )
+	if ( pp->p_event == (char *)astime )
 	{
 		strcpy(out, "<swap>");
 		return 0;

@@ -47,7 +47,7 @@ peteprint("\tdr = (%d, %d) (%d, %d),  sp = (%d, %d)\n",
 	for ( i = 0; i < MAX_LRBUF; i++ )
 		if ( lp->reg[i].flag == L_VISIBLE )
 		{
-			b.dst = &(lp->reg[i].bm);
+			b.dst = (LAYER *)&(lp->reg[i].bm);
 			bitblt(&b, clip, mouse);
 		}
 		else if ( lp->reg[i].flag == L_EMPTY )

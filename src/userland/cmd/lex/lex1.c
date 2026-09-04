@@ -59,10 +59,10 @@ char **argv;
 	/*
 	 * set up context and start condition lists
 	 */
-	ctxstart = alloc(sizeof(struct def));
+	ctxstart = (struct def *)alloc(sizeof(struct def));
 	ctxstart->d_next = NULL;
 	ctxstart->d_name = "0";
-	scnstart = alloc(sizeof(struct def));
+	scnstart = (struct def *)alloc(sizeof(struct def));
 	scnstart->d_next = NULL;
 	scnstart->d_name = "0";
 	scnstart->d_data = 0;
@@ -168,7 +168,7 @@ yyparse()
 			pc = getident();
 			rexparse(0);
 			nfa[nxt++][0] = LX_TERM;
-			nd = alloc(sizeof(struct def));
+			nd = (struct def *)alloc(sizeof(struct def));
 			if (pd != NULL)
 				pd->d_next = nd;
 			else

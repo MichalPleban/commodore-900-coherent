@@ -58,7 +58,7 @@ extern long	hr_cliplen();
  * '\n' becomes '\r' because that is what a keystroke would have delivered: the
  * line discipline turns CR into NL itself (ISCRMOD), and it is that conversion
  * that makes ttstash push the finished line to the shell. */
-static
+static void
 dopaste(mfd, clip)
 {
 	char b[64];

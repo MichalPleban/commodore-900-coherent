@@ -49,7 +49,7 @@ register dev_t dev;
 	register BUF *bp;
 	register int ro;
 
-	if ((mp=kalloc(sizeof(MOUNT))) == NULL)
+	if ((mp=(MOUNT *)kalloc(sizeof(MOUNT))) == NULL)
 		return (NULL);
 	ro = (f&MFRON) != 0;
 	dopen(dev, (ro?IPR:IPR|IPW), DFBLK);
@@ -313,7 +313,7 @@ haveilock:
 					ino += INOPB;
 					continue;
 				}
-				dip = bp->b_vaddr;
+				dip = (struct dinode *)bp->b_vaddr;
 				dipe = &dip[INOPB];
 				for (; dip<dipe; dip++, ino++) {
 					if (dip->di_mode != 0)
@@ -459,7 +459,7 @@ ebadflist:
 				devmsg(dev, "Bad free list");
 				goto enospc;
 			}
-			fbp = bp->b_vaddr;
+			fbp = (struct fblk *)bp->b_vaddr;
 			sbp->s_nfree = fbp->df_nfree;
 			canshort(sbp->s_nfree);
 			if ((unsigned)sbp->s_nfree > NICFREE) {
@@ -511,7 +511,7 @@ daddr_t b;
 	lock(mp->m_flock);
 	if (sbp->s_nfree == 0 || sbp->s_nfree == NICFREE) {
 		bp = bclaim(dev, b);
-		fbp = bp->b_vaddr;
+		fbp = (struct fblk *)bp->b_vaddr;
 		kclear(fbp, BSIZE);
 		fbp->df_nfree = sbp->s_nfree;
 		canshort(fbp->df_nfree);
@@ -624,7 +624,7 @@ setacct()
 	ilock(acctip);
 	acctio.io_seek = acctip->i_size;
 	acctio.io_ioc = sizeof (acct);
-	acctio.io_base = &acct;
+	acctio.io_base = (char *)&acct;
 	acctio.io_seg = IOSYS;
 	iwrite(acctip, &acctio);
 	iunlock(acctip);

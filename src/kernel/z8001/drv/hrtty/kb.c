@@ -18,10 +18,10 @@
 
 #define	KBIRQ	8			/* Interrupt level for keyboard */
 
-void	kbintr();
-void	kbinit();
-void	kbterm();
-void	kbintend();
+static void	kbintr();
+static void	kbinit();
+static void	kbterm();
+static void	kbintend();
 int	v0in();
 
 static	int	kbopenf;

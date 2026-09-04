@@ -16,8 +16,8 @@
 char		etab[NCHARS];		/* map ASCII to eclass # */
 struct eclass	*eclasses;		/* head of eclass list */
 
-bool		intersect( );
-struct eclass	*neweclass( );
+static bool	intersect( );
+static struct eclass	*neweclass( );
 
 
 /*
@@ -167,7 +167,7 @@ neweclass( )
 {
 	register struct eclass	*ep;
 
-	ep = malloc( sizeof *ep);
+	ep = (struct eclass *)malloc( sizeof *ep);
 	if (ep == NULL)
 		nomem( );
 	return (ep);

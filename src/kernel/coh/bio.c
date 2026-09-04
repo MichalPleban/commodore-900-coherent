@@ -28,13 +28,13 @@ bufinit()
 	register int i;
 
 	p = blockp;
-	bufl = kalloc(NBUF * sizeof(BUF));
+	bufl = (BUF *)kalloc(NBUF * sizeof(BUF));
 	if (bufl == NULL)
 		panic("bufinit: no space for BUF's");
 	for (i=0; i<NBUF; i++) {
 		bp = &bufl[i];
 		bp->b_dev = NODEV;
-		bp->b_vaddr = bvirt(bconv(p));
+		bp->b_vaddr = (char *)bvirt(bconv(p));
 		bp->b_paddr = p;
 		p += BSIZE;
 	}
@@ -508,7 +508,7 @@ register BUF *bp;
 /* Yet another bug in the 8000 C compiler
 		if ((long)(b=iop->io_base) < (long)srp->sr_base)
 */
-		if ((b=iop->io_base) < srp->sr_base)
+		if ((b=(vaddr_t)iop->io_base) < srp->sr_base)
 			continue;
 		if ((long)b+iop->io_ioc >
 		    (long)srp->sr_base+ctob((paddr_t)sp->s_size))

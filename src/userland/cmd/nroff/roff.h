@@ -74,10 +74,6 @@
 extern	FILE	*tmp;			/* Temp file pointer */
 extern	long	tmpseek;		/* Pointer into temp file */
 extern  char	*nalloc();
-extern  char	*findreg();
-extern  char	*makereg();
-extern  char	*allstr();
-extern  char	*getnreg();
 extern  char	*nextarg();
 extern  char	*duplstr();
 extern	char	*index();

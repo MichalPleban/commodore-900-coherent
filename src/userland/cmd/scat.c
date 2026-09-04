@@ -319,7 +319,7 @@ char	newline[]	= "\n";
 
 int	(*getline)( ),
 	getl1( ), getl2( ), getl3( );
-	puts1( ), puts2( );
+int	puts1( ), puts2( );
 
 scat( file, fp)
 register char	*file;

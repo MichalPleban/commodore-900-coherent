@@ -11,7 +11,7 @@
 #ifndef	 MACHINE_H
 #define	 MACHINE_H
 #ifndef	NULL			/* Move to coherent.h ? */
-#define	NULL	((char *)0)
+#define	NULL	((void *)0)
 #endif
 
 /* Machine dependent constants for Z8001 */
@@ -64,8 +64,8 @@
 #define	align(p)	((ALL *) ((vaddr_t) (p) & ~1))
 #define	link(p)		align((p)->a_link)
 #define	tstfree(p)	(((int) (p)->a_link&1) == 0)
-#define	setfree(p)	((p)->a_link = (vaddr_t) (p)->a_link & ~1)
-#define	setused(p)	((p)->a_link = (vaddr_t) (p)->a_link | 1)
+#define	setfree(p)	((p)->a_link = (char *) ((vaddr_t) (p)->a_link & ~1))
+#define	setused(p)	((p)->a_link = (char *) ((vaddr_t) (p)->a_link | 1))
 #endif
 
 /*

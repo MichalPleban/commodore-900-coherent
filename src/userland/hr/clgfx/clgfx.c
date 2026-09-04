@@ -133,7 +133,7 @@ cl_init(wid)
  * so callers can re-sync before EVERY primitive (not just once per batch) to
  * pick up a z-order/geometry change the instant the server publishes it -- which
  * is what stops a busy client painting into a window newly stacked on top. */
-static
+static void
 cl_sync()
 {
 	HRSURF *sp;
@@ -456,7 +456,7 @@ cl_pbegin(cx0, cy0, cx1, cy1)
 
 /* Hide the driver's XOR cursor if this framebuffer-coord blit rect overlaps the
  * cursor sprite -- lazily and at most once per primitive; cl_pend restores it. */
-static
+static void
 cl_hidecur(x0, y0, x1, y1)
 {
 	if ( !cureligible || curhid )
@@ -497,7 +497,7 @@ cl_pend(locked)
  * bitblt shifts each glyph row; op L_NSRC paints black ink on a white cell
  * (the .hf fonts store ink=1), L_NAND paints the ink only and leaves the rest
  * of the cell alone (transparent -- what cl_ptextt uses to double-strike). */
-static
+static void
 clglyph1(fslot, gx, gy, c, x0, y0, x1, y1, op)
 {
 	HRFONT *f;
@@ -516,7 +516,7 @@ clglyph1(fslot, gx, gy, c, x0, y0, x1, y1, op)
 	src.rect.origin.x = 0;   src.rect.origin.y = 0;
 	src.rect.corner.x = f->cellw;  src.rect.corner.y = f->cellh;
 	blt.src = &src;
-	blt.dst = &cldisp;
+	blt.dst = (LAYER *)&cldisp;
 	blt.op = op;
 	blt.pat = texture[0];
 	blt.dr.origin.x = x0;  blt.dr.origin.y = y0;
@@ -569,7 +569,7 @@ char *s;
 
 /* The shared body of cl_ptext/cl_ptextt: string s with its cell top-left at
  * content PIXEL (cx,cy), each glyph blitted with logical op `op'. */
-static
+static void
 clptext1(fslot, cx, cy, s, op)
 char *s;
 {
@@ -631,7 +631,7 @@ char *s;
  * result & pattern, so one blit lays the checker.  The pattern is indexed by
  * DESTINATION x word / y line (bitblt BLT_pat_index), so the dither is anchored
  * to the screen: adjacent fills and partial repaints always mesh. */
-static
+static void
 clfill_fb(x0, y0, x1, y1, r, val)
 HRRECT r;
 {
@@ -651,7 +651,7 @@ HRRECT r;
 	src.base = cl_scraddr(x0, y0);
 	blt.src = &src;
 	blt.sp.x = x0;  blt.sp.y = y0;
-	blt.dst = &cldisp;
+	blt.dst = (LAYER *)&cldisp;
 	blt.dr = src.rect;
 	blt.op = (val == 2) ? L_NDST : (val == 0 ? L_FALSE : L_TRUE);
 	blt.pat = (val == 3) ? texture[4] : texture[0];	/* 4 = HALF_TONE */
@@ -746,7 +746,7 @@ int *src;
 		sb.rect.origin.x = 0;  sb.rect.origin.y = 0;
 		sb.rect.corner.x = cx1 - cx0;  sb.rect.corner.y = cy1 - cy0;
 		blt.src = &sb;
-		blt.dst = &cldisp;
+		blt.dst = (LAYER *)&cldisp;
 		blt.op = L_SRC;
 		blt.pat = texture[0];
 		blt.dr.origin.x = x0;  blt.dr.origin.y = y0;

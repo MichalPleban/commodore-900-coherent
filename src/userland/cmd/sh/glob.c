@@ -278,7 +278,7 @@ register char *s;
 int dfd;
 int dcnt;
 struct direct *dptr;
-struct direct *dbuf = strt;
+struct direct *dbuf = (struct direct *)strt;
 char dtmp[DIRSIZ+2] = { 0 };
 
 dopen(p)

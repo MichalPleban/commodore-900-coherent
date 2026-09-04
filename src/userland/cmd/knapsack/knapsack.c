@@ -69,7 +69,7 @@ char *s;
  * g is multiplied by 2 each time. Calling choose() as is done above in
  * knapsack() ensures that k.d[] and k.m have the super-sequence property.
  */
-static
+static void
 choose(m)
 register mint *m;
 {
@@ -79,7 +79,7 @@ register mint *m;
 	return;
 }
 
-static
+static void
 shuffle(buf)
 register int buf[K];
 {
@@ -101,7 +101,7 @@ register int buf[K];
 /*
  * Select w and winv for m. Note that it is now ok to use g as a temporary.
  */
-static
+static void
 wpair(m, w, winv)
 register mint *m, *w, *winv;
 {
@@ -143,7 +143,7 @@ register mint *m, *w, *winv;
 /*
  * Put a random variable into r and return.
  */
-static
+static void
 xrand(r)
 register mint *r;
 {
@@ -159,7 +159,7 @@ register mint *r;
  * Initialize the random number generator. This means initializing the
  * mints m, a and c as well as seed.
  */
-static
+static void
 sxrand(exp, s)
 register unsigned exp;
 register char *s;

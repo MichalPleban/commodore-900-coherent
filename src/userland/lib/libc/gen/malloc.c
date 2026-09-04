@@ -37,7 +37,7 @@ unsigned int	size;
 		if (_a_arena != NULL) do {
 			if (tstfree(ap) && size <= (len=alength(ap))) {
 				if (size + sizeof (alloc_t) < len) { /* slop */
-					bp = &((char *)ap)[size];
+					bp = (alloc_t *)&((char *)ap)[size];
 					bp->a_next = ap->a_next;
 					bp->a_prev = ap;
 					ap->a_next =
@@ -45,7 +45,7 @@ unsigned int	size;
 				}
 				_a_block = ap->a_next;
 				setused(ap);
-				return (&ap[1]);
+				return ((char *)&ap[1]);
 			}
 			ap = next(ap);
 		} while (ap != _a_block);	/* scan whole arena */
@@ -53,13 +53,13 @@ unsigned int	size;
 		if (sbrked++)
 			maunder("Corrupt arena in malloc\n");
 		if (_a_arena != NULL
-		 && sbrk(0) == &(bp=prev(_a_arena))[1]
+		 && sbrk(0) == (char *)&(bp=prev(_a_arena))[1]
 		 && tstfree(prev(bp)))		/* free block at end of mem */
 			len = roundup(size - alength(prev(bp)), 1<<9);
 		else
 			len = roundup(size + sizeof (alloc_t), 1<<9);
-		if ((char*)(ap=sbrk(0))+len <= (char*)ap  /* wraparound */
-		 || (ap=sbrk(len)) == NULL)	/* no space */
+		if ((char*)(ap=(alloc_t *)sbrk(0))+len <= (char*)ap  /* wraparound */
+		 || (ap=(alloc_t *)sbrk(len)) == NULL)	/* no space */
 			return (NULL);
 		if (_a_arena == NULL) {		/* first alloc */
 			_a_arena = ap;
@@ -80,7 +80,7 @@ unsigned int	size;
 			ap = bp;
 			len += sizeof (alloc_t);
 		}
-		bp = &((char *) ap)[len - sizeof (alloc_t)];	/* end mark */
+		bp = (alloc_t *)&((char *) ap)[len - sizeof (alloc_t)];	/* end mark */
 		ap->a_next = bp;
 		bp->a_prev = ap;
 		bp->a_next = _a_arena;
@@ -92,7 +92,7 @@ unsigned int	size;
 free(cp)
 char	*cp;
 {
-	register alloc_t *ap = cp,
+	register alloc_t *ap = (alloc_t *)cp,
 			 *pp,
 			 *np;
 

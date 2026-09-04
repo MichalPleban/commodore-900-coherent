@@ -98,9 +98,9 @@ freebuf(bpp)
 register char **bpp;
 {
 	*bufapp = buffp;
-	buffp = *bpp;
+	buffp = (BUF *)*bpp;
 	*bpp = NULL;
-	bufapp = bpp;
+	bufapp = (BUF **)bpp;
 }
 
 /*
@@ -143,7 +143,7 @@ salloc(n)
 	if ((cp=malloc(n)) == NULL) {
 		prints("Out of memory\n");
 		reset(RNOSBRK);
-		NOTREACHED;
+		return (NULL);		/* NOTREACHED */
 	}
 	return (cp);
 }

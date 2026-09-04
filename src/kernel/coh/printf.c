@@ -33,7 +33,7 @@ register char *fp;
 	register int c;
 	register int *ap;
 
-	ap = (char *)&a1;
+	ap = (int *)&a1;
 	for (;;) {
 		while ((c=*fp++) != '%') {
 			if (c == '\0')

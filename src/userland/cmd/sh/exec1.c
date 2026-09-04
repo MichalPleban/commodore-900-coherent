@@ -28,7 +28,7 @@ register NODE *np;
 	char *cname;		/* for NCASE */
 
 	mynllflag = nllflag;
-	innp = inlp = NULL;
+	innp = (char *)(inlp = NULL);
 	cnode = NULL;
 	f = 0;
 

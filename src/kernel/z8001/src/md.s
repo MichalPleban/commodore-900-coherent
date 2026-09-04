@@ -246,7 +246,7 @@ psavi:
 
 / Interrupt dispatch table for loadable drivers.
 / This table is set/cleared by setivec/clrivec.
-/ Some go to C routines, others to `vret' routine.
+/ Some go to C routines, others to "vret" routine.
 / The clock (timer) is handled specially.
 / There are only 128 vectored interrupts on the z8001
 / versus 256 on the z8002.
@@ -269,7 +269,7 @@ vmaps_:
 / library text segments (user read-only) when a library is loaded (slmap)
 / Segment 38 (GDS) is the GUI shared data segment, 28K, accessible to
 / everyone; commodore_ points it at a harmless default and the video
-/ console driver repoints it to the card's spare RAM (hrtty portst_)
+/ console driver repoints it to the card spare RAM (hrtty portst_)
 / Segment 39 is the Western Digital Disc Mailbox and buffers
 / Segments 3A and 3B are accessible to everyone for the bitmap
 / Segments 3C, 3D, 3E are extra and overlay segments, full 64K, system only
@@ -447,7 +447,7 @@ lpclk:
 / same type of linkage information on the stack
 / so that higher level parts of the system do
 / most of the sophisticated work.  The stack looks
-/ like this when C `trap' has been called:
+/ like this when C "trap" has been called:
 /
 /	|----------|
 /	|pc offset |
@@ -536,7 +536,7 @@ tseg:
 	push	(sp), $SIGSEG		/ Segmentation violation
 	JR	0f
 
-/ Common processing for all traps that haven't been
+/ Common processing for all traps that have not been
 / filtered out.  Build a special calling sequence for
 / the C routine `trap'.  This routine also handles `ddt'.
 
@@ -610,14 +610,14 @@ vint:
 / Restore context and return.
 0:
 	test	depth_			/ Depth==0 means normal mode
-	JR	ne, 1f			/ Don't call stand if system mode
+	JR	ne, 1f			/ Do not call stand if system mode
 
 	ldl	rr0, cprocp_		/ SELF==NULL ignored
 	cpl	rr0, iprocp_		/ Idle process interrupted?
 	JR	eq, 0f
 
 	bit	SS|44(spo), $SBIT	/ Retuurning to kernel process?
-	JR	ne, 1f			/ Then don't call stand
+	JR	ne, 1f			/ Then do not call stand
 0:
 	call	stand_			/ Low-priority timers, etc.
 
@@ -644,7 +644,7 @@ vint:
 / a ptrace single step request has just been issued.
 / Turn off the normal interrupts and arm the special
 / delay circuit in the System Control latch.  This
-/ will then go to `tnvi' after 1 user instruction has
+/ will then go to "tnvi" after 1 user instruction has
 / been issued which will turn vectored interrupts on again.
 	bit	SS|2(spo), $NVIBIT	/ Is it ptrace?
 	JR	eq, 0f			/ no
@@ -680,7 +680,7 @@ vret_:
 
 / halt()
 / Called from panic and anywhere else
-/ as an entry-point to `ddt'.  Fakes up
+/ as an entry-point to "ddt".  Fakes up
 / a trap sequence on the stack.
 	.globl	halt_, ddt_
 
@@ -703,13 +703,13 @@ halt_:
 / (mapped to physical 0x080000), so the first instruction fetched after the
 / MMU went off would come from the wrong physical address.
 / Trick: build an *identity* alias of the kernel at logical segment 8 (whose
-/ untranslated address, 8<<16 = 0x080000, is exactly the kernel's physical
+/ untranslated address, 8<<16 = 0x080000, is exactly the kernel physical
 / base), transfer execution to it, THEN disable the MMU -- there logical ==
 / physical, so we keep running -- and jump to the ROM.  Does not return.
 	.globl	restart_
 restart_:
 	di	VI
-/ Point MMU descriptor 8 at the kernel's physical base (identity alias).
+/ Point MMU descriptor 8 at the kernel physical base (identity alias).
 	ld	r0, $8
 	soutb	MMU+0x0100, rl0		/ SAR = descriptor 8 (also resets DSC)
 	ld	r0, $0x0800		/ base 0x0800 -> physical 0x080000
@@ -734,8 +734,8 @@ restart_:
 
 / Routines to do the context switch.  The
 / switch takes two forms:
-/ 1) an environment (`MENV')
-/ 2) an context (`MCON') which requires reloading
+/ 1) an environment ("MENV")
+/ 2) an context ("MCON") which requires reloading
 /    of the U-area base as well as the rest of the
 /    environment.
 / Except for a little bit of futsing around, these
@@ -816,7 +816,7 @@ conrest_:
 	ret
 
 / spl(fcw)
-/ Stuff new `fcw' into the FCW and return the
+/ Stuff new "fcw" into the FCW and return the
 / old one.  This is used to implement splo(), and
 / spl(f)
 	.globl	spl_, sphi_
@@ -1035,8 +1035,8 @@ kclear_:
 	ret
 
 / Fixup a user address to prevent system accesses.
-/ Map a paddr_t in segment `sn' and return a char * mapped in.
-/ pfix is for setting up permanent segments that won't move much because
+/ Map a paddr_t in segment "sn" and return a char * mapped in.
+/ pfix is for setting up permanent segments that will not move much because
 / most segments are not context switched.
 / char *		char *
 / pfix(sn, p))		ufix(p)
@@ -1109,7 +1109,7 @@ ufix_:
 	ret
 
 / vidsel - probe for a video card and select the init console driver.
-/ Called once from `start' after commodore_ (the MMU is up) and before
+/ Called once from "start" after commodore_ (the MMU is up) and before
 / main_ copies icode into user space (eveinit).  It overwrites the
 / icode-relative offset in the argv[2] slot of the init argument vector
 / (default driv_no = /drv/notty) with driv_hr or driv_lr when the
@@ -1189,11 +1189,11 @@ ptov_:
 
 /
 / Segment copy and clear routines.
-/ A `saddr_t' is is units of 512 or 1024 bytes
+/ A "saddr_t" is is units of 512 or 1024 bytes
 / but the hardware actually uses units of
 / 256 bytes, so it must be shifted left.
 
-/ Clear `n' saddr_t units of memory
+/ Clear "n" saddr_t units of memory
 /
 / sclear(a, n)
 / saddr_t a;
@@ -1240,7 +1240,7 @@ slrcopy_:
 	ldl	rr0, args(1)		/ r0 = `f', r1 = `t'
 	addl	rr0, rr0		/ adjust to hardware clicks.
 	addl	rr0, rr0		/ <<2 for 1K saddr_t
-	ld	r2, args(3)		/ `n'
+	ld	r2, args(3)		/ "n"
 	test	r2			/ if zero, done
 	JR	eq, 9f			/
 	ldctl	r3, FCW			/ Save interrupt state
@@ -1341,8 +1341,8 @@ emapget_:
 	ldctl	FCW, r0			/ restore state
 	ret
 
-/ Load `nseg' segments of the MMU, starting at User segment base (segment 0)
-/ Clear the rest of `NHUSEG' segments from access.
+/ Load "nseg" segments of the MMU, starting at User segment base (segment 0)
+/ Clear the rest of "NHUSEG" segments from access.
 /
 / loadmmu(nseg, p)
 / unsigned segno, nseg;
@@ -1468,10 +1468,10 @@ file:	.ascii	"/etc/init"
 swap:			/ no swapper exec by init
 	.byte	0
 / Console driver names.  The argv[2] offset above is patched by vidsel
-/ (called from `start') to driv_lr/driv_hr when a video card is probed;
+/ (called from "start") to driv_lr/driv_hr when a video card is probed;
 / it is left at driv_no (serial console) when no display is present.
 / init brings up every argv[2..] entry in order: names ending ".sl" are
-/ exec'd as shared-library holders, everything else is a driver loaded
+/ executed as shared-library holders, everything else is a driver loaded
 / via /etc/load, so argv[3] installs /drv/lp right after the console
 / driver.  The gfx-library slot (argv[5]) is the same patch scheme as
 / the console driver: it stays sl_no (empty - init skips it) unless

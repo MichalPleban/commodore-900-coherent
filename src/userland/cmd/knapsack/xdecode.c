@@ -57,7 +57,7 @@ getheader()
 /*
  * Initialize tbl[] for use by mcfin().
  */
-static
+static void
 mcfinit()
 {
 	register mint *a;

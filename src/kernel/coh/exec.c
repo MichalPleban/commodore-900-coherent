@@ -455,7 +455,7 @@ vaddr_t *pcp;
 	 * Copy everything we need from the l.out header and check magic
 	 * number and machine type.
 	 */
-	ldp = bp->b_vaddr;
+	ldp = (struct ldheader *)bp->b_vaddr;
 	m = ldp->l_magic;
 	canint(m);
 	if (m != L_MAGIC) {
@@ -603,7 +603,7 @@ char *envp[];		/* Environments for new process */
 	for (adp = &arg; ; adp = &env) {
 
 		/* Write argv or envp */
-		aputp((char ***)aux.ap, (char **)stk.vp);
+		aputp((char ***)aux.ap, (char *)stk.vp);
 		aux.ap += sizeof(char **);
 		if ((usrvp = adp->up) != NULL) {
 

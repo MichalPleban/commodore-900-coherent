@@ -20,7 +20,7 @@ HS	= 0x3A3A
 HSBASE	= 0x3E00
 HSBASE2	= 0x3F00
 GS	= 0x3838		/ GUI shared data segment (kernel GDS)
-GSBASE	= 0x3F90		/ card's spare RAM: bitmap tail 0x3F9000
+GSBASE	= 0x3F90		/ card spare RAM: bitmap tail 0x3F9000
 / rr2	pointer to scan line data
 / rr4	reference pointer to screen
 / r6	a word offset into the screen
@@ -39,7 +39,7 @@ portst_:
 	soutb	MMU+0x0C00,rh3			/ HS2 base, high
 	soutb	MMU+0x0C00,rl3			/ HS2 base, low
 	ld	r2,$GS				/ GUI shared data segment onto
-	soutb	MMU+0x0100,rh2			/ this card's spare RAM (the
+	soutb	MMU+0x0100,rh2			/ this card spare RAM (the
 	ld	r2,$GSBASE			/ 28K bitmap tail); attribute
 	soutb	MMU+0x0800,rh2			/ and limit were set at boot
 	soutb	MMU+0x0800,rl2			/ (md.s sattr/slen)
@@ -157,7 +157,7 @@ aldir_:
 /
 / erase text line
 /	linerase( line)
-/ YSCROLL scan lines are filled with nulls, starting at text line `line'.
+/ YSCROLL scan lines are filled with nulls, starting at text line "line".
 /
 linerase_:
 	sub	r15, $16

@@ -551,7 +551,7 @@ char *cp;
 /*
  * Allocate an entry to add to the input stack.
  */
-char	*
+STR	*
 allstr(type)
 {
 	register STR *sp;

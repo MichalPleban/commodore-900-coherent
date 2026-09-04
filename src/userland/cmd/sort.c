@@ -1204,5 +1204,5 @@ register unsigned nb;
 	}
 	cp = rp;
 	rp += nb;
-	return (cp);
+	return ((char *)cp);
 }

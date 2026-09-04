@@ -131,7 +131,7 @@ register STRING s;
 			evalact(xp->n_O2);
 	}
 	while ((np = tempnodes) != NULL) {
-		tempnodes = np->t_next;
+		tempnodes = (NODE *)np->t_next;
 		freenode(np);
 	}
 	if (inline != s)
@@ -266,7 +266,7 @@ again:
 		evalexpr(np);
 	}
 	while ((np = tempnodes) != NULL) {
-		tempnodes = np->t_next;
+		tempnodes = (NODE *)np->t_next;
 		freenode(np);
 	}
 	goto again;

@@ -39,8 +39,8 @@ struct	sopts {
 	int	s_arg2;
 	int	s_arg3;
 }	sopts[] = {
-	"flush", sflag, &scmd, TIOCSETP, 0,
-	"-flush", sflag, &scmd, TIOCSETN, 0,
+	"flush", sflag, (char *)&scmd, TIOCSETP, 0,
+	"-flush", sflag, (char *)&scmd, TIOCSETN, 0,
 	"even", smode, NULL, EVENP, 0,
 	"-even", smode, NULL, 0, EVENP,
 	"odd", smode, NULL, ODDP, 0,
@@ -106,10 +106,10 @@ struct	sopts {
 	"19200", sspeed, NULL, B19200, B19200,
 	"exta", sspeed, NULL, EXTA, EXTA,
 	"extb", sspeed, NULL, EXTB, EXTB,
-	"hup", sflag, &hupflag, TIOCHPCL, 0,
-	"excl", sflag, &exclflag, TIOCEXCL, 0,
-	"-excl", sflag, &exclflag, TIOCNXCL, 0,
-	"print", sflag, &printflag, 1, 0,
+	"hup", sflag, (char *)&hupflag, TIOCHPCL, 0,
+	"excl", sflag, (char *)&exclflag, TIOCEXCL, 0,
+	"-excl", sflag, (char *)&exclflag, TIOCNXCL, 0,
+	"print", sflag, (char *)&printflag, 1, 0,
 	"erase", sedit, NULL, NEXT, 0,
 	"kill", sedit, NULL, 0, NEXT,
 	"start", stchars, &tchars.t_startc, 0, 0,

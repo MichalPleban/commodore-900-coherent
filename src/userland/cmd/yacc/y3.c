@@ -375,7 +375,7 @@ endcount()
 	relp = (int *)yalloc(k, sizeof *relp);
 	for(i=0; i<nttrans; i++) {
 		ntp = transp[i].t_trans;
-		ntp->ng_rel = relp;
+		ntp->ng_rel = (struct rel *)relp;
 		ntp->ng_rel->r_count = transp[i].t_level;
 		relp += transp[i].t_level+1;
 	}

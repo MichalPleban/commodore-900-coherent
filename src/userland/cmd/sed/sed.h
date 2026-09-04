@@ -119,7 +119,7 @@ typedef struct sub {
  * Queue.
  */
 typedef struct qcl {
-	struct	que *q_next;		/* Pointer to next */
+	struct	qcl *q_next;		/* Pointer to next */
 	struct	com *q_comp;		/* Pointer to command */
 } QCL;
 

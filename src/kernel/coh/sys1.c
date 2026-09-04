@@ -344,8 +344,8 @@ upause()
 uprofil(bp, n, off, scale)
 register char *bp;
 {
-	u.u_pbase = bp;
-	u.u_pbend = bp + n;
+	u.u_pbase = (vaddr_t)bp;
+	u.u_pbend = (vaddr_t)(bp + n);
 	u.u_pofft = off;
 	u.u_pscale = scale;
 }
@@ -408,7 +408,7 @@ int (*f)();
 	pp = SELF;
 	if (sig<=0 || sig>NSIG || sig==SIGKILL) {
 		u.u_error = EINVAL;
-		return;
+		return (NULL);
 	}
 	s = (sig_t)1 << --sig;
 	o = u.u_sfunc[sig];
@@ -428,7 +428,7 @@ int (*f)();
 	}
 	pp->p_ssig &= ~s;
 	spl(ps);
-	return (o);
+	return ((int *)o);
 }
 
 /*

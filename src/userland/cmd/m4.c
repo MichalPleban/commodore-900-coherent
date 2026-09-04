@@ -432,7 +432,7 @@ makestr()
 	register STRING *a;
 
 	a = (STRING *)alloc(sizeof(STRING));
-	a->s_body = a->s_next = (STRING *)alloc(STRBLK);
+	a->s_body = a->s_next = alloc(STRBLK);
 	a->s_last = a->s_body + STRBLK - 1;
 	a->s_refc = 1;
 	a->s_hash = 0;
@@ -1051,6 +1051,6 @@ register int n;
 		fclose(fp);
 		unlink(outfile[n].name);
 		free(outfile[n].name);
-		outfile[n].name = outfile[n].fp = NULL;
+		outfile[n].name = (char *)(outfile[n].fp = NULL);
 	}
 }

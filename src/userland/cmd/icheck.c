@@ -197,7 +197,7 @@ char *fsname;
 	if (!sflag)
 		sync();
 	bread((daddr_t)SUPERB, superb);
-	sbp = superb;
+	sbp = (struct filsys *)superb;
 	canint(sbp->s_isize);
 	candaddr(sbp->s_fsize);
 	canshort(sbp->s_nfree);
@@ -471,8 +471,8 @@ freecount()
 	daddr_t bn;
 	long ntfree;
 
-	sbp = superb;
-	fbp = &sbp->s_nfree;
+	sbp = (struct filsys *)superb;
+	fbp = (struct fblk *)&sbp->s_nfree;
 	ntfree = sbp->s_tfree;
 	while ((i = fbp->df_nfree) != 0) {
 		if ((unsigned)(fbp->df_nfree) > NICFREE) {
@@ -485,7 +485,7 @@ freecount()
 			nfreeb++;
 		}
 		bread(fbp->df_free[0], fbuf);
-		fbp = fbuf;
+		fbp = (struct fblk *)fbuf;
 		canint(fbp->df_nfree);
 		for (i=0; i<NICFREE; ++i)
 			candaddr(fbp->df_free[i]);
@@ -523,7 +523,7 @@ makesuper()
 	register	i;
 	daddr_t		bn;
 
-	sbp = superb;
+	sbp = (struct filsys *)superb;
 	/*
 	 * Remake list of free i-numbers.
 	 */
@@ -572,13 +572,13 @@ daddr_t bn;
 	register struct fblk	*fbp;
 	register		i;
 
-	sbp = superb;
+	sbp = (struct filsys *)superb;
 	if (sbp->s_tfree == 0) {
 		bclear(fbuf, BSIZE);
 		bwrite(bn, fbuf);
 	}
 	if (sbp->s_nfree == NICFREE) {
-		bclear(fbp = fbuf, BSIZE);
+		bclear(fbp = (struct fblk *)fbuf, BSIZE);
 		fbp->df_nfree = sbp->s_nfree;
 		canint(fbp->df_nfree);
 		for (i=0; i<sbp->s_nfree; ++i) {

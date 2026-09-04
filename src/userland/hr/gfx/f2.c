@@ -161,7 +161,7 @@ printf("   tbl_entrs = %d, open_count = %d\n\n",tbl_entrs,aft_entry->fopen_count
 	if ( fread(aft_entry->font_map.base, sizeof(int), fwords, fp) != fwords)
 		peteprint("bitmap mismatch\n");
 
-	 blt.src = blt.dst = &(aft_entry->font_map);
+	 blt.src = (BITMAP *)(blt.dst = (LAYER *)&(aft_entry->font_map));
 	 blt.sp = aft_entry->font_map.rect.origin;
 	 blt.dr = aft_entry->font_map.rect;
 	 blt.op = L_NDST;
@@ -305,7 +305,7 @@ register int	fid;
 {
 
 	if ( (fid >= FM_MAXFONT) || ( fid < 0) )
-		return ( (char*)NULL );
+		return ( (FONT_HEADER *)NULL );
 
 	return ( aftable[fid] );
 }

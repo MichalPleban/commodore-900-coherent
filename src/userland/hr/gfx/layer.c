@@ -259,7 +259,7 @@ peteprint("Rectf: entry\n");
 
 	blt.src =  &s;
 	blt.sp = s.rect.origin;
-	blt.dst = &display;
+	blt.dst = (LAYER *)&display;
 	blt.dr = s.rect;
 	blt.op = L_TRUE;
 	bitblt(&blt);
@@ -366,7 +366,7 @@ perform_update()
 	        gfx_uprect = update[i].r;	/* absolute, before the local remap */
 	        update[i].r=R_subp(update[i].r,wtbl[i]->wn_Layer->rect.origin);
 	        update[i].r=R_addp(update[i].r,wtbl[i]->wn_Lorigin);
-	        msgPtr = &update[i].r;
+	        msgPtr = (char *)&update[i].r;
 	        sendmsg( &msg );
 	      }
 	}
@@ -550,7 +550,7 @@ register POINT p;
 	return(NO_WINDOW);
 }
 	
-int new_dimensions(r)
+void new_dimensions(r)
 RECT r;
 	{
 	register LAYER *lp;
@@ -675,7 +675,7 @@ register LAYER *lp;
  * window layer's visible regions so a covering window is never overdrawn.
  * (Blitting with a destination base of a mid-VRAM screen_addr() faults in this
  * build, so outline no longer uses lblt(&layer) as the original did.) */
-static
+static void
 lfillr(lp, g, op)
 LAYER *lp;
 RECT g;
@@ -690,7 +690,7 @@ int op;
 		return;
 	blt.op = op;
 	blt.pat = texture[0];
-	blt.dst = &display;
+	blt.dst = (LAYER *)&display;
 	for ( rp = lp->reg; rp < lp->reg + MAX_LRBUF; rp++ )
 	{
 		if ( rp->flag == L_EMPTY )

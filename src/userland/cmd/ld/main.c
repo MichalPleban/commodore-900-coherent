@@ -16,7 +16,7 @@ static	char	*ofname = "l.out";
 static	char	*entrys;		/* Entry point symbol */
 static	int	digit();
 
-FILE	*setoutput();
+static FILE	*setoutput();
 
 main(argc, argv)
 int	argc;
@@ -134,7 +134,7 @@ char	*argv[];
 		if (outbuf!=NULL) {
 			int abort();
 
-			if ((outputf[i] = malloc(sizeof(FILE)))==NULL)
+			if ((outputf[i] = (FILE *)malloc(sizeof(FILE)))==NULL)
 				fatal("out of space");
 			outputf[i]->_cc = sgp->size;
 			outputf[i]->_cp = &outbuf[sgp->daddr];

@@ -17,12 +17,12 @@ typedef	struct	alloc_t	{
 } alloc_t;
 
 #define	_BIT_		0x00010000L
-#define	next(p)		((vaddr_t)(p)->a_next & ~_BIT_)
+#define	next(p)		((alloc_t *)((vaddr_t)(p)->a_next & ~_BIT_))
 #define	prev(p)		((p)->a_prev)
 #define	tstused(p)	((vaddr_t)(p)->a_next & _BIT_)
 #define	tstfree(p)	(!tstused(p))
-#define	setused(p)	((p)->a_next = (vaddr_t)(p)->a_next | _BIT_)
-#define	setfree(p)	((p)->a_next = (vaddr_t)(p)->a_next & ~_BIT_)
+#define	setused(p)	((p)->a_next = (alloc_t *)((vaddr_t)(p)->a_next | _BIT_))
+#define	setfree(p)	((p)->a_next = (alloc_t *)((vaddr_t)(p)->a_next & ~_BIT_))
 #define	alength(p)	((char *)(p)->a_next-(char *)(p))
 #define	aligned(p)	(!((vaddr_t)(p) & _BIT_))
 

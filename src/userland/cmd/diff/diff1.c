@@ -149,7 +149,7 @@ FILE *fp1, *fp2;
 		register vaddr_t *Ep, *eEp;
 		register LINES *Vp;
 
-		E = V;
+		E = (vaddr_t *)V;
 		E[0] = LAST;
 		for (Ep=E+1, Vp=V+1, eEp=&E[ln2]; Ep <= eEp; Vp++, Ep++) {
 			*Ep = Vp->l_num;
@@ -179,8 +179,8 @@ FILE *fp1, *fp2;
 		register CAND *cp;
 
 		K = &E[ln2+1];
-		K[0] = candidate((vaddr_t)0, (vaddr_t)0, NULL);
-		K[1] = candidate(ln1+1, ln2+1, NULL);
+		K[0] = (vaddr_t)candidate((vaddr_t)0, (vaddr_t)0, NULL);
+		K[1] = (vaddr_t)candidate(ln1+1, ln2+1, NULL);
 		k = 0;
 		for (i=1; i<=ln1; i++) {
 			if (P[i] != 0)
@@ -194,7 +194,7 @@ FILE *fp1, *fp2;
 		 * format.  E, K (all but K[k]) and P
 		 * are redundant so J overlays them.
 		 */
-		cp = K[k];
+		cp = (CAND *)K[k];
 		J = E;
 		for (i=0; i<=ln1; i++)
 			J[i] = 0;
@@ -429,7 +429,7 @@ register unsigned size;
 	}
 	cp = allrp;
 	allrp += size;
-	return (cp);
+	return ((char *)cp);
 }
 
 /*

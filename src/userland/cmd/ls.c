@@ -388,14 +388,14 @@ char *dir;
 			close(fd);
 			return;
 		}
-		if ((saved = malloc((unsigned)size)) == NULL) {
+		if ((saved = (struct ls *)malloc((unsigned)size)) == NULL) {
 			fprintf(stderr, "Out of memory\n");
 			exit (1);
 		}
 		savep = saved;
 	}
 	while ((nb = read(fd, dirbuf, sizeof (dirbuf))) > 0)
-	for (dp=dirbuf; dp<&dirbuf[nb]; dp++) {
+	for (dp=(struct direct *)dirbuf; dp<(struct direct *)&dirbuf[nb]; dp++) {
 		if (dp->d_ino == 0)
 			continue;
 		np1 = dp->d_name;

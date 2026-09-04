@@ -108,7 +108,7 @@ char *argv[];
 	} else {
 		for (mp=&rp->r_macd; mp->m_next; mp=mp->m_next)
 			;
-		mp->m_next = nalloc(sizeof (*mp));
+		mp->m_next = (union mac *)nalloc(sizeof (*mp));
 		mp = mp->m_next;
 	}
 	deftext(mp, argv[2]);
@@ -132,7 +132,7 @@ char *argv[];
 	} else {
 		for (mp=&rp->r_macd; mp->m_next; mp=mp->m_next)
 			;
-		mp->m_next = nalloc(sizeof *mp);
+		mp->m_next = (union mac *)nalloc(sizeof *mp);
 		mp = mp->m_next;
 	}
 	cp = nalloc(strlen(argv[2]) + 1);
@@ -225,7 +225,7 @@ char *argv[];
 			if (apos <= tp->t_apos)
 				break;
 		}
-		tp = nalloc(sizeof (TPL));
+		tp = (TPL *)nalloc(sizeof (TPL));
 		tp->t_rpos = rpos;
 		tp->t_apos = apos;
 		tp->t_name[0] = name[0];

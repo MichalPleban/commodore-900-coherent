@@ -153,7 +153,7 @@ peteprint(" %d - %s\n", slen, s);
 	if ( (width = FM_getch(&f)) == -1 )
 		return;
 	blt.src = &f.gbmap;
-	blt.dst = (BITMAP *) &gkBitMap;
+	blt.dst = (LAYER *) &gkBitMap;
 	blt.op = L_SRC;
 
 	blt.pat = texture[gkBpat];
@@ -218,7 +218,7 @@ int 	wid;
 			gk = *wtbl[wid];
 		}
 			
-	if ( gk.wn_ascii == (char*)NULL)
+	if ( gk.wn_ascii == NULL)
 	{
 		peteprint("attempted to fetch a null ascii map\n");
 		return;

@@ -208,7 +208,7 @@ nm1()
 	i = ldh.l_ssize[L_SYM];
 	if ((ldh.l_flag & LF_32) == 0)
 		i = i/(sizeof(lds)-2*sizeof(short)) * sizeof(lds);
-	if ((stp = malloc(i)) == NULL) {
+	if ((stp = (struct ldsym *)malloc(i)) == NULL) {
 		nmerr("too many symbols");
 		return;
 	}

@@ -169,7 +169,7 @@ uint stype;
 	cp = &client[self];
 	while ( cp->flags & (1 << stype) )
 	{
-		hrsleep( (stype==SLP_READ ? &cp->datc : &cp->data), self, stype);
+		hrsleep( (stype==SLP_READ ? (char *)&cp->datc : (char *)&cp->data), self, stype);
 		if (SELF->p_ssig && nondsig( ))
 		{
 			u.u_error = EINTR;

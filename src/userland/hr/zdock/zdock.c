@@ -201,7 +201,7 @@ char *name;
 /* One widget catalog line (past the '@') -> a widgs[] entry.  Cells are
  * allocated right-to-left from the bar's right edge; four widgets reach left
  * only to x=768, clear of the last app cell (ends 762). */
-static
+static void
 widgline(p)
 char *p;
 {
@@ -263,7 +263,7 @@ char *p;
 }
 
 /* One catalog line -> an apps[] entry (comments/blanks skipped). */
-static
+static void
 appline(p)
 char *p;
 {
@@ -327,7 +327,7 @@ char *p;
 
 /* Stream the catalog a chunk at a time (same discipline as the server's
  * loadapps: a fixed whole-file buffer once silently truncated it). */
-static
+static void
 loadapps()
 {
 	int fd, nb, ll;
@@ -430,7 +430,7 @@ pending(ai)
  * only then is wait() called -- which then cannot block, though it may hand
  * back a different child of ours (an app OR a widget); drop whichever slot
  * in whichever table it names. */
-static
+static void
 reapkids()
 {
 	register int i;
@@ -507,7 +507,7 @@ drawcell(i)
 	}
 }
 
-static
+static void
 repaint()
 {
 	register int i;
@@ -540,7 +540,7 @@ repaint()
 /* Recompute every entry's pressed-state from the window list + our launches;
  * redraw ONLY the cells that flipped -- a click must not flash the whole
  * bar (full=1 skips even those: repaint() is about to draw everything). */
-static
+static void
 syncstate(full)
 {
 	HRWIN wl[HRWL_N];
@@ -615,7 +615,7 @@ char *s, **av;
  * across the exec (like a launch from the rc script); the catalog's X,Y goes
  * on the command line as -P, which every GUI app parses in hr_open(), and
  * the args field follows it, word by word. */
-static
+static void
 launch(ai)
 {
 	char pbuf[16];
@@ -779,7 +779,7 @@ wclkpending(wi)
 /* Start the app a widget click names (no catalog entry: no -P, no args --
  * the server places the window).  Tagged WCLKAI in kids[] so the corpse is
  * reaped and a double click starts one copy. */
-static
+static void
 launchclick(wi)
 {
 	char *av[2];
@@ -813,7 +813,7 @@ launchclick(wi)
 /* A left click in widget cell `wi': the catalog's click verb -- ask the
  * server for the Switch to... dialog ("*"), or the dock-icon verb for the
  * named app: switch to it when it runs, launch it when it does not. */
-static
+static void
 dowidgclick(wi)
 {
 	HRWIN wl[HRWL_N];
@@ -841,7 +841,7 @@ dowidgclick(wi)
  * app's topmost window.  Middle: another copy of a multi app (on a single
  * app it behaves like left -- there is nothing else it could mean).  A
  * click in a widget cell runs the widget's click verb instead. */
-static
+static void
 doclick(x, y, mid)
 {
 	HRWIN wl[HRWL_N];

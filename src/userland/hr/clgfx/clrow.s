@@ -1,4 +1,4 @@
-/ clrow.s - the ldir row copy under cl_blit's aligned fast path.
+/ clrow.s - the ldir row copy under cl_blit aligned fast path.
 /
 / cl_ldrow(dst, src, nwords): one word-ldir.  Registers r0-r5 only (the
 / PCC ABI keeps live values in r6-r14 across calls - see the libc .s files).

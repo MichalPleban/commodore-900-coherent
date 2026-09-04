@@ -446,7 +446,7 @@ char *s;
 }
 
 int	dbgn;			/* limit tracing volume */
-static
+static void
 dnum(label, n)
 char *label;
 {
@@ -1167,7 +1167,7 @@ RECT r;
 	s.base = screen_addr(r.origin.x, r.origin.y);
 	blt.src = &s;
 	blt.sp = r.origin;
-	blt.dst = &display;
+	blt.dst = (LAYER *)&display;
 	blt.dr = r;
 	blt.op = op;
 	blt.pat = texture[patidx];
@@ -1193,7 +1193,7 @@ srvrect(x0, y0, x1, y1, op)
 		return;
 	blt.op = op;
 	blt.pat = texture[gkBpat];
-	blt.dst = &display;
+	blt.dst = (LAYER *)&display;
 	for ( rp = gkLayer->reg; rp < gkLayer->reg + MAX_LRBUF; rp++ )
 	{
 		if ( rp->flag == L_EMPTY )
@@ -1218,7 +1218,7 @@ srvrect(x0, y0, x1, y1, op)
  * bitblt shifts each glyph row into place -- never per-pixel (the old kernel
  * CIOGLYPH path was per-pixel and unusably slow).  The .hf fonts store ink=1
  * (white-on-black), so L_NSRC paints black ink on a white cell. */
-static
+static void
 glyph1(fslot, gx, gy, c, dr)
 RECT dr;
 {
@@ -1238,7 +1238,7 @@ RECT dr;
 	src.rect.origin.x = 0;   src.rect.origin.y = 0;
 	src.rect.corner.x = f->cellw;  src.rect.corner.y = f->cellh;
 	blt.src = &src;
-	blt.dst = &display;
+	blt.dst = (LAYER *)&display;
 	blt.op = L_NSRC;
 	blt.pat = texture[0];
 	blt.dr = dr;
@@ -1543,7 +1543,7 @@ resizewin(wid, cx, cy)
  * the separate /usr/hr/etc/dock, not this file). */
 /* One catalog line -> an apps[] entry (comment/blank/overlong-comment lines
  * come through here too and are skipped). */
-static
+static void
 appline(p)
 char *p;
 {
@@ -2716,7 +2716,7 @@ dlgclose()
 
 /* Serve one queued open request.  Refusals answer E_DLGOPEN 0 -- every
  * request gets exactly one answer, because the requester blocks for it. */
-static
+static void
 dodlgopen(dp)
 HRDLGO *dp;
 {

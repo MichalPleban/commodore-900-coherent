@@ -11,6 +11,7 @@
 #include <ino.h>
 #include <inode.h>
 #include <io.h>
+#include <mount.h>
 #include <proc.h>
 #include <ptrace.h>
 #include <sched.h>
@@ -205,7 +206,7 @@ int *addr;
 	lock(pts.pt_gate);
 	pts.pt_req = req;
 	pts.pt_pid = pid;
-	pts.pt_addr = addr;
+	pts.pt_addr = (vaddr_t)addr;
 	pts.pt_data = data;
 	pts.pt_errs = 0;
 	pts.pt_rval = 0;
@@ -294,7 +295,7 @@ next:
 				break;
 			}
 			sign = pts.pt_data;
-			if (pts.pt_addr != SIG_IGN)
+			if (pts.pt_addr != (vaddr_t)SIG_IGN)
 				msetppc((vaddr_t)pts.pt_addr);
 			break;
 		default:

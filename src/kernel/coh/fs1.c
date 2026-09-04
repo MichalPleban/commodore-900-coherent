@@ -155,8 +155,8 @@ char *np;
 				idetach(cip);
 				return (u.u_error);
 			}
-			dp = bp->b_vaddr;
-			while (dp < bp->b_vaddr+BSIZE) {
+			dp = (struct direct *)bp->b_vaddr;
+			while (dp < (struct direct *)(bp->b_vaddr+BSIZE)) {
 				if ((s-=sizeof(*dp)) < 0)
 					break;
 				if ((ino=dp->d_ino) == 0) {
@@ -288,7 +288,7 @@ idirent(ino)
 	u.u_direct.d_ino = ino;
 	canino(u.u_direct.d_ino);
 	u.u_io.io_ioc = sizeof (struct direct);
-	u.u_io.io_base = &u.u_direct;
+	u.u_io.io_base = (char *)&u.u_direct;
 	u.u_io.io_seg = IOSYS;
 	iwrite(u.u_pdiri, &u.u_io);
 }

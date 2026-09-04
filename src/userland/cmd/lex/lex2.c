@@ -418,7 +418,7 @@ addstart()
 		return;
 	pd = scnstart;
 	while (look(0) != '\n') {
-		pd->d_next = alloc(sizeof(struct def));
+		pd->d_next = (struct def *)alloc(sizeof(struct def));
 		pd->d_next->d_data = pd->d_data + 1;
 		pd = pd->d_next;
 		pd->d_next = NULL;
@@ -438,7 +438,7 @@ addcontext()
 	pd = ctxstart;
 	while (pd->d_next != NULL)
 		pd = pd->d_next;
-	pd->d_next = alloc(sizeof(struct def));
+	pd->d_next = (struct def *)alloc(sizeof(struct def));
 	pd = pd->d_next;
 	for (;;) {
 		pd->d_name = getident();
@@ -447,7 +447,7 @@ addcontext()
 			pd->d_next = NULL;
 			break;
 		} else {
-			pd->d_next = alloc(sizeof(struct def));
+			pd->d_next = (struct def *)alloc(sizeof(struct def));
 			pd = pd->d_next;
 		}
 	}

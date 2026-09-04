@@ -367,7 +367,7 @@ getsuper()
 	S.s_inode[S.s_ninode++] = BADFIN;
 	nino = S.s_tinode;
 	/* Allocate memory i list */
-	X = xmalloc(S.s_tinode * sizeof(*X));
+	X = (struct xnode **)xmalloc(S.s_tinode * sizeof(*X));
 	clear(X, S.s_tinode * sizeof(*X));
 	/* Read the bad block list */
 	if (getbad() < 0)
@@ -498,7 +498,7 @@ char *cp;
 	assert((xp->x_mode&IFMT) == IFDIR);
 	xp->x_size += sizeof(struct direct);
 	nent = xp->x_size / sizeof(struct direct);
-	xp = xrealloc(xp, sizeof(*xp) + nent*sizeof(*ep));
+	xp = (struct xnode *)xrealloc(xp, sizeof(*xp) + nent*sizeof(*ep));
 	X[inum-1] = xp;
 	ep = &xp->x_ents[nent-1];
 	ep->e_ino = 0;
@@ -572,7 +572,7 @@ missing_spec:
 	default:
 		return eformat("bad file specification '%s'", cp);
 	}
-	xp = xmalloc(sizeof(*xp));
+	xp = (struct xnode *)xmalloc(sizeof(*xp));
 	xp->x_size = sbuf.st_size;
 	xp->x_nlink = 0;
 	xp->x_y = NULL;
@@ -950,7 +950,7 @@ putfree()
 		while (S.s_nfree > 1)
 			b = balloc();
 		b = balloc();	/* Forces load of next free block */
-		dp = bcache(b);
+		dp = (daddr_t *)bcache(b);
 		((struct fblk *)dp)->df_nfree = n = S.s_nfree;
 		canint(((struct fblk *)dp)->df_nfree);
 		dp = &((struct fblk *)dp)->df_free[0];
@@ -1071,7 +1071,7 @@ int dln;
 {
 	struct pfp *tp;
 
-	tp = xmalloc(sizeof(*tp));
+	tp = (struct pfp *)xmalloc(sizeof(*tp));
 	*tp = pfp;
 	pfp.p_fn = fn;
 	pfp.p_ln = 0;
@@ -1124,7 +1124,7 @@ getline()
 		*p++ = 0;
 	pfp.p_cp = tp = p;
 	if (c == 0)
-		return earlyeof();
+		return ((char *)earlyeof());
 	if (c == '\n') {
 		*p++ = 0;
 		pfp.p_cp += 1;
@@ -1135,7 +1135,7 @@ getline()
 		c = *p++;
 	while (c != 0 && c != '\n');
 	if (c == 0)
-		return earlyeof();
+		return ((char *)earlyeof());
 	pfp.p_cp = p;
 	p[-1] = 0;
 	return (tp);
@@ -1216,14 +1216,14 @@ struct xnode *xp;
 	assert(xp->x_ino <= nino);
 	yp = xp->x_y;
 	assert(yp == NULL);
-	xp->x_y = yp = xmalloc(sizeof(*yp) + NADDR * sizeof(daddr_t));
+	xp->x_y = yp = (struct ynode *)xmalloc(sizeof(*yp) + NADDR * sizeof(daddr_t));
 	clear(yp, sizeof(*yp) + NADDR * sizeof(daddr_t));
 	yp->y_ino = xp->x_ino;
 	yp->y_seek = 0;
 	xblkuse(xp);
 	nb = yp->y_nb;
 	if (nb > NADDR) {
-	    xp->x_y = yp = xrealloc(yp, sizeof(*yp)
+	    xp->x_y = yp = (struct ynode *)xrealloc(yp, sizeof(*yp)
 		+ ((unsigned)nb) * sizeof(daddr_t));
 	    clear(yp->y_b, ((unsigned)nb) * sizeof(daddr_t));
 	}
@@ -1402,7 +1402,7 @@ daddr_t b, *bp;
 register int nd;
 {
 	register daddr_t *dp;
-	dp = bcache(b);
+	dp = (daddr_t *)bcache(b);
 	copy(dp, bp, nd * sizeof(daddr_t));
 	while (--nd >= 0) {
 		candaddr(*dp);
@@ -1441,7 +1441,7 @@ daddr_t b;
 	xp->x_size += BSIZE;
 	nd = yp->y_ndb += 1;
 	if (nd > NADDR)
-	    xp->x_y = yp = xrealloc(yp, sizeof(*yp) + nd * sizeof(daddr_t));
+	    xp->x_y = yp = (struct ynode *)xrealloc(yp, sizeof(*yp) + nd * sizeof(daddr_t));
 	yp->y_b[nd-1] = b;
 }
 
@@ -1480,7 +1480,7 @@ struct xnode *xp;
 	assert(yp != NULL);
 	xblkuse(xp);
 	if (yp->y_ni) {
-		yp = xrealloc(yp, sizeof(*yp) + yp->y_nb * sizeof(daddr_t));
+		yp = (struct ynode *)xrealloc(yp, sizeof(*yp) + yp->y_nb * sizeof(daddr_t));
 		xp->x_y = yp;
 		yp->y_iiib = yp->y_b;
 		yp->y_iib = yp->y_iiib + yp->y_niiib;
@@ -1558,7 +1558,7 @@ register struct dinode *dip1;
 {
 	register struct dinode *dip2;
 
-	dip2 = bcache((daddr_t)inodeb(i));
+	dip2 = (struct dinode *)bcache((daddr_t)inodeb(i));
 	dip2 += inodei(i);
 	*dip2 = *dip1;
 	canshort(dip2->di_mode);
@@ -1696,7 +1696,7 @@ daddr_t b;
 		 || S.s_m > S.s_n
 		 || S.s_n%S.s_m != 0)
 			efatal("%d/%d: bad interleave factor", S.s_m, S.s_n);
-		maptab = xmalloc(S.s_n*sizeof(maptab[0]));
+		maptab = (unsigned int *)xmalloc(S.s_n*sizeof(maptab[0]));
 		mapbot = (S.s_isize+S.s_n-1)/S.s_n*S.s_n;
 		maptop = S.s_fsize/S.s_n*S.s_n;
 		ints = S.s_n/S.s_m;

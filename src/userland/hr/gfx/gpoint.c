@@ -61,7 +61,7 @@ void SM_Point()
 
 	SM_Move();
 	blt.src = &gkBitMap;
-	blt.dst = &gkBitMap;
+	blt.dst = (LAYER *)&gkBitMap;
 	blt.dr.origin = gkDp;
 	blt.dr.corner.x = blt.dr.origin.x + gkPen.pn_Width;
 	blt.dr.corner.y = blt.dr.origin.y + gkPen.pn_Height;

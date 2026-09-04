@@ -198,7 +198,7 @@ struct evmgr	evmgr[WINDOW],		/* room for all managers */
 struct xfer	x;			/* user args for xfer operation */
 uint		hrsmgr,			/* who is event mgr	*/
 		hrislocked;		/* is SMGR blocked? */
-		hrticks;		/* time indicator for mouse and keys */
+uint		hrticks;		/* time indicator for mouse and keys */
 struct message	mouse;			/* mouse position report for SMGR */
 struct message	tiomsg;			/* misc TIO function data	*/
 TIM		timebuf;		/* to call hrmouse( ) every tick */
@@ -500,7 +500,7 @@ register IO	*iop;
 	p->mb_m.m_msg[3] = loword( iop->io_base);
 	hrlink(cp->wtype, p);
 	while (not xcheck( self)) {
-		cp->sleeping[SLP_WRIT] = cp;
+		cp->sleeping[SLP_WRIT] = (char *)cp;
 		sleep( cp, CVNOSIG, 0, 0);
 		cp->sleeping[SLP_WRIT] = 0;
 	}

@@ -69,7 +69,7 @@ struct dinode *dp;
 	register char *p;
 	register i;
 
-	p = dp;
+	p = (char *)dp;
 	i = sizeof *dp;
 	do {
 		*p++ = 0;

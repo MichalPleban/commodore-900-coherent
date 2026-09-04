@@ -152,12 +152,12 @@ CON alcon ={
  * the SCC chip in order for the alindex() macro to work correctly !!
  */
 TTY	altty[NMINOR] = {
-	{ {0}, {0}, 0x100, alstart, alparam, B9600, B9600 },
-	{ {0}, {0}, 0x120, alstart, alparam, B9600, B9600 },
-	{ {0}, {0}, 0x300, alstart, alparam, B9600, B9600 },
-	{ {0}, {0}, 0x320, alstart, alparam, B9600, B9600 },
-	{ {0}, {0}, 0x380, alstart, alparam, B9600, B9600 },
-	{ {0}, {0}, 0x3A0, alstart, alparam, B9600, B9600 }
+	{ {0}, {0}, (char *)0x100, alstart, alparam, B9600, B9600 },
+	{ {0}, {0}, (char *)0x120, alstart, alparam, B9600, B9600 },
+	{ {0}, {0}, (char *)0x300, alstart, alparam, B9600, B9600 },
+	{ {0}, {0}, (char *)0x320, alstart, alparam, B9600, B9600 },
+	{ {0}, {0}, (char *)0x380, alstart, alparam, B9600, B9600 },
+	{ {0}, {0}, (char *)0x3A0, alstart, alparam, B9600, B9600 }
 };
 
 /*

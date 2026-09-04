@@ -47,5 +47,3 @@ extern	char *reerror;
 extern	redual;			/* Dual case mode */
 extern	int	refull;		/* Full expression */
 RE *reparse();
-int	reget();
-int	reunget();

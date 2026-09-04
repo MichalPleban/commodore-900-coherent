@@ -8,7 +8,7 @@
  * Sys exec with list of arguments and environment.
  */
 
-#define	NULL	((char *)0)
+#define	NULL	((void *)0)
 
 /* VARARGS 1 */
 execle(name, arg0)

@@ -45,7 +45,7 @@ char *argv[];
 	if ((filf=open(argv[2], 2)) < 0)
 		panic("Cannot open %s", argv[2]);
 	badm = 64;
-	if ((badl=malloc(badm*sizeof(*badl))) == NULL)
+	if ((badl=(daddr_t *)malloc(badm*sizeof(*badl))) == NULL)
 		panic("No memory");
 	switch (argv[1][0]) {
 	case 'a':
@@ -172,7 +172,7 @@ daddr_t b;
 
 	if (badn >= badm) {
 		badm *= 2;
-		if ((badl=realloc(badl, badm*sizeof(*badl))) == NULL)
+		if ((badl=(daddr_t *)realloc(badl, badm*sizeof(*badl))) == NULL)
 			panic("Out of memory");
 	}
 	for (i=0; i<badn; i++) {

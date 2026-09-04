@@ -55,10 +55,10 @@ flag_t	linkmsg = 0,			/* message if not all links found */
 	modtime = 1,			/* restore modtimes */
 	usecompress = 0,		/* z: pipe through compress/uncompress */
 	verbose = 0;
-	unixbug = 0;			/* avoid bug in U**X tar */
+int	unixbug = 0;			/* avoid bug in U**X tar */
 FILE	*whether = (FILE *)NULL,	/* ask about each file */
 	*tarfile;
-char	tapedev[10] = '\0';
+char	tapedev[10] = { '\0' };
 char	*archive = &tapedev[0];
 unsigned short	blocking = 1;		/* blocking factor */
 time_t	oldtime[2],			/* for utime */
@@ -87,7 +87,7 @@ char	*argv[];
 		unit = '\0',
 		function = 0,
 		deffunc,
-		prefix[101] = '\0';
+		prefix[101] = { '\0' };
 	unsigned short	arg = 2;
 	dirhd_t	*args;
 

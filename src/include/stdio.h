@@ -21,7 +21,7 @@ typedef struct	FILE {
 }	FILE;
 #endif
 
-#define	NULL	((char *)0)
+#define	NULL	((void *)0)
 #define	EOF	(-1)
 #define	BUFSIZ	(1<<9)
 #define	_NFILE	20

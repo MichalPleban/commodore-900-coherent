@@ -234,7 +234,7 @@ char *fs;
 		lseek(fsfd, (size_t)(SUPERI*BSIZE), 0);
 		if (read(fsfd, ibuf, BSIZE) != BSIZE)
 			cerr("%s: bad filesystem format", fs);
-		sbp = ibuf;
+		sbp = (struct filsys *)ibuf;
 		canshort(sbp->s_isize);
 		candaddr(sbp->s_fsize);
 		if (sbp->s_isize > sbp->s_fsize) {
@@ -252,7 +252,7 @@ char *fs;
 			cwarn("%s: i-node read error", fs);
 			return (1);
 		}
-		for (ip=ibuf; ip < &ibuf[NIREAD]; ip++) {
+		for (ip=(struct dinode *)ibuf; ip < (struct dinode *)&ibuf[NIREAD]; ip++) {
 			if (inum++ >= maxino)
 				break;
 			canshort(ip->di_uid);

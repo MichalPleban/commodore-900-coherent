@@ -60,7 +60,7 @@ void SM_DrawCurs()
 		}
 
 	blt.src = &gkBitMap;
-	blt.dst = &gkBitMap;
+	blt.dst = (LAYER *)&gkBitMap;
 	
 	if ( msgData1 )	/* on */
 	{
@@ -157,7 +157,7 @@ peteprint("scroll\n");
 		cl_area_rect.origin.y = gkCrect.corner.y - dy;
 
 
-	blt.src = blt.dst = &gkBitMap;
+	blt.src = (BITMAP *)(blt.dst = (LAYER *)&gkBitMap);
 	blt.op = L_SRC;
 	blt.pat = ALL_ON;
 	blt.sp.x = gkCrect.origin.x;

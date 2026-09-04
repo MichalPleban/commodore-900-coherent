@@ -190,7 +190,7 @@ clearall()
  * memory pressure the HISTORY gives way, oldest first: scrollback is the one
  * expendable thing in this process, and a shell must never lose live output
  * because its own history is hogging the heap. */
-static
+static void
 sbpush()
 {
 	register char *p;
@@ -317,7 +317,7 @@ invalidate()
  * twice to erase).  Kept as an overlay outside the grid/disp diff: erased at the
  * start of each flush and repainted at the end, so it never confuses the diff
  * and never leaves a trail. */
-static
+static void
 curdraw()
 {
 	int c, r;
@@ -476,7 +476,7 @@ selpatch(r, c0, c1)
  * selection plus one newline per row is 2025 bytes, inside HRSEL_INL -- a
  * terminal copy never touches a disk.  Streamed a row at a time, so the only
  * buffer is one line long (zterm's data segment is already tight; see hrpump). */
-static
+static void
 copysel()
 {
 	char row[MAXCOLS + 1];

@@ -20,7 +20,7 @@ FILE	*rexf;			/* file containing user's rex */
 
 static	curc;			/* current char from rex */
 
-struct newt	*getrex( ),
+static struct newt	*getrex( ),
 		*getterm( ),
 		*getfac( ),
 		*getatom( ),
@@ -350,7 +350,7 @@ newnewt( )
 {
 	register struct newt	*p;
 
-	p = malloc( sizeof *p);
+	p = (struct newt *)malloc( sizeof *p);
 	if (p == NULL)
 		nomem( );
 	p->n_c = 0;
@@ -404,7 +404,7 @@ advance( )
 /*
  * report misplaced '^'
  */
-static
+static void
 nwalk( np)
 register struct newt	*np;
 {

@@ -240,6 +240,7 @@ int		xf,
 		yf;
 {
 	register uint	*vp;
+	extern short	*xxx();
 	register int	rem;
 	register int	dx,
 			dy,

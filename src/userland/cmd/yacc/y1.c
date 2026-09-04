@@ -238,8 +238,8 @@ genstates()
 			for(k=0; k<items[i]->i_nitems; k++)
 				if( *(items[i]->i_items[k]) == -1 )
 					states[i].s_nred++;
-			states[i].s_tgos = states[i].s_ntgos =
-			    states[i].s_reds = NULL;		/* MWC DSC */
+			states[i].s_tgos = (struct tgo *)(states[i].s_ntgos =
+			    (struct ntgo *)(states[i].s_reds = NULL));		/* MWC DSC */
 		}
 	} while( newgen );
 	free(ntp);

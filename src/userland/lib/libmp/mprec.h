@@ -7,7 +7,7 @@
  */
 
 #ifndef NULL
-#define	NULL		((char *)0)
+#define	NULL		((void *)0)
 #endif
 #define TRUE		(0 == 0)
 #define FALSE		(0 != 0)

@@ -99,7 +99,7 @@ char	*num;
 			base = 0x10;
 		} else
 			base = 010;
-	for (; i != NULL; i=*str++) {
+	for (; i != 0; i=*str++) {
 		i = todigit(i);
 		if (i >= base)
 			die("bad number `%s'", num);

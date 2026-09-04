@@ -198,9 +198,9 @@ char	state,		    /* Present state of the automaton */
 	*filnamo,	    /* File name sent */
 	*ttyline,	    /* Pointer to tty line */
 	ttynbuff[128];      /* Name buffer for tty line */
-	recpkt[MAXPACKSIZ], /* Receive packet buffer */
+int	recpkt[MAXPACKSIZ], /* Receive packet buffer */
 	packet[MAXPACKSIZ]; /* Packet buffer */
-	ldata[1024];	    /* First line of data to send over connection */ 
+int	ldata[1024];	    /* First line of data to send over connection */ 
 
 FILE	*fp,		    /* File pointer for current disk file */
 	*log;		    /* File pointer for Logfile */

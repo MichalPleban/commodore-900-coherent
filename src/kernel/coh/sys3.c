@@ -291,7 +291,7 @@ uunique()
 	register struct filsys *fsp;
 
 	if ((mp=getment(rootdev, 1)) == NULL)
-		return;
+		return (0);
 	fsp = &mp->m_super;
 	smod(mp);
 	return (++fsp->s_unique);

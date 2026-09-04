@@ -168,8 +168,8 @@ stand()
 		register vaddr_t a;
 
 		p = u.u_pscale;
-		a = (int *)u.u_pbase +
-		    pscale(u.u_ppc-u.u_pofft, p/sizeof (int));
+		a = (vaddr_t)((int *)u.u_pbase +
+		    pscale(u.u_ppc-u.u_pofft, p/sizeof (int)));
 		if (a < u.u_pbend)
 			putuwd(a, getuwd(a)+1);
 	}

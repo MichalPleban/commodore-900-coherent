@@ -69,7 +69,7 @@ session:
 			interp();
 		loc = cstream;
 		allok = TRUE;
-		breakloc = contloc = retfrom = NULL;
+		breakloc = contloc = (code *)(retfrom = NULL);
 	}
 |	session definition {
 		emitop(PGLSC);
@@ -85,13 +85,13 @@ session:
 		}
 		loc = cstream;
 		allok = TRUE;
-		breakloc = contloc = retfrom = NULL;
+		breakloc = contloc = (code *)(retfrom = NULL);
 	}
 |	session error '\n' {
 		YYERROK;
 		loc = cstream;
 		allok = TRUE;
-		breakloc = contloc = retfrom = NULL;
+		breakloc = contloc = (code *)(retfrom = NULL);
 	}
 ;
 

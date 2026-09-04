@@ -364,7 +364,7 @@ NODE *left, *right;
 {
 	register NODE *np;
 
-	if ((np = malloc(sizeof (NODE))) == NULL)
+	if ((np = (NODE *)malloc(sizeof (NODE))) == NULL)
 		ferr(nospace);
 	np->n_op = op;
 	np->n_left = left;
@@ -383,7 +383,7 @@ char *str;
 {
 	register NODE *np;
 
-	if ((np = malloc(sizeof (NODE))) == NULL)
+	if ((np = (NODE *)malloc(sizeof (NODE))) == NULL)
 		ferr(nospace);
 	np->n_left = np->n_right = NULL;
 	np->n_op = op;
@@ -483,7 +483,7 @@ struct stat *sbp;
 		if ((iobuf = malloc(BUFSIZ)) == NULL)
 			ferr(nospace);
 		while ((nb = read(fd, iobuf, BUFSIZ)) > 0)
-			for (dp = iobuf; dp < &iobuf[nb]; dp++) {
+			for (dp = (struct direct *)iobuf; dp < (struct direct *)&iobuf[nb]; dp++) {
 				if (dp->d_ino == 0)
 					continue;
 				np = dp->d_name;

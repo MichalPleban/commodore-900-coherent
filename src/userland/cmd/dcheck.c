@@ -113,7 +113,7 @@ char *fsname;
 	if (!sflag)
 		sync();
 	bread((daddr_t)SUPERI, superb);
-	sbp = superb;
+	sbp = (struct filsys *)superb;
 	canshort( sbp->s_isize);
 	candaddr( sbp->s_fsize);
 	canshort( sbp->s_nfree);
@@ -140,7 +140,7 @@ char *fsname;
 	 */
 	if (fsnames(fsp, 0) < 0)
 		fprintf(stderr, "dcheck: no space for names -- i-numbers only\n");
-	if ((entries=calloc(isize*INOPB, sizeof(short unsigned))) == NULL)
+	if ((entries=(short unsigned *)calloc(isize*INOPB, sizeof(short unsigned))) == NULL)
 		cerr("Not enough space");
 	fsfinddefective(fsp);
 	maxino = (isize-INODEI) * INOPB;
@@ -327,7 +327,7 @@ int pn;
 		if ((pb = fsimap(fsp, ip, bn++)) == 0)
 			break;
 		bread(pb, dbuf);
-		for (dp=dbuf; dp < &dbuf[BSIZE]; dp++) {
+		for (dp=(struct direct *)dbuf; dp < (struct direct *)&dbuf[BSIZE]; dp++) {
 			canino( dp->d_ino);
 			if (dp->d_ino) {
 				if (dp->d_ino > maxino)

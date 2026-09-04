@@ -73,3 +73,4 @@ typedef union str {
  * Global variables.
  */
 extern	STR	*strp;			/* Input stack */
+extern	STR	*allstr();

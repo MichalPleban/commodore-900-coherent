@@ -81,7 +81,7 @@ register INODE *ip;
 	for (fdpp=u.u_filep; fdpp<&u.u_filep[NUFILE]; fdpp++) {
 		if (*fdpp != NULL)
 			continue;
-		if ((fdp=kalloc(sizeof(FD))) == NULL)
+		if ((fdp=(FD *)kalloc(sizeof(FD))) == NULL)
 			return (-1);
 		/*
 		 * Fill the descriptor in and hang it on the slot before

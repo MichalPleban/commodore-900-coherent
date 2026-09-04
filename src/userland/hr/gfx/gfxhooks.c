@@ -102,7 +102,7 @@ SM_ClrClip()
 	s.base = screen_addr(gkCrect.origin.x, gkCrect.origin.y);
 	blt.src = &s;
 	blt.sp = gkCrect.origin;
-	blt.dst = &display;
+	blt.dst = (LAYER *)&display;
 	blt.dr = gkCrect;
 	blt.op = L_TRUE;
 	blt.pat = texture[ msgBytL0 ? gkBpat : gkFpat ];

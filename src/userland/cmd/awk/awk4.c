@@ -97,7 +97,7 @@ int type;
 	np->t_flag = type;
 	np->t_un.t_str = s;
 	if (runflag) {
-		np->t_next = tempnodes;
+		np->t_next = (TERM *)tempnodes;
 		tempnodes = np;
 	}
 	return (np);
@@ -118,7 +118,7 @@ INT i;
 	np->t_flag = T_NUM|T_INT;
 	np->t_un.t_int = i;
 	if (runflag) {
-		np->t_next = tempnodes;
+		np->t_next = (TERM *)tempnodes;
 		tempnodes = np;
 	}
 	return (np);
@@ -139,7 +139,7 @@ FLOAT f;
 	np->t_flag = T_NUM;
 	np->t_un.t_float = f;
 	if (runflag) {
-		np->t_next = tempnodes;
+		np->t_next = (TERM *)tempnodes;
 		tempnodes = np;
 	}
 	return (np);

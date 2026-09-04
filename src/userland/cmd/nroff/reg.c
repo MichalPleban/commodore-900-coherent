@@ -13,7 +13,7 @@
 /*
  * Return a pointer to a number register of the given name.
  */
-char	*
+REG	*
 getnreg(name)
 char name[2];
 {
@@ -32,7 +32,7 @@ char name[2];
  * Create a register of the given name and type.  If one
  * already exists, remove it.
  */
-char	*
+REG	*
 makereg(name, type)
 char name[2];
 {
@@ -123,7 +123,7 @@ char name[2];
  * Given a register name, and a register type, return a pointer
  * to the register if it exists.  If not, NULL is returned.
  */
-char	*
+REG	*
 findreg(name, type)
 char name[2];
 {

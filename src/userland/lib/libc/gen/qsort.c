@@ -8,7 +8,7 @@
  * smaller than M in some partitioning.
  */
 
-char	*qmedian();
+static char	*qmedian();
 
 #define	M	10
 

@@ -11,7 +11,7 @@
 #ifndef	 MACHINE_H
 #define	 MACHINE_H
 #ifndef	NULL			/* Move to coherent.h ? */
-#define	NULL	((char *)0)
+#define	NULL	((void *)0)
 #endif
 
 /* Machine dependent constants for Z8001 */
