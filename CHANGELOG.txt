@@ -1,3 +1,9 @@
+Version 0.9.2 (4 September 2026):
+- Graphical login: /etc/zlogin greets on the hi-res console and starts zview as the session.
+- Boot goes straight to multi-user; a dirty root is repaired in place (check -s, mount -w) with no reboot. The single-user shell remains only as an emergency room.
+- getty: fixed backspace at an empty login name walking past the buffer.
+- Removed all compile warnings (NULL is now (void *)0).
+
 Version 0.9.1 (1 September 2026):
 - Optimized memory footprint of several GUI apps.
 - Added command history in sh.
