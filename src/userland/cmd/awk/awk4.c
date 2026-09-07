@@ -268,6 +268,7 @@ usage()
 
 /* VARARGS */
 awkerr(x)
+char *x;			/* NOT an implicit int: that truncated the pointer */
 {
 	fprintf(stderr, "awk: ");
 	if (FILENAME[0] != '\0')
@@ -281,6 +282,7 @@ awkerr(x)
 
 /* VARARGS */
 awkwarn(x)
+char *x;			/* NOT an implicit int: that truncated the pointer */
 {
 	fprintf(stderr, "awk: ");
 	if (FILENAME[0] != '\0')
@@ -293,6 +295,7 @@ awkwarn(x)
 
 /* VARARGS */
 yyerror(x)
+char *x;			/* NOT an implicit int: that truncated the pointer */
 {
 	awkerr(x);
 }

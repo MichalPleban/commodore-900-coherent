@@ -1,0 +1,347 @@
+
+
+ddbb                                                             ddbb
+
+
+
+NNAAMMEE
+     db - assembler-level symbolic debugger
+
+SSYYNNOOPPSSIISS
+     ddbb [-ccddeeffkkoorrsstt] [[_m_a_p_f_i_l_e] _d_a_t_a_f_i_l_e]
+     ddbb -ee _p_r_o_g_r_a_m [_a_r_g_u_m_e_n_t ...]
+
+DDEESSCCRRIIPPTTIIOONN
+     ddbb examines and patches object files, core dumps, system
+     dumps and plain files, and runs programs under ppttrraaccee
+     control with breakpoints and single stepping.  It works at
+     the machine level: it disassembles Z8001 instructions and
+     displays memory in the formats described below, but it reads
+     the symbol table of the object file so that addresses can be
+     given and printed by name.  Commands are read from the stan-
+     dard input.
+
+     ddbb sees a program as three _a_d_d_r_e_s_s _s_p_a_c_e_s: the data space
+     (dd), the instruction space (ii) and the user area of the
+     process (uu), which holds the saved registers.  Each space is
+     described by a list of address maps (see :mm) that tell where
+     a range of addresses is to be found: in a file, or in a run-
+     ning child process through ppttrraaccee. What is mapped depends on
+     the mode selected by the options.
+
+     -oo   _d_a_t_a_f_i_l_e is an object file (the default when no option
+          is given and one file is named).  With two files, _m_a_p-
+          _f_i_l_e supplies the symbol table and _d_a_t_a_f_i_l_e is the ob-
+          ject that is examined and patched.  With no file, ll.oouutt
+          is used.
+
+     -cc   _d_a_t_a_f_i_l_e is a core file written by a user process.  Its
+          user area and every dumped segment are mapped; pure
+          segments and the symbol table come from _m_a_p_f_i_l_e, which
+          must be the object the process was running (ddbb
+          complains "Core different from object" otherwise).
+          With no file, ll.oouutt and ccoorree are used.  This is also
+          the default when two files are named without an option.
+
+     -dd   _d_a_t_a_f_i_l_e is a system dump; _m_a_p_f_i_l_e is the kernel.  With
+          no file, /ccoohheerreenntt and /ddeevv/dduummpp are used.
+
+     -kk   Map _d_a_t_a_f_i_l_e as a kernel image in memory: the whole
+          file is the instruction space and the user area, and
+          the data space starts at the kernel's eetteexxtt_ symbol.
+          With no file, /ccoohheerreenntt and /ddeevv/mmeemm are used, so a
+          running system can be examined.
+
+     -ff   Map _d_a_t_a_f_i_l_e as a plain array of bytes, in both the
+          data and the instruction space.  A _m_a_p_f_i_l_e may supply a
+          symbol table.
+
+     -ee   The next argument is an object file to be executed as a
+          traced child process; the remaining arguments are
+          passed to it as its command line.  This lets the shell
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+ddbb                                                             ddbb
+
+
+
+          eexxppaanndd file names that a :ee command would take liter-
+          ally.
+
+     -rr   Open every file read-only.  Otherwise files are opened
+          for writing when permitted (a note is printed when a
+          file could be opened read-only only), so that the =
+          command can patch them.
+
+     -ss   Do not load the symbol table.
+
+     -tt   Do the debugger's own input and output on /ddeevv/ttttyy
+          instead of the standard input and output, so that a
+          program whose standard streams are redirected can be
+          debugged.
+
+EExxpprreessssiioonnss aanndd AAddddrreesssseess
+     Most commands take an address and a count, both written as
+     expressions.  An expression is built from
+
+     _n_u_m_b_e_r
+           An integer constant, hexadecimal by default.  A
+           leading 00 makes it octal, a leading 00xx hexadecimal and
+           a leading # decimal; the choice stays in effect for
+           later constants.
+
+     .     The current address, which every display command
+           leaves after the last item shown.
+
+     _s_y_m_b_o_l
+           A name from the symbol table.  The name may be typed
+           as the C compiler wrote it (mmaaiinn_) or in C form
+           (mmaaiinn); the first eight characters are significant.
+           The kind of a symbol decides the space of the expres-
+           sion: text symbols name the instruction space, data
+           and bss symbols the data space.
+
+     dd, ii, uu
+           Address 0 of the data space, the instruction space and
+           the user area.  Adding to one of these selects that
+           space explicitly.
+
+     ppcc, rr_n, rrrr_n, rrhh_n, rrll_n
+           The registers of the traced process, as addresses in
+           the user area, so they can be displayed and patched
+           like any other location.
+
+     The binary operators are +, -, * and / with the usual
+     precedence, the unary operators are - (negation), ~
+     (complement) and * (the word at the address), and paren-
+     theses group.  All arithmetic is done in longs.  An expres-
+     sion takes its space from its leftmost operand.
+
+     Where a command accepts several expressions they are
+     separated by commas.  An omitted address defaults to ., an
+     omitted count to 1.
+
+
+COHERENT Command Manual                                    Page 2
+
+
+
+
+ddbb                                                             ddbb
+
+
+
+DDiissppllaayy
+     [_a_d_d_r_e_s_s][,_c_o_u_n_t]?[_f_o_r_m_a_t]
+           Display _c_o_u_n_t items starting at _a_d_d_r_e_s_s, each accor-
+           ding to _f_o_r_m_a_t. The format string is remembered per
+           space and is reused when omitted; initially it is ww
+           for the data space and the user area and ii for the in-
+           struction space.  Every item starts a line with its
+           address and moves .  past what it displayed.  The for-
+           mat is a sequence of the letters below, each option-
+           ally preceded by a repeat count:
+
+           bb   A byte.
+
+           ww   A word (16 bits); hh is a synonym.
+
+           ll   A long (32 bits).
+
+           vv   A three-byte value, as stored in a file system.
+
+           cc   A character, with control characters and the back-
+               slash shown as C escapes.
+
+           CC   A character, printed as is.
+
+           ss   A string ending in a null byte, escaped as for cc.
+
+           SS   The same string without escapes.
+
+           ff   A single-precision floating point number.
+
+           FF   A double-precision floating point number.
+
+           ii   A machine instruction, disassembled.
+
+           pp   A long taken as an address, printed symbolically.
+
+           YY   A long taken as a time, printed as by ddaattee.
+
+           dd, oo, uu, xx
+               Select decimal, octal, unsigned or hexadecimal for
+               the numeric formats that follow; hexadecimal is
+               the default.
+
+           +, -
+               Move the address forward or back by the size of
+               the last item without displaying anything.
+
+           ^   Return to the address the command started at.
+
+           nn   Start a new output line.
+
+     [_a_d_d_r_e_s_s]=
+           Print _a_d_d_r_e_s_s in hexadecimal.
+
+     _a_d_d_r_e_s_s:aa
+
+
+COHERENT Command Manual                                    Page 3
+
+
+
+
+ddbb                                                             ddbb
+
+
+
+           Print _a_d_d_r_e_s_s symbolically, as the nearest symbol
+           below it plus an offset.
+
+     !_c_o_m_m_a_n_d
+           Pass the rest of the line to the shell.
+
+     ?     Alone on a line, print the last error message.  Errors
+           are otherwise reported by a single ?  line.
+
+PPaattcchhiinngg
+     [_a_d_d_r_e_s_s]=_v_a_l_u_e[,_v_a_l_u_e...]
+           Store the values (up to ten) at consecutive locations
+           starting at _a_d_d_r_e_s_s. Each value has the size of the
+           item last displayed, so a display command normally
+           precedes a patch.  The store goes to the mapped file,
+           or to the traced process.
+
+     [_e_x_p_r]:oo
+           When _e_x_p_r is nonzero, swap the bytes of every word
+           read from or written to the target.
+
+RRuunnnniinngg aa PPrrooggrraamm
+     A program is started under trace control with :ee (or the -ee
+     option), after which it can be run to breakpoints and single
+     stepped.  The child stops at every breakpoint and every
+     fault; the fault or the breakpoint's commands are then run
+     and ddbb reads commands again.
+
+     :ee [_a_r_g_u_m_e_n_t ...]
+           Start the object file as a child process with the
+           given arguments (up to 19).  Quotes and backslashes
+           are honoured; <, > and >> redirect the child's stan-
+           dard input and output.  A child already running is
+           killed first.
+
+     [_a_d_d_r_e_s_s]:bb[_c_o_m_m_a_n_d_s]
+           Set a breakpoint at _a_d_d_r_e_s_s and run _c_o_m_m_a_n_d_s whenever
+           it is hit.  The default command string displays the
+           address symbolically and disassembles the instruction
+           there, then waits for commands.  Up to 15 breakpoints
+           may be set.
+
+     [_a_d_d_r_e_s_s]:bbrr[_c_o_m_m_a_n_d_s]
+           Set a return breakpoint: it is taken when the function
+           containing the current pc returns to _a_d_d_r_e_s_s.
+
+     [_a_d_d_r_e_s_s]:dd
+           Delete the breakpoint at _a_d_d_r_e_s_s; :ddrr deletes a return
+           breakpoint and :ddss a step-over breakpoint, and :ddaa
+           deletes them all.
+
+     :pp    List the breakpoints.
+
+     [_a_d_d_r_e_s_s]:cc
+           Continue the child, at _a_d_d_r_e_s_s if one is given.
+
+
+COHERENT Command Manual                                    Page 4
+
+
+
+
+ddbb                                                             ddbb
+
+
+
+     [_a_d_d_r_e_s_s][,_c_o_u_n_t]:ss[cc][_c_o_m_m_a_n_d_s]
+           Single step _c_o_u_n_t instructions, starting at _a_d_d_r_e_s_s if
+           given, and run _c_o_m_m_a_n_d_s after each; by default the in-
+           struction at the new pc is disassembled.  With :sscc, a
+           ccaallll instruction is stepped over: the called function
+           runs at full speed and stepping resumes on return.
+           While stepping, an empty command line steps once more.
+
+     :rr    Display the registers of the stopped child.
+
+     [_d_e_p_t_h]:tt
+           Print a traceback of the child's stack, one line per
+           active function with the arguments it was called with,
+           to _d_e_p_t_h levels (default: all).
+
+     :ff    Print the fault that stopped the child, or that
+           produced the core file.
+
+     :mm    Print the address maps of the three spaces.
+
+     [_e_x_p_r]:xx
+           When _e_x_p_r is nonzero (the default), read commands from
+           the standard input until end of file or a :qq with a
+           zero argument.  Breakpoint command strings use this to
+           stop and wait for the user.
+
+     [_e_x_p_r]:qq
+           When _e_x_p_r is nonzero (the default), kill the child if
+           any and exit.  End of file on the standard input has
+           the same effect.
+
+     An interrupt from the terminal stops a running display and
+     is reported as "Interrupt"; it does not kill the child.
+
+FFIILLEESS
+     l.out       default object file
+
+     core        default core file
+
+     /coherent, /dev/dump, /dev/mem
+                 defaults for -dd and -kk
+
+     /lib/slibc.a
+                 shared C library, mapped when the object uses it
+
+     /dev/tty    terminal used by -tt
+
+SSEEEE AALLSSOO
+     cc, ld, nm, ptrace, core, l.out
+
+DDIIAAGGNNOOSSTTIICCSS
+     Most errors set the message printed by ?  and print a single
+     ?. "Cannot single step" means that no child is being traced.
+     "Child process terminated (_n)" reports the exit status of a
+     child that ran to completion.  "Ptrace error" reports a
+
+
+COHERENT Command Manual                                    Page 5
+
+
+
+
+ddbb                                                             ddbb
+
+
+
+     ffaaiilluurree of the trace system call.
+
+NNOOTTEESS
+     The breakpoint instruction is sscc #00xx8811 and single stepping
+     uses the hardware single-step trap; sscc and block-move in-
+     structions cannot be stepped that way, so ddbb places a tem-
+     porary breakpoint after them instead.
+
+     The :kk command is accepted but sends no signal.  Registers
+     live in the user area, so patching them takes effect when
+     the child next runs.

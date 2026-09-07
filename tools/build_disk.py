@@ -220,6 +220,12 @@ def build(root_dir, perms_path, devices_path, out_path,
             data = f.read()
         node = fs0.create_file(parent, name, data, meta[ipath][1])   # nlinks = 1
         set_meta(node, *meta[ipath][1:])
+        # Keep the host file's mtime.  ld(1) checks an archive's mtime
+        # against its ranlib stamp, and with a pack-time mtime every link
+        # against /lib/libc.a said "outdated ranlib" and fell back to a
+        # member-by-member scan.
+        node.atime = node.mtime = int(os.stat(host).st_mtime)
+        node.owner.write_inode(node)
 
     # -- Step C: hardlinks -- a second directory entry for the target's inode --
     for path, target in links:

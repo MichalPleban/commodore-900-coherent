@@ -37,6 +37,10 @@ register char	**argv;
 			error("\"%s\" is not a process id", *argv);
 			continue;
 		}
+		if (atol(*argv) > 32767L || atol(*argv) < -32767L) {
+			error("\"%s\" is not a process id", *argv);	/* atoi wrapped */
+			continue;
+		}
 		pid = atoi(*argv);
 		if (kill(pid, sig)) {
 			if (errno == EINVAL)
@@ -113,6 +117,9 @@ char *arg0;
 fatal(arg0)
 char *arg0;
 {
-	error(arg0);
+	/* NOT error(arg0): that forwarded only the format and %r then read
+	 * the arguments from the wrong frame -- `kill -BOGUS pid' hung. */
+	fprintf( stderr, "kill: %r
+", &arg0);
 	exit(1);
 }

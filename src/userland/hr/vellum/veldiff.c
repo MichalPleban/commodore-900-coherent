@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * veldiff.c - veldiff: what changed between two revisions of a sheet.
  *
  *	veldiff old.d new.d		the change list, one per line

@@ -114,6 +114,21 @@ generation of the parser tables.
 .B yacc
 also writes a count of shift/reduce and reduce/reduce conflicts.
 .SH NOTES
+The declaration
+.B %expect
+.I n
+in the definitions section states that the grammar is known to have
+exactly
+.I n
+shift/reduce conflicts; they are then not reported.
+Any other count, or any reduce/reduce conflict, is reported as usual.
+A grammar with no rules is rejected with a diagnostic.
+.PP
+The lexical analyzer
+.B yylex
+signals the end of its input by returning \-1; the generated parser
+also accepts the common convention of returning 0.
+.PP
 .B yacc
 in this tree always writes
 .B y.tab.h

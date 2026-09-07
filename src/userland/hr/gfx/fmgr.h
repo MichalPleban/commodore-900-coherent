@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 1985 Rico Tudor.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 # define FM_MAXFONT        8      /* maximum number of fonts      */
 # define FM_MAXNLEN       12      /* font maximum name length     */
 # define FM_MAXCHAR       256     /* maximum number of characters */

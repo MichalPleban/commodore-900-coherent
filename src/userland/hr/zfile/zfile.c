@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zfile.c - a ZView file manager.
  *
  * A browser that also opens files in the editor -- it does not RUN programs

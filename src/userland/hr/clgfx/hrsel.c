@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrsel.c - the hrgui text stores: the PRIMARY selection (select-to-copy /
  * middle-paste) and the CLIPBOARD (window-menu Copy / Paste).
  *

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velmath.c - the geometry with no state in it at all: an integer
  * square root and a chorded B-spline.
  *

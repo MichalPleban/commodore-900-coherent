@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * clgfx.h - hrgui client-side direct-render draw library (GUI.md Model A, 2.4/2.9).
  *
  * A direct-render client draws its OWN content straight into the framebuffer

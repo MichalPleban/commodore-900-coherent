@@ -60,6 +60,17 @@ readrules()
 			copyunion();
 			break;
 
+		case EXPECT:
+			/* %expect N: the grammar is known to have exactly N
+			 * shift/reduce conflicts (all resolved by shift, as
+			 * usual), so do not report them.  Any other count,
+			 * or any reduce/reduce conflict, is still reported. */
+			if( yylex() != INTEGER )
+				yyerror(!FATAL, "bad %expect syntax");
+			else
+				nsrexpect = yylval.ival;
+			break;
+
 		case TOKEN:
 		case LEFT:
 		case RIGHT:
@@ -131,6 +142,8 @@ readrules()
 		nt = yylval.sptr->s_no;
 		while( getrule(nt) );
 	}
+	if( nprod == 1 )	/* nothing but the internal $accept rule */
+		yyerror(FATAL, "no rules in grammar");
 	if( t==MARK ) { /* gobble up rest of file */
 		linepos(tabout);
 		while( (c = llgetc()) != EOF )
@@ -445,7 +458,7 @@ wrtnames()
 	register char *sp;
 
 	fprintf(tabout, "#ifdef YYTNAMES\n");
-	fprintf(tabout, "struct yytname yytnames[%d] =\n{\n", nterm);
+	fprintf(tabout, "struct yytname yytnames[%d] =\n{\n", nterm+1);	/* + the NULL terminator */
 	for(i=0; i<nterm; i++) {
 		fprintf(tabout, "\t\"");
 		sp = trmptr[i]->s_name;

@@ -88,7 +88,8 @@ initialise()
 	labp = NULL;
 	qcbp = NULL;
 	pattlen = 0;
-	holdlen = 0;
+	holdlen = 1;			/* the empty string: "" and its NUL */
+	holdbuf[0] = '\0';
 	nflag = 0;
 	sflag = 0;
 	nerr = 0;

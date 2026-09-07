@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zpuzzle.c - the 15 puzzle, as a ZView window.
  *
  * The classic sliding-tile puzzle the early X demos shipped as `puzzle':

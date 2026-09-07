@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 / hrtas.s - atomic test-and-set for the hrgui drawing-lock fast path.
 /
 / hr_tas(short *w):  the ONE userland-atomic primitive the futex fast path needs.

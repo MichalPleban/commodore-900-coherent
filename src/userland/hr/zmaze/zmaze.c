@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zmaze.c - Wolfenstein-style raycast maze, as a ZView window.
  *
  * The front end of the zmcore.c raycaster: a fixed 320x200 window whose

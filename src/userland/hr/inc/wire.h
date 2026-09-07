@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * wire.h - hrgui client <-> server wire protocol (GUI.md Phase 1, server-render).
  *
  * Transport:

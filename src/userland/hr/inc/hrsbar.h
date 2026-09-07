@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrsbar.h - hrgui common control: the vertical scrollbar (clgfx/hrsbar.c).
  *
  * A scrollbar is a struct the CLIENT owns plus four calls, exactly like the

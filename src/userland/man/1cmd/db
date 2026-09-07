@@ -1,0 +1,394 @@
+.TH db "" "Command"
+.SH NAME
+db \- assembler-level symbolic debugger
+.SH SYNOPSIS
+\fBdb [\-cdefkorst] [[\fImapfile\fB] \fIdatafile\fB]\fR
+.br
+\fBdb \-e \fIprogram\fB [\fIargument\fB ...]\fR
+.SH DESCRIPTION
+.HS
+db -- assembler-level symbolic debugger
+Usage:	db [ options ] [ [ mapfile ] datafile ]
+By default, 'datafile' is assumed to be an object file.
+'mapfile' defaults to 'l.out' and 'datafile' defaults to 'core'.
+Options:
+	-c	Map 'datafile' as a core file
+	-d	Map 'datafile' as a system dump;
+		'mapfile' defaults to '/coherent'
+	-e	Next argument is object file and rest of command line
+		is passed to the child process
+	-f	Map 'datafile' as binary data
+	-o	'datafile' is an object file
+	-r	Access all files read-only
+	-t	Perform input and output via /dev/tty
+		rather than standard input and output
+.HE
+.B db
+examines and patches object files, core dumps, system dumps and plain
+files, and runs programs under
+.B ptrace
+control with breakpoints and single stepping.
+It works at the machine level: it disassembles Z8001 instructions and
+displays memory in the formats described below, but it reads the
+symbol table of the object file so that addresses can be given and
+printed by name.
+Commands are read from the standard input.
+.PP
+.B db
+sees a program as three
+.IR "address spaces" :
+the data space (\fBd\fR), the instruction space (\fBi\fR) and the
+user area of the process (\fBu\fR), which holds the saved registers.
+Each space is described by a list of address maps (see \fB:m\fR) that
+tell where a range of addresses is to be found: in a file, or in a
+running child process through
+.BR ptrace .
+What is mapped depends on the mode selected by the options.
+.IP "\fB\-o\fR"
+.I datafile
+is an object file (the default when no option is given and one file is
+named).
+With two files,
+.I mapfile
+supplies the symbol table and
+.I datafile
+is the object that is examined and patched.
+With no file,
+.B l.out
+is used.
+.IP "\fB\-c\fR"
+.I datafile
+is a core file written by a user process.
+Its user area and every dumped segment are mapped; pure segments and
+the symbol table come from
+.IR mapfile ,
+which must be the object the process was running (\fBdb\fR complains
+"Core different from object" otherwise).
+With no file,
+.B l.out
+and
+.B core
+are used.
+This is also the default when two files are named without an option.
+.IP "\fB\-d\fR"
+.I datafile
+is a system dump;
+.I mapfile
+is the kernel.
+With no file,
+.B /coherent
+and
+.B /dev/dump
+are used.
+.IP "\fB\-k\fR"
+Map
+.I datafile
+as a kernel image in memory: the whole file is the instruction space
+and the user area, and the data space starts at the kernel's
+.B etext_
+symbol.
+With no file,
+.B /coherent
+and
+.B /dev/mem
+are used, so a running system can be examined.
+.IP "\fB\-f\fR"
+Map
+.I datafile
+as a plain array of bytes, in both the data and the instruction space.
+A
+.I mapfile
+may supply a symbol table.
+.IP "\fB\-e\fR"
+The next argument is an object file to be executed as a traced child
+process; the remaining arguments are passed to it as its command line.
+This lets the shell expand file names that a
+.B :e
+command would take literally.
+.IP "\fB\-r\fR"
+Open every file read-only.
+Otherwise files are opened for writing when permitted (a note is
+printed when a file could be opened read-only only), so that the
+.B =
+command can patch them.
+.IP "\fB\-s\fR"
+Do not load the symbol table.
+.IP "\fB\-t\fR"
+Do the debugger's own input and output on
+.B /dev/tty
+instead of the standard input and output, so that a program whose
+standard streams are redirected can be debugged.
+.SH "Expressions and Addresses"
+Most commands take an address and a count, both written as
+expressions.
+An expression is built from
+.IP "\fInumber\fR" 0.6i
+An integer constant, hexadecimal by default.
+A leading
+.B 0
+makes it octal, a leading
+.B 0x
+hexadecimal and a leading
+.B #
+decimal; the choice stays in effect for later constants.
+.IP "\fB.\fR"
+The current address, which every display command leaves after the
+last item shown.
+.IP "\fIsymbol\fR"
+A name from the symbol table.
+The name may be typed as the C compiler wrote it (\fBmain_\fR) or in
+C form (\fBmain\fR); the first eight characters are significant.
+The kind of a symbol decides the space of the expression: text symbols
+name the instruction space, data and bss symbols the data space.
+.IP "\fBd\fR, \fBi\fR, \fBu\fR"
+Address 0 of the data space, the instruction space and the user area.
+Adding to one of these selects that space explicitly.
+.IP "\fBpc\fR, \fBr\fIn\fR, \fBrr\fIn\fR, \fBrh\fIn\fR, \fBrl\fIn\fR"
+The registers of the traced process, as addresses in the user area, so
+they can be displayed and patched like any other location.
+.PP
+The binary operators are
+.BR + ,
+.BR \- ,
+.B *
+and
+.B /
+with the usual precedence, the unary operators are
+.B \-
+(negation),
+.B ~
+(complement) and
+.B *
+(the word at the address), and parentheses group.
+All arithmetic is done in longs.
+An expression takes its space from its leftmost operand.
+.PP
+Where a command accepts several expressions they are separated by
+commas.
+An omitted address defaults to
+.BR . ,
+an omitted count to 1.
+.SH "Display"
+.IP "[\fIaddress\fB][,\fIcount\fB]?[\fIformat\fB]\fR" 0.6i
+Display
+.I count
+items starting at
+.IR address ,
+each according to
+.IR format .
+The format string is remembered per space and is reused when omitted;
+initially it is
+.B w
+for the data space and the user area and
+.B i
+for the instruction space.
+Every item starts a line with its address and moves
+.B .
+past what it displayed.
+The format is a sequence of the letters below, each optionally
+preceded by a repeat count:
+.RS
+.IP \fBb\fR 0.4i
+A byte.
+.IP \fBw\fR
+A word (16 bits);
+.B h
+is a synonym.
+.IP \fBl\fR
+A long (32 bits).
+.IP \fBv\fR
+A three-byte value, as stored in a file system.
+.IP \fBc\fR
+A character, with control characters and the backslash shown as C
+escapes.
+.IP \fBC\fR
+A character, printed as is.
+.IP \fBs\fR
+A string ending in a null byte, escaped as for
+.BR c .
+.IP \fBS\fR
+The same string without escapes.
+.IP \fBf\fR
+A single-precision floating point number.
+.IP \fBF\fR
+A double-precision floating point number.
+.IP \fBi\fR
+A machine instruction, disassembled.
+.IP \fBp\fR
+A long taken as an address, printed symbolically.
+.IP \fBY\fR
+A long taken as a time, printed as by
+.BR date .
+.IP "\fBd\fR, \fBo\fR, \fBu\fR, \fBx\fR"
+Select decimal, octal, unsigned or hexadecimal for the numeric formats
+that follow; hexadecimal is the default.
+.IP "\fB+\fR, \fB\-\fR"
+Move the address forward or back by the size of the last item without
+displaying anything.
+.IP \fB^\fR
+Return to the address the command started at.
+.IP \fBn\fR
+Start a new output line.
+.RE
+.IP "[\fIaddress\fB]=\fR"
+Print
+.I address
+in hexadecimal.
+.IP "\fIaddress\fB:a\fR"
+Print
+.I address
+symbolically, as the nearest symbol below it plus an offset.
+.IP "\fB!\fIcommand\fR"
+Pass the rest of the line to the shell.
+.IP "\fB?\fR"
+Alone on a line, print the last error message.
+Errors are otherwise reported by a single
+.B ?
+line.
+.SH "Patching"
+.IP "[\fIaddress\fB]=\fIvalue\fB[,\fIvalue\fB...]\fR" 0.6i
+Store the values (up to ten) at consecutive locations starting at
+.IR address .
+Each value has the size of the item last displayed, so a display
+command normally precedes a patch.
+The store goes to the mapped file, or to the traced process.
+.IP "[\fIexpr\fB]:o\fR"
+When
+.I expr
+is nonzero, swap the bytes of every word read from or written to the
+target.
+.SH "Running a Program"
+A program is started under trace control with
+.B :e
+(or the
+.B \-e
+option), after which it can be run to breakpoints and single stepped.
+The child stops at every breakpoint and every fault; the fault or the
+breakpoint's commands are then run and
+.B db
+reads commands again.
+.IP "\fB:e \fR[\fIargument\fB ...]\fR" 0.6i
+Start the object file as a child process with the given arguments
+(up to 19).
+Quotes and backslashes are honoured;
+.BR < ,
+.B >
+and
+.B >>
+redirect the child's standard input and output.
+A child already running is killed first.
+.IP "[\fIaddress\fB]:b\fR[\fIcommands\fB]\fR"
+Set a breakpoint at
+.I address
+and run
+.I commands
+whenever it is hit.
+The default command string displays the address symbolically and
+disassembles the instruction there, then waits for commands.
+Up to 15 breakpoints may be set.
+.IP "[\fIaddress\fB]:br\fR[\fIcommands\fB]\fR"
+Set a return breakpoint: it is taken when the function containing the
+current pc returns to
+.IR address .
+.IP "[\fIaddress\fB]:d\fR"
+Delete the breakpoint at
+.IR address ;
+.B :dr
+deletes a return breakpoint and
+.B :ds
+a step-over breakpoint, and
+.B :da
+deletes them all.
+.IP "\fB:p\fR"
+List the breakpoints.
+.IP "[\fIaddress\fB]:c\fR"
+Continue the child, at
+.I address
+if one is given.
+.IP "[\fIaddress\fB][,\fIcount\fB]:s\fR[\fBc\fR][\fIcommands\fB]\fR"
+Single step
+.I count
+instructions, starting at
+.I address
+if given, and run
+.I commands
+after each; by default the instruction at the new pc is disassembled.
+With
+.BR :sc ,
+a
+.B call
+instruction is stepped over: the called function runs at full speed
+and stepping resumes on return.
+While stepping, an empty command line steps once more.
+.IP "\fB:r\fR"
+Display the registers of the stopped child.
+.IP "[\fIdepth\fB]:t\fR"
+Print a traceback of the child's stack, one line per active function
+with the arguments it was called with, to
+.I depth
+levels (default: all).
+.IP "\fB:f\fR"
+Print the fault that stopped the child, or that produced the core file.
+.IP "\fB:m\fR"
+Print the address maps of the three spaces.
+.IP "[\fIexpr\fB]:x\fR"
+When
+.I expr
+is nonzero (the default), read commands from the standard input until
+end of file or a
+.B :q
+with a zero argument.
+Breakpoint command strings use this to stop and wait for the user.
+.IP "[\fIexpr\fB]:q\fR"
+When
+.I expr
+is nonzero (the default), kill the child if any and exit.
+End of file on the standard input has the same effect.
+.PP
+An interrupt from the terminal stops a running display and is
+reported as "Interrupt"; it does not kill the child.
+.SH FILES
+.TP 12
+l.out
+default object file
+.TP
+core
+default core file
+.TP
+/coherent, /dev/dump, /dev/mem
+defaults for
+.B \-d
+and
+.B \-k
+.TP
+/lib/slibc.a
+shared C library, mapped when the object uses it
+.TP
+/dev/tty
+terminal used by
+.B \-t
+.SH "SEE ALSO"
+cc, ld, nm, ptrace, core, l.out
+.SH DIAGNOSTICS
+Most errors set the message printed by
+.B ?
+and print a single
+.BR ? .
+"Cannot single step" means that no child is being traced.
+"Child process terminated (\fIn\fR)" reports the exit status of a child
+that ran to completion.
+"Ptrace error" reports a failure of the trace system call.
+.SH NOTES
+The breakpoint instruction is
+.B sc #0x81
+and single stepping uses the hardware single-step trap;
+.B sc
+and block-move instructions cannot be stepped that way, so
+.B db
+places a temporary breakpoint after them instead.
+.PP
+The
+.B :k
+command is accepted but sends no signal.
+Registers live in the user area, so patching them takes
+effect when the child next runs.

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * clgfx.c - hrgui client-side direct-render draw library (GUI.md Model A).
  *
  * The client blits its own content straight to VRAM (segments 0x3A/0x3B) through

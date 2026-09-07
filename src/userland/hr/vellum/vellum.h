@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * vellum.h - the shared types and externs of the Vellum SUITE.
  *
  * Vellum is a set of small tools over one model, not one program with

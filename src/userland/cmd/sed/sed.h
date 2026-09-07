@@ -110,7 +110,8 @@ typedef	struct	lab {
 typedef struct sub {
 	char	*s_pat;			/* Pattern */
 	char	*s_rep;			/* Replacement */
-	int	s_nth;			/* N'th */
+	int	s_nth;			/* N'th (0: every match) */
+	int	s_gfl;			/* g flag: N'th and every later one */
 	int	s_cop;			/* Copy flag */
 	struct	fil *s_fil;		/* File to write to */
 } SUB;

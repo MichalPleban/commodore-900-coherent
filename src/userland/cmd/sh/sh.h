@@ -111,6 +111,8 @@ typedef	struct	con {
 	struct	con *c_next;		/* Pointer to next */
 	NODE	*c_node;		/* Node which created this control */
 	BUF	**c_bpp;		/* Current free buffer */
+	char	*c_innp;		/* NFOR: loop variable name */
+	char	**c_inlp;		/* NFOR: next word of the list */
 	jmp_buf	c_envl;			/* Enviroment list */
 } CON;
 

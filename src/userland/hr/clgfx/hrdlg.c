@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrdlg.c - hrgui client-side modal dialog: open/close + the widget kit.
  *
  * See inc/hrdlg.h for the contract and an example.  The dialog itself is a

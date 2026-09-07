@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velsymg.c - the SYMBOL half of the model: the parsed stencil
  * libraries and the geometry of symbol space.
  *

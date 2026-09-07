@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1985 Rico Tudor.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * gfxtest.c - Phase 0 standalone draw test for libhrgfx (GUI.md sec 8).
  *
  * Links ONLY libhrgfx.a + libc.a - no window server, no IPC, no jlib - and

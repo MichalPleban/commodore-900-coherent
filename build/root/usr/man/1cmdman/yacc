@@ -91,6 +91,16 @@ DDIIAAGGNNOOSSTTIICCSS
      conflicts.
 
 NNOOTTEESS
+     The declaration %eexxppeecctt _n in the definitions section states
+     that the grammar is known to have exactly _n shift/reduce
+     conflicts; they are then not reported.  Any other count, or
+     any reduce/reduce conflict, is reported as usual.  A grammar
+     with no rules is rejected with a diagnostic.
+
+     The lexical analyzer yyyylleexx signals the end of its input by
+     returning -1; the generated parser also accepts the common
+     convention of returning 0.
+
      yyaacccc in this tree always writes yy.ttaabb.hh on every run,
      whether or not -dd was given.
 

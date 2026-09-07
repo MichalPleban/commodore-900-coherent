@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velbase.c - Vellum's DRAWING: the object list, the pools, the
  * layer / sheet / selection / view state, and every piece of geometry
  * that never touches the screen (bboxes, junction dots, attachment

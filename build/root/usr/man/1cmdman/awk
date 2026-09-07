@@ -38,11 +38,40 @@ DDEESSCCRRIIPPTTIIOONN
      sequence of statements, enclosed in braces, in a language
      similar to C, operating on fields of the current record
      (referred to as $11,  $22,  ...), built-in variables such as
-     NNRR (current record number) and NNFF (number of fields), and
-     user-defined variables.
+     NNRR (current record number), FFNNRR (record number within the
+     current file) and NNFF (number of fields), and user-defined
+     variables.  The expression _k_e_y iinn _a_r_r_a_y tests for an element
+     without creating it, and eexxiitt may be given a status.
 
 SSEEEE AALLSSOO
      ggrreepp, sseedd
 
 NNOOTTEESS
      This aawwkk recognizes only the options -yy, -FF, and -ff.
+
+     A program consisting only of BBEEGGIINN actions reads no input.
+     When the field separator is not a blank, every occurrence of
+     it ends a field, so empty fields are kept: with -FF: the
+     record aa:bb::dd has four fields, and sspplliitt with an explicit
+     separator behaves the same way.  Unlike other awks, con-
+     catenation binds looser than the comparison operators here
+     (and tighter than nothing else), so aa bb == aabb concatenates aa
+     with the result of the comparison; parenthesize a concatena-
+     tion that is to be compared.
+
+
+
+COHERENT Command Manual                                    Page 1
+
+
+
+
+aawwkk                                                           aawwkk
+
+
+
+     Arrays live in the process's single 64 KB data segment,
+     which holds roughly a thousand elements; a larger one stops
+     with OOuutt ooff mmeemmoorryy. Unsupported: a regular expression as
+     field separator, subscripts of the form aa[ii, jj], and a
+     parenthesised list after pprriinntt.

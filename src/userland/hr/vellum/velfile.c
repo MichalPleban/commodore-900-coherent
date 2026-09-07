@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velfile.c - Vellum's plain-text DRAWING format.
  *
  * Everything that reads or writes the "vellum1" .d format lives here:

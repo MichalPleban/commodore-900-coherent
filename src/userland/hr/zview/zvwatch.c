@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zvwatch.c - zview's crash watchdog as a TINY separate program.
  *
  * The watchdog is the process that outlives the server so a server death

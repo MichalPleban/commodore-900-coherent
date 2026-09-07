@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrwidg.h - dock-widget client support (hrwidg.c).
  *
  * A WIDGET is a windowless GUI process the dock (zdock) forks to draw live

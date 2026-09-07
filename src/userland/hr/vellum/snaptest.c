@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * snaptest.c - the SHIPPED undo pack/restore (velsnap.c, libvellum),
  * exercised without a window: the editor's snapshot is now a heap
  * block sized to the drawing, and the thing that could go wrong is the

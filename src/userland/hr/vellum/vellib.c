@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * vellib.c - the SYMBOL LIBRARIES: the .sym files, parsed into the
  * pools velsymg.c holds.
  *

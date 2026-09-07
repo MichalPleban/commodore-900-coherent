@@ -20,6 +20,8 @@ strncmp_:
 	ld	r0, SS|12(r15)		/
 
 1:
+	test	r0			/ n == 0: nothing to compare, so equal
+	ret	z			/ (a count of 0 would mean 65536 to cpsirb)
 	cpsirb	(rr2), (rr4), r0, ne	/ Compare the strings
 
 	ret	ne			/ return 0 if strings the same

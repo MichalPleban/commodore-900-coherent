@@ -15,7 +15,6 @@ f	/bin/c	755	3	0
 f	/bin/cal	755	3	0
 f	/bin/cat	755	3	1
 f	/bin/cc	755	3	0
-f	/bin/ccx	755	3	0
 f	/bin/check	755	3	1
 f	/bin/chgrp	755	3	1
 f	/bin/chmod	755	3	1
@@ -79,7 +78,6 @@ f	/bin/msg	4755	0	0
 f	/bin/mv	4755	0	1
 f	/bin/ncheck	755	3	1
 f	/bin/newgrp	4755	0	0
-f	/bin/nld	755	3	1
 f	/bin/nm	755	3	1
 f	/bin/nroff	755	3	1
 f	/bin/od	755	3	1
@@ -195,8 +193,7 @@ f	/lib/libfs.a	644	0	1
 f	/lib/libhrgfx.sl	755	0	0
 f	/lib/libm.a	644	0	0
 f	/lib/liby.a	644	0	1
-f	/lib/scrts0.o	644	0	1
-f	/lib/slibc.a	644	0	1
+f	/lib/libl.a	644	0	1
 f	/lib/yyparse.c	644	0	1
 d	/mnt	755	0	1
 d	/tmp	755	0	1
@@ -335,6 +332,7 @@ f	/usr/man/1cmdman/cpdir	644	0	1
 f	/usr/man/1cmdman/crypt	644	0	1
 f	/usr/man/1cmdman/cu	644	0	1
 f	/usr/man/1cmdman/date	644	0	1
+f	/usr/man/1cmdman/db	644	0	1
 f	/usr/man/1cmdman/dc	644	0	1
 f	/usr/man/1cmdman/dd	644	0	1
 f	/usr/man/1cmdman/deroff	644	0	1
@@ -620,3 +618,4 @@ f	/usr/hr/fonts/icons48	644	0	1
 f	/usr/hr/fonts/sail.r.6	644	0	1
 f	/usr/hr/fonts/sysfont	644	0	1
 f	/usr/hr/fonts/wheels	644	0	1
+f	/usr/include/path.h	644	0	0

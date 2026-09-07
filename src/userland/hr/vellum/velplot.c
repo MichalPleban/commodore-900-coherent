@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velplot.c - velplot: a drawing onto a PAGE, on whatever device the
  * shop owns.
  *

@@ -255,5 +255,27 @@ Called by the generated
 .B yylex()
 at end of file; return nonzero to stop, or arrange for more input and
 return zero to continue.
+.SH FILES
+.TP
+.B lex.yy.c
+the generated scanner
+.TP
+.B /lib/libl.a
+the run-time library (-ll): the automaton interpreter behind
+.BR yylex() ,
+.BR yytext ,
+.BR yyleng ,
+.BR yyline ,
+.BR REJECT ,
+.B yyswitch
+and
+.BR unput ,
+plus a default
+.B main()
+that calls
+.B yylex()
+and a default
+.B yywrap()
+that returns 1; a program defining its own gets its own.
 .SH "SEE ALSO"
 .B yacc

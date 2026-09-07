@@ -65,9 +65,18 @@ language similar to C, operating on fields of the current record
 .BR $1 ", " $2 ", " ... ),
 built-in variables such as
 .B NR
-(current record number) and
+(current record number),
+.B FNR
+(record number within the current file) and
 .B NF
 (number of fields), and user-defined variables.
+The expression
+.I key
+.B in
+.I array
+tests for an element without creating it, and
+.B exit
+may be given a status.
 .SH "SEE ALSO"
 .BR grep ,
 .B sed
@@ -79,3 +88,31 @@ recognizes only the options
 .BR \-F ,
 and
 .BR \-f .
+.PP
+A program consisting only of
+.B BEGIN
+actions reads no input.
+When the field separator is not a blank, every occurrence of it ends a
+field, so empty fields are kept: with
+.B \-F:
+the record
+.B a:b::d
+has four fields, and
+.B split
+with an explicit separator behaves the same way.
+Unlike other awks, concatenation binds looser than the comparison
+operators here (and tighter than nothing else), so
+.B \(dqa\(dq \(dqb\(dq == \(dqab\(dq
+concatenates
+.B \(dqa\(dq
+with the result of the comparison; parenthesize a concatenation that
+is to be compared.
+.PP
+Arrays live in the process's single 64 KB data segment, which holds
+roughly a thousand elements; a larger one stops with
+.BR "Out of memory" .
+Unsupported: a regular expression as field separator, subscripts of the
+form
+.BR a[i,\ j] ,
+and a parenthesised list after
+.BR print .

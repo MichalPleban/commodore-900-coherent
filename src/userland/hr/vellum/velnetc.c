@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velnetc.c - the CONNECTIVITY, and nothing said about it: wires
  * unioned by endpoint, junctions and pins attached, nets named.  It
  * is asked its questions by more than one tool -- velnet reports the

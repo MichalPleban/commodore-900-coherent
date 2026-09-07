@@ -101,6 +101,7 @@ awkinit()
 	 */
 	NRp = install("NR", (INT)0);
 	NFp = install("NF", (INT)0);
+	FNRp = install("FNR", (INT)0);
 	FILENAMEp = lookup("FILENAME");
 	sassign(FSp = install("FS", (INT)0), " \t\n");
 	sassign(RSp = install("RS", (INT)0), "\n");
@@ -318,4 +319,37 @@ register char *fsp;
 		*cp++ = 0;
 	while (*fsp != '\0')
 		FSMAP[*fsp++] = 1;
+	/* A blank in FS (the default " \t\n") means fields are separated
+	 * by RUNS of separators and leading ones are ignored; any other
+	 * separator (-F: or FS = ":") splits at every occurrence, so empty
+	 * fields are kept -- a:b::d has four. */
+	fsblank = FSMAP[' '];
+}
+
+/*
+ * Like alookup, but only looks: the element `array[index]' if it
+ * exists, else NULL.  This is the `in' operator, which must not create
+ * the element it asks about.
+ */
+NODE *
+afind(array, index)
+char *array;
+char *index;
+{
+	register char *ip;
+	register TERM *tp;
+	register unsigned hash;
+	register unsigned nba;
+
+	hash = 0;
+	nba = sizeof (char);
+	for (ip = array; *ip != '\0'; hash++, nba++)
+		hash += *ip++;
+	for (ip = index; *ip != '\0'; hash++)
+		hash += *ip++;
+	for (tp = symtab[hash % NHASH]; tp != NULL; tp = tp->t_next)
+		if (hash==tp->t_hval && tp->t_flag&T_ARRAY
+		  && streq(tp->t_name, array) && streq(tp->t_name+nba, index))
+			return ((NODE *)tp);
+	return ((NODE *)NULL);
 }

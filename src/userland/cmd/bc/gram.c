@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#line 4 "gram.y"
+#line 8 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 #include <stdio.h>
 #include "bc.h"
@@ -31,7 +31,7 @@ extern short yyerrflag;
 #endif
 YYSTYPE yyval, yylval;
 
-#line 672 "gram.y"
+#line 676 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 
 
@@ -112,7 +112,7 @@ struct yytname yytnames[] =
 	"','", 44, 
 	"'['", 91, 
 	"']'", 93, 
-	NULL,
+	NULL
 } ;
 #endif
 unsigned yypdnt[109] = {
@@ -129,7 +129,7 @@ unsigned yypdnt[109] = {
 035, 040, 040, 031, 033, 033, 033, 034, 
 034, 034, 032, 032, 032, 032, 032, 032, 
 036, 036, 036, 07, 07, 04, 04, 041, 
-041, 041, 041, 041, 041, 
+041, 041, 041, 041, 041  
 } ;
 unsigned yypn[109] = {
 02, 00, 02, 02, 03, 06, 012, 020, 
@@ -145,16 +145,16 @@ unsigned yypn[109] = {
 01, 01, 03, 00, 01, 01, 01, 01, 
 01, 01, 01, 01, 01, 01, 01, 01, 
 01, 01, 01, 00, 03, 00, 03, 01, 
-01, 01, 01, 01, 01, 
+01, 01, 01, 01, 01  
 } ;
 unsigned yypgo[34] = {
 00, 00, 02, 020, 022, 024, 026, 034, 
 042, 050, 072, 0106, 0112, 0144, 0176, 0220, 
-0274, 0300, 0302, 0304, 0306, 0310, 0312, 0320, 
-0322, 0362, 0364, 0370, 0372, 0432, 0434, 0436, 
-0442, 0444, 
+0274, 0300, 0302, 0304, 0306, 0312, 0314, 0322, 
+0324, 0364, 0366, 0372, 0374, 0434, 0436, 0440, 
+0444, 0446  
 } ;
-unsigned yygo[296] = {
+unsigned yygo[298] = {
 0176030, 01, 01, 035, 0210, 0234, 0253, 0260, 
 0262, 0270, 0263, 0271, 0310, 0311, 0176030, 0160, 
 0176030, 036, 0176030, 0152, 0176030, 0247, 0205, 0231, 
@@ -179,19 +179,20 @@ unsigned yygo[296] = {
 0217, 0235, 0232, 0221, 0237, 0251, 0253, 041, 
 0262, 041, 0263, 041, 0273, 041, 0301, 0221, 
 0310, 041, 0176030, 076, 0265, 0273, 0176030, 0105, 
-0176030, 0151, 0176030, 042, 0176030, 0171, 0176030, 0242, 
-0176030, 0265, 0224, 0243, 0264, 0272, 0176030, 0172, 
-0176030, 0173, 011, 062, 020, 070, 030, 0102, 
-067, 0102, 0107, 0102, 0110, 0102, 0111, 0102, 
-0112, 0102, 0113, 0102, 0114, 0102, 0155, 0102, 
-0217, 0102, 0232, 0102, 0237, 0102, 0301, 0102, 
-0176030, 043, 0176030, 0123, 0123, 0175, 0176030, 0135, 
-0176030, 044, 011, 063, 020, 071, 030, 0103, 
-067, 0103, 0107, 0103, 0110, 0103, 0111, 0103, 
-0112, 0103, 0113, 0103, 0114, 0103, 0155, 0103, 
-0217, 0103, 0232, 0103, 0237, 0103, 0301, 0103, 
-0176030, 045, 0176030, 0142, 0176030, 046, 0203, 0230, 
-0176030, 0143, 0176030, 0144, 0221, 0237, 0176030, 0217, 
+0176030, 0151, 0176030, 042, 0176030, 0171, 0252, 0257, 
+0176030, 0242, 0176030, 0265, 0224, 0243, 0264, 0272, 
+0176030, 0172, 0176030, 0173, 011, 062, 020, 070, 
+030, 0102, 067, 0102, 0107, 0102, 0110, 0102, 
+0111, 0102, 0112, 0102, 0113, 0102, 0114, 0102, 
+0155, 0102, 0217, 0102, 0232, 0102, 0237, 0102, 
+0301, 0102, 0176030, 043, 0176030, 0123, 0123, 0175, 
+0176030, 0135, 0176030, 044, 011, 063, 020, 071, 
+030, 0103, 067, 0103, 0107, 0103, 0110, 0103, 
+0111, 0103, 0112, 0103, 0113, 0103, 0114, 0103, 
+0155, 0103, 0217, 0103, 0232, 0103, 0237, 0103, 
+0301, 0103, 0176030, 045, 0176030, 0142, 0176030, 046, 
+0203, 0230, 0176030, 0143, 0176030, 0144, 0221, 0237, 
+0176030, 0217  
 } ;
 unsigned yypa[203] = {
 00, 02, 070, 074, 0100, 0102, 0112, 0120, 
@@ -215,13 +216,13 @@ unsigned yypa[203] = {
 01472, 01106, 01476, 01502, 01506, 01512, 01514, 01516, 
 01520, 0144, 01142, 01522, 01524, 01530, 0532, 0242, 
 01546, 01550, 01552, 01556, 01560, 01562, 0144, 01566, 
-0144, 01570, 01606, 01374, 0532, 01560, 01560, 01612, 
-01616, 0144, 01374, 01374, 01506, 0332, 01622, 0240, 
-01626, 0144, 0120, 01630, 01560, 0534, 01714, 01716, 
-01720, 01142, 01722, 01726, 0144, 0120, 01560, 01732, 
-01374, 0144, 01734, 
+0144, 01570, 01502, 01374, 0532, 01560, 01560, 01606, 
+01612, 0144, 01374, 01374, 01506, 0332, 01616, 0240, 
+01622, 0144, 0120, 01624, 01560, 0534, 01710, 01712, 
+01714, 01142, 01716, 01722, 0144, 0120, 01560, 01726, 
+01374, 0144, 01730  
 } ;
-unsigned yyact[990] = {
+unsigned yyact[986] = {
 020001, 0176030, 02, 0177777, 04, 0400, 05, 0401, 
 06, 0402, 07, 0405, 010, 0406, 011, 0463, 
 012, 0410, 013, 0412, 014, 0413, 015, 0420, 
@@ -334,18 +335,18 @@ unsigned yyact[990] = {
 020056, 0176030, 0252, 0173, 060000, 0176030, 020052, 0176030, 
 020040, 0176030, 0254, 073, 060000, 0176030, 020005, 0176030, 
 0107, 053, 0110, 055, 0111, 052, 0112, 057, 
-0113, 045, 0114, 0136, 020144, 0176030, 0257, 012, 
-060000, 0176030, 0264, 0404, 020047, 0176030, 0266, 0442, 
-060000, 0176030, 0274, 050, 060000, 0176030, 020032, 0176030, 
-04, 0400, 05, 0401, 06, 0402, 07, 0405, 
-010, 0406, 011, 0463, 013, 0412, 014, 0413, 
-015, 0420, 016, 0423, 017, 0424, 020, 0462, 
-021, 0426, 022, 0433, 023, 0434, 024, 0436, 
-025, 0437, 026, 0440, 027, 0442, 030, 055, 
-031, 012, 032, 050, 033, 073, 034, 0173, 
-0300, 0175, 060000, 0176030, 020006, 0176030, 020050, 0176030, 
-020043, 0176030, 0304, 051, 060000, 0176030, 0305, 051, 
-060000, 0176030, 020010, 0176030, 020007, 0176030, 
+0113, 045, 0114, 0136, 020144, 0176030, 0264, 0404, 
+020047, 0176030, 0266, 0442, 060000, 0176030, 0274, 050, 
+060000, 0176030, 020032, 0176030, 04, 0400, 05, 0401, 
+06, 0402, 07, 0405, 010, 0406, 011, 0463, 
+013, 0412, 014, 0413, 015, 0420, 016, 0423, 
+017, 0424, 020, 0462, 021, 0426, 022, 0433, 
+023, 0434, 024, 0436, 025, 0437, 026, 0440, 
+027, 0442, 030, 055, 031, 012, 032, 050, 
+033, 073, 034, 0173, 0300, 0175, 060000, 0176030, 
+020006, 0176030, 020050, 0176030, 020043, 0176030, 0304, 051, 
+060000, 0176030, 0305, 051, 060000, 0176030, 020010, 0176030, 
+020007, 0176030  
 } ;
 #include "action.h"
 #define YYNOCHAR (-1000)
@@ -354,7 +355,12 @@ unsigned yyact[990] = {
 int yystack[YYMAXDEPTH];
 YYSTYPE yyvstack[YYMAXDEPTH], *yyv;
 int yychar;
-int yydebug = 0;	/* No sir, not in the BSS */
+
+#ifdef YYDEBUG
+int yydebug = 1;	/* No sir, not in the BSS */
+#include <stdio.h>
+#endif
+
 short yyerrflag;
 int *yys;
 
@@ -371,21 +377,25 @@ yyparse()
 
 stack:
 	if( ++yys >= &yystack[YYMAXDEPTH] ) {
-		fprintf(stderr, "Stack overflow\n");
+		write(2, "Stack overflow\n", 15);
 		exit(1);
 	}
 	*yys = yystate;
 	*++yyv = yyval;
+#ifdef YYDEBUG
 	if( yydebug )
 		fprintf(stdout, "Stack state %d, char %d\n", yystate, yychar);
+#endif
 
 read:
 	ip = &yyact[yypa[yystate]];
 	if( ip[1] != YYNOCHAR ) {
 		if( yychar == YYNOCHAR ) {
 			yychar = yylex();
+#ifdef YYDEBUG
 			if( yydebug )
 				fprintf(stdout, "lex read char %d, val %d\n", yychar, yylval);
+#endif
 		}
 		while (ip[1]!=YYNOCHAR) {
 			if (ip[1]==yychar)
@@ -402,15 +412,19 @@ read:
 			yychar = YYNOCHAR; /* dont throw away EOF */
 		yystate = act&YYAMASK;
 		yyval = yylval;
+#ifdef YYDEBUG
 		if( yydebug )
 			fprintf(stdout, "shift %d\n", yystate);
+#endif
 		if( yyerrflag )
 			--yyerrflag;
 		goto stack;
 
 	case YYACCEPTACT:
+#ifdef YYDEBUG
 		if( yydebug )
 			fprintf(stdout, "accept\n");
+#endif
 		return(0);
 
 	case YYERRACT:
@@ -431,18 +445,24 @@ read:
 					yystate = *ip&YYAMASK;
 					goto stack;
 				}
+#ifdef YYDEBUG
 				if( yydebug )
 					fprintf(stderr, "error recovery leaves state %d, uncovers %d\n", *yys, yys[-1]);
+#endif
 				yys--;
 				yyv--;
 			}
+#ifdef YYDEBUG
 			if( yydebug )
 				fprintf(stderr, "no shift on error; abort\n");
+#endif
 			return(1);
 
 		case 3:
+#ifdef YYDEBUG
 			if( yydebug )
 				fprintf(stderr, "Error recovery clobbers char %o\n", yychar);
+#endif
 			if( yychar==YYEOFVAL )
 				return(1);
 			yychar = YYNOCHAR;
@@ -451,8 +471,10 @@ read:
 
 	case YYREDACT:
 		pno = act&YYAMASK;
+#ifdef YYDEBUG
 		if( yydebug )
 			fprintf(stdout, "reduce %d\n", pno);
+#endif
 		yypvt = yyv;
 		yyv -= yypn[pno];
 		yys -= yypn[pno];
@@ -461,7 +483,7 @@ read:
 
 case 2: {
 
-#line 62 "gram.y"
+#line 66 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(STOP);
 		if (allok)
@@ -473,7 +495,7 @@ case 2: {
 
 case 3: {
 
-#line 70 "gram.y"
+#line 74 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PGLSC);
 		emitnum(&zero);
@@ -493,7 +515,7 @@ case 3: {
 
 case 4: {
 
-#line 86 "gram.y"
+#line 90 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		YYERROK;
 		loc = cstream;
@@ -503,14 +525,14 @@ case 4: {
 
 case 5: {
 
-#line 117 "gram.y"
+#line 121 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 					/* $6  */
 			patch(yypvt[-3].location, yypvt[0].location);
 		}break;
 
 case 6: {
 
-#line 133 "gram.y"
+#line 137 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 						/* $10 */
 			patch(yypvt[-6].location, yypvt[-2].location);
 			patch(yypvt[-3].location, loc);
@@ -521,7 +543,7 @@ case 6: {
 
 case 7: {
 
-#line 159 "gram.y"
+#line 163 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 						/* $16 */
 			patch(yypvt[-10].location, yypvt[-2].location);
 			patch(yypvt[-7].location, loc);
@@ -533,7 +555,7 @@ case 7: {
 
 case 8: {
 
-#line 182 "gram.y"
+#line 186 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 	/* $11 */
 			patch(yypvt[-12].location, yypvt[-7].location);
 			patch(yypvt[-10].location, loc);
@@ -545,7 +567,7 @@ case 8: {
 
 case 9: {
 
-#line 190 "gram.y"
+#line 194 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		if (breakloc == NULL)
 			gerror("Break not in loop");
@@ -555,7 +577,7 @@ case 9: {
 
 case 10: {
 
-#line 196 "gram.y"
+#line 200 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		if (contloc == NULL)
 			gerror("Continue not in loop");
@@ -565,7 +587,7 @@ case 10: {
 
 case 11: {
 
-#line 202 "gram.y"
+#line 206 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		if (retfrom == NULL)
 			gerror("Return not in function");
@@ -578,7 +600,7 @@ case 11: {
 
 case 12: {
 
-#line 211 "gram.y"
+#line 215 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		if (retfrom == NULL)
 			gerror("Return not in function");
@@ -588,14 +610,14 @@ case 12: {
 
 case 13: {
 
-#line 217 "gram.y"
+#line 221 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(POP);
 	}break;
 
 case 14: {
 
-#line 220 "gram.y"
+#line 224 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PRNUM);
 		emitop(PRNL);
@@ -603,14 +625,14 @@ case 14: {
 
 case 15: {
 
-#line 224 "gram.y"
+#line 228 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PRNUM);
 	}break;
 
 case 16: {
 
-#line 227 "gram.y"
+#line 231 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PRSTR);
 		emitstr(yypvt[-1].svalue);
@@ -619,7 +641,7 @@ case 16: {
 
 case 17: {
 
-#line 232 "gram.y"
+#line 236 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PRSTR);
 		emitstr(yypvt[-2].svalue);
@@ -627,21 +649,21 @@ case 17: {
 
 case 19: {
 
-#line 237 "gram.y"
+#line 241 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		return(0);
 	}break;
 
 case 25: {
 
-#line 257 "gram.y"
+#line 261 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.location = loc;
 	}break;
 
 case 26: {
 
-#line 260 "gram.y"
+#line 264 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.location = yypvt[-1].location;
 		patch(yypvt[-2].location, loc);
@@ -649,21 +671,21 @@ case 26: {
 
 case 29: {
 
-#line 274 "gram.y"
+#line 278 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(POP);
 	}break;
 
 case 30: {
 
-#line 277 "gram.y"
+#line 281 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(POP);
 	}break;
 
 case 31: {
 
-#line 284 "gram.y"
+#line 288 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(BRALW);
 		yyval.location = emitzap;
@@ -671,14 +693,14 @@ case 31: {
 
 case 32: {
 
-#line 292 "gram.y"
+#line 296 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.location = loc;
 	}break;
 
 case 33: {
 
-#line 299 "gram.y"
+#line 303 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.location = breakloc;
 		breakloc = loc;
@@ -686,7 +708,7 @@ case 33: {
 
 case 34: {
 
-#line 307 "gram.y"
+#line 311 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.location = contloc;
 		contloc = loc;
@@ -694,7 +716,7 @@ case 34: {
 
 case 36: {
 
-#line 326 "gram.y"
+#line 330 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		chkfunc(yypvt[0].dvalue);
 		retfrom = yypvt[0].dvalue;
@@ -703,7 +725,7 @@ case 36: {
 
 case 37: {
 
-#line 335 "gram.y"
+#line 339 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		pardvec = NULL;
 		lpardvec = 0;
@@ -711,7 +733,7 @@ case 37: {
 
 case 38: {
 
-#line 339 "gram.y"
+#line 343 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		pardvec = dvec;
 		lpardvec = ldvec;
@@ -721,7 +743,7 @@ case 38: {
 
 case 39: {
 
-#line 349 "gram.y"
+#line 353 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		autdvec = NULL;
 		lautdvec = 0;
@@ -729,7 +751,7 @@ case 39: {
 
 case 40: {
 
-#line 353 "gram.y"
+#line 357 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		autdvec = dvec;
 		lautdvec = ldvec;
@@ -738,7 +760,7 @@ case 40: {
 
 case 41: {
 
-#line 362 "gram.y"
+#line 366 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		dvec = (dicent **)mpalc(ldvec * sizeof (*dvec));
 		dvec += ldvec;
@@ -747,14 +769,14 @@ case 41: {
 
 case 42: {
 
-#line 367 "gram.y"
+#line 371 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		*--dvec = yypvt[-2].dvalue;
 	}break;
 
 case 43: {
 
-#line 374 "gram.y"
+#line 378 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		if (yypvt[0].dvalue->localt != UNDEFINED)
 			gerror("Attempt to redeclare %s", yypvt[0].dvalue->word);
@@ -765,7 +787,7 @@ case 43: {
 
 case 44: {
 
-#line 381 "gram.y"
+#line 385 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		if (yypvt[-2].dvalue->localt != UNDEFINED)
 			gerror("Attempt to redeclare %s", yypvt[-2].dvalue->word);
@@ -776,14 +798,14 @@ case 44: {
 
 case 49: {
 
-#line 408 "gram.y"
+#line 412 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(STORE);
 	}break;
 
 case 50: {
 
-#line 411 "gram.y"
+#line 415 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(yypvt[-1].opcode);
 		emitop(STORE);
@@ -791,14 +813,14 @@ case 50: {
 
 case 51: {
 
-#line 415 "gram.y"
+#line 419 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(yypvt[-2].opcode);
 	}break;
 
 case 52: {
 
-#line 418 "gram.y"
+#line 422 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(yypvt[-1].opcode);
 		emitop(yypvt[-2].opcode);
@@ -806,7 +828,7 @@ case 52: {
 
 case 53: {
 
-#line 426 "gram.y"
+#line 430 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PGLSC);
 		emitnum(yypvt[0].lvalue);
@@ -815,7 +837,7 @@ case 53: {
 
 case 54: {
 
-#line 431 "gram.y"
+#line 435 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PGLSC);
 		emitnum(&dot);
@@ -824,14 +846,14 @@ case 54: {
 
 case 55: {
 
-#line 436 "gram.y"
+#line 440 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(LOAD);
 	}break;
 
 case 57: {
 
-#line 440 "gram.y"
+#line 444 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		chkfunc(yypvt[-3].dvalue);
 		emitop(CALL);
@@ -841,7 +863,7 @@ case 57: {
 
 case 58: {
 
-#line 446 "gram.y"
+#line 450 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PRVAL);
 		emitop(INC);
@@ -850,7 +872,7 @@ case 58: {
 
 case 59: {
 
-#line 451 "gram.y"
+#line 455 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(INC);
 		emitop(yypvt[0].opcode);
@@ -858,7 +880,7 @@ case 59: {
 
 case 60: {
 
-#line 455 "gram.y"
+#line 459 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PRVAL);
 		emitop(DEC);
@@ -867,7 +889,7 @@ case 60: {
 
 case 61: {
 
-#line 460 "gram.y"
+#line 464 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(DEC);
 		emitop(yypvt[0].opcode);
@@ -875,7 +897,7 @@ case 61: {
 
 case 62: {
 
-#line 464 "gram.y"
+#line 468 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PRVAL);
 		emitop(INC);
@@ -885,7 +907,7 @@ case 62: {
 
 case 63: {
 
-#line 470 "gram.y"
+#line 474 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(INC);
 		emitop(yypvt[-1].opcode);
@@ -894,7 +916,7 @@ case 63: {
 
 case 64: {
 
-#line 475 "gram.y"
+#line 479 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PRVAL);
 		emitop(DEC);
@@ -904,7 +926,7 @@ case 64: {
 
 case 65: {
 
-#line 481 "gram.y"
+#line 485 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(DEC);
 		emitop(yypvt[-1].opcode);
@@ -913,133 +935,133 @@ case 65: {
 
 case 66: {
 
-#line 486 "gram.y"
+#line 490 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(NEG);
 	}break;
 
 case 67: {
 
-#line 489 "gram.y"
+#line 493 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(EXP);
 	}break;
 
 case 68: {
 
-#line 492 "gram.y"
+#line 496 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(MUL);
 	}break;
 
 case 69: {
 
-#line 495 "gram.y"
+#line 499 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(DIV);
 	}break;
 
 case 70: {
 
-#line 498 "gram.y"
+#line 502 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(REM);
 	}break;
 
 case 71: {
 
-#line 501 "gram.y"
+#line 505 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(ADD);
 	}break;
 
 case 72: {
 
-#line 504 "gram.y"
+#line 508 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(SUB);
 	}break;
 
 case 74: {
 
-#line 508 "gram.y"
+#line 512 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(yypvt[-3].opcode);
 	}break;
 
 case 75: {
 
-#line 515 "gram.y"
+#line 519 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		sload(yypvt[0].dvalue);
 	}break;
 
 case 76: {
 
-#line 518 "gram.y"
+#line 522 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		aeload(yypvt[-3].dvalue);
 	}break;
 
 case 78: {
 
-#line 526 "gram.y"
+#line 530 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		arload(yypvt[-2].dvalue);
 	}break;
 
 case 79: {
 
-#line 533 "gram.y"
+#line 537 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.ivalue = 0;
 	}break;
 
 case 81: {
 
-#line 542 "gram.y"
+#line 546 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.ivalue = 1;
 	}break;
 
 case 82: {
 
-#line 545 "gram.y"
+#line 549 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.ivalue = yypvt[-2].ivalue + 1;
 	}break;
 
 case 83: {
 
-#line 552 "gram.y"
+#line 556 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(PRVAL);
 	}break;
 
 case 84: {
 
-#line 559 "gram.y"
+#line 563 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = SIBASE;
 	}break;
 
 case 85: {
 
-#line 562 "gram.y"
+#line 566 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = SOBASE;
 	}break;
 
 case 86: {
 
-#line 565 "gram.y"
+#line 569 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = SSCALE;
 	}break;
 
 case 87: {
 
-#line 572 "gram.y"
+#line 576 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(LIBASE);
 		yyval.opcode = SIBASE;
@@ -1047,7 +1069,7 @@ case 87: {
 
 case 88: {
 
-#line 576 "gram.y"
+#line 580 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(LOBASE);
 		yyval.opcode = SOBASE;
@@ -1055,7 +1077,7 @@ case 88: {
 
 case 89: {
 
-#line 580 "gram.y"
+#line 584 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(LSCALE);
 		yyval.opcode = SSCALE;
@@ -1063,70 +1085,70 @@ case 89: {
 
 case 90: {
 
-#line 588 "gram.y"
+#line 592 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = ADD;
 	}break;
 
 case 91: {
 
-#line 591 "gram.y"
+#line 595 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = SUB;
 	}break;
 
 case 92: {
 
-#line 594 "gram.y"
+#line 598 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = MUL;
 	}break;
 
 case 93: {
 
-#line 597 "gram.y"
+#line 601 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = DIV;
 	}break;
 
 case 94: {
 
-#line 600 "gram.y"
+#line 604 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = REM;
 	}break;
 
 case 95: {
 
-#line 603 "gram.y"
+#line 607 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = EXP;
 	}break;
 
 case 96: {
 
-#line 610 "gram.y"
+#line 614 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = SQRT;
 	}break;
 
 case 97: {
 
-#line 613 "gram.y"
+#line 617 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = LENGTH;
 	}break;
 
 case 98: {
 
-#line 616 "gram.y"
+#line 620 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = SCALE;
 	}break;
 
 case 99: {
 
-#line 627 "gram.y"
+#line 631 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(BRALW);
 		yyval.location = emitzap;
@@ -1134,7 +1156,7 @@ case 99: {
 
 case 100: {
 
-#line 631 "gram.y"
+#line 635 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(yypvt[-1].opcode);
 		yyval.location = emitzap;
@@ -1142,7 +1164,7 @@ case 100: {
 
 case 101: {
 
-#line 639 "gram.y"
+#line 643 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(BRNEV);
 		yyval.location = emitzap;
@@ -1150,7 +1172,7 @@ case 101: {
 
 case 102: {
 
-#line 643 "gram.y"
+#line 647 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		emitop(negate(yypvt[-1].opcode));
 		yyval.location = emitzap;
@@ -1158,42 +1180,42 @@ case 102: {
 
 case 103: {
 
-#line 651 "gram.y"
+#line 655 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = BRLT;
 	}break;
 
 case 104: {
 
-#line 654 "gram.y"
+#line 658 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = BRLE;
 	}break;
 
 case 105: {
 
-#line 657 "gram.y"
+#line 661 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = BREQ;
 	}break;
 
 case 106: {
 
-#line 660 "gram.y"
+#line 664 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = BRGE;
 	}break;
 
 case 107: {
 
-#line 663 "gram.y"
+#line 667 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = BRGT;
 	}break;
 
 case 108: {
 
-#line 666 "gram.y"
+#line 670 "C:/Users/micha/Documents/Coherent/Source/src/userland/cmd/bc/gram.y"
 
 		yyval.opcode = BRNE;
 	}break;

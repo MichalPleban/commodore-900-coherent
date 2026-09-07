@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velsnap.c - the model, packed into one block and put back.
  *
  * The editor's one-level undo keeps a PRE-IMAGE of the drawing.  As

@@ -11,11 +11,13 @@ test -- evaluate conditional expression
 Usage:	test expression ...
 Expression:
 	-d file		'file' exists and is a directory
+	-e file		'file' exists
 	-f file		'file' exists and is not a directory
 	-n string	'string' is of nonzero length
 	-r file		'file' exists and is readable
 	-s file		'file' exists and has nonzero size
 	-t [fd]		File descriptor fd (default 1) is a terminal
+	-x file		'file' exists and is executable
 	-w file		'file' exists and is writable
 	-z string	'string' is of zero length
 	string		'string' is not zero-length
@@ -57,6 +59,10 @@ binds more tightly than
 True if
 .I file
 exists and is a directory.
+.IP "\fB\-e \fIfile\fR"
+True if
+.I file
+exists.
 .IP "\fB\-f \fIfile\fR"
 True if
 .I file
@@ -77,6 +83,10 @@ exists and has nonzero size.
 True if file descriptor
 .I fd
 (default 1, standard output) is associated with a terminal.
+.IP "\fB\-x \fIfile\fR"
+True if
+.I file
+exists and is executable.
 .IP "\fB\-w \fIfile\fR"
 True if
 .I file

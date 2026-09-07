@@ -69,6 +69,12 @@
 #define PASSY	78
 #define MSGY	112
 
+/* The "Launching zview..." frame that replaces the card once the password
+ * is accepted: text + DLG_MARG each side, one text row + DLG_MARG above and
+ * below.  Width is rounded to whole words like the card. */
+#define LAUNCHMSG	"Launching zview..."
+#define LAUNCHH	(16 + 2 * DLG_MARG)
+
 #define NAMEMAX	DIRSIZ		/* utmp ut_name is DIRSIZ; also fits the box */
 #define PASSMAX	20		/* fits the box; crypt() reads 8 anyway      */
 
@@ -331,6 +337,36 @@ drawpanel()
 	drawfield(1);
 }
 
+/* The password was accepted: take the login form down at once and say
+ * what is happening.  The exec of zview and its start-up take seconds on
+ * this machine, and a form that just sits there with the typed name in it
+ * looks like a hang.  The card and its shadow are dithered over (the same
+ * OFF_WHITE desktop pattern drawpanel() lays down) and a small card-style
+ * frame with a one-line notice takes its place; zview's first full-screen
+ * paint erases the frame. */
+static
+launching()
+{
+	RECT r;
+	int w, x, y;
+
+	frect(cardx, cardy, cardx + CARDW + WD_SHADOW, cardy + CARDH + WD_SHADOW,
+	      10, L_TRUE);
+
+	w = (strlen(LAUNCHMSG) * FONT->cellw + 2 * DLG_MARG + 15) & ~0x0f;
+	x = ((XMAX - w - WD_SHADOW) / 2) & ~0x0f;
+	y = (YMAX - LAUNCHH - WD_SHADOW) / 2;
+	r.origin.x = x;  r.origin.y = y;
+	r.corner.x = x + w + WD_SHADOW;
+	r.corner.y = y + LAUNCHH + WD_SHADOW;
+	shadow(r, WD_SHADOW);
+	r.corner.x -= WD_SHADOW;
+	r.corner.y -= WD_SHADOW;
+	fill(r, 0, L_TRUE);
+	border(r);
+	ctext(x, x + w, y + DLG_MARG, LAUNCHMSG);
+}
+
 /* RAW, echo off: every byte comes straight to read(2) and nothing is
  * echoed as console glyphs over the panel.  Speeds and editing characters
  * are kept from whatever getty left. */
@@ -424,9 +460,11 @@ auth()
 }
 
 /* The successful login: /bin/login's bookkeeping, then exec the desktop as
- * the session.  Returns only on a pre-privilege failure (no home dir);
- * after setuid the only way out is exit -> init respawns the greeter. */
-static void
+ * the session.  Returns (0) only on a pre-privilege failure (no home dir),
+ * and paints nothing itself -- by now the card is gone under the launching
+ * frame, so the caller redraws the panel and shows the message; after
+ * setuid the only way out is exit -> init respawns the greeter. */
+static
 session(pwp)
 register struct passwd *pwp;
 {
@@ -435,10 +473,7 @@ register struct passwd *pwp;
 	register int i;
 
 	if ( chdir(pwp->pw_dir) < 0 )
-	{
-		message("No home directory");
-		return;
-	}
+		return 0;
 	setutmp(CONSOLE, pwp->pw_name, "/usr/adm/wtmp", 1);
 	chown(CONSOLE, pwp->pw_uid, pwp->pw_gid);
 	chmod(CONSOLE, 0700);
@@ -540,18 +575,23 @@ main()
 				continue;
 			}
 			pwp = auth();
+			nlen = plen = 0;
+			name[0] = pass[0] = '\0';
+			focus = 0;
 			if ( pwp != (struct passwd *)0 )
+			{
+				launching();
 				session(pwp);	/* returns only on failure */
+				drawpanel();	/* the frame took the card */
+				message("No home directory");
+			}
 			else
 			{
 				setutmp(CONSOLE, name, "/usr/adm/failed", 0);
 				message("Login incorrect");
+				drawfield(0);
+				drawfield(1);
 			}
-			nlen = plen = 0;
-			name[0] = pass[0] = '\0';
-			focus = 0;
-			drawfield(0);
-			drawfield(1);
 			continue;
 		}
 		if ( msgup )

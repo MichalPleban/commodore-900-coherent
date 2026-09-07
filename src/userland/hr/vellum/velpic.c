@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velpic.c - velpic: a drawing as troff PIC SOURCE, so a sheet drops
  * into a document the way a figure does.
  *

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * veldxfo.c - the DXF writer half of veldxf: a vellum drawing OUT to
  * the R10 entity subset, so the office PC can open what the shop drew.
  *

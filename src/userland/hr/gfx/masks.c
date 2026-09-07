@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1985 Rico Tudor.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * masks.c - the engine's CONSTANT tables: fill patterns, blit edge masks
  * and the logical-function dispatch tables.  Nothing here is ever written.
  *

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zdlg.c - dialog demo / test client (the widget kit's reference consumer).
  *
  * A small window; a left click in its content (or the window menu's

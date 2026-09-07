@@ -14,6 +14,7 @@
 #define	NWORD	400		/* Longest word or identifier in yylex */
 #define	NCSET	256		/* Size of character set (ascii + top bit) */
 #define	MAXRECORD 400		/* Longest input record */
+#define	MAXNF	1000		/* Most fields NF or $n may be set to */
 #define	NBPC	8		/* Bytes in a char */
 #define	NHASH	64		/* Number of symbol table hash buckets */
 #define	NSBRK	256		/* Amount sbroken per call in `xalloc' */
@@ -59,6 +60,8 @@ typedef	struct	TERM {
 #define	T_VAR	04		/* Variable */
 #define	T_ARRAY	010		/* Array */
 #define	T_ALLOC	020		/* Allocated string */
+#define	T_STRNUM 040		/* String from the input: judged as a number
+				 * when it looks like one (a field of 0 is false) */
 
 /*
  * Expression tree node.
@@ -172,6 +175,17 @@ extern	TERM	xone;
 extern	NODE	xfield0;
 extern	NODE	*codep;
 extern	int	beginflag;
+extern	int	mainflag;
+extern	int	exitcode;
+extern	NODE	*FNRp;
+extern	char	*inrec;
+extern	char	**fldv;
+extern	int	fldn, fldmax, fldvalid;
+extern	NODE	*afind();
+extern	NODE	*intres();
+extern	char	*numstr();
+#define	INTLIM	2147483647.0	/* what fits an INT, as a FLOAT */
+extern	int	fsblank;
 extern	int	endflag;
 extern	int	runflag;
 extern	int	yflag;
@@ -275,3 +289,4 @@ extern	NODE	*OFMTp;
 #define	ATERM	64		/* Terminal */
 #define	AFUNC	65		/* Function */
 #define	AKEYW	66		/* Dummy type for keyword */
+#define	AIN	67		/* s in array */

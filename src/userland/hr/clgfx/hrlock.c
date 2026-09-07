@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrlock.c - the hrgui global drawing lock, futex-style (GUI.md race fix).
  *
  * A binary lock word in the shared VRAM tail (shmem.h SHM_LOCK): 0 = free,

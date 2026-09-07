@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * fifotest.c - reproduce the hrgui event-pipe handshake in isolation.
  *
  * zview answers each client over a NAMED pipe the client makes for itself:

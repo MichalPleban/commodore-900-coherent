@@ -33,7 +33,6 @@
 }
 
 %token	IF_ WHILE_ FOR_ ELSE_ BREAK_ CONTINUE_ NEXT_ EXIT_
-%token	IN_
 %token	PRINT_ PRINTF_
 %token	BEGIN_ END_
 %token	FAPPEND_ FOUT_
@@ -50,12 +49,13 @@
  * concatenation and alternation, the dangling else); yacc resolves every one
  * of the 48 conflicts by shifting, which is the intended parse.  Declared so
  * the build does not report them; a different count still is. */
-%expect 48
+%expect 52
 
 %left	SCON_
 %right	ASADD_ ASSUB_ ASMUL_ ASDIV_ ASMOD_ '='
 %left	OROR_
 %left	ANDAND_
+%nonassoc IN_
 %left	'~' NMATCH_
 %nonassoc EQ_ NE_
 %nonassoc GE_ LE_ '>' '<'
@@ -92,15 +92,27 @@ linelist:
 	;
 
 line:
-	compound '\n' {
+	compound nl {
+		mainflag = 1;
 		$$ = node(AROOT, NULL, $1);
 	}
       | pattern '\n' {
+		if ($1->n_op != ABEGIN)
+			mainflag = 1;
 		$$ = node(AROOT, $1, NULL);
 	}
-      | pattern compound '\n' {
+      | pattern compound nl {
+		if ($1->n_op != ABEGIN)
+			mainflag = 1;
 		$$ = node(AROOT, $1, $2);
 	}
+	;
+
+/* After an action another item may follow on the same line:
+ * BEGIN { x = 1 } { print x } is one line in every awk one-liner. */
+nl:
+	'\n'
+      | /* empty */
 	;
 
 pattern:
@@ -220,7 +232,10 @@ stat:
 		$$ = node(ANEXT);
 	}
       | EXIT_ ';' {
-		$$ = node(AEXIT);
+		$$ = node(AEXIT, (NODE *)NULL);
+	}
+      | EXIT_ e ';' {
+		$$ = node(AEXIT, $2);
 	}
       | ';' {
 		$$ = NULL;
@@ -315,7 +330,7 @@ exp:
 	;
 
 e:
-	'(' e ')' {
+	'(' exp ')' {
 		$$ = $2;
 	}
       | e ANDAND_ e {
@@ -326,6 +341,15 @@ e:
 	}
       | '!' e {
 		$$ = node(ANOT, $2);
+	}
+      | '-' e  %prec '!' {
+		$$ = node(ASUB, (NODE *)&xzero, $2);
+	}
+      | '+' e  %prec '!' {
+		$$ = $2;
+	}
+      | e IN_ ID_ {
+		$$ = node(AIN, $1, $3);
 	}
       | terminal
       | assignment

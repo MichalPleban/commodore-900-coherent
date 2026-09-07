@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * locktest2.c - cross-process contention test for the hrgui drawing lock.
  *
  * Runs on the hi-res JS emulator (the VRAM tail is mapped user-accessible into

@@ -7,6 +7,8 @@
  * file.
  */
 #include <stdio.h>
+
+int	nmerrs;			/* diagnostics issued: the exit status */
 #include "n.out.h"
 #include <ar.h>
 #include <ctype.h>
@@ -145,7 +147,7 @@ char *argv[];
 			if ((fn = argv[i]) != NULL)
 				nm();
 	}
-	exit(0);
+	exit(nmerrs != 0);
 }
 
 /*
@@ -403,6 +405,7 @@ register struct ldsym *sp1, *sp2;
  */
 nmerr(a)
 {
+	nmerrs++;
 	fprintf(stderr, "nm: ");
 	if (amemb)
 		fprintf(stderr, "%.*s (file %s): ", DIRSIZ, ahb.ar_name, fn);

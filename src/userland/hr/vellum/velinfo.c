@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velinfo.c - velinfo: what the set SAYS, as opposed to what it draws.
  *
  *	velinfo -len file.d ...		the takeoff: run lengths, areas

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zmcore.c - zmaze render core: raycaster, tables, map, movement.
  *
  * GUI-independent: renders one first-person frame of the 16x16 maze into

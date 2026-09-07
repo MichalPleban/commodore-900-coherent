@@ -17,6 +17,7 @@ struct resv restab[] =
 	"union", UNION,
 	"token", TOKEN,
 	"type", TYPE,
+	"expect", EXPECT,
 	NULL
 };
 struct genre gtab[MAXT] =
@@ -57,6 +58,7 @@ char	bounderr[] = "too many %s, actual limit %d";
 struct sitem *nititem;
 struct prod *nitprod;
 int nrrconf, nsrconf;
+int nsrexpect = -1;	/* %expect N: S/R conflicts the grammar is known to have */
 int ndupgos, ndupacts;
 int yyredns;
 int yygodef;

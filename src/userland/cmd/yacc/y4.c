@@ -197,9 +197,12 @@ yyerror(type, args)
 		cleanup(2);
 	if( (type&WARNING)==0 )
 		nerrors++;
-	if( type&SKIP )
-		while( llgetc()!='\n' )		/* MWC DSC */
+	if( type&SKIP ) {			/* MWC DSC; EOF too, or a grammar */
+		register int c;			/* with no final newline looped */
+
+		while( (c = llgetc())!='\n' && c!=EOF )
 			;
+	}
 }
 
 getnum(s)

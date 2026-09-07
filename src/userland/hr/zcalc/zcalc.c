@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zcalc.c - a ZView desk calculator.
  *
  * A fixed-size window: a display box over a 4x5 grid of buttons drawn with

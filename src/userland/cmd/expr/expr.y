@@ -189,9 +189,13 @@ register char *e1, *e2;
 		v1 *= v2;
 		break;
 	case '/':
+		if (v2 == 0)
+			divzero();
 		v1 /= v2;
 		break;
 	case '%':
+		if (v2 == 0)
+			divzero();
 		v1 %= v2;
 		break;
 	}
@@ -288,15 +292,18 @@ register long n;
 	register char *ep;
 	register char *e;
 
+	register unsigned long u;
+
 	e = ep = malloc(12);
 	if (n < 0) {
 		*ep++ = '-';
-		n = -n;
-	}
+		u = -(unsigned long)n;	/* also right for LONG_MIN */
+	} else
+		u = n;
 	do {
-		*bp++ = (n % 10) + '0';
-		n /= 10;
-	} while (n > 0);
+		*bp++ = (u % 10) + '0';
+		u /= 10;
+	} while (u > 0);
 	while (bp > buf)
 		*ep++ = *--bp;
 	*ep = '\0';
@@ -405,6 +412,8 @@ register char *e;
 			case '\0':
 				regerror();
 			case '(':
+				if (blevel >= BRSIZE || brcount >= BRSIZE)
+					regerror();	/* too many \( \) groups */
 				*cp++ = CSOPR;
 				*cp++ = bstack[blevel++] = brcount++;
 				c = getx(c);
@@ -606,6 +615,8 @@ yylex()
 		case '(':
 		case ')':
 			return (c);
+		case '=':
+			return (EQ);	/* `=' alone: the documented spelling */
 		default:
 			return (STR);
 		}
@@ -650,4 +661,11 @@ errexit()
 	exit(2);
 }
 
-
+/*
+ * Division or remainder by zero: a diagnostic and the syntax-error status.
+ */
+divzero()
+{
+	fprintf(stderr, "expr: division by zero\n");
+	exit(2);
+}

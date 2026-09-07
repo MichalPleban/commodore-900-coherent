@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrwidg.c - dock-widget client start-up (see inc/hrwidg.h for the contract).
  *
  * The widget half of zdock's widget cells.  zdock forks the widget with

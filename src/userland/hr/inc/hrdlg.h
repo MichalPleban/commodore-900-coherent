@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrdlg.h - hrgui modal dialogs: shared chrome metrics + the client widget kit.
  *
  * Two consumers, one look:

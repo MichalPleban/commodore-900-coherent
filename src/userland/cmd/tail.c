@@ -85,13 +85,17 @@ char **argv;
 	options(argc, argv);
 	skflg = skbl();
 	if (fflag) {
-		if (lflag)
-			skipl();
-		else
-			if (skflg)
-				fseek(infp, skipcnt, START);
-			else
-				skipc();
+		/* +n copies FROM line (or byte) n: n-1 are skipped, and the
+		 * skip loops must not run with a count of 0. */
+		if (skipcnt > 0)
+			skipcnt--;
+		if (lflag) {
+			if (skipcnt > 0)
+				skipl();
+		} else if (skflg)
+			fseek(infp, skipcnt, START);
+		else if (skipcnt > 0)
+			skipc();
 		copy();
 	} else
 		if (lflag)

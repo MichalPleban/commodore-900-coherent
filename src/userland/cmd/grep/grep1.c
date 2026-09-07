@@ -26,7 +26,7 @@ struct	exps {
 	int	(*e_mfun)();
 }	exps[NEXP+1];
 char	usage[] =
-	"Usage: grep [-abchlnsvxy] [-e exp] [-f efile] [expression] [file ...]";
+	"Usage: grep [-abchilnsvxy] [-e exp] [-f efile] [expression] [file ...]";
 char	mre[] = "Missing regular expression";
 char	nospace[] = "Out of space for regular expressions";
 char	*fname;		/* Current filename */
@@ -126,6 +126,7 @@ char *argv[];
 				mfun = dirmatch;
 				break;
 
+			case 'i':	/* the usual name for -y */
 			case 'y':
 				redual = 1;
 				yflag = 1;

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * ptytest.c - a minimal, non-GUI smoke test for the pty driver (GUI.md sec 4).
  *
  * Opens a master (/dev/ptyp0), forks a child that opens the matching slave

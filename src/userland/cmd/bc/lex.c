@@ -29,7 +29,34 @@ static jmp_buf	lexenv;
  *	Yylex is the lexical analyzer for bc.
  */
 
+/*
+ *	The grammar ends every statement with a newline or semicolon, so
+ *	`define f(x) { return (x*x) }' on one line -- which every other bc
+ *	accepts -- failed at the brace.  This wrapper hands the parser the
+ *	newline it wants before a `}' that follows a statement, and then
+ *	the brace itself on the next call.
+ */
 yylex()
+{
+	static int	last = '\n';
+	static int	pending = 0;
+	register int	t;
+
+	if (pending) {
+		t = pending;
+		pending = 0;
+	} else {
+		t = yylex1();
+		if (t == '}' && last != '\n' && last != ';' && last != '{') {
+			pending = '}';
+			t = '\n';
+		}
+	}
+	last = t;
+	return (t);
+}
+
+yylex1()
 {
 	register int	ch;
 	register int	nexteq;

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velwalk.c - Vellum's device-coordinate object WALKER: every printable
  * object fed through the 8-function backend struct (vellum.h XB), plus
  * the cl_-free geometry it needs (integer sqrt/trig, the symbol

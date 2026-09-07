@@ -36,21 +36,41 @@ char	*bp;
 
 	if (w < 0)
 		w = 6;
-	cp1 = _dtoa(fmt, d, w, &dscale, &minusf, tbuf);
 	if (fmt == 'g') {
-		int	nd;
+		/* C's %g: `w' is the number of SIGNIFICANT digits (0 counts
+		 * as 1); the style is that of %e when the decimal exponent
+		 * is below -4 or at least w, else that of %f; and trailing
+		 * zeros, and a decimal point left bare, are dropped.  So
+		 * 0.0001 prints as 0.0001 (not 0.000100), 1e8 as 1e+08. */
+		int	nd, x;
 
+		if (w == 0)
+			w = 1;
+		cp1 = _dtoa('e', d, w-1, &dscale, &minusf, tbuf);
 		cp2 = cp1;
 		while (*cp2)
 			++cp2;
 		while (cp2!=cp1 && cp2[-1]=='0')
 			--cp2;
+		*cp2 = '\0';
 		nd = cp2-cp1;
-		if (dscale < -3 || dscale > nd+5)
+		if (nd == 0) {				/* zero */
+			cp1 = "0";
+			nd = 1;
+			dscale = 1;
+		}
+		x = dscale - 1;
+		if (x < -4 || x >= w) {
 			fmt = 'e';
-		else if (dscale >= nd)
-			w = 0;				/* `d' format */
-	}
+			w = nd-1;
+		} else {
+			fmt = 'f';
+			w = nd-1-x;
+			if (w < 0)
+				w = 0;
+		}
+	} else
+		cp1 = _dtoa(fmt, d, w, &dscale, &minusf, tbuf);
 	cp2 = bp;
 	if (minusf != 0)
 		*cp2++ = '-';
@@ -58,8 +78,9 @@ char	*bp;
 		*cp2++ = *cp1++;
 		if (d != 0.0)
 			--dscale;
-		for (*cp2++ = '.';  w > 0;  --w)
-			*cp2++ = *cp1 ? *cp1++ : '0';
+		if (w > 0)
+			for (*cp2++ = '.';  w > 0;  --w)
+				*cp2++ = *cp1 ? *cp1++ : '0';
 		*cp2++ = 'e';
 		if (dscale >= 0)
 			*cp2++ = '+';

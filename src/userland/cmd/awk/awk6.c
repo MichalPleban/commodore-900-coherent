@@ -87,24 +87,34 @@ int na;
 {
 	register char *cp;
 	register char *ocp;
-	register unsigned m;
-	register unsigned n;
+	register long m;		/* start position, 1-based */
+	register long n;		/* characters wanted */
 	register char *acp;
+	long len;
 
-	m = MAXUINT;
+	n = 0x7fffffffL;
 	if (na > 2)
-		m = evalint(fargn(np, 3));
-	n = evalint(fargn(np, 2));
+		n = evalint(fargn(np, 3));
+	m = evalint(fargn(np, 2));
 	cp = evalstring(fargn(np, 1));
-	while (--n != 0)
-		if (*cp == '\0')
-			break;
-		else
-			cp++;
-	n = strlen(cp);
-	if (n > m)
-		n = m;
-	acp = ocp = xalloc(n + sizeof(char));
+	len = strlen(cp);
+	/* The characters at positions m .. m+n-1 that exist.  A start
+	 * before the string clips the count -- substr(s, 0, 3) is the
+	 * first two characters, as in every other awk -- rather than
+	 * running off the end and returning nothing. */
+	if (m < 1) {
+		n += m - 1;
+		m = 1;
+	}
+	if (m > len) {
+		m = 1;
+		n = 0;
+	} else if (n > len - m + 1)
+		n = len - m + 1;
+	if (n < 0)
+		n = 0;
+	cp += m - 1;
+	acp = ocp = xalloc((unsigned)n + sizeof(char));
 	while (n--)
 		*ocp++ = *cp++;
 	*ocp = '\0';
@@ -185,10 +195,13 @@ int na;
 	if (na >= 3)
 		fsmapinit(evalstring(fargn(np, 3)));
 	for (cp = string; ;) {
-		while (FSMAP[*cp])
-			cp++;
-		if (*cp == '\0')
-			break;
+		if (fsblank) {
+			while (FSMAP[*cp])
+				cp++;
+			if (*cp == '\0')
+				break;
+		} else if (*cp == '\0' && index->t_INT == 0)
+			break;			/* an empty string has no fields */
 		scp = cp;
 		while ((c = *cp++)!='\0' && !FSMAP[c])
 			;
@@ -198,9 +211,11 @@ int na;
 			*acp++ = *scp++;
 		*acp = '\0';
 		index->t_INT++;
-		xassign(xarray(array, index), snode(string, T_ALLOC));
+		xassign(xarray(array, index), snode(string, T_ALLOC|T_STRNUM));
 		if (c == '\0')
 			break;
+		if (!fsblank)
+			cp++;			/* step over the separator */
 	}
 	fsmapinit(FS);
 	return (index);

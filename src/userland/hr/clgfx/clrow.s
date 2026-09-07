@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 / clrow.s - the ldir row copy under cl_blit aligned fast path.
 /
 / cl_ldrow(dst, src, nwords): one word-ldir.  Registers r0-r5 only (the

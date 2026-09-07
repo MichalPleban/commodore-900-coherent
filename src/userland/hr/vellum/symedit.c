@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * symedit.c - SymEdit, the symbol editor for Vellum libraries.
  *
  * The "draw it once, reuse it everywhere" half of the schematic editor:

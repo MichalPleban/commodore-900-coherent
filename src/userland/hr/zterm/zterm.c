@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zterm.c - a ZView terminal-emulator client (GUI.md Phase 2).
  *
  * A plain process (no jlib, no coroutines) that gives a window a real shell:

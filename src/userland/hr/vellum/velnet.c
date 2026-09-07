@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velnet.c - velnet: what the drawing is CONNECTED as.
  *
  *	velnet file.d ...		the netlist

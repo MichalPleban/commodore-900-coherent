@@ -22,13 +22,14 @@ register NODE *np;
 {
 	register int f;		/* Pid of command */
 	int mynllflag;		/* Saved fork not forced flag */
-	CON con;		/* Control link for break/continue */
-	char *innp, **inlp;	/* for NFOR */
+	CON con;		/* Control link for break/continue; also holds the
+				 * NFOR state, which must survive the longjmp of a
+				 * `continue' (a register local would be restored) */
 	NODE *cnode;		/* for NCASE */
 	char *cname;		/* for NCASE */
 
 	mynllflag = nllflag;
-	innp = (char *)(inlp = NULL);
+	con.c_innp = (char *)(con.c_inlp = NULL);
 	cnode = NULL;
 	f = 0;
 
@@ -60,19 +61,19 @@ register NODE *np;
 		f = comscom(np->n_auxp);
 		break;
 	case NFOR:
-		if (innp == NULL) {
-			innp = np->n_strp;
+		if (con.c_innp == NULL) {
+			con.c_innp = np->n_strp;
 			nargc = 0;
 			nargv = makargl();
 			for (np = np->n_next->n_auxp; np; np = np->n_next)
 				eval(np->n_strp, EARGS);
-			inlp = nargv;
+			con.c_inlp = nargv;
 			np = con.c_node;
 		}
 		continue;
 	case NFOR2:
 		/* do_done_list->n_next == this node */
-		if (*inlp == NULL || assnvar(innp, *inlp++) == NULL)
+		if (*con.c_inlp == NULL || assnvar(con.c_innp, *con.c_inlp++) == NULL)
 			break;
 		continue;
 	case NWHILE:

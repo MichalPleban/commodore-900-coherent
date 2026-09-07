@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zwclock.c - dock widget: the time of day.
  *
  * Started by zdock from an "@" catalog line (see zdock.c), never from a

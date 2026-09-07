@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velprev.c - Vellum's print PREVIEW window (/usr/vellum/lib/velprev):
  * an ordinary hrgui window that draws the PRINTABLE extent of one .d
  * sheet -- layprn applied, fit-to-window scale -- through a cl_*

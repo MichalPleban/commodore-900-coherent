@@ -38,9 +38,11 @@ register NODE *xp;
 		}
 		xp = evalexpr(xp);
 		if (xp->t_flag & T_NUM) {
+			char nbuf[40];
+
 			if (xp->t_flag & T_INT)
 				fprintf(ofp, OFMT, xp->t_INT); else
-				fprintf(ofp, "%.6g", xp->t_FLOAT);
+				fprintf(ofp, "%s", numstr(xp, nbuf));
 		} else
 			fprintf(ofp, "%s", xp->t_STRING);
 		if (np != NULL)
@@ -71,12 +73,24 @@ STRING sp;
 	register int i;
 	register FILE *ofp;
 
-	pflp = pflist = (int *)xalloc(fnargs(np) * sizeof(double));
+	/* One slot per conversion in the FORMAT (plus the format and a spare):
+	 * the number of arguments is no measure of what gets stored here --
+	 * six %s with one argument used to write past the block. */
+	cp = evalstring(nextarg(np, 1));
+	{
+		register char *fp;
+		int nconv;
+
+		for (fp = cp, nconv = 2; *fp != '\0'; fp++)
+			if (*fp == '%')
+				nconv += 2;	/* a * width and the value */
+		pflp = pflist = (int *)xalloc(nconv * sizeof(double));
+	}
 	if (sp == NULL)
 		ofp = xoutput(xp); else
 		*sp = '\0';
-	i = 1;
-	*((char **)pflp) = cp = evalstring(nextarg(np, i++));
+	i = 2;
+	*((char **)pflp) = cp;
 	bump(pflp, char*);
 	for (;;) {
 		while ((c = *cp++)!='%' && c!='\0')
@@ -158,8 +172,10 @@ nextarg(anp, n)
 register NODE *anp;
 register int n;
 {
-	if ((anp = fargn(anp, n)) == NULL)
-		awkerr("Missing argument to printf/sprintf");
+	/* fargn() hands back the LAST argument once the list runs out; a
+	 * conversion without an argument gets an empty string (0) instead. */
+	if (n > fnargs(anp) || (anp = fargn(anp, n)) == NULL)
+		return (snode(SNULL, 0));
 	return (anp);
 }
 
@@ -262,6 +278,126 @@ NODE *index;
 }
 
 /*
+ * The fields of the current record: split ONCE, on first use, into
+ * `fldv' (fldn strings) and kept until the next record.  Reading a
+ * field copies one out; assigning a field, $0 or NF changes the array
+ * and re-joins the record with OFS -- what every awk does.  (Splicing
+ * the new text into the old record kept the original separators, and
+ * re-splitting on every access then lost the assigned fields.)
+ */
+static
+fldadd(p, n)
+register char *p;
+register int n;
+{
+	register char *q;
+
+	if (fldn >= fldmax) {
+		register int j;
+		char **nv;
+
+		nv = (char **)xalloc((unsigned)(fldmax + 32) * sizeof(char *));
+		for (j = 0; j < fldn; j++)
+			nv[j] = fldv[j];
+		if (fldv != NULL)
+			free((char *)fldv);
+		fldv = nv;
+		fldmax += 32;
+	}
+	q = xalloc((unsigned)n + sizeof(char));
+	fldv[fldn++] = q;
+	while (n-- > 0)
+		*q++ = *p++;
+	*q = '\0';
+}
+
+static
+fldsplit()
+{
+	register unsigned char *s, *p;
+	register int c;
+
+	while (fldn > 0)
+		free(fldv[--fldn]);
+	s = (unsigned char *)inline;
+	if (!fsblank) {
+		if (*s != '\0')
+			for (;;) {
+				p = s;
+				while ((c = *s) != '\0' && !FSMAP[c])
+					s++;
+				fldadd((char *)p, (int)(s - p));
+				if (c == '\0')
+					break;
+				s++;
+			}
+	} else for (;;) {
+		while (FSMAP[*s])
+			s++;
+		if (*s == '\0')
+			break;
+		p = s;
+		while ((c = *s) != '\0' && !FSMAP[c])
+			s++;
+		fldadd((char *)p, (int)(s - p));
+	}
+	fldvalid = 1;
+}
+
+/*
+ * Make `rec' the current record, freeing the one it replaces unless
+ * that is the input buffer itself (execute() owns that one).
+ */
+static
+setrec(rec)
+char *rec;
+{
+	if (inline != NULL && inline != inrec)
+		free(inline);
+	inline = rec;
+}
+
+/* Join fldv with OFS into a new record, make it current and set NF. */
+static
+fldjoin()
+{
+	register int j;
+	register char *p, *q;
+	register unsigned nb;
+	char *rec;
+
+	nb = sizeof(char);
+	for (j = 0; j < fldn; j++)
+		nb += strlen(fldv[j]) + strlen(OFS);
+	rec = q = xalloc(nb);
+	for (j = 0; j < fldn; j++) {
+		if (j != 0)
+			for (p = OFS; *p != '\0'; )
+				*q++ = *p++;
+		for (p = fldv[j]; *p != '\0'; )
+			*q++ = *p++;
+	}
+	*q = '\0';
+	setrec(rec);
+	iassign(NFp, (INT)fldn);
+}
+
+/* NF was assigned: cut the record to n fields, or pad it with empty ones. */
+fldsetnf(n)
+int n;
+{
+	if (n < 0 || n > MAXNF)
+		awkerr("Bad field count NF = %d", n);
+	if (!fldvalid)
+		fldsplit();
+	while (fldn > n)
+		free(fldv[--fldn]);
+	while (fldn < n)
+		fldadd("", 0);
+	fldjoin();
+}
+
+/*
  * Extract the field given by the expression.
  * A negative field number is
  * considered to be from the end.
@@ -273,53 +409,43 @@ xfield(i, asval)
 int i;
 STRING asval;
 {
-	char *xfield1();
-	register unsigned char *as, *s1, *s2;
-	register int c;
-	register unsigned nb;
+	register char *as;
 
-	if ((s1 = inline) == NULL) {
+	if (inline == NULL) {
 		awkwarn("field, $%d, illegal in BEGIN or END", i);
 		return (snode(SNULL, 0));
 	}
 	if (i == 0) {
 		if (asval != NULL) {
-			inline = xalloc(strlen(asval)+sizeof(char));
-			strcpy(inline, asval);
+			as = xalloc(strlen(asval)+sizeof(char));
+			strcpy(as, asval);
+			setrec(as);
+			fldvalid = 0;
+			iassign(NFp, (INT)countnf(inline));
 		}
-		return (snode(inline, 0));
+		return (snode(inline, T_STRNUM));
 	}
 	if (i < 0)
-		if ((i += (int)NF + 1) == 0)
-			i = -1;
-	for (;;) {
-		while (FSMAP[*s1])
-			s1++;
-		if (*s1=='\0' || --i==0)
-			break;
-		while ((c = *s1++)!='\0' && !FSMAP[c])
-			;
-		if (c == '\0') {
-			s1--;
-			break;
-		}
-	}
-	s2 = s1;
-	nb = sizeof(char);
-	while ((c = *s2++)!='\0' && !FSMAP[c])
-		nb++;
-	s2--;
+		i += (int)NF + 1;
+	if (!fldvalid)
+		fldsplit();
 	if (asval != NULL) {
-		inline = as = xfield1(inline, s1, asval, s2, s2+strlen(s2));
-		return (snode(inline, 0));
-	} else {
-		as = xalloc(nb);
-		while (s1 < s2)
-			*as++ = *s1++;
-		*as++ = '\0';
-		as -= nb;
+		if (i < 1 || i > MAXNF)
+			awkerr("Bad field number $%d", i);
+		while (fldn < i)
+			fldadd("", 0);
+		as = xalloc(strlen(asval)+sizeof(char));
+		strcpy(as, asval);
+		free(fldv[i-1]);
+		fldv[i-1] = as;
+		fldjoin();
+		return (snode(inline, T_STRNUM));
 	}
-	return (snode(as, T_ALLOC));
+	if (i < 1 || i > fldn)
+		return (snode(SNULL, 0));
+	as = xalloc(strlen(fldv[i-1])+sizeof(char));
+	strcpy(as, fldv[i-1]);
+	return (snode(as, T_ALLOC|T_STRNUM));
 }
 
 /*
@@ -390,7 +516,8 @@ register NODE *n1, *n2;
 {
 	if (isfloat(n1) || isfloat(n2))
 		return (fnode(evalfloat(n1) + evalfloat(n2)));
-	return (inode(evalint(n1) + evalint(n2)));
+	return (intres((FLOAT)evalint(n1) + (FLOAT)evalint(n2),
+	    evalint(n1) + evalint(n2)));
 }
 
 /*
@@ -402,7 +529,8 @@ register NODE *n1, *n2;
 {
 	if (isfloat(n1) || isfloat(n2))
 		return (fnode(evalfloat(n1) - evalfloat(n2)));
-	return (inode(evalint(n1) - evalint(n2)));
+	return (intres((FLOAT)evalint(n1) - (FLOAT)evalint(n2),
+	    evalint(n1) - evalint(n2)));
 }
 
 /*
@@ -414,7 +542,8 @@ register NODE *n1, *n2;
 {
 	if (isfloat(n1) || isfloat(n2))
 		return (fnode(evalfloat(n1) * evalfloat(n2)));
-	return (inode(evalint(n1) * evalint(n2)));
+	return (intres((FLOAT)evalint(n1) * (FLOAT)evalint(n2),
+	    evalint(n1) * evalint(n2)));
 }
 
 /*
@@ -427,9 +556,22 @@ NODE *
 xdiv(n1, n2)
 register NODE *n1, *n2;
 {
-	if (isfloat(n1) || isfloat(n2))
-		return (fnode(evalfloat(n1) / evalfloat(n2)));
-	return (inode(evalint(n1) / evalint(n2)));
+	register INT a, b;
+
+	if (isfloat(n1) || isfloat(n2)) {
+		FLOAT fa, fb;
+
+		fa = evalfloat(n1);
+		if ((fb = evalfloat(n2)) == 0.0)
+			awkerr("Division by zero");
+		return (fnode(fa / fb));
+	}
+	a = evalint(n1);
+	if ((b = evalint(n2)) == 0)
+		awkerr("Division by zero");
+	if (a % b != 0)		/* inexact: awk arithmetic is real, 7/2 is 3.5 */
+		return (fnode((FLOAT)a / (FLOAT)b));
+	return (inode(a / b));
 }
 
 /*
@@ -440,9 +582,14 @@ NODE *
 xmod(n1, n2)
 register NODE *n1, *n2;
 {
+	register INT a, b;
+
 	if (isfloat(n1) || isfloat(n2))
 		awkwarn("Modulus operator not allowed on floating point");
-	return (inode(evalint(n1) % evalint(n2)));
+	a = evalint(n1);
+	if ((b = evalint(n2)) == 0)
+		awkerr("Division by zero");
+	return (inode(a % b));
 }
 
 /*
@@ -538,8 +685,8 @@ register NODE *l, *r;
 		l = xarray(l->n_O1, l->n_O2);
 	if ((l->t_flag & (T_ALLOC|T_NUM)) == T_ALLOC)
 		free(l->t_STRING);
-	l->t_flag &= ~(T_INT|T_NUM);
-	l->t_flag |= T_ALLOC|(r->t_flag & (T_INT|T_NUM));
+	l->t_flag &= ~(T_INT|T_NUM|T_STRNUM);
+	l->t_flag |= T_ALLOC|(r->t_flag & (T_INT|T_NUM|T_STRNUM));
 	if (r->t_flag & T_NUM)
 		if (r->t_flag & T_INT)
 			l->t_INT = r->t_INT; else
@@ -550,7 +697,108 @@ register NODE *l, *r;
 	}
 	if (l == FSp)
 		fsmapinit(evalstring(l));
+	else if (l == NFp && inline != NULL && !beginflag && !endflag)
+		fldsetnf((int)evalint(l));		/* NF = n cuts or pads $0 */
 	return (l);
+}
+
+
+/*
+ * The number in `np' as a string: an integer, or a real that is a whole
+ * number (2147483647 + 1, or 6 / 2), prints as one; anything else in
+ * %.6g, as awk does.
+ */
+char *
+numstr(np, buf)
+register NODE *np;
+char *buf;
+{
+	register FLOAT f;
+	double ip;
+	extern double modf();
+
+	if (np->t_flag & T_INT)
+		sprintf(buf, "%D", np->t_INT);
+	else if ((f = np->t_FLOAT) >= -INTLIM && f <= INTLIM
+	    && f == (FLOAT)(INT)f)
+		sprintf(buf, "%D", (INT)f);
+	else if (f > -1e16 && f < 1e16 && modf(f, &ip) == 0.0)
+		sprintf(buf, "%.0f", f);	/* whole, past an INT: all its digits */
+	else
+		sprintf(buf, "%.6g", f);
+	return (buf);
+}
+
+/*
+ * Integer arithmetic result: `i' if the true value `d' fits an INT,
+ * else the real `d' -- so 2147483647 + 1 does not wrap.
+ */
+NODE *
+intres(d, i)
+FLOAT d;
+INT i;
+{
+	if (d > INTLIM || d < -INTLIM)
+		return (fnode(d));
+	return (inode(i));
+}
+
+/*
+ * Does the string look like a number (what field data is judged by)?
+ */
+static
+looksnum(s)
+register char *s;
+{
+	register int d = 0;
+
+	while (*s == ' ' || *s == '\t')
+		s++;
+	if (*s == '+' || *s == '-')
+		s++;
+	for ( ; *s >= '0' && *s <= '9'; s++)
+		d++;
+	if (*s == '.')
+		for (s++; *s >= '0' && *s <= '9'; s++)
+			d++;
+	if (d == 0)
+		return (0);
+	if (*s == 'e' || *s == 'E') {
+		s++;
+		if (*s == '+' || *s == '-')
+			s++;
+		if (*s < '0' || *s > '9')
+			return (0);
+		while (*s >= '0' && *s <= '9')
+			s++;
+	}
+	while (*s == ' ' || *s == '\t')
+		s++;
+	return (*s == '\0');
+}
+
+/*
+ * The truth of an expression, for if/while/for, !, && and || and a
+ * bare pattern: a number is true when non-zero; a string when it is
+ * not empty -- unless it came from the input (T_STRNUM: a field, $0,
+ * a split() piece, or a copy of one) and looks like a number, when it
+ * is judged as that number, so a field holding 0 is false while the
+ * constant "0" is true.
+ */
+xtruth(np)
+NODE *np;
+{
+	np = evalexpr(np);
+	if (np->t_flag & T_NUM) {
+		if (np->t_flag & T_INT)
+			return (np->t_INT != 0);
+		return (np->t_FLOAT != 0.0);
+	}
+	if (np->t_STRING[0] == '\0')
+		return (0);
+	if ((np->t_flag & T_STRNUM) && looksnum(np->t_STRING))
+		return (evalfloat(np) != 0.0);
+	return (1);
 }
 
 /*
@@ -566,8 +814,7 @@ register NODE *np;
 	register NODE *enp;
 
 	enp = evalexpr(np);
-	rnp = inode((INT)0);
-	xassign(rnp, enp);
+	rnp = isfloat(enp) ? fnode(evalfloat(enp)) : inode(evalint(enp));
 	xassign(np, xadd(enp, &xone));
 	return (rnp);
 }
@@ -584,8 +831,7 @@ register NODE *np;
 	register NODE *enp;
 
 	enp = evalexpr(np);
-	rnp = inode((INT)0);
-	xassign(rnp, enp);
+	rnp = isfloat(enp) ? fnode(evalfloat(enp)) : inode(evalint(enp));
 	xassign(np, xsub(enp, &xone));
 	return (rnp);
 }

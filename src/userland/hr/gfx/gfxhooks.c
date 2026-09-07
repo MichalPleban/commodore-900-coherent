@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1985 Rico Tudor.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * gfxhooks.c - the libhrgfx "divorce" shim (GUI.md sec 6).
  *
  * Definitions for the few symbols the rendering engine used to import from the

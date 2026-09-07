@@ -305,7 +305,7 @@ unsigned f1, f2, t1, t2;
 		else if (eflag)
 			fputs("c\n", stdout);
 		else {
-			fputs(" c ", stdout);
+			putchar('c');
 			prange(t1, t2);
 			putchar('\n');
 		}
@@ -332,7 +332,7 @@ unsigned f, t1, t2;
 		else if (eflag) {
 			fputs("a\n", stdout);
 		} else {
-			fputs(" a ", stdout);
+			putchar('a');
 			prange(t1, t2);
 			putchar('\n');
 		}
@@ -356,7 +356,7 @@ unsigned f1, f2, t;
 		if (eflag)
 			fputs("d\n", stdout);
 		else
-			printf(" d %u\n", t-1);
+			printf("d%u\n", t-1);
 	}
 	if (rflag)
 		incr -= f2-f1+1;

@@ -17,17 +17,19 @@ char *argv[];
 {
 	FILE *fp;
 	register int i;
+	int err = 0;
 
 	if (argc < 2)
 		rev(stdin);
 	else for (i=1; i<argc; i++)
-		if ((fp = fopen(argv[i], "r")) == NULL)
+		if ((fp = fopen(argv[i], "r")) == NULL) {
 			fprintf(stderr, "Cannot open `%s'\n", argv[i]);
-		else {
+			err = 1;
+		} else {
 			rev(fp);
 			fclose(fp);
 		}
-	exit(0);
+	exit(err);
 }
 
 /*

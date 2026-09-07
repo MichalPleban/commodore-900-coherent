@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velsym.c - velsym: a DRAWING becomes a STENCIL (VELLUM.md sec. 55).
  * What the shop draws becomes what the shop draws with.
  *

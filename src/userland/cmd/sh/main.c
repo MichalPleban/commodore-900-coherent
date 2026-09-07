@@ -56,7 +56,8 @@ char *envp[];
 		--sargc;
 		if (scmdp == NULL)
 			scmdp = sarg0;
-		session(SFILE, scmdp);
+		if (session(SFILE, scmdp) != 0 && slret == 0)
+			slret = 1;	/* could not open the script */
 	} else {
 		session(SSTR, stdin);
 	}
@@ -195,8 +196,11 @@ register char *p;
 			recover(IRDY);
 			if ( ! errflag)
 				syntax();
-			if ( ! iflag || (tflag && tflag++ >= 2))
+			if ( ! iflag || (tflag && tflag++ >= 2)) {
+				slret = 1;	/* a script or -c string that does not
+						 * parse must not exit with status 0 */
 				break;
+			}
 			continue;
 		case RINT:
 			if (s.s_next != NULL) {
@@ -351,7 +355,13 @@ ecantfdop() { printe("Fdopen failed"); }
 enotdef(s) char *s; { printe("Cannot find variable %s", s); }
 eillvar(s) char *s; { printe("Illegal variable name: %s", s); }
 eredir() { printe("Illegal redirection"); }
-etoolong() { printe("Argument too long: %.*s", STRSIZE, strt); }
+etoolong()
+{
+	printe("Argument too long: %.*s", STRSIZE, strt);
+	/* Abandon the command like a syntax error: the callers would go on
+	 * consuming the word, printing this once per further character. */
+	reset(RERR);
+}
 
 /*
  * Don't print out an error message.

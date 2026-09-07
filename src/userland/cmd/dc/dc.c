@@ -224,11 +224,13 @@ FILE	*fp;
 		continue;
 	case 'l':
 	case 'L':
+		d = c;		/* getreg() overwrites c with the register NAME:
+				 * comparing c below made every `l' act as `L' */
 		getreg(c, r);
 		new(a);
 		if (r == NULL) {
 			newscalar(a);
-		} else if (c == 'l') {
+		} else if (d == 'l') {
 			mcopy(&r->regval.mantissa, &a->mantissa);
 			a->scale = r->regval.scale;
 		} else {
@@ -295,8 +297,9 @@ FILE	*fp;
 		a->scale = 0;
 		continue;
 	case 'z':
+		d = sp - &stack[0];	/* the depth BEFORE the result is pushed */
 		new(a);
-		mitom(sp - &stack[0], &a->mantissa);
+		mitom(d, &a->mantissa);
 		a->scale = 0;
 		continue;
 	case 'Z':

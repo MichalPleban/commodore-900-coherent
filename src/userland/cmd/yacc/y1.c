@@ -486,9 +486,10 @@ cleanup(err)
 
 stats()
 {
-	extern nsrconf, nrrconf;
+	extern nsrconf, nrrconf, nsrexpect;
 
-	if( !pstat && (nsrconf || nrrconf) ) {
+	if( !pstat && (nsrconf || nrrconf) &&
+	    !(nrrconf == 0 && nsrconf == nsrexpect) ) {
 		if( nrrconf ) {
 			fprintf(stderr, "%d R/R conflict", nrrconf);
 			if( nrrconf != 1 )

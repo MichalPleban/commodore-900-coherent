@@ -33,12 +33,15 @@ DDEESSCCRRIIPPTTIIOONN
 
      The name and password are checked against /eettcc/ppaasssswwdd by the
      same rules as llooggiinn: an account whose password field is
-     empty needs no password.  A successful login is recorded in
-     /eettcc/uuttmmpp and /uussrr/aaddmm/wwttmmpp, the console is given to the
-     user, the HHOOMMEE, PPAATTHH and TTEERRMM environment is set up, and
-     zzllooggiinn replaces itself with /uussrr/hhrr/bbiinn/zzvviieeww, the desktop,
-     running as the logged-in user.  When the desktop is quit,
-     iinniitt starts ggeettttyy on the console again and the login panel
+     empty needs no password.  As soon as the password is ac-
+     cepted the panel is taken down and a LLaauunncchhiinngg zzvviieeww...
+     notice is shown in its place until the desktop paints its
+     first screen.  A successful login is recorded in /eettcc/uuttmmpp
+     and /uussrr/aaddmm/wwttmmpp, the console is given to the user, the
+     HHOOMMEE, PPAATTHH and TTEERRMM environment is set up, and zzllooggiinn
+     replaces itself with /uussrr/hhrr/bbiinn/zzvviieeww, the desktop, running
+     as the logged-in user.  When the desktop is quit, iinniitt
+     starts ggeettttyy on the console again and the login panel
      returns.  A failed attempt prints LLooggiinn iinnccoorrrreecctt on the
      panel and is recorded in /uussrr/aaddmm/ffaaiilleedd.
 
@@ -56,9 +59,6 @@ FFIILLEESS
           /uussrr/aaddmm/wwttmmpp               login accounting
           /uussrr/aaddmm/ffaaiilleedd             failed attempts
 
-SSEEEE AALLSSOO
-     ggeettttyy, iinniitt, llooggiinn, zzvviieeww
-
 
 
 COHERENT Administration Manual                             Page 1
@@ -69,6 +69,9 @@ COHERENT Administration Manual                             Page 1
 zzllooggiinn                                                     zzllooggiinn
 
 
+
+SSEEEE AALLSSOO
+     ggeettttyy, iinniitt, llooggiinn, zzvviieeww
 
 NNOOTTEESS
      zzllooggiinn is started by ggeettttyy and is not ordinarily run by

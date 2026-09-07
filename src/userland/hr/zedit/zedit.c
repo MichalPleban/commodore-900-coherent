@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zedit.c - a ZView plain-text editor client.
  *
  * A direct-render client (GUI.md Model A, like zterm): it keeps the document

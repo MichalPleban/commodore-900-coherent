@@ -46,6 +46,9 @@ The name and password are checked against
 by the same rules as
 .BR login :
 an account whose password field is empty needs no password.
+As soon as the password is accepted the panel is taken down and a
+.B Launching zview...
+notice is shown in its place until the desktop paints its first screen.
 A successful login is recorded in
 .B /etc/utmp
 and

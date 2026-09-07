@@ -148,12 +148,14 @@ Again:
 		}
 		if (c <= ' ' || 0177 <= c)
 			err("Bad macro name");
-		if(c=='(') {
+		if(c=='(' || c=='{') {		/* $(NAME) or ${NAME} */
+			register int close = (c == '(') ? ')' : '}';
+
 			s=macroname;
-			while(' '<(c=readc()) && c<0177 && c!=')')
+			while(' '<(c=readc()) && c<0177 && c!=close)
 				if(s!=&macroname[NMACRONAME])
 					*s++=c;
-			if (c != ')')
+			if (c != close)
 				err("Bad macro name");
 			*s++ = '\0';
 		} else {
@@ -337,7 +339,12 @@ char *file;
 				err("= without macro name or in token list");
 			defining++;
 			starttoken();
-			while((c=nextc())!=EOS && c!=EOF)
+			/* NAME = value: the blanks after the = are not part of
+			 * the value (they used to be, so A=1 B=$(A)$(A) gave
+			 * " 1 1" and every nesting added another space) */
+			while((c=nextc())==' ' || c=='\t')
+				;
+			for(; c!=EOS && c!=EOF; c=nextc())
 				addtoken(c);
 			endtoken();
 			define(tp->value, token, 0);
@@ -650,8 +657,8 @@ register struct sym *s;
 				    dep->symbol->name, dep->symbol->moddate,
 				    s->name, s->moddate);
 			if(dep->symbol->moddate>=s->moddate){
-				update++;
-				addtoken(' ');
+				if(update++)		/* $? had a leading blank */
+					addtoken(' ');
 				for(t=dep->symbol->name;*t;t++)
 					addtoken(*t);
 			}
@@ -796,7 +803,17 @@ register char	*cmd;
 	char	*index();
 
 	if (nflag) {
-		printf("%s\n", cmd);
+		/* -n shows what would run: without the -/@ prefixes, which are
+		 * instructions to make, not part of the command */
+		do {
+			mark = index(cmd, '\n');
+			if (mark != NULL)
+				*mark = NUL;
+			while (*cmd == '-' || *cmd == '@')
+				cmd++;
+			printf("%s\n", cmd);
+			cmd = mark + 1;
+		} while (mark != NULL && *cmd != NUL);
 		return;
 	}
 	do {

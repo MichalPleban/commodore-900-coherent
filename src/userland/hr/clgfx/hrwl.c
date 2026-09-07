@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrwl.c - read the server-published window list (shmem.h SHM_WINLIST).
  *
  * The server mirrors its private wins[] bookkeeping into the shared VRAM

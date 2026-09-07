@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrapp.h - hrgui client start-up: how a GUI application gets its window.
  *
  * A ZView application is a plain program.  It is exec'd with its OWN argv (the

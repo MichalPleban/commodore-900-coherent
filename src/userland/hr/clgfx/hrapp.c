@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrapp.c - hrgui client start-up (see inc/hrapp.h for the contract).
  *
  * One function, hr_open(), replaces the old "the server hands the client its

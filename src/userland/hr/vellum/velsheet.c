@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velsheet.c - one SHEET of a command line: the pipe form, or a file.
  *
  * Every tool takes its sheets this way, so "-" means the same thing

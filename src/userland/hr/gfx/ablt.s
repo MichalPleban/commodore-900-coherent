@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 1985 Rico Tudor.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 
 //
 // _GETBITS(n) - return the next 'n' bits of source

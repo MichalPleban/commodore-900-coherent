@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * locktest5.c - verify the futex-style drawing lock (Option A).
  *
  *   Phase 1 (recovery) -- RUN FIRST, before the parent ever locks, so the child

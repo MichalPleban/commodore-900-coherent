@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velrept.c - naming an object the way a REPORT names it.
  *
  * veldiff's change lines and velinfo -where's hits describe the same

@@ -8,7 +8,7 @@ NNAAMMEE
      grep - pattern search
 
 SSYYNNOOPPSSIISS
-     ggrreepp [-aabbcchhllnnssvvxxyy] [_p_a_t_t_e_r_n] [_f_i_l_e ...]
+     ggrreepp [-aabbcchhiillnnssvvxxyy] [_p_a_t_t_e_r_n] [_f_i_l_e ...]
 
 DDEESSCCRRIIPPTTIIOONN
      ggrreepp searches each _f_i_l_e for lines matching _p_a_t_t_e_r_n, a
@@ -88,7 +88,7 @@ ggrreepp                                                         ggrreep
          metacharacters in _p_a_t_t_e_r_n are treated as ordinary text.
 
      -yy  Make lower-case letters in _p_a_t_t_e_r_n match either case in
-         the input.
+         the input.  -ii is accepted as a synonym.
 
 SSEEEE AALLSSOO
      aawwkk, eedd, eeggrreepp

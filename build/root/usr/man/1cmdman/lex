@@ -179,5 +179,27 @@ lleexx                                                           lleexx
           nonzero to stop, or arrange for more input and return
           zero to continue.
 
+FFIILLEESS
+     lleexx.yyyy.cc
+          the generated scanner
+
+     /lliibb/lliibbll.aa
+          the run-time library (-ll): the automaton interpreter
+          behind yyyylleexx(), yyyytteexxtt, yyyylleenngg, yyyylliinnee, RREEJJEECCTT, yyyyss-
+          wwiittcchh and uunnppuutt, plus a default mmaaiinn() that calls
+          yyyylleexx() and a default yyyywwrraapp() that returns 1; a
+          program defining its own gets its own.
+
 SSEEEE AALLSSOO
+
+
+CCOOHHEERREENNTT CCoommmmaanndd MMaannuuaall                                    PPaaggee 33
+
+
+
+
+lleexx                                                           lleexx
+
+
+
      yyaacccc

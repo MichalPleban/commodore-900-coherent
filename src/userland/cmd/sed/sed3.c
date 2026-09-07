@@ -31,7 +31,8 @@ process()
 	qcrpp = &qcrp;
 	dolflag = 0;
 	pattlen = 0;
-	holdlen = 0;
+	holdlen = 1;			/* the empty string "" and its NUL: so H
+					 * adds its newline and x yields a line */
 	pattbuf[0] = '\0';
 	holdbuf[0] = '\0';
 	for (;;) {
@@ -391,9 +392,11 @@ SUB *sp;
 	register int len;
 	register int subflag;
 	register int subnths;
+	char *lastend;
 
 	subflag = 0;
 	subnths = sp->s_nth;
+	lastend = NULL;
 	for (n=0; n<1+NBRC; n++) {
 		brcl[n].b_bp = NULL;
 		brcl[n].b_ep = NULL;
@@ -409,24 +412,32 @@ SUB *sp;
 				break;
 			pp++;
 		}
-		if ((pp=match(lp, pp)) == NULL) {
+		if ((pp=match(lp, pp)) == NULL || (pp == lp && lp == lastend)) {
+			/* No match here -- or an empty match right after
+			 * the previous non-empty one, which no sed counts
+			 * (the a-star pattern on baaac gives XbXcX, not XbXXcX). */
 			if (*lp++ == '\0')
 				break;
 			continue;
 		}
 		nth++;
-		if (subnths) {
-			if (nth < subnths) {
-				lp = pp;
-				continue;
-			}
-			if (nth > subnths)
-				goto done;
+		if (subnths != 0 && nth < subnths) {
+			/* Not yet the N'th match: leave its text alone.
+			 * An empty match must still advance, or this
+			 * would loop forever. */
+			if (pp == lp) {
+				if (*lp++ == '\0')
+					break;
+			} else
+				lastend = lp = pp;
+			continue;
 		}
 		subflag = 1;
 		len = pp - lp;
 		brcl[0].b_bp = lp;
 		lp = pp;
+		if (len != 0)
+			lastend = lp;
 		pp = brcl[0].b_ep;
 		brcl[0].b_ep = lp;
 		n = brcl[0].b_bp - pp;
@@ -459,10 +470,9 @@ SUB *sp;
 			break;
 		if (len == 0)
 			lp++;
-		if (subnths!=0 && nth==subnths)
+		if (subnths!=0 && nth==subnths && !sp->s_gfl)
 			break;
 	}
-done:
 	pp = brcl[0].b_ep;
 	while (*pp) {
 		if (np >= &linebuf[LHPSIZE-1])

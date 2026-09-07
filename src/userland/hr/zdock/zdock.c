@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zdock.c - the desktop dock: the icon bar along the top of the screen.
  *
  * This is the "shell" half of the desktop's kernel-and-shell split.  The

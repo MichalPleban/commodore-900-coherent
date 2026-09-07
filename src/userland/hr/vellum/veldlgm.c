@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * veldlgm.c - Vellum's DIALOGS: every modal dialog of the editor, run
  * IN THE EDITOR through the ordinary hrdlg kit (the dialog itself is a
  * server overlay, so nothing here draws on the editor's content).

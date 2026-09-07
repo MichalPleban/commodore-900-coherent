@@ -2,7 +2,7 @@
 .SH NAME
 grep \- pattern search
 .SH SYNOPSIS
-\fBgrep [\-abchlnsvxy] [\fIpattern\fB] [\fIfile ...\fB]\fR
+\fBgrep [\-abchilnsvxy] [\fIpattern\fB] [\fIfile ...\fB]\fR
 .SH DESCRIPTION
 .HS
 grep -- pattern search
@@ -20,6 +20,7 @@ Options:
 	-v	Negate the sense of the match
 	-x	Exact match (regular expression metacharacters are ordinary)
 	-y	Lower-case letters in the pattern match upper- and lower-case
+	-i	Same as -y
 The 'pattern' is a regular expression roughly like that found in 'ed'.
 If no 'file' is specified, the standard input is used.
 .HE
@@ -140,6 +141,8 @@ are treated as ordinary text.
 Make lower-case letters in
 .I pattern
 match either case in the input.
+.B \-i
+is accepted as a synonym.
 .SH "SEE ALSO"
 .BR awk ,
 .BR ed ,

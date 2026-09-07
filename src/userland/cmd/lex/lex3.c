@@ -162,8 +162,14 @@ btable()
 	register bit;
 	register b, n, i, t;
 
-	if (classptr == NULL)
-		return;
+	if (classptr == NULL) {
+		/* A specification with no character classes still links
+		 * against libl, whose interpreter refers to both tables;
+		 * emit them empty (a single zero for the class table) so
+		 * the scanner defines the symbols. */
+		loutput(0, "int yy_lxctab[] = { 0 };");
+		goto bittable;
+	}
 	b = 1;
 	loutput(0, "int yy_lxctab[] = {");
 	for (n=0; n<clas; ++n) {
@@ -190,6 +196,7 @@ btable()
 	/*
 	 * output the bit selector table
 	 */
+bittable:
 	loutput(0, "int yy_lxbtab[] = {");
 	i = 0;
 	while (i < NBINT) {

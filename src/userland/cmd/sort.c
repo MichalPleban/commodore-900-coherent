@@ -171,6 +171,7 @@ char	tabc;				/* Tab character */
 int	cflag;				/* Check ordering only */
 int	mflag;				/* Merge only */
 int	uflag;				/* Unique sort */
+int	openerr;			/* an input file could not be opened */
 int	kflags;				/* Flags to control order to sort */
 
 char	*sgets();
@@ -453,7 +454,7 @@ copyruns()
 			fp = stdin;
 		else if ((fp = fopen(fn, "r")) == NULL) {
 			fprintf(stderr, "sort: cannot open `%s'\n", fn);
-			s = 1;
+			s = openerr = 1;
 			continue;
 		}
 		setbuf(fp, ibuf);
@@ -763,8 +764,13 @@ again:
 		else {
 			if ((*flist)[0]=='-' && (*flist)[1]=='\0')
 				fp = stdin;
-			else if ((fp = fopen(*flist, "r")) == NULL)
+			else if ((fp = fopen(*flist, "r")) == NULL) {
+				/* used to fall into setbuf(NULL): a SIGSEGV */
 				fprintf(stderr, "sort: cannot open %s\n", *flist);
+				openerr = 1;
+				flist++;
+				goto again;
+			}
 			flist++;
 			setbuf(fp, ibuf);
 			goto again;
@@ -840,6 +846,15 @@ char *s2;
 		ret = fcompar(p1, ep1, p2, ep2, sflags|eflags);
 		if (ret)
 			break;
+	}
+	if (ret == 0 && !uflag) {
+		/* Equal keys: fall back to the whole line, as sort always
+		 * has (with -u the keys alone decide what is a duplicate). */
+		for (ep1=s1; *ep1++ != '\0'; )
+			;
+		for (ep2=s2; *ep2++ != '\0'; )
+			;
+		ret = fcompar(s1, ep1-1, s2, ep2-1, kflags);
 	}
 	return (ret);
 }
@@ -1149,7 +1164,7 @@ int s;
 
 	for (c='a'; c<'a'+NTFILE; c++)
 		unlink(sprintf(tempname, template, c));
-	_exit(s);
+	_exit(s != 0 || openerr);
 }
 
 /*

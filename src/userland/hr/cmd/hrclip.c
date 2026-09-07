@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrclip.c - read or set the hrgui text stores from a shell.
  *
  *	hrclip -o		write the current SELECTION to stdout

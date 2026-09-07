@@ -46,6 +46,8 @@ read:
 	if( ip[1] != YYNOCHAR ) {
 		if( yychar == YYNOCHAR ) {
 			yychar = yylex();
+			if( yychar == 0 )	/* the common yacc convention: 0 is */
+				yychar = YYEOFVAL;	/* end of input, like our -1 */
 #ifdef YYDEBUG
 			if( yydebug )
 				fprintf(stdout, "lex read char %d, val %d\n", yychar, yylval);

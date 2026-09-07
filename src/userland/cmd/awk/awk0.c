@@ -15,6 +15,15 @@ int	lexre;		/* On when yylex reading a regular expression */
 char	wordbuf[NWORD];	/* yylex string and identifer buffer */
 NODE	*codep;			/* Head of interpreted code tree */
 int	beginflag;		/* On before files read */
+int	mainflag;		/* Program has a main or END part: reads input */
+int	exitcode;		/* Status from `exit expr' */
+NODE	*FNRp;			/* Record number within the current file */
+char	*inrec;			/* The input buffer behind `inline' (not freed) */
+char	**fldv;			/* The fields of the current record, once split */
+int	fldn;			/* How many fldv holds */
+int	fldmax;			/* Room in fldv */
+int	fldvalid;		/* fldv reflects the current record */
+int	fsblank;		/* FS is blank: runs of separators, no empties */
 int	endflag;		/* On after files read */
 int	runflag;		/* On when running (vs. compiling) */
 int	yflag;			/* `-y' option - dual case pattern matching */

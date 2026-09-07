@@ -53,6 +53,7 @@
 #define IDENT 15
 #define COMMA 16
 #define INTEGER 17
+#define EXPECT 18	/* %expect N */
 
 	/* precedence associativities */
 #define UNASSOC 0
@@ -222,6 +223,7 @@ extern int nprod;
 extern int maxstates;
 extern int maxprod;
 extern int nrrconf, nsrconf;
+extern int nsrexpect;
 extern int ndupgos, ndupacts;
 extern struct genre gtab[MAXT];
 extern int startsym;

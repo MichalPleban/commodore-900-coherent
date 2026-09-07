@@ -36,9 +36,11 @@ char *fn;
 		if (fp != stdin)
 			setbuf(fp, inbuf);
 		lineno = 1;
+		iassign(FNRp, (INT)0);
 		setjmp(nextenv);
 		while (awkinput(ibuf, MAXRECORD, fp) != NULL) {
 			iassign(NRp, NRp->t_INT+1);
+			iassign(FNRp, FNRp->t_INT+1);
 			execute(np, ibuf);
 		}
 		if (fp != stdin)
@@ -60,7 +62,6 @@ register FILE *fp;
 	register unsigned char *s;
 	register int rs;
 	register STRING ret;
-	register int nf = 0;
 	register int spcflag = 0;
 
 	if ((rs = RS[0]) == '\0') {
@@ -78,8 +79,28 @@ register FILE *fp;
 	}
 	*s = '\0';
 	ret = c==EOF && s==as ? NULL : as;
-	s = as;
-	for (;;) {
+	iassign(NFp, (INT)countnf(as));
+	return (ret);
+}
+
+/*
+ * Count the fields of a record by the current FS
+ * (see fsmapinit for the two splitting rules).
+ */
+countnf(as)
+char *as;
+{
+	register unsigned char *s;
+	register int c;
+	register int nf = 0;
+
+	s = (unsigned char *)as;
+	if (!fsblank) {
+		if (*s != '\0')
+			for (nf = 1; (c = *s++) != '\0'; )
+				if (FSMAP[c])
+					nf++;
+	} else for (;;) {
 		while (FSMAP[*s])
 			s++;
 		if (*s == '\0')
@@ -90,8 +111,7 @@ register FILE *fp;
 		if (c == '\0')
 			break;
 	}
-	iassign(NFp, (INT)nf);
-	return (ret);
+	return (nf);
 }
 
 /*
@@ -109,7 +129,8 @@ register STRING s;
 {
 	register NODE *xp;
 
-	inline = s;
+	inline = inrec = s;
+	fldvalid = 0;		/* a new record: split it on first use */
 	while (np != NULL) {
 		if (np->n_op == ALIST) {
 			xp = np->n_O1;
@@ -168,7 +189,7 @@ register NODE *np;
 		break;
 
 	default:
-		ret = evalint(np);
+		ret = xtruth(np);
 		break;
 	}
 	return (ret);
@@ -196,7 +217,7 @@ again:
 	}
 	switch (np->n_op) {
 	case AIF:
-		if (evalint(np->n_O1) != 0)
+		if (xtruth(np->n_O1))
 			evalact(np->n_O2);
 		else if (np->n_O3 != NULL)
 			evalact(np->n_O3);
@@ -205,7 +226,7 @@ again:
 	case AWHILE:
 		if (++fwlevel >= NNEST)
 			awkerr(toodeep);
-		while (evalint(np->n_O1) != 0) {
+		while (xtruth(np->n_O1)) {
 			if ((i = setjmp(fwenv[fwlevel])) == ABREAK)
 				break;
 			else if (i == ACONTIN)
@@ -218,7 +239,7 @@ again:
 	case AFOR:
 		if (++fwlevel >= NNEST)
 			awkerr(toodeep);
-		for (evalact(np->n_O1); evalint(np->n_O2); evalact(np->n_O3)) {
+		for (evalact(np->n_O1); xtruth(np->n_O2); evalact(np->n_O3)) {
 			if ((i = setjmp(fwenv[fwlevel])) == ABREAK)
 				break;
 			else if (i == ACONTIN)
@@ -250,8 +271,12 @@ again:
 		break;
 
 	case AEXIT:
+		if (np->n_O1 != NULL)
+			exitcode = (int)evalint(np->n_O1);
 		if (!exitflag)
-			awkexit(0);
+			awkexit(exitcode);	/* run END, then leave */
+		else
+			awkleave(exitcode);	/* exit inside END: leave now */
 		break;
 
 	case APRINT:
@@ -349,15 +374,20 @@ register NODE *np;
 		break;
 
 	case AOROR:
-		np = inode((INT)(evalint(np->n_O1) || evalint(np->n_O2)));
+		np = inode((INT)(xtruth(np->n_O1) || xtruth(np->n_O2)));
 		break;
 
 	case AANDAND:
-		np = inode((INT)(evalint(np->n_O1) && evalint(np->n_O2)));
+		np = inode((INT)(xtruth(np->n_O1) && xtruth(np->n_O2)));
 		break;
 
 	case ANOT:
-		np = inode((INT)(!evalint(np->n_O1)));
+		np = inode((INT)(!xtruth(np->n_O1)));
+		break;
+
+	case AIN:
+		np = inode((INT)(afind(np->n_O2->t_name,
+		    evalstring(np->n_O1)) != NULL));
 		break;
 
 	case AASGN:
@@ -389,11 +419,9 @@ register NODE *np;
 	static char numbuf[100];
 
 	np = evalexpr(np);
-	if (np->n_flag & T_NUM) {
-		if (np->n_flag & T_INT)
-			return (sprintf(numbuf, "%D", np->t_INT)); else
-			return (sprintf(numbuf, "%.6g", np->t_FLOAT));
-	} else
+	if (np->n_flag & T_NUM)
+		return (numstr(np, numbuf));
+	else
 		return (np->t_STRING);
 }
 

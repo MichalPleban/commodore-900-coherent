@@ -284,13 +284,12 @@ register int n;
  */
 graves()
 {
-	int pipev[2], f, oslret, oargf;
+	int pipev[2], f, oslret;
 	register FILE *fp;
 	register int c;
 	register int nnl;
 	char *cmdp;
 
-	oargf = argf;
 	oslret = slret;
 	cmdp = arcp;
 	while ((c = *arcp++) != '`')
@@ -310,7 +309,12 @@ graves()
 		ecantfdop();
 		return;
 	}
-	argf = 1;
+	/* argf is NOT touched here: it says whether the argument being
+	 * built is still empty, and it must reflect what the command's
+	 * output added.  Setting it to 1 before reading and restoring the
+	 * old value after made end_arg() drop the last word of the output
+	 * (`echo `echo one; echo two`' printed one; `echo `cmd`' with a
+	 * single word of output printed nothing at all). */
 	nnl = 0;
 	while ((c=getc(fp)) != EOF) {
 		if ( ! recover(IEVAL)) {
@@ -330,7 +334,6 @@ graves()
 			add_char(c);
 		}
 	}
-	argf = oargf;
 	fclose(fp);
 	waitc(f);
 }

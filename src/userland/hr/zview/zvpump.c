@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zvpump.c - zview's input pump as a TINY separate program.
  *
  * The pump used to run as a plain fork of the server (the V7 two-process

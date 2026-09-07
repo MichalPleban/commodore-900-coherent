@@ -321,7 +321,7 @@ save_continue:
 
 definition:
 	definition_header '(' parameter_list ')'		/* $1 */
-		optional_nl '{' '\n'				/* $5 */
+		optional_nl '{' optional_nl			/* $5 */
 		optional_auto statement_list '}'		/* $8 */
 ;
 

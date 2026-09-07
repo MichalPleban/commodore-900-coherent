@@ -103,12 +103,15 @@ struct	opdata {
 ENTRY	*e_root[HASHSZ];	/* pointers to symbol table hash buckets */
 OFRAME	*ostkptr;		/* output stack pointer */
 IFRAME	*istkptr;		/* input stack pointer */
+int	idepth;			/* its depth: pending expansions */
+#define	MAXDEPTH 400		/* deeper than any sane macro nests */
 FFRAME	*fstkptr;		/* file info stack pointer */
 FILE	*offp = stdout;		/* current output file pointer */
 int	ofnum;			/* current diversion number */
 int	lstdchr = '\n';		/* last char from stdin */
 int	single;			/* single argument flag */
 int	dnlflag;		/* delete to newline flag */
+int	nerrs;			/* diagnostics issued: the exit status */
 
 char	bqt = BQUOTE;
 char	eqt = EQUOTE;
@@ -155,7 +158,7 @@ char *argv[];
 	}
 	mdivert(NULL);
 	mundivert(NULL);
-	exit(0);
+	exit(nerrs != 0);
 }
 
 process(pct)
@@ -200,7 +203,8 @@ int pct;
 				;
 			a[0] = b;
 			if (c != '(') {
-				istkptr->i_cbuf = c;
+				if (istkptr != NULL)	/* NULL once the input is used up */
+					istkptr->i_cbuf = c;
 				if (c=='\n' && istkptr->i_type==DSKF)
 					if (fstkptr->f_flag)
 						--fstkptr->f_back->f_line;
@@ -316,6 +320,8 @@ char t;
 {
 	IFRAME *itemp;
 
+	if (++idepth > MAXDEPTH)
+		errorp(1, "macro expansion nested too deeply (a macro that expands to itself?)");
 	itemp = istkptr;
 	istkptr = (IFRAME *)alloc(sizeof(IFRAME));
 	istkptr->i_back = itemp;
@@ -340,6 +346,7 @@ popinp()
 	}
 	istkptr = istkptr->i_back;
 	free(itemp);
+	idepth--;
 	return (istkptr != NULL);
 }
 
@@ -372,7 +379,9 @@ nxch()
 
 	if (istkptr == NULL)
 		return ('\0');
-	if ((ftemp = fstkptr)->f_flag) {
+	/* fstkptr is NULL once the last file frame is gone; a macro that
+	 * expands after that (a name that ends the input) still reads here */
+	if ((ftemp = fstkptr) != NULL && ftemp->f_flag) {
 		decstr(ftemp->f_name);
 		fstkptr = ftemp->f_back;
 		free(ftemp);
@@ -500,7 +509,7 @@ STRING *a;
 	register int hash;
 
 	hash = a->s_hash;
-	for (e = e_root[hash % HASHSZ]; e != NULL; e = e->e_next)
+	for (e = e_root[(unsigned)hash % HASHSZ]; e != NULL; e = e->e_next)
 		if (e->e_name->s_hash == hash
 		&&  strcmp(e->e_name->s_body, a->s_body) == 0)
 			return (e);
@@ -518,7 +527,7 @@ int (*f)();
 	a = makestr();
 	while (*s)
 		appendstr(a, *s++);
-	hash = a->s_hash % HASHSZ;
+	hash = (unsigned)a->s_hash % HASHSZ;	/* the hash is a 16-bit sum: long names go negative */
 	e = (ENTRY *)alloc(sizeof(ENTRY));
 	e->e_next = e_root[hash];
 	e->e_type = FUNC;
@@ -542,6 +551,7 @@ int n;
 errorp(f, x)
 int f;
 {
+	nerrs++;
 	fprintf(stderr, "m4: ");
 	if (fstkptr != NULL) {
 		if (fstkptr->f_name != NULL)
@@ -589,7 +599,7 @@ STRING **pps;
 			decstr(e->e_at.e_pstr);
 	} else {
 		e = (ENTRY *)alloc(sizeof(ENTRY));
-		e->e_next = e_root[hash = pps[1]->s_hash % HASHSZ];
+		e->e_next = e_root[hash = (unsigned)pps[1]->s_hash % HASHSZ];
 		e->e_name = pps[1];
 		++pps[1]->s_refc;
 		e_root[hash] = e;
@@ -607,7 +617,7 @@ STRING **pps;
 {
 	char *fn;
 
-	ofnum = (pps[1] != NULL)? atoi(pps[1]->s_body) : 0;
+	ofnum = (pps != NULL && pps[1] != NULL) ? atoi(pps[1]->s_body) : 0;	/* NULL from main() */
 	if (ofnum>0 && ofnum<=9) {
 		if (outfile[ofnum].fp == NULL) {
 			outfile[ofnum].name = fn = alloc(15);
@@ -1002,7 +1012,7 @@ STRING **pps;
 	if (pps[1] == NULL)
 		return;
 	hash = pps[1]->s_hash;
-	for (e = e_root[hash % HASHSZ]; e != NULL; e = e->e_next)
+	for (e = e_root[(unsigned)hash % HASHSZ]; e != NULL; e = e->e_next)
 		if (e->e_name->s_hash == hash
 		&&  strcmp(e->e_name->s_body, pps[1]->s_body) == 0)
 			break;
@@ -1016,7 +1026,7 @@ STRING **pps;
 	if (ep != NULL)
 		ep->e_next = e->e_next;
 	else
-		e_root[hash % HASHSZ] = e->e_next;
+		e_root[(unsigned)hash % HASHSZ] = e->e_next;
 	free(e);
 }
 

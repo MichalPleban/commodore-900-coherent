@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velcmd.c - Vellum's editing commands: z-order (Front/Back), persistent
  * groups, align/distribute, the clipboard (Cut/Copy/Paste as .d text --
  * the plain-text format doing interop), the frame/title-block stamp, and

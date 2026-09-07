@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * locktest.c - isolated unit test for the hrgui drawing-lock primitives.
  *
  * Runs standalone on the plain serial-console emulator (../Emulator) -- NO GUI,

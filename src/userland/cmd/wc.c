@@ -14,6 +14,7 @@
 #include <access.h>
 
 int	nfiles;
+int	wcerr;			/* a file could not be read: exit status */
 int	lineflg;
 int	wordflg;
 int	charflg;
@@ -56,6 +57,7 @@ char *argv[];
 		while (*argv)
 		{   if (access(*argv, AREAD))
 		    {  fprintf(stderr, "wc: can't open %s\n", *argv);
+		       wcerr = 1;
 		       *argv[0] = 0;  /* flag arg as invalid */
 		    }
 		    i++;     /* count the arg */
@@ -71,6 +73,7 @@ char *argv[];
 			if ((fp = fopen(argv[i], "r")) == NULL) {
 				fprintf(stderr,
 				   "wc: can't open %s\n", argv[i]);
+				wcerr = 1;
 				continue;
 			}
 			nfiles++;
@@ -88,7 +91,7 @@ char *argv[];
 			print("Total");
 		}
 	}
-	return (0);
+	return (wcerr);
 }
 
 /*

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * locktest4.c - verify the drawing-lock kernel mutex WITH dead-owner recovery.
  *
  *   Phase 1 (recovery): a child takes the lock, then _exit()s WITHOUT unlocking

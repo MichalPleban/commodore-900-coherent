@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * shmem.h - hrgui shared-data segment layout (GUI.md sec 1.3 / 2.9 / 3.6).
  *
  * The shared GUI data lives in its OWN MMU segment, GDS = 0x38 (kernel

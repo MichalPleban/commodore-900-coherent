@@ -125,7 +125,11 @@ Append a newline and a copy of the pattern space to the hold space.
 Write the following text to the output before the current line.
 .IP "\fBl\fR"
 Write the pattern space to the output with non-graphic characters
-made visible: backslash is doubled, and other non-graphic bytes are
+made visible: backslash is doubled, a tab is shown as
+.B \->
+and a backspace as
+.B \-<
+(overstruck, for a printer), and other non-graphic bytes are
 shown as a backslash followed by a three-digit octal number; long
 lines are folded, with a trailing backslash marking the fold.
 .IP "\fBn\fR"

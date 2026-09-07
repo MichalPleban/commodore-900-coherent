@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zman.c - a ZView manual-page browser.
  *
  * The pages it shows are the pre-formatted catman pages this system installs

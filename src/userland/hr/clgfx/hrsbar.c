@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrsbar.c - hrgui common control: the vertical scrollbar (hrsbar.h).
  *
  * The library half of the contract described in hrsbar.h: it owns the LOOK

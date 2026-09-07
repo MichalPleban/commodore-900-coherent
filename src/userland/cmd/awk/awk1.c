@@ -88,7 +88,9 @@ char *argv[];
 	if (setjmp(nextenv) == 0)
 		awk(codep, NULL, SNULL);
 	beginflag = 0;
-	if (argc > 1) {
+	if (!mainflag)
+		;		/* BEGIN only: there is no input to read */
+	else if (argc > 1) {
 		for (i=1; i<argc; i++) {
 			ap = argv[i];
 			if (ap[0]=='-' && ap[1]=='\0')
@@ -152,13 +154,24 @@ char *s;
 awkexit(s)
 int s;
 {
-	register OFILE *ofp;
-
 	beginflag = 0;
 	endflag = 1;
 	exitflag = 1;
+	exitcode = s;
 	if (setjmp(nextenv) == 0)
 		awk(codep, NULL, SNULL);
+	awkleave(exitcode);
+}
+
+/*
+ * Close every output file and pipe and exit with status `s':
+ * the end of the END phase, or an `exit' met inside it.
+ */
+awkleave(s)
+int s;
+{
+	register OFILE *ofp;
+
 	for (ofp = files; ofp < endof(files); ofp++)
 		if (ofp->of_fp != NULL) {
 			if (ofp->of_flag & OFPIPE)
@@ -285,7 +298,7 @@ again:
 
 	case '%':
 		if (checkop('='))
-			t = ASDIV_;
+			t = ASMOD_;	/* was ASDIV_: x %= 5 divided */
 		break;
 
 	case '>':
@@ -377,7 +390,13 @@ relex()
 		awkerr("Non-terminated regular expression");
 
 	case '\\':
-		c = pgetc();
+		switch (c = pgetc()) {	/* the C escapes, as in strings */
+		case 'n': c = '\n'; break;
+		case 't': c = '\t'; break;
+		case 'b': c = '\b'; break;
+		case 'r': c = '\r'; break;
+		case 'f': c = '\f'; break;
+		}
 		if (c>='0' && c<='7') {
 			n = 0;
 			max = 3;
@@ -446,9 +465,11 @@ readclass()
 			pc = c;
 		}
 	}
-	if (comp)
+	if (comp) {
 		for (i=0; i<NCLASS; i++)
 			cc[i] ^= -1;
+		cc[0] &= ~1;	/* but never the NUL that ends the record */
+	}
 	return (cc);
 }
 

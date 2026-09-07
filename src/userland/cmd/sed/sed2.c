@@ -464,12 +464,26 @@ codesub()
 	sp->s_pat = duplstr(pattbuf);
 	sp->s_rep = duplstr(holdbuf);
 	sp->s_nth = nth;
+	sp->s_gfl = 0;
 	sp->s_cop = 0;
 	sp->s_fil = NULL;
 	while ((c=getn()) != '\0') {
 		switch (c) {
+		case '1': case '2': case '3': case '4': case '5':
+		case '6': case '7': case '8': case '9':
+			/* s/re/rep/N: the N'th match (the documented form;
+			 * the older N-before-the-delimiter spelling above
+			 * still works).  A g after it means "the N'th and
+			 * every one after it". */
+			sp->s_nth = c - '0';
+			while (isascii(c=getn()) && isdigit(c))
+				sp->s_nth = sp->s_nth*10 + c-'0';
+			ungetn(c);
+			continue;
 		case 'g':
-			sp->s_nth = 0;
+			if (sp->s_nth == 1)
+				sp->s_nth = 0;
+			sp->s_gfl = 1;
 			continue;
 		case 'p':
 			sp->s_cop = 1;

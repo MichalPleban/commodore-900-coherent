@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * vellum.c - Vellum, the ZView technical drawing tool (editor unit).
  *
  * The drawing board of this workstation (see VELLUM.md): schematics,

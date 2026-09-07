@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * hrpump.c - tiny I/O pump for the ZView terminal (zterm).
  *
  * zterm multiplexes two blocking input sources -- the pty master's output and

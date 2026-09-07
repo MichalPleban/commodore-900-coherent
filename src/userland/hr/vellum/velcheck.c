@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velcheck.c - velcheck: prove the set before paper moves.
  *
  *	velcheck file.d ...		the drawings

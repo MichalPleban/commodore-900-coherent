@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 1985 Rico Tudor.
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * gfxhooks.h - libhrgfx server-installable hooks (GUI.md sec 6.1-6.3).
  *
  * The rendering engine was extracted verbatim from the old `smgr' screen

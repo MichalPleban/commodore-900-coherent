@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * velgfx.c - Vellum's pure drawing helpers: integer trig, chorded arcs,
  * styled lines (dash/dot via cl_lpat, cheap bold), the parametric SHAPE
  * outlines and row-span fills, shape labels and arrowheads.  No object

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zclock.c - a ZView clock client (GUI.md Phase 1).
  *
  * Face/hand geometry is lifted from the salvaged _graphics/hr clock.c (GUI.md

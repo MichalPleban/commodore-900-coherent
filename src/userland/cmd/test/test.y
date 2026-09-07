@@ -28,7 +28,7 @@
 %left	OR
 %left	AND
 %left	'!'
-%token	_R _W _F _D _S _T _Z _N
+%token	_R _W _F _D _S _T _Z _N _X _E
 %token	SEQ SNEQ
 %token	_EQ _NE _GT _GE _LT _LE
 %token	<fname> STR
@@ -49,6 +49,8 @@ exp:
       | _W STR			{ $$ = lnode(xw, $2, NULL); }
       | _F STR			{ $$ = lnode(xf, $2, NULL); }
       | _D STR			{ $$ = lnode(xd, $2, NULL); }
+      | _X STR			{ $$ = lnode(xx, $2, NULL); }
+      | _E STR			{ $$ = lnode(xe, $2, NULL); }
       | _S STR			{ $$ = lnode(xs, $2, NULL); }
       | _T STR			{ $$ = lnode(xt, $2, NULL); }
       | _T			{ $$ = lnode(xt, "1", NULL); }
@@ -74,6 +76,8 @@ struct	prim	{
 	"-w", _W,
 	"-f", _F,
 	"-d", _D,
+	"-x", _X,
+	"-e", _E,
 	"-s", _S,
 	"-t", _T,
 	"-z", _Z,
@@ -281,6 +285,24 @@ xd(np)
 NODE *np;
 {
 	return (stat(np->n_s1, &sb)>=0 && (sb.st_mode&S_IFMT)==S_IFDIR);
+}
+
+/*
+ * Check if the file exists and is executable (-x).
+ */
+xx(np)
+NODE *np;
+{
+	return (access(np->n_s1, AEXEC) >= 0);
+}
+
+/*
+ * Check if the file exists at all (-e).
+ */
+xe(np)
+NODE *np;
+{
+	return (stat(np->n_s1, &sb) >= 0);
 }
 
 /*

@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * veldxf.c - DXF (R10 entity subset) -> vellum .d converter (VELLUM.md
  * sec. 36): the office PC runs AutoCAD, and refusing its files makes
  * Vellum an island.

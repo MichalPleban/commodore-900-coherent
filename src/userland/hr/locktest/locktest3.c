@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * locktest3.c - the SAME contention test as locktest2, but exercising the
  * BLOCKING drawing lock (hr_lock/hr_unlock -> hr driver CIOMLOCK/CIOMUNLOCK).
  * Loads /drv/hr first (like zview) so the slow-path ioctls exist, and dumps

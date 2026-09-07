@@ -1,4 +1,8 @@
 /*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+/*
  * zwwin.c - dock widget: how many programs are on the desktop.
  *
  * The count is of distinct CLIENTS (pids) in the server-published window

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2026 Michal Pleban.
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 / zmaze_a.s - hand-written inner loops for the zmaze raycaster.
 /
 / ABI (see the libc .s files, and it is load-bearing: PCC keeps live values
