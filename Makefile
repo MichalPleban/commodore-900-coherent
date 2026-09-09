@@ -141,8 +141,8 @@ LIBFS = $(LIBDIR)/libfs.a
 
 LIBS = $(CRT) $(DTOA) $(LIBC) $(LIBM) $(LIBMP) $(LIBY) $(LIBL) $(LIBFS)
 
-.PHONY: all headers libs cmds kernel dist man image floppy hrgui clean
-all: headers libs cmds kernel dist man image
+.PHONY: all headers libs cmds kernel bios dist man image floppy hrgui clean
+all: headers libs cmds kernel bios dist man image
 headers: $(INC_TARGET)
 libs: $(LIBS)
 
@@ -915,6 +915,88 @@ $(DRVDIR)/lp: $(LP_OBJS) $(KSYM)
 KERNEL_TARGETS := $(ROOT)/coherent $(FLOPPYDIR)/coherent $(ROOT)/etc/swap \
 	$(DRVDIR)/lrtty $(DRVDIR)/hrtty $(DRVDIR)/notty $(DRVDIR)/pty $(DRVDIR)/lp
 kernel: $(KERNEL_TARGETS)
+
+# ===========================================================================
+# Boot ROM  (src/bios -> build/rom/{rom.bin,bios_h.bin,bios_l.bin})
+# ===========================================================================
+# The C900's 32 KB boot ROM: power-on diagnostics, the ddt monitor, and the
+# bootstrap that loads /coherent off the hard disk (or a floppy) and jumps to
+# it.  Ported from Kevin Dedon's decompilation (kdedon/commodore-900-bios),
+# which built with the ROM-era MWC cc/as/nld ON the C900; here it builds with
+# the same cross toolchain as the rest of the tree.  src/bios/README.md has
+# the port notes and the three source changes it needed.
+#
+# The output is not part of the disk image: it is firmware.  Both emulators
+# take it with --firmware=build/rom.
+BIOSSRC = $(SRC)/bios
+BIOSOBJ = $(OBJ)/bios
+ROMDIR  = $(BUILD)/rom
+
+# The machine this ROM is built for, and where its scratch structures live.
+# Upstream's OPTIONS/CONFIG, unchanged: hi-res video board support, 5.25"
+# floppies, the ddt monitor built in, and autoboot.  CMDBLKPADDR/BUFPADDR are
+# the WD controller's command block and sector buffer, fixed at the base of
+# RAM -- which is also where the kernel wants to load, hence the load-high-
+# then-block-move kludge in boot.c.
+BIOSDEF = -DZ8000HR -DFIVEINCH=1 -DDDT -DAUTOBOOT
+BIOSCFG = -DRAMBASE=0x08000000 -DCMDBLKPADDR="(0x8000000L)" \
+	  -DBUFPADDR="(0x8000400L)"
+BIOSCFLAGS = -O -ftraditional -Dreadonly=const -I$(INCSRC) -I$(BIOSSRC) \
+	     $(BIOSDEF) $(BIOSCFG)
+# -O matters here: the ROM's text area is 26624 bytes and an unoptimised PCC
+# build overflows it by ~1.5K (25.6K vs 28.1K).  mkrom.py enforces the ceiling.
+
+BIOS_C_OBJS := $(addprefix $(BIOSOBJ)/,\
+	rom.o trap.o hd.o wd.o diag.o boot.o sio.o conf.o porttest.o)
+# Assembly.  Upstream ran every .s through cpp, but only lkcrt.s actually
+# holds macros (RAMBASE, and the ROMDATA added by this port), so the rest are
+# assembled directly -- which also keeps the build warning-free: cpp reads the
+# assembler's `.word 'M' character literals as unterminated ones.
+BIOS_S_OBJS := $(addprefix $(BIOSOBJ)/,ramtest.o io.o mbittest.o font.o ddt.o \
+	hires.o loadseg.o diagdisp.o)
+BIOS_OBJS := $(BIOS_C_OBJS) $(BIOS_S_OBJS) $(BIOSOBJ)/crt.o $(BIOSOBJ)/lceddt.o
+
+BIOSHDRS := $(wildcard $(BIOSSRC)/*.h)
+$(BIOS_OBJS): $(BIOSHDRS)
+
+$(BIOS_C_OBJS): CFLAGS = $(BIOSCFLAGS)
+# lceddt.c is the ddt's line/character editor, built for the standalone
+# (NLD) monitor with the K1 keyboard map -- upstream gives it its own flags.
+$(BIOSOBJ)/lceddt.o: CFLAGS = -O -ftraditional -Dreadonly=const -I$(INCSRC) \
+	-I$(BIOSSRC) -DK1 -DNLD -DDDT -DFIVEINCH
+
+# crt.o is lkcrt.s put through cpp first: RAMBASE is the base of physical RAM
+# and ROMDATA the image offset the crt copies the data half from (it must
+# equal mkrom.py's TEXTMAX).
+$(BIOSOBJ)/crt.o: $(BIOSSRC)/lkcrt.s
+	@mkdir -p $(dir $@)
+	$(CPP) -P -DROMDATA=0x6800 -DRAMBASE=0x08000000 $< $@.i
+	$(AS) $(ASFLAGS) -o $@ $@.i
+
+# hires.s/loadseg.s/diagdisp.s are assembled -x (drop local symbols), as
+# upstream does; ramtest/io/mbittest/font/ddt take the generic .s rule.
+$(BIOSOBJ)/hires.o $(BIOSOBJ)/loadseg.o $(BIOSOBJ)/diagdisp.o: $(BIOSOBJ)/%.o: $(BIOSSRC)/%.s
+	@mkdir -p $(dir $@)
+	$(AS) $(ASFLAGS) -x -o $@ $<
+
+# -i (separate I&D) with the text based at 0: the ROM is mapped at physical 0
+# and its data half is copied into the segment-1 RAM window by the crt.  Link
+# order is upstream's and is load-bearing for the ROM's absolute entry points;
+# libc.a comes before font.o so the font is not searched for symbols.
+$(ROMDIR)/rom.bin: $(BIOS_OBJS) $(LIBC)
+	@mkdir -p $(BIOSOBJ) $(ROMDIR)
+	$(LD) -i -R 0x00000000 -o $(BIOSOBJ)/rom \
+	    $(BIOSOBJ)/crt.o $(BIOSOBJ)/rom.o $(BIOSOBJ)/ramtest.o \
+	    $(BIOSOBJ)/sio.o $(BIOSOBJ)/hd.o $(BIOSOBJ)/wd.o $(BIOSOBJ)/boot.o \
+	    $(BIOSOBJ)/diag.o $(BIOSOBJ)/trap.o $(BIOSOBJ)/conf.o \
+	    $(BIOSOBJ)/ddt.o $(BIOSOBJ)/hires.o $(BIOSOBJ)/io.o \
+	    $(BIOSOBJ)/loadseg.o $(BIOSOBJ)/lceddt.o $(BIOSOBJ)/mbittest.o \
+	    $(BIOSOBJ)/diagdisp.o $(BIOSOBJ)/porttest.o \
+	    $(LIBC) $(BIOSOBJ)/font.o
+	$(PYTHON) tools/mkrom.py $(BIOSOBJ)/rom $(ROMDIR) --window 12
+
+BIOS_TARGETS := $(ROMDIR)/rom.bin
+bios: $(BIOS_TARGETS)
 
 # ===========================================================================
 # ZView windowing system  (src/userland/hr -> build/root/{drv/hr, usr/hr/*})
@@ -1876,4 +1958,4 @@ floppy: $(FLOPPYDIR)/coherent $(FLOPPY_SRCS)
 clean:
 	rm -rf $(OBJ) $(LIBS) $(CMD_TARGETS) $(KERNEL_TARGETS) $(HRGUI_TARGETS) $(DIST_TARGETS) \
 	       $(ROOT)/usr/man \
-	       $(DISKIMG) $(FLOPPYIMG) $(FLOPPYDIR)
+	       $(DISKIMG) $(FLOPPYIMG) $(FLOPPYDIR) $(ROMDIR)

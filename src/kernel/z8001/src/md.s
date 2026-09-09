@@ -1009,7 +1009,15 @@ kkcopy_:
 	JR	kkfix
 
 1:
-	ldirb	(rr4), (rr2), r0	/ Do word copy
+	ldirb	(rr4), (rr2), r0	/ Do byte copy (odd count or address)
+	JR	kkfix			/ A page/segment fault in the ldirb leaves
+					/ the return PC on the NEXT instruction.
+					/ Without this jump that next instruction
+					/ is `kkfix' itself, so `tseg' (which only
+					/ recovers a fault whose PC is < kkfix)
+					/ would panic instead of returning EFAULT.
+					/ The ldir path above is safe for the same
+					/ reason -- its fault lands on this JR.
 
 kkfix:
 	ld	r1, r5			/ current destination offset
